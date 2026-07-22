@@ -2,11 +2,11 @@
 
 ## Purpose
 
-The MVP must prove that Station works as a browser instrument, not merely as a visual prototype.
+The MVP must prove that Station works as a desktop-browser instrument, not merely as a visual prototype.
 
 It must prove four things:
 
-1. Pads respond well enough to play on desktop and mobile browsers.
+1. Pads respond well enough to play with mouse and keyboard in desktop Chromium browsers.
 2. A 16-step pattern plays with stable audio scheduling.
 3. Basic Pump creates a useful musical result without compressor-style setup.
 4. A project can be saved locally and reopened.
@@ -16,9 +16,10 @@ It must prove four things:
 ### Platform
 
 - Browser application built with TypeScript, React and Vite.
-- Desktop browser support as the primary development environment.
-- Real iPhone Safari and Android Chrome testing from the first audio milestone.
+- Desktop browser support is the primary product target.
+- Chrome and Edge on Windows are the first required validation environment.
 - AudioContext initialization only after an intentional user interaction.
+- Mobile-browser support is not required for MVP completion.
 
 ### Pads and samples
 
@@ -26,8 +27,7 @@ It must prove four things:
 - WAV import for each pad.
 - One-shot playback.
 - Repeated triggering of the same sample.
-- Multitouch pad input.
-- Mouse and keyboard input on desktop.
+- Mouse and keyboard input.
 - Volume per pad.
 - Pitch per pad expressed in semitones.
 - Pitch changes playback speed and duration; no time-stretching.
@@ -72,11 +72,15 @@ It must prove four things:
 - Sequencer view.
 - Minimal pad parameter editor.
 - Minimal Pump controls.
-- Responsive touch-first layout.
+- Desktop-first responsive layout.
 - Basic Station visual identity without expensive decorative systems.
 
 ## Explicitly excluded from the MVP
 
+- Mobile-specific UX and multitouch requirements.
+- iPhone Safari and Android Chrome compatibility requirements.
+- PWA installation requirements.
+- Capacitor packaging.
 - Multiple banks.
 - Multiple patterns.
 - Scenes or song arrangement.
@@ -96,20 +100,18 @@ It must prove four things:
 - Microphone recording.
 - MP3, FLAC and AIFF as guaranteed import formats.
 - Cloud storage, accounts or sharing.
-- PWA installation requirements.
-- Capacitor packaging.
 - Native or JUCE versions.
 
 ## Definition of done
 
 The MVP is complete only when all of the following are true:
 
-- A new user can import several WAV files and play them on 16 pads.
-- Multiple touches can trigger separate pads without the page scrolling or selecting text.
+- A new user can import several WAV files and play them on 16 pads with mouse and keyboard.
+- Repeated triggers remain responsive and do not create obvious clicks, stuck voices or uncontrolled resource growth.
 - The pattern plays consistently during normal UI interaction.
 - The UI playhead may drift visually by a small amount, but audio timing must remain authoritative and stable.
 - Basic Pump is clearly audible, controllable and musically useful on at least bass and pad material.
 - Closing and reopening the browser does not destroy a correctly saved project.
-- The core workflow has been manually tested on Windows Chromium, iPhone Safari and Android Chrome.
+- The core workflow has been manually tested in current Chrome and Edge on Windows.
 - Known limitations are documented.
 - No excluded feature has been smuggled into the MVP at the expense of stability.

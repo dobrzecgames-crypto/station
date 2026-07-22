@@ -52,3 +52,26 @@ Tone.js, WebAssembly, PWA packaging, Capacitor and any native implementation are
 - Codex: implementation agent working from small, explicit tasks with acceptance criteria.
 
 No implementation phase begins until its scope and acceptance criteria are approved.
+
+## M1 audio proof of concept
+
+### Prerequisites
+
+- Node.js 22.12 or later
+- pnpm 11.15 or later
+- Current Chrome or Edge on Windows
+
+### Commands
+
+```bash
+pnpm install
+pnpm dev
+pnpm typecheck
+pnpm build
+```
+
+Open the local URL printed by `pnpm dev`. Select **START AUDIO**, choose one WAV file, then trigger it with the visible pad or the `A` key. Hold `A` to verify that browser keyboard repeat does not create additional triggers.
+
+### M1 limitations
+
+M1 is deliberately limited to one non-persistent WAV sample and one pad. It has no sequencer, transport, project saving, effects, volume or pitch controls. Audio must be explicitly started after each page reload; switching tabs may cause a browser to suspend audio, in which case use **START AUDIO** again.

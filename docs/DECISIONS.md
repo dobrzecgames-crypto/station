@@ -2,19 +2,19 @@
 
 This document records product and architecture decisions that should not be reopened casually. Each new decision should include status, rationale and consequences.
 
-## DEC-001 — Browser is the primary platform
+## DEC-001 — Desktop browser is the primary product platform
 
 **Status:** Accepted
 
-Station is designed first for desktop and mobile web browsers. The web version is not a disposable prototype for a future JUCE application.
+Station is designed first as a desktop-browser instrument. The web version is not a disposable prototype for a future native application, but mobile browsers are not part of the required MVP scope.
 
 Consequences:
 
-- browser constraints are product constraints,
-- real mobile-browser testing begins with the first audio milestone,
-- native portability does not justify premature abstraction,
-- PWA is a natural later extension,
-- Capacitor and JUCE remain optional future paths.
+- Chrome and Edge on Windows are the first required validation environment,
+- mobile-browser testing does not block M1 or the browser MVP,
+- phone and tablet UX may later become a separate product track,
+- PWA, Capacitor and native packaging are optional future topics,
+- native portability does not justify premature abstraction.
 
 ## DEC-002 — Station is a sampler groovebox, not a DAW
 
@@ -103,15 +103,15 @@ Consequences:
 
 ### OPEN-001 — Initial project license
 
-Choose whether the repository is private/proprietary for now or receives an open-source license.
+Choose whether the repository remains without an open-source license for now or receives one.
 
 ### OPEN-002 — Supported minimum browser versions
 
-Define the practical target versions after the first compatibility tests.
+Initial validation targets current Chrome and Edge on Windows. Practical minimum versions may be defined after M1 compatibility testing.
 
 ### OPEN-003 — Tone.js evaluation
 
-Default recommendation: do not adopt it automatically. Compare a minimal native Web Audio approach only if Tone.js would materially reduce M1/M4 risk.
+Default recommendation: do not adopt it automatically. M1 should use native Web Audio unless a concrete blocker appears.
 
 ### OPEN-004 — Initial visual direction
 
@@ -121,7 +121,7 @@ Define a small palette, typography and interaction character for the prototype w
 
 ### OPEN-005 — IndexedDB and OPFS split
 
-Decide after a compatibility spike on real iPhone Safari and Android Chrome.
+Decide after a focused desktop-browser compatibility and storage spike. Mobile compatibility is not a prerequisite for the browser MVP.
 
 ### OPEN-006 — Storage quota and sample-size policy
 

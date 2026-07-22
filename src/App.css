@@ -1,132 +1,30 @@
-.station-shell {
-  display: grid;
-  min-height: 100vh;
-  place-items: center;
-  padding: 24px;
-}
-
-.station-panel {
-  width: min(100%, 480px);
-  padding: 32px;
-  border: 1px solid #404448;
-  border-radius: 20px;
-  background: #202326;
-  box-shadow: 0 24px 60px rgb(0 0 0 / 25%);
-}
-
-.eyebrow {
-  margin: 0;
-  color: #f3b44f;
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-}
-
-h1 {
-  margin: 8px 0;
-  font-size: clamp(1.8rem, 5vw, 2.5rem);
-  line-height: 1.05;
-}
-
-.intro,
-.sample-status {
-  color: #c6c9cc;
-  line-height: 1.5;
-}
-
-.status-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin: 24px 0 16px;
-  color: #dadddf;
-  font-size: 0.9rem;
-}
-
-.status-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #70777d;
-}
-
-.status-starting {
-  background: #f3b44f;
-}
-
-.status-ready {
-  background: #75d28a;
-}
-
-.status-error {
-  background: #f17870;
-}
-
-.start-button,
-.pad {
-  width: 100%;
-  border: 0;
-  border-radius: 12px;
-  color: #151617;
-  background: #f3b44f;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.start-button {
-  min-height: 48px;
-}
-
-.start-button:disabled,
-.pad:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
-.file-picker {
-  display: grid;
-  gap: 8px;
-  margin-top: 20px;
-  color: #dadddf;
-  font-size: 0.9rem;
-  font-weight: 700;
-}
-
-.file-picker input {
-  width: 100%;
-  color: #dadddf;
-}
-
-.error-message {
-  margin: 16px 0 0;
-  padding: 12px;
-  border-radius: 8px;
-  color: #ffd9d6;
-  background: #552d2a;
-  line-height: 1.4;
-}
-
-.pad {
-  display: flex;
-  min-height: 164px;
-  margin-top: 28px;
-  padding: 24px;
-  align-items: flex-end;
-  justify-content: space-between;
-  background: #75d28a;
-  font-size: 1rem;
-  text-align: left;
-}
-
-.pad:not(:disabled):active {
-  transform: translateY(2px);
-  background: #a6e5b2;
-}
-
-kbd {
-  padding: 3px 7px;
-  border: 1px solid currentColor;
-  border-radius: 5px;
-  font-family: inherit;
-  font-size: 0.8em;
-}
+.station-shell { min-height: 100vh; padding: 24px; }
+.station-panel { width: min(100%, 1120px); margin: 0 auto; padding: clamp(20px, 4vw, 40px); border: 1px solid #404448; border-radius: 20px; background: #202326; box-shadow: 0 24px 60px rgb(0 0 0 / 25%); }
+.station-header, .instrument-layout, .editor-heading, .pad-footer, .status-row { display: flex; }
+.station-header { gap: 24px; align-items: flex-start; justify-content: space-between; }
+.eyebrow { margin: 0; color: #f3b44f; font-size: .75rem; font-weight: 800; letter-spacing: .14em; }
+h1, h2 { margin: 8px 0; line-height: 1.05; }
+h1 { font-size: clamp(1.8rem, 5vw, 2.5rem); }
+h2 { font-size: 1.35rem; }
+.intro, .sample-details { color: #c6c9cc; line-height: 1.5; }
+.intro { max-width: 560px; margin: 0; }
+.audio-controls { min-width: 170px; }
+.status-row { gap: 8px; align-items: center; justify-content: flex-end; margin-bottom: 10px; color: #dadddf; font-size: .85rem; }
+.status-dot { width: 10px; height: 10px; border-radius: 50%; background: #70777d; }
+.status-starting { background: #f3b44f; }.status-ready { background: #75d28a; }.status-error { background: #f17870; }
+.start-button, .clear-button { min-height: 44px; border: 0; border-radius: 10px; font-weight: 800; cursor: pointer; }
+.start-button { width: 100%; color: #151617; background: #f3b44f; }
+.start-button:disabled, .clear-button:disabled { cursor: not-allowed; opacity: .45; }
+.error-message { margin: 20px 0 0; padding: 12px; border-radius: 8px; color: #ffd9d6; background: #552d2a; line-height: 1.4; }
+.instrument-layout { gap: 24px; align-items: stretch; margin-top: 30px; }
+.pad-grid { display: grid; flex: 1; grid-template-columns: repeat(4, minmax(90px, 1fr)); gap: 12px; }
+.pad { display: flex; min-height: 124px; padding: 14px; border: 1px solid #565c61; border-radius: 14px; flex-direction: column; justify-content: space-between; color: #f5f2eb; cursor: pointer; text-align: left; touch-action: manipulation; user-select: none; -webkit-user-select: none; transition: transform 80ms ease, border-color 80ms ease, background 80ms ease; }
+.pad-empty { background: #292d31; }.pad-loaded { background: #27513d; }.pad-selected { border-color: #f3b44f; box-shadow: inset 0 0 0 1px #f3b44f; }.pad-active { animation: pad-flash 180ms ease-out; }.pad:active { transform: translateY(2px); }
+.pad-number { color: #f3b44f; font-size: .72rem; font-weight: 800; letter-spacing: .1em; }.pad-file { overflow: hidden; margin: 8px 0; font-size: .88rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }.pad-footer { align-items: center; justify-content: space-between; color: #b8c0c3; font-size: .68rem; font-weight: 800; letter-spacing: .08em; }
+kbd { padding: 3px 7px; border: 1px solid currentColor; border-radius: 5px; color: #f5f2eb; font-family: inherit; font-size: .8rem; letter-spacing: 0; }
+.pad-editor { width: min(100%, 290px); padding: 20px; border: 1px solid #404448; border-radius: 14px; background: #181a1c; }.editor-heading { align-items: flex-start; justify-content: space-between; gap: 12px; }
+.sample-badge { padding: 4px 7px; border-radius: 5px; color: #b8c0c3; background: #32363a; font-size: .65rem; font-weight: 800; letter-spacing: .08em; }.sample-loaded { color: #172319; background: #75d28a; }.sample-details { min-height: 48px; margin: 16px 0; overflow-wrap: anywhere; font-size: .88rem; }
+.file-picker, .parameter-control { display: grid; gap: 8px; margin-top: 18px; color: #dadddf; font-size: .85rem; font-weight: 700; }.file-picker input, .parameter-control input { width: 100%; }.parameter-control label { display: flex; justify-content: space-between; }output { color: #f3b44f; }.clear-button { width: 100%; margin-top: 24px; color: #ffd9d6; background: #552d2a; }
+@keyframes pad-flash { from { background: #a6e5b2; transform: translateY(2px); } to { transform: translateY(0); } }
+@media (max-width: 760px) { .station-header, .instrument-layout { flex-direction: column; }.audio-controls, .pad-editor { width: 100%; }.status-row { justify-content: flex-start; } }
+@media (max-width: 480px) { .station-shell { padding: 12px; }.station-panel { padding: 16px; }.pad-grid { gap: 8px; }.pad { min-height: 92px; padding: 10px; }.pad-file { font-size: .75rem; } }

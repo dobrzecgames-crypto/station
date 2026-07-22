@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import type { AudioEngine, AudioEngineStatus } from './audio/AudioEngine'
+import { createPadBank, padIdByKeyCode } from './pads/padBank'
+import { PadEditor } from './pads/PadEditor'
+import { PadGrid } from './pads/PadGrid'
+import type { PadState } from './pads/types'
 import './App.css'
-
-const PAD_A_SAMPLE_ID = 'pad-a'
 
 interface AppProps {
   audioEngine: AudioEngine
@@ -18,30 +20,42 @@ const statusLabels: Record<AudioEngineStatus, string> = {
 
 export function App({ audioEngine }: AppProps) {
   const [audioStatus, setAudioStatus] = useState<AudioEngineStatus>(audioEngine.getStatus())
-  const [sampleName, setSampleName] = useState<string>()
-  const [sampleDuration, setSampleDuration] = useState<number>()
+  const [pads, setPads] = useState<PadState[]>(createPadBank)
+  const [selectedPadId, setSelectedPadId] = useState<PadState['id']>('pad-01')
+  const [activePadId, setActivePadId] = useState<PadState['id'] | null>(null)
   const [errorMessage, setErrorMessage] = useState<string>()
+  const selectedPad = pads.find((pad) => pad.id === selectedPadId)!
+  const audioReady = audioStatus === 'ready'
 
-  const padIsReady = audioStatus === 'ready' && audioEngine.hasSample(PAD_A_SAMPLE_ID)
+  const triggerPad = (padId: PadState['id']) => {
+    const pad = pads.find((candidate) => candidate.id === padId)
+    setSelectedPadId(padId)
+    if (!pad || !audioReady || !audioEngine.hasSample(padId)) {
+      return
+    }
+    audioEngine.triggerSample(padId, { gain: pad.gain, pitchSemitones: pad.pitchSemitones })
+    setActivePadId(padId)
+  }
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.code !== 'KeyA' || event.repeat || event.altKey || event.ctrlKey || event.metaKey) {
+      if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || isTypingTarget(event.target)) {
         return
       }
-
+      const padId = padIdByKeyCode.get(event.code)
+      if (!padId) {
+        return
+      }
       event.preventDefault()
-      audioEngine.triggerSample(PAD_A_SAMPLE_ID)
+      triggerPad(padId)
     }
-
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [audioEngine])
+  }, [audioEngine, pads, audioReady])
 
   const startAudio = async () => {
     setErrorMessage(undefined)
     setAudioStatus('starting')
-
     try {
       await audioEngine.initialize()
       setAudioStatus(audioEngine.getStatus())
@@ -51,71 +65,65 @@ export function App({ audioEngine }: AppProps) {
     }
   }
 
-  const loadSample = async (event: ChangeEvent<HTMLInputElement>) => {
+  const updateSelectedPad = (changes: Pick<PadState, 'gain' | 'pitchSemitones'>) => {
+    setPads((currentPads) => currentPads.map((pad) => (pad.id === selectedPadId ? { ...pad, ...changes } : pad)))
+  }
+
+  const loadSelectedPad = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     event.target.value = ''
-
     if (!file) {
       return
     }
-
     setErrorMessage(undefined)
-
     try {
-      const loadedSample = await audioEngine.loadSample(PAD_A_SAMPLE_ID, file)
-      setSampleName(loadedSample.filename)
-      setSampleDuration(loadedSample.durationSeconds)
+      const loadedSample = await audioEngine.loadSample(selectedPadId, file)
+      setPads((currentPads) => currentPads.map((pad) => (pad.id === selectedPadId ? { ...pad, fileName: loadedSample.filename, durationSeconds: loadedSample.durationSeconds } : pad)))
     } catch (error) {
       setErrorMessage(toMessage(error))
     }
   }
 
+  const clearSelectedPad = () => {
+    audioEngine.removeSample(selectedPadId)
+    setPads((currentPads) => currentPads.map((pad) => (pad.id === selectedPadId ? { ...pad, fileName: null, durationSeconds: null, gain: 1, pitchSemitones: 0 } : pad)))
+    setActivePadId((currentPadId) => (currentPadId === selectedPadId ? null : currentPadId))
+  }
+
   return (
     <main className="station-shell">
       <section className="station-panel" aria-labelledby="station-title">
-        <p className="eyebrow">STATION / M2</p>
-        <h1 id="station-title">Audio engine foundation</h1>
-        <p className="intro">Load one WAV sample, then play it with the pad or the <kbd>A</kbd> key.</p>
-
-        <div className="status-row" role="status" aria-live="polite">
-          <span className={`status-dot status-${audioStatus}`} aria-hidden="true" />
-          {statusLabels[audioStatus]}
+        <header className="station-header">
+          <div>
+            <p className="eyebrow">STATION / M3</p>
+            <h1 id="station-title">Pad instrument</h1>
+            <p className="intro">Assign WAV samples, then play the 16-pad bank by pointer or keyboard.</p>
+          </div>
+          <div className="audio-controls">
+            <div className="status-row" role="status" aria-live="polite">
+              <span className={`status-dot status-${audioStatus}`} aria-hidden="true" />
+              {statusLabels[audioStatus]}
+            </div>
+            <button className="start-button" type="button" onClick={() => void startAudio()} disabled={audioStatus === 'starting'}>
+              {audioReady ? 'AUDIO READY' : 'START AUDIO'}
+            </button>
+          </div>
+        </header>
+        {errorMessage && <p className="error-message" role="alert">{errorMessage}</p>}
+        <div className="instrument-layout">
+          <PadGrid pads={pads} selectedPadId={selectedPadId} activePadId={activePadId} audioReady={audioReady} onTrigger={triggerPad} onFeedbackEnd={(padId) => setActivePadId((currentPadId) => currentPadId === padId ? null : currentPadId)} />
+          <PadEditor pad={selectedPad} audioReady={audioReady} onImport={(event) => void loadSelectedPad(event)} onUpdate={updateSelectedPad} onClear={clearSelectedPad} />
         </div>
-
-        <button className="start-button" type="button" onClick={() => void startAudio()} disabled={audioStatus === 'starting'}>
-          {audioStatus === 'ready' ? 'AUDIO READY' : 'START AUDIO'}
-        </button>
-
-        <label className="file-picker">
-          <span>WAV sample</span>
-          <input type="file" accept="audio/wav,.wav" disabled={audioStatus !== 'ready'} onChange={(event) => void loadSample(event)} />
-        </label>
-
-        <p className="sample-status" aria-live="polite">
-          {sampleName ? `${sampleName} · ${sampleDuration?.toFixed(2)} s` : 'No sample loaded'}
-        </p>
-
-        {errorMessage && (
-          <p className="error-message" role="alert">
-            {errorMessage}
-          </p>
-        )}
-
-        <button
-          className="pad"
-          type="button"
-          disabled={!padIsReady}
-          onPointerDown={(event) => {
-            event.preventDefault()
-            audioEngine.triggerSample(PAD_A_SAMPLE_ID)
-          }}
-        >
-          <span>PLAY SAMPLE</span>
-          <kbd>A</kbd>
-        </button>
       </section>
     </main>
   )
+}
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false
+  }
+  return target.isContentEditable || target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement
 }
 
 function toMessage(error: unknown): string {

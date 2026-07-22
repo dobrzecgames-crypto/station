@@ -4,7 +4,7 @@ Station is a desktop-browser sampler groovebox for turning audio samples into pl
 
 ## Current status
 
-The repository is in **M2 — Audio Engine Foundation**. M1 validated the desktop Web Audio path; M2 hardens the internal engine while retaining the same one-pad proof-of-concept interface.
+The repository is in **M3 — Pad Instrument**. M1 validated the desktop Web Audio path, M2 established an engine independent from React, and M3 exposes it through one playable 16-pad bank.
 
 ## Product principles
 
@@ -53,7 +53,7 @@ Tone.js, WebAssembly, PWA packaging, Capacitor and any native implementation are
 
 No implementation phase begins until its scope and acceptance criteria are approved.
 
-## M1–M2 audio proof of concept
+## M3 pad instrument
 
 ### Prerequisites
 
@@ -70,8 +70,17 @@ pnpm typecheck
 pnpm build
 ```
 
-Open the local URL printed by `pnpm dev`. Select **START AUDIO**, choose one WAV file, then trigger it with the visible pad or the `A` key. Hold `A` to verify that browser keyboard repeat does not create additional triggers.
+Open the local URL printed by `pnpm dev`. Select **START AUDIO**, choose a pad, then assign a WAV in the selected-pad editor. Play loaded pads by pointer or with this fixed keyboard layout:
+
+```text
+1  2  3  4
+Q  W  E  R
+A  S  D  F
+Z  X  C  V
+```
+
+The selected-pad editor provides per-pad gain and pitch controls, plus **CLEAR PAD**. Hold a mapped key to verify that browser keyboard repeat does not create additional triggers.
 
 ### Current limitations
 
-The interface remains deliberately limited to one non-persistent WAV sample and one pad. M2 internally supports a sample registry, overlapping voices, per-trigger gain and semitone pitch, and a master output, but exposes no additional controls yet. There is no sequencer, transport, project saving, effects, volume or pitch UI. Audio must be explicitly started after each page reload; switching tabs may cause a browser to suspend audio, in which case use **START AUDIO** again.
+The 16-pad bank and all pad settings are non-persistent and reset on page reload. There is no sequencer, transport, project saving, effects, master-volume control or sample editing. Audio must be explicitly started after each page reload; switching tabs may cause a browser to suspend audio, in which case use **START AUDIO** again.

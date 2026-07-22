@@ -4,7 +4,7 @@ Station is a desktop-browser sampler groovebox for turning audio samples into pl
 
 ## Current status
 
-The repository is in **M4 — Sequencer Timing**. The 16-pad instrument includes one 16-step sequence per pad, BPM, audio-clock-based play/stop, Basic Pump and a compact 16-channel MIX foundation.
+The repository is in **M4 — Sequencer Timing**. The 16-pad instrument includes one 16-step sequence per pad, BPM, audio-clock-based play/stop, Basic Pump, a compact 16-channel MIX foundation and non-destructive sample playback regions.
 
 ## Product principles
 
@@ -79,8 +79,8 @@ A  S  D  F
 Z  X  C  V
 ```
 
-The selected-pad editor provides per-channel volume and per-pad pitch controls, plus **CLEAR PAD**. Use the 16-step panel to edit the selected pad's own pattern; **PLAY** runs all loaded pad patterns together. The MIX panel controls channel volume, mute and multi-solo for all 16 pads; mute takes precedence over solo. Audio events are scheduled from the Web Audio clock, not React timing.
+The selected-pad editor provides per-channel volume and per-pad pitch controls, plus **CLEAR PAD**. The SAMPLE panel exposes a waveform, start/end playback region, preview and reset for the selected pad. Use the 16-step panel to edit the selected pad's own pattern; **PLAY** runs all loaded pad patterns together. The MIX panel controls channel volume, mute and multi-solo for all 16 pads; mute takes precedence over solo. Audio events are scheduled from the Web Audio clock, not React timing.
 
 ### Current limitations
 
-The bank, sequences and BPM are non-persistent and reset on page reload. There are no saved patterns, effects, master-volume control or sample editing. Audio must be explicitly started after each page reload; switching tabs may cause a browser to suspend audio, in which case use **START AUDIO** again.
+The bank, sequences, regions and BPM are non-persistent and reset on page reload. There are no saved patterns, effects or master-volume control. Audio must be explicitly started after each page reload; switching tabs may cause a browser to suspend audio, in which case use **START AUDIO** again.

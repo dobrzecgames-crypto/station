@@ -59,6 +59,15 @@ Suggested fields:
 
 A Pad must not contain decoded AudioBuffer objects in persisted state.
 
+### SamplePlaybackRegion
+
+Each loaded pad has one non-destructive playback region:
+
+- start seconds,
+- end seconds.
+
+The region is bounded by the decoded sample duration and has a small positive minimum length. Importing a replacement sample resets the region to the new file's full duration. The region is a playback setting, not a copied or cropped SampleAsset.
+
 ### ChannelState
 
 Each of the 16 stable pad IDs also identifies one fixed runtime mixer channel. The UI state contains `id`, `volume`, `muted` and `solo`; the matching Web Audio GainNodes remain engine-owned runtime state and are never placed in React state or serialized as nodes.

@@ -59,6 +59,12 @@ Initial playback requirements:
 
 Time-stretching is explicitly outside the MVP.
 
+### Playback regions and waveform snapshots
+
+Each pad supplies a non-destructive start and end time for new voices. The engine starts a voice with `source.start(when, offset, duration)` and does not alter the decoded `AudioBuffer`; already-playing voices keep their original region. The existing per-voice gain applies a short edge fade, scaled down for short regions, before routing to the channel gain.
+
+After WAV decoding, the engine reduces the decoded buffer to cached amplitude peaks per stable sample ID. React receives only a copied peak snapshot for canvas drawing, never an `AudioBuffer` or an audio node. The cache is removed with its sample and is not rebuilt during triggers or scheduling.
+
 ## Voice management
 
 The engine should maintain enough internal information to:

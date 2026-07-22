@@ -190,11 +190,8 @@ Exit criteria:
 
 ## First post-MVP milestones
 
-### M9 — Sample Editing and Chop
+### M9 — Chop
 
-- waveform,
-- start/end,
-- click-safe fades,
 - reverse and gate/loop decisions,
 - manual slices,
 - equal auto-chop,

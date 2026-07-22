@@ -7,10 +7,16 @@ export interface ChannelState {
   solo: boolean
 }
 
+export interface SamplePlaybackRegion {
+  startSeconds: number
+  endSeconds: number
+}
+
 export interface PadState extends ChannelState {
   label: string
   fileName: string | null
   durationSeconds: number | null
+  region: SamplePlaybackRegion
   pitchSemitones: number
 }
 

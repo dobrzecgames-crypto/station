@@ -6,7 +6,8 @@ import { Mixer } from './mixer/Mixer'
 import { createPadBank, padIdByKeyCode } from './pads/padBank'
 import { PadEditor } from './pads/PadEditor'
 import { PadGrid } from './pads/PadGrid'
-import type { PadState } from './pads/types'
+import type { PadState, SamplePlaybackRegion } from './pads/types'
+import { SampleEditor } from './sample-editor/SampleEditor'
 import { SequencerControls } from './sequencer/SequencerControls'
 import './App.css'
 
@@ -36,10 +37,11 @@ export function App({ audioEngine }: AppProps) {
   const [pumpDepth, setPumpDepth] = useState(0.5)
   const [pumpLengthBeats, setPumpLengthBeats] = useState(0.5)
   const [pumpCurve, setPumpCurve] = useState<'snap' | 'smooth' | 'swell'>('smooth')
+  const [waveforms, setWaveforms] = useState<Record<PadState['id'], number[]>>({})
   const sequencerRef = useRef(new StepSequencer(audioEngine))
   const selectedPad = pads.find((pad) => pad.id === selectedPadId)!
   const audioReady = audioStatus === 'ready'
-  const sequenceConfigRef = useRef({ bpm, swing, tracks: [] as { sampleId: string; steps: number[]; options: { pitchSemitones: number } }[] })
+  const sequenceConfigRef = useRef({ bpm, swing, tracks: [] as { sampleId: string; steps: number[]; options: { pitchSemitones: number; startSeconds: number; endSeconds: number } }[] })
 
   sequenceConfigRef.current = {
     bpm,
@@ -47,7 +49,7 @@ export function App({ audioEngine }: AppProps) {
     tracks: pads.filter((pad) => audioEngine.hasSample(pad.id)).map((pad) => ({
       sampleId: pad.id,
       steps: patterns[pad.id],
-      options: { pitchSemitones: pad.pitchSemitones },
+      options: { pitchSemitones: pad.pitchSemitones, startSeconds: pad.region.startSeconds, endSeconds: pad.region.endSeconds },
     })),
   }
 
@@ -63,7 +65,7 @@ export function App({ audioEngine }: AppProps) {
     if (!pad || !audioReady || !audioEngine.hasSample(padId)) {
       return
     }
-    audioEngine.triggerSample(padId, { pitchSemitones: pad.pitchSemitones })
+    audioEngine.triggerSample(padId, { pitchSemitones: pad.pitchSemitones, startSeconds: pad.region.startSeconds, endSeconds: pad.region.endSeconds })
     setActivePadId(padId)
   }
 
@@ -124,7 +126,9 @@ export function App({ audioEngine }: AppProps) {
     setErrorMessage(undefined)
     try {
       const loadedSample = await audioEngine.loadSample(selectedPadId, file)
-      setPads((currentPads) => currentPads.map((pad) => (pad.id === selectedPadId ? { ...pad, fileName: loadedSample.filename, durationSeconds: loadedSample.durationSeconds } : pad)))
+      const waveform = audioEngine.getWaveformPeaks(selectedPadId) ?? []
+      setPads((currentPads) => currentPads.map((pad) => (pad.id === selectedPadId ? { ...pad, fileName: loadedSample.filename, durationSeconds: loadedSample.durationSeconds, region: { startSeconds: 0, endSeconds: loadedSample.durationSeconds } } : pad)))
+      setWaveforms((currentWaveforms) => ({ ...currentWaveforms, [selectedPadId]: waveform }))
     } catch (error) {
       setErrorMessage(toMessage(error))
     }
@@ -132,8 +136,26 @@ export function App({ audioEngine }: AppProps) {
 
   const clearSelectedPad = () => {
     audioEngine.removeSample(selectedPadId)
-    setPads((currentPads) => currentPads.map((pad) => (pad.id === selectedPadId ? { ...pad, fileName: null, durationSeconds: null, pitchSemitones: 0 } : pad)))
+    setPads((currentPads) => currentPads.map((pad) => (pad.id === selectedPadId ? { ...pad, fileName: null, durationSeconds: null, region: { startSeconds: 0, endSeconds: 0 }, pitchSemitones: 0 } : pad)))
+    setWaveforms((currentWaveforms) => {
+      const { [selectedPadId]: _, ...remainingWaveforms } = currentWaveforms
+      return remainingWaveforms
+    })
     setActivePadId((currentPadId) => (currentPadId === selectedPadId ? null : currentPadId))
+  }
+
+  const updateSelectedRegion = (region: SamplePlaybackRegion) => {
+    const durationSeconds = selectedPad.durationSeconds
+    if (!durationSeconds) return
+    const minimumLength = Math.min(0.01, durationSeconds)
+    const startSeconds = Math.min(Math.max(0, region.startSeconds), durationSeconds - minimumLength)
+    const endSeconds = Math.min(durationSeconds, Math.max(startSeconds + minimumLength, region.endSeconds))
+    setPads((currentPads) => currentPads.map((pad) => (pad.id === selectedPadId ? { ...pad, region: { startSeconds, endSeconds } } : pad)))
+  }
+
+  const resetSelectedRegion = () => {
+    if (!selectedPad.durationSeconds) return
+    updateSelectedRegion({ startSeconds: 0, endSeconds: selectedPad.durationSeconds })
   }
 
   const toggleStep = (stepIndex: number) => {
@@ -191,6 +213,7 @@ export function App({ audioEngine }: AppProps) {
             <div className="pump-curves">{(['snap', 'smooth', 'swell'] as const).map((curve) => <button key={curve} className={`step ${pumpCurve === curve ? 'step-full' : ''}`} type="button" onClick={() => setPumpCurve(curve)}>{curve.toUpperCase()}</button>)}</div>
           </section>
           <Mixer pads={pads} pumpSourceId={pumpSourceId} pumpTargets={pumpTargets} onVolumeChange={updateChannelVolume} onMutedChange={updateChannelMuted} onSoloChange={updateChannelSolo} />
+          <SampleEditor pad={selectedPad} peaks={waveforms[selectedPad.id] ?? []} audioReady={audioReady} onPreview={() => triggerPad(selectedPad.id)} onRegionChange={updateSelectedRegion} onResetRegion={resetSelectedRegion} />
       </section>
     </main>
   )

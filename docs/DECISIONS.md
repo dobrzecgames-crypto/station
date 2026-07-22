@@ -140,3 +140,16 @@ Compare restart-from-current-value and other click-safe behaviors.
 ### OPEN-009 — Pump target model
 
 Current recommendation: one source pad with Pump enabled independently on any number of target tracks.
+
+## DEC-010 — Sample regions are non-destructive playback settings
+
+**Status:** Accepted
+
+Start and end points belong to each pad's playback state. Decoded audio remains engine-owned and is not copied or physically cropped when a region changes. The engine also caches reduced waveform peaks after decoding, exposing only serializable peak snapshots to the UI.
+
+Consequences:
+
+- pads may use different regions of the same future SampleAsset without duplicating audio data,
+- region edits affect only future voices,
+- waveform drawing does not perform per-render or scheduler-time analysis,
+- chop and slicing remain separate future workflows.

@@ -10,6 +10,8 @@ export interface LoadedSampleInfo {
 export interface TriggerSampleOptions {
   gain?: number
   pitchSemitones?: number
+  startSeconds?: number
+  endSeconds?: number
 }
 
 export type PumpCurve = 'snap' | 'smooth' | 'swell'
@@ -42,6 +44,7 @@ export class AudioEngine {
   private readonly channels = new Map<SampleId, Channel>()
   private pumpConfig: PumpConfig = { sourceSampleId: null, targetSampleIds: [], depth: 0, lengthSeconds: 0.2, curve: 'smooth' }
   private samples = new Map<SampleId, AudioBuffer>()
+  private waveforms = new Map<SampleId, number[]>()
   private activeVoices = new Set<ActiveVoice>()
   private status: AudioEngineStatus = 'inactive'
 
@@ -95,6 +98,7 @@ export class AudioEngine {
       const decodedBuffer = await this.context.decodeAudioData(audioData)
 
       this.samples.set(sampleId, decodedBuffer)
+      this.waveforms.set(sampleId, this.createWaveform(decodedBuffer))
       return {
         filename: file.name,
         durationSeconds: decodedBuffer.duration,
@@ -109,7 +113,12 @@ export class AudioEngine {
   }
 
   removeSample(sampleId: SampleId): boolean {
+    this.waveforms.delete(sampleId)
     return this.samples.delete(sampleId)
+  }
+
+  getWaveformPeaks(sampleId: SampleId): number[] | undefined {
+    return this.waveforms.get(sampleId)?.slice()
   }
 
   setChannelVolume(sampleId: SampleId, volume: number): void {
@@ -156,16 +165,24 @@ export class AudioEngine {
     const source = this.context.createBufferSource()
     const gain = this.context.createGain()
     const voice: ActiveVoice = { source, gain, cleanedUp: false }
+    const playbackRate = this.toPlaybackRate(options.pitchSemitones)
+    const region = this.toPlaybackRegion(sampleBuffer.duration, options.startSeconds, options.endSeconds)
+    const voiceGain = this.toGain(options.gain)
+    const outputDuration = region.durationSeconds / playbackRate
+    const fadeDuration = Math.min(0.004, outputDuration / 2)
     source.buffer = sampleBuffer
-    gain.gain.setValueAtTime(this.toGain(options.gain), when)
-    source.playbackRate.setValueAtTime(this.toPlaybackRate(options.pitchSemitones), when)
+    gain.gain.setValueAtTime(0, when)
+    gain.gain.linearRampToValueAtTime(voiceGain, when + fadeDuration)
+    gain.gain.setValueAtTime(voiceGain, when + Math.max(fadeDuration, outputDuration - fadeDuration))
+    gain.gain.linearRampToValueAtTime(0, when + outputDuration)
+    source.playbackRate.setValueAtTime(playbackRate, when)
     source.connect(gain)
     gain.connect(channel.gain)
     source.addEventListener('ended', () => this.cleanUpVoice(voice), { once: true })
 
     this.activeVoices.add(voice)
     if (sampleId === this.pumpConfig.sourceSampleId) this.triggerPump(when)
-    source.start(when)
+    source.start(when, region.startSeconds, region.durationSeconds)
   }
 
   stopAll(): void {
@@ -190,6 +207,7 @@ export class AudioEngine {
   dispose(): void {
     this.stopAll()
     this.samples.clear()
+    this.waveforms.clear()
     for (const channel of this.channels.values()) {
       channel.gain?.disconnect()
       channel.pumpGain?.disconnect()
@@ -225,6 +243,37 @@ export class AudioEngine {
       channel.pumpGain.gain.setValueAtTime(1, context.currentTime)
     }
     this.applyAllChannelGains(true)
+  }
+
+  private createWaveform(sampleBuffer: AudioBuffer): number[] {
+    const bucketCount = Math.min(512, Math.max(1, Math.ceil(sampleBuffer.duration * 128)))
+    const bucketSize = Math.ceil(sampleBuffer.length / bucketCount)
+    const peaks: number[] = []
+
+    for (let bucketIndex = 0; bucketIndex < bucketCount; bucketIndex += 1) {
+      const start = bucketIndex * bucketSize
+      const end = Math.min(sampleBuffer.length, start + bucketSize)
+      let peak = 0
+      for (let channelIndex = 0; channelIndex < sampleBuffer.numberOfChannels; channelIndex += 1) {
+        const channelData = sampleBuffer.getChannelData(channelIndex)
+        for (let sampleIndex = start; sampleIndex < end; sampleIndex += 1) {
+          peak = Math.max(peak, Math.abs(channelData[sampleIndex]))
+        }
+      }
+      peaks.push(peak)
+    }
+
+    return peaks
+  }
+
+  private toPlaybackRegion(sampleDuration: number, startSeconds: number | undefined, endSeconds: number | undefined): { startSeconds: number; durationSeconds: number } {
+    const minimumDuration = Math.min(0.005, sampleDuration)
+    const requestedStart = typeof startSeconds === 'number' && Number.isFinite(startSeconds) ? startSeconds : 0
+    const start = Math.min(Math.max(0, requestedStart), Math.max(0, sampleDuration - minimumDuration))
+    const requestedEnd = typeof endSeconds === 'number' && Number.isFinite(endSeconds) ? endSeconds : sampleDuration
+    const end = Math.min(sampleDuration, Math.max(start + minimumDuration, requestedEnd))
+
+    return { startSeconds: start, durationSeconds: end - start }
   }
 
   private applyAllChannelGains(immediately = false): void {

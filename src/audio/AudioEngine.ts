@@ -86,6 +86,14 @@ export class AudioEngine {
   }
 
   triggerSample(sampleId: SampleId, options: TriggerSampleOptions = {}): void {
+    if (!this.context) {
+      return
+    }
+
+    this.scheduleSample(sampleId, this.context.currentTime, options)
+  }
+
+  scheduleSample(sampleId: SampleId, when: number, options: TriggerSampleOptions = {}): void {
     const sampleBuffer = this.samples.get(sampleId)
 
     if (this.status !== 'ready' || !this.context || !this.masterGain || !sampleBuffer) {
@@ -95,17 +103,15 @@ export class AudioEngine {
     const source = this.context.createBufferSource()
     const gain = this.context.createGain()
     const voice: ActiveVoice = { source, gain, cleanedUp: false }
-    const now = this.context.currentTime
-
     source.buffer = sampleBuffer
-    gain.gain.setValueAtTime(this.toGain(options.gain), now)
-    source.playbackRate.setValueAtTime(this.toPlaybackRate(options.pitchSemitones), now)
+    gain.gain.setValueAtTime(this.toGain(options.gain), when)
+    source.playbackRate.setValueAtTime(this.toPlaybackRate(options.pitchSemitones), when)
     source.connect(gain)
     gain.connect(this.masterGain)
     source.addEventListener('ended', () => this.cleanUpVoice(voice), { once: true })
 
     this.activeVoices.add(voice)
-    source.start(now)
+    source.start(when)
   }
 
   stopAll(): void {
@@ -121,6 +127,10 @@ export class AudioEngine {
 
   getActiveVoiceCount(): number {
     return this.activeVoices.size
+  }
+
+  getCurrentTime(): number {
+    return this.context?.currentTime ?? 0
   }
 
   dispose(): void {

@@ -12,9 +12,9 @@ Do not add features merely because they are common in Ableton Live, FL Studio, L
 
 ## Current phase
 
-The project is currently in M3 — Pad Instrument. The approved M3 scope is the current explicit implementation task.
+The project is currently in M4 — Sequencer Timing. The approved M4 scope is the current explicit implementation task.
 
-Do not begin M4 or add product functionality beyond the approved M3 task until M3 has been explicitly accepted. Preserve the single shared audio-engine boundary while implementing the 16-pad instrument.
+Do not begin M5 or add product functionality beyond the approved M4 task until M4 has been explicitly accepted. Keep scheduler timing in the audio layer and preserve the single shared audio-engine boundary.
 
 ## Agent behavior
 
@@ -65,7 +65,7 @@ Do not begin the next milestone without an explicit instruction.
 
 ## Testing priority
 
-For M3, the required browser matrix is:
+For M4, the required browser matrix is:
 
 - Current Chrome on Windows
 - Current Edge on Windows

@@ -92,7 +92,7 @@ Exit criteria:
 - pad settings remain separate from sample assets,
 - basic manual performance is stable.
 
-## M4 — Sequencer Timing Spike
+## M4 — Sequencer Timing
 
 Question: can a browser scheduler maintain musical timing independently from UI rendering?
 

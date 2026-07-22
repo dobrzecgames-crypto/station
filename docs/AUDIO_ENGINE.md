@@ -94,6 +94,10 @@ The scheduler must:
 
 The visual playhead may use animation frames, but it reads transport position; it does not trigger sound.
 
+### M4 implementation
+
+The initial sequencer schedules a single 16-step pattern for the selected pad. It wakes every 25 ms and schedules into a 100 ms look-ahead window. The wake timer only invokes planning; each sample is started with an absolute `AudioContext.currentTime` timestamp.
+
 ## Basic Pump
 
 Basic Pump is gain shaping triggered by sequenced or manually triggered kick events.

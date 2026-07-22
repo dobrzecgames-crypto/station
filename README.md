@@ -4,7 +4,7 @@ Station is a desktop-browser sampler groovebox for turning audio samples into pl
 
 ## Current status
 
-The repository is in **M3 — Pad Instrument**. M1 validated the desktop Web Audio path, M2 established an engine independent from React, and M3 exposes it through one playable 16-pad bank.
+The repository is in **M4 — Sequencer Timing**. The 16-pad instrument now includes one 16-step sequence for the selected pad, with BPM and audio-clock-based play/stop.
 
 ## Product principles
 
@@ -53,7 +53,7 @@ Tone.js, WebAssembly, PWA packaging, Capacitor and any native implementation are
 
 No implementation phase begins until its scope and acceptance criteria are approved.
 
-## M3 pad instrument
+## M4 sequencer timing
 
 ### Prerequisites
 
@@ -79,8 +79,8 @@ A  S  D  F
 Z  X  C  V
 ```
 
-The selected-pad editor provides per-pad gain and pitch controls, plus **CLEAR PAD**. Hold a mapped key to verify that browser keyboard repeat does not create additional triggers.
+The selected-pad editor provides per-pad gain and pitch controls, plus **CLEAR PAD**. Use the 16-step panel to activate steps for the selected pad, set BPM, then press **PLAY**. Audio events are scheduled from the Web Audio clock, not React timing.
 
 ### Current limitations
 
-The 16-pad bank and all pad settings are non-persistent and reset on page reload. There is no sequencer, transport, project saving, effects, master-volume control or sample editing. Audio must be explicitly started after each page reload; switching tabs may cause a browser to suspend audio, in which case use **START AUDIO** again.
+The bank, sequence and BPM are non-persistent and reset on page reload. M4 provides one selected-pad sequence only: there are no per-pad tracks, saved patterns, effects, master-volume control or sample editing. Audio must be explicitly started after each page reload; switching tabs may cause a browser to suspend audio, in which case use **START AUDIO** again.

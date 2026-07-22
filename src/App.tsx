@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import type { AudioEngine, AudioEngineStatus } from './audio/AudioEngine'
+import { StepSequencer } from './audio/StepSequencer'
 import { createPadBank, padIdByKeyCode } from './pads/padBank'
 import { PadEditor } from './pads/PadEditor'
 import { PadGrid } from './pads/PadGrid'
 import type { PadState } from './pads/types'
+import { SequencerControls } from './sequencer/SequencerControls'
 import './App.css'
 
 interface AppProps {
@@ -24,8 +26,14 @@ export function App({ audioEngine }: AppProps) {
   const [selectedPadId, setSelectedPadId] = useState<PadState['id']>('pad-01')
   const [activePadId, setActivePadId] = useState<PadState['id'] | null>(null)
   const [errorMessage, setErrorMessage] = useState<string>()
+  const [bpm, setBpm] = useState(120)
+  const [steps, setSteps] = useState<boolean[]>(() => Array(16).fill(false))
+  const [isPlaying, setIsPlaying] = useState(false)
+  const sequencerRef = useRef(new StepSequencer(audioEngine))
   const selectedPad = pads.find((pad) => pad.id === selectedPadId)!
   const audioReady = audioStatus === 'ready'
+
+  useEffect(() => () => sequencerRef.current.stop(), [])
 
   const triggerPad = (padId: PadState['id']) => {
     const pad = pads.find((candidate) => candidate.id === padId)
@@ -90,6 +98,24 @@ export function App({ audioEngine }: AppProps) {
     setActivePadId((currentPadId) => (currentPadId === selectedPadId ? null : currentPadId))
   }
 
+  const toggleStep = (stepIndex: number) => {
+    setSteps((currentSteps) => currentSteps.map((isActive, index) => index === stepIndex ? !isActive : isActive))
+  }
+
+  const togglePlayback = () => {
+    if (isPlaying) {
+      sequencerRef.current.stop()
+      setIsPlaying(false)
+      return
+    }
+    if (!audioReady || !audioEngine.hasSample(selectedPad.id)) {
+      setErrorMessage('Assign a WAV to the selected pad before starting the sequencer.')
+      return
+    }
+    sequencerRef.current.start({ bpm, sampleId: selectedPad.id, steps, options: { gain: selectedPad.gain, pitchSemitones: selectedPad.pitchSemitones } })
+    setIsPlaying(true)
+  }
+
   return (
     <main className="station-shell">
       <section className="station-panel" aria-labelledby="station-title">
@@ -114,6 +140,7 @@ export function App({ audioEngine }: AppProps) {
           <PadGrid pads={pads} selectedPadId={selectedPadId} activePadId={activePadId} audioReady={audioReady} onTrigger={triggerPad} onFeedbackEnd={(padId) => setActivePadId((currentPadId) => currentPadId === padId ? null : currentPadId)} />
           <PadEditor pad={selectedPad} audioReady={audioReady} onImport={(event) => void loadSelectedPad(event)} onUpdate={updateSelectedPad} onClear={clearSelectedPad} />
         </div>
+        <SequencerControls bpm={bpm} isPlaying={isPlaying} steps={steps} padLabel={selectedPad.label} onBpmChange={setBpm} onToggleStep={toggleStep} onTogglePlayback={togglePlayback} />
       </section>
     </main>
   )

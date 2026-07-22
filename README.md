@@ -1,22 +1,24 @@
 # Station
 
-Station is a browser-first sampler groovebox for turning audio samples into playable pads, patterns and musical sketches without the complexity of a full DAW.
+Station is a desktop-browser sampler groovebox for turning audio samples into playable pads, patterns and musical sketches without the complexity of a full DAW.
 
 ## Current status
 
-The repository is in **M0 — Project Definition**. There is no application code yet. The current goal is to freeze the product direction, MVP scope, technical boundaries and collaboration workflow before implementation begins.
+The repository is moving from **M0 — Project Definition** into **M1 — Audio Proof of Concept**. M1 is intentionally minimal: start Web Audio after a user gesture, import one WAV file and trigger it from one pad using mouse or keyboard.
 
 ## Product principles
 
 - Station is a sampler groovebox, not a DAW.
-- The browser is the primary platform, not a temporary prototype target.
+- The desktop browser is the primary product platform, not a temporary prototype target.
+- Chrome and Edge on Windows are the first supported development and validation environment.
+- Mobile browsers, phone UX, PWA packaging and Capacitor are separate future topics and do not block the browser MVP.
 - The MVP contains one 16-pad bank, one 16-step pattern and one Basic Pump system.
 - React owns the user interface, never audio timing.
 - The audio engine must remain independent from React components.
 - Smart Pump starts as a manual, musical volume-shaping tool.
 - Automatic kick analysis comes only after Basic Pump is proven useful.
 - Chop, resampling and scenes are the first major post-MVP systems.
-- Visual identity may develop alongside the engine, but never at the cost of timing, stability or touch response.
+- Visual identity may develop alongside the engine, but never at the cost of timing, stability or input response.
 
 ## Documentation
 
@@ -29,6 +31,7 @@ The repository is in **M0 — Project Definition**. There is no application code
 - [Roadmap](docs/ROADMAP.md)
 - [Decision log](docs/DECISIONS.md)
 - [Codex task template](docs/CODEX_TASK_TEMPLATE.md)
+- [M1 Codex task](docs/tasks/M1_AUDIO_PROOF_OF_CONCEPT.md)
 - [Agent rules](AGENTS.md)
 
 ## Planned stack
@@ -39,9 +42,8 @@ The repository is in **M0 — Project Definition**. There is no application code
 - Web Audio API
 - AudioWorklet where justified by measured needs
 - IndexedDB and/or OPFS for local project storage
-- PWA after the browser MVP is stable
 
-Tone.js, WebAssembly and Capacitor are optional future tools, not default architectural commitments.
+Tone.js, WebAssembly, PWA packaging, Capacitor and any native implementation are optional future tools or products, not default architectural commitments.
 
 ## Working model
 

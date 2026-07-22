@@ -50,7 +50,7 @@ Initial playback requirements:
 
 - decoded WAV sample registered under a stable sample asset identifier,
 - one-shot playback,
-- per-pad gain,
+- per-channel volume shared by all voices for a pad,
 - semitone pitch converted to playback rate,
 - repeated triggers,
 - overlapping voices by default,
@@ -72,11 +72,13 @@ Do not build a complex voice allocator before measurements justify it.
 
 ## Gain staging
 
-The first engine must define a predictable path:
+The engine defines a predictable path:
 
 ```text
-sample voice -> pad/track gain -> optional Pump gain -> master gain -> destination
+AudioBufferSourceNode -> voice gain -> channel gain -> Pump gain -> master gain -> destination
 ```
+
+There are exactly 16 fixed channels, keyed by the same stable IDs as pads. Channel volume, mute and solo act at the channel gain, so they affect active as well as future voices. Mute takes precedence over solo. Pump has a dedicated gain after the channel gain, so its envelope remains active when a target is muted and source-trigger events still fire even when the source channel is not audible.
 
 The MVP should leave sensible headroom. Avoid adding saturation, soft clipping or machine-character processing until the clean engine is stable and measured.
 

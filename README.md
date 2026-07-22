@@ -4,7 +4,7 @@ Station is a desktop-browser sampler groovebox for turning audio samples into pl
 
 ## Current status
 
-The repository is in **M4 — Sequencer Timing**. The 16-pad instrument now includes one 16-step sequence for the selected pad, with BPM and audio-clock-based play/stop.
+The repository is in **M4 — Sequencer Timing**. The 16-pad instrument includes one 16-step sequence per pad, BPM, audio-clock-based play/stop, Basic Pump and a compact 16-channel MIX foundation.
 
 ## Product principles
 
@@ -79,7 +79,7 @@ A  S  D  F
 Z  X  C  V
 ```
 
-The selected-pad editor provides per-pad gain and pitch controls, plus **CLEAR PAD**. Use the 16-step panel to edit the selected pad's own pattern; **PLAY** runs all loaded pad patterns together. Audio events are scheduled from the Web Audio clock, not React timing.
+The selected-pad editor provides per-channel volume and per-pad pitch controls, plus **CLEAR PAD**. Use the 16-step panel to edit the selected pad's own pattern; **PLAY** runs all loaded pad patterns together. The MIX panel controls channel volume, mute and multi-solo for all 16 pads; mute takes precedence over solo. Audio events are scheduled from the Web Audio clock, not React timing.
 
 ### Current limitations
 

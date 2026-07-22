@@ -5,7 +5,7 @@ interface PadEditorProps {
   pad: PadState
   audioReady: boolean
   onImport: (event: ChangeEvent<HTMLInputElement>) => void
-  onUpdate: (changes: Pick<PadState, 'gain' | 'pitchSemitones'>) => void
+  onUpdate: (changes: Pick<PadState, 'volume' | 'pitchSemitones'>) => void
   onClear: () => void
 }
 
@@ -29,12 +29,12 @@ export function PadEditor({ pad, audioReady, onImport, onUpdate, onClear }: PadE
         <input type="file" accept="audio/wav,.wav" disabled={!audioReady} onChange={onImport} />
       </label>
       <div className="parameter-control">
-        <label htmlFor="pad-gain">Gain <output>{pad.gain.toFixed(2)}</output></label>
-        <input id="pad-gain" type="range" min="0" max="1" step="0.01" value={pad.gain} onChange={(event) => onUpdate({ gain: Number(event.target.value), pitchSemitones: pad.pitchSemitones })} />
+        <label htmlFor="pad-volume">Volume <output>{pad.volume.toFixed(2)}</output></label>
+        <input id="pad-volume" type="range" min="0" max="1" step="0.01" value={pad.volume} onChange={(event) => onUpdate({ volume: Number(event.target.value), pitchSemitones: pad.pitchSemitones })} />
       </div>
       <div className="parameter-control">
         <label htmlFor="pad-pitch">Pitch <output>{pad.pitchSemitones > 0 ? '+' : ''}{pad.pitchSemitones} st</output></label>
-        <input id="pad-pitch" type="range" min="-12" max="12" step="1" value={pad.pitchSemitones} onChange={(event) => onUpdate({ gain: pad.gain, pitchSemitones: Number(event.target.value) })} />
+        <input id="pad-pitch" type="range" min="-12" max="12" step="1" value={pad.pitchSemitones} onChange={(event) => onUpdate({ volume: pad.volume, pitchSemitones: Number(event.target.value) })} />
       </div>
       <button className="clear-button" type="button" disabled={!pad.fileName} onClick={onClear}>
         CLEAR PAD

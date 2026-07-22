@@ -37,7 +37,9 @@ export function createPadBank(): PadState[] {
     label: pad.label,
     fileName: null,
     durationSeconds: null,
-    gain: 1,
+    volume: 1,
+    muted: false,
+    solo: false,
     pitchSemitones: 0,
   }))
 }

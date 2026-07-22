@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import type { AudioEngine, AudioEngineStatus } from './audio/AudioEngine'
 import { StepSequencer } from './audio/StepSequencer'
+import { Mixer } from './mixer/Mixer'
 import { createPadBank, padIdByKeyCode } from './pads/padBank'
 import { PadEditor } from './pads/PadEditor'
 import { PadGrid } from './pads/PadGrid'
@@ -38,7 +39,7 @@ export function App({ audioEngine }: AppProps) {
   const sequencerRef = useRef(new StepSequencer(audioEngine))
   const selectedPad = pads.find((pad) => pad.id === selectedPadId)!
   const audioReady = audioStatus === 'ready'
-  const sequenceConfigRef = useRef({ bpm, swing, tracks: [] as { sampleId: string; steps: number[]; options: { gain: number; pitchSemitones: number } }[] })
+  const sequenceConfigRef = useRef({ bpm, swing, tracks: [] as { sampleId: string; steps: number[]; options: { pitchSemitones: number } }[] })
 
   sequenceConfigRef.current = {
     bpm,
@@ -46,7 +47,7 @@ export function App({ audioEngine }: AppProps) {
     tracks: pads.filter((pad) => audioEngine.hasSample(pad.id)).map((pad) => ({
       sampleId: pad.id,
       steps: patterns[pad.id],
-      options: { gain: pad.gain, pitchSemitones: pad.pitchSemitones },
+      options: { pitchSemitones: pad.pitchSemitones },
     })),
   }
 
@@ -62,7 +63,7 @@ export function App({ audioEngine }: AppProps) {
     if (!pad || !audioReady || !audioEngine.hasSample(padId)) {
       return
     }
-    audioEngine.triggerSample(padId, { gain: pad.gain, pitchSemitones: pad.pitchSemitones })
+    audioEngine.triggerSample(padId, { pitchSemitones: pad.pitchSemitones })
     setActivePadId(padId)
   }
 
@@ -94,8 +95,24 @@ export function App({ audioEngine }: AppProps) {
     }
   }
 
-  const updateSelectedPad = (changes: Pick<PadState, 'gain' | 'pitchSemitones'>) => {
+  const updateSelectedPad = (changes: Pick<PadState, 'volume' | 'pitchSemitones'>) => {
     setPads((currentPads) => currentPads.map((pad) => (pad.id === selectedPadId ? { ...pad, ...changes } : pad)))
+    audioEngine.setChannelVolume(selectedPadId, changes.volume)
+  }
+
+  const updateChannelVolume = (padId: PadState['id'], volume: number) => {
+    setPads((currentPads) => currentPads.map((pad) => (pad.id === padId ? { ...pad, volume } : pad)))
+    audioEngine.setChannelVolume(padId, volume)
+  }
+
+  const updateChannelMuted = (padId: PadState['id'], muted: boolean) => {
+    setPads((currentPads) => currentPads.map((pad) => (pad.id === padId ? { ...pad, muted } : pad)))
+    audioEngine.setChannelMuted(padId, muted)
+  }
+
+  const updateChannelSolo = (padId: PadState['id'], solo: boolean) => {
+    setPads((currentPads) => currentPads.map((pad) => (pad.id === padId ? { ...pad, solo } : pad)))
+    audioEngine.setChannelSolo(padId, solo)
   }
 
   const loadSelectedPad = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -115,7 +132,7 @@ export function App({ audioEngine }: AppProps) {
 
   const clearSelectedPad = () => {
     audioEngine.removeSample(selectedPadId)
-    setPads((currentPads) => currentPads.map((pad) => (pad.id === selectedPadId ? { ...pad, fileName: null, durationSeconds: null, gain: 1, pitchSemitones: 0 } : pad)))
+    setPads((currentPads) => currentPads.map((pad) => (pad.id === selectedPadId ? { ...pad, fileName: null, durationSeconds: null, pitchSemitones: 0 } : pad)))
     setActivePadId((currentPadId) => (currentPadId === selectedPadId ? null : currentPadId))
   }
 
@@ -145,7 +162,7 @@ export function App({ audioEngine }: AppProps) {
       <section className="station-panel" aria-labelledby="station-title">
         <header className="station-header">
           <div>
-            <p className="eyebrow">STATION / M3</p>
+            <p className="eyebrow">STATION / M4</p>
             <h1 id="station-title">Pad instrument</h1>
             <p className="intro">Assign WAV samples, then play the 16-pad bank by pointer or keyboard.</p>
           </div>
@@ -173,6 +190,7 @@ export function App({ audioEngine }: AppProps) {
             <label className="bpm-control">LENGTH <output>{pumpLengthBeats} beat</output><input type="range" min="0.25" max="1" step="0.25" value={pumpLengthBeats} onChange={(event) => setPumpLengthBeats(Number(event.target.value))} /></label>
             <div className="pump-curves">{(['snap', 'smooth', 'swell'] as const).map((curve) => <button key={curve} className={`step ${pumpCurve === curve ? 'step-full' : ''}`} type="button" onClick={() => setPumpCurve(curve)}>{curve.toUpperCase()}</button>)}</div>
           </section>
+          <Mixer pads={pads} pumpSourceId={pumpSourceId} pumpTargets={pumpTargets} onVolumeChange={updateChannelVolume} onMutedChange={updateChannelMuted} onSoloChange={updateChannelSolo} />
       </section>
     </main>
   )

@@ -79,8 +79,8 @@ A  S  D  F
 Z  X  C  V
 ```
 
-The selected-pad editor provides per-pad gain and pitch controls, plus **CLEAR PAD**. Use the 16-step panel to activate steps for the selected pad, set BPM, then press **PLAY**. Audio events are scheduled from the Web Audio clock, not React timing.
+The selected-pad editor provides per-pad gain and pitch controls, plus **CLEAR PAD**. Use the 16-step panel to edit the selected pad's own pattern; **PLAY** runs all loaded pad patterns together. Audio events are scheduled from the Web Audio clock, not React timing.
 
 ### Current limitations
 
-The bank, sequence and BPM are non-persistent and reset on page reload. M4 provides one selected-pad sequence only: there are no per-pad tracks, saved patterns, effects, master-volume control or sample editing. Audio must be explicitly started after each page reload; switching tabs may cause a browser to suspend audio, in which case use **START AUDIO** again.
+The bank, sequences and BPM are non-persistent and reset on page reload. There are no saved patterns, effects, master-volume control or sample editing. Audio must be explicitly started after each page reload; switching tabs may cause a browser to suspend audio, in which case use **START AUDIO** again.

@@ -3,12 +3,13 @@ interface SequencerControlsProps {
   isPlaying: boolean
   steps: boolean[]
   padLabel: string
+  loadedTrackCount: number
   onBpmChange: (bpm: number) => void
   onToggleStep: (stepIndex: number) => void
   onTogglePlayback: () => void
 }
 
-export function SequencerControls({ bpm, isPlaying, steps, padLabel, onBpmChange, onToggleStep, onTogglePlayback }: SequencerControlsProps) {
+export function SequencerControls({ bpm, isPlaying, steps, padLabel, loadedTrackCount, onBpmChange, onToggleStep, onTogglePlayback }: SequencerControlsProps) {
   return (
     <section className="sequencer" aria-labelledby="sequencer-title">
       <div className="sequencer-heading">
@@ -16,7 +17,7 @@ export function SequencerControls({ bpm, isPlaying, steps, padLabel, onBpmChange
         <button className="transport-button" type="button" onClick={onTogglePlayback}>{isPlaying ? 'STOP' : 'PLAY'}</button>
       </div>
       <label className="bpm-control" htmlFor="bpm">BPM <output>{bpm}</output><input id="bpm" type="range" min="60" max="200" value={bpm} onChange={(event) => onBpmChange(Number(event.target.value))} /></label>
-      <p className="sequence-target">Pattern plays: {padLabel}</p>
+      <p className="sequence-target">Editing: {padLabel} · PLAY runs {loadedTrackCount} loaded pad{loadedTrackCount === 1 ? '' : 's'}</p>
       <div className="step-grid" aria-label="16 steps">
         {steps.map((isActive, index) => <button key={index} className={`step ${isActive ? 'step-active' : ''}`} type="button" aria-pressed={isActive} onClick={() => onToggleStep(index)}>{index + 1}</button>)}
       </div>

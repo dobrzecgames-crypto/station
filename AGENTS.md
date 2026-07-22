@@ -12,9 +12,9 @@ Do not add features merely because they are common in Ableton Live, FL Studio, L
 
 ## Current phase
 
-The project is currently in M1 — Audio Proof of Concept. The only approved implementation scope is `docs/tasks/M1_AUDIO_PROOF_OF_CONCEPT.md`.
+The project is currently in M2 — Audio Engine Foundation. The approved M2 scope is the current explicit implementation task.
 
-Do not begin M2 or add product functionality beyond that task until M1 has been explicitly accepted. Project code, dependencies and a React/Vite scaffold are permitted only where the approved M1 task requires them.
+Do not begin M3 or add product functionality beyond the approved M2 task until M2 has been explicitly accepted. Preserve the M1 one-pad interface while strengthening the audio-engine boundary.
 
 ## Agent behavior
 
@@ -65,9 +65,9 @@ Do not begin the next milestone without an explicit instruction.
 
 ## Testing priority
 
-For M1, the required browser matrix is:
+For M2, the required browser matrix is:
 
 - Current Chrome on Windows
 - Current Edge on Windows
 
-Do not claim that the WAV import and playback path was tested unless a real WAV was manually loaded and triggered with both mouse and keyboard in each required browser. Mobile-browser testing is outside the approved M1 scope.
+Do not claim that the WAV import and playback path was tested unless a real WAV was manually loaded and triggered with both mouse and keyboard in each required browser. Mobile-browser testing is outside the approved M2 scope.

@@ -3,6 +3,8 @@ import type { ChangeEvent } from 'react'
 import type { AudioEngine, AudioEngineStatus } from './audio/AudioEngine'
 import './App.css'
 
+const PAD_A_SAMPLE_ID = 'pad-a'
+
 interface AppProps {
   audioEngine: AudioEngine
 }
@@ -20,7 +22,7 @@ export function App({ audioEngine }: AppProps) {
   const [sampleDuration, setSampleDuration] = useState<number>()
   const [errorMessage, setErrorMessage] = useState<string>()
 
-  const padIsReady = audioStatus === 'ready' && sampleName !== undefined
+  const padIsReady = audioStatus === 'ready' && audioEngine.hasSample(PAD_A_SAMPLE_ID)
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -29,7 +31,7 @@ export function App({ audioEngine }: AppProps) {
       }
 
       event.preventDefault()
-      audioEngine.triggerSample()
+      audioEngine.triggerSample(PAD_A_SAMPLE_ID)
     }
 
     window.addEventListener('keydown', onKeyDown)
@@ -60,7 +62,7 @@ export function App({ audioEngine }: AppProps) {
     setErrorMessage(undefined)
 
     try {
-      const loadedSample = await audioEngine.loadSample(file)
+      const loadedSample = await audioEngine.loadSample(PAD_A_SAMPLE_ID, file)
       setSampleName(loadedSample.filename)
       setSampleDuration(loadedSample.durationSeconds)
     } catch (error) {
@@ -71,8 +73,8 @@ export function App({ audioEngine }: AppProps) {
   return (
     <main className="station-shell">
       <section className="station-panel" aria-labelledby="station-title">
-        <p className="eyebrow">STATION / M1</p>
-        <h1 id="station-title">Audio proof of concept</h1>
+        <p className="eyebrow">STATION / M2</p>
+        <h1 id="station-title">Audio engine foundation</h1>
         <p className="intro">Load one WAV sample, then play it with the pad or the <kbd>A</kbd> key.</p>
 
         <div className="status-row" role="status" aria-live="polite">
@@ -105,7 +107,7 @@ export function App({ audioEngine }: AppProps) {
           disabled={!padIsReady}
           onPointerDown={(event) => {
             event.preventDefault()
-            audioEngine.triggerSample()
+            audioEngine.triggerSample(PAD_A_SAMPLE_ID)
           }}
         >
           <span>PLAY SAMPLE</span>

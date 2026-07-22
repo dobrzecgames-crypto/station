@@ -4,7 +4,7 @@ Station is a desktop-browser sampler groovebox for turning audio samples into pl
 
 ## Current status
 
-The repository is moving from **M0 — Project Definition** into **M1 — Audio Proof of Concept**. M1 is intentionally minimal: start Web Audio after a user gesture, import one WAV file and trigger it from one pad using mouse or keyboard.
+The repository is in **M2 — Audio Engine Foundation**. M1 validated the desktop Web Audio path; M2 hardens the internal engine while retaining the same one-pad proof-of-concept interface.
 
 ## Product principles
 
@@ -53,7 +53,7 @@ Tone.js, WebAssembly, PWA packaging, Capacitor and any native implementation are
 
 No implementation phase begins until its scope and acceptance criteria are approved.
 
-## M1 audio proof of concept
+## M1–M2 audio proof of concept
 
 ### Prerequisites
 
@@ -72,6 +72,6 @@ pnpm build
 
 Open the local URL printed by `pnpm dev`. Select **START AUDIO**, choose one WAV file, then trigger it with the visible pad or the `A` key. Hold `A` to verify that browser keyboard repeat does not create additional triggers.
 
-### M1 limitations
+### Current limitations
 
-M1 is deliberately limited to one non-persistent WAV sample and one pad. It has no sequencer, transport, project saving, effects, volume or pitch controls. Audio must be explicitly started after each page reload; switching tabs may cause a browser to suspend audio, in which case use **START AUDIO** again.
+The interface remains deliberately limited to one non-persistent WAV sample and one pad. M2 internally supports a sample registry, overlapping voices, per-trigger gain and semitone pitch, and a master output, but exposes no additional controls yet. There is no sequencer, transport, project saving, effects, volume or pitch UI. Audio must be explicitly started after each page reload; switching tabs may cause a browser to suspend audio, in which case use **START AUDIO** again.

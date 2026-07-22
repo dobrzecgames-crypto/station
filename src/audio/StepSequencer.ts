@@ -2,12 +2,13 @@ import type { AudioEngine, SampleId, TriggerSampleOptions } from './AudioEngine'
 
 export interface StepSequencerConfig {
   bpm: number
+  swing: number
   tracks: readonly StepSequencerTrack[]
 }
 
 export interface StepSequencerTrack {
   sampleId: SampleId
-  steps: readonly boolean[]
+  steps: readonly number[]
   options: TriggerSampleOptions
 }
 
@@ -21,12 +22,12 @@ export class StepSequencer {
 
   constructor(private readonly audioEngine: AudioEngine) {}
 
-  start(config: StepSequencerConfig): void {
+  start(getConfig: () => StepSequencerConfig): void {
     if (this.running) return
     this.running = true
     this.nextStepIndex = 0
     this.nextStepTime = this.audioEngine.getCurrentTime()
-    this.schedule(config)
+    this.schedule(getConfig)
   }
 
   stop(): void {
@@ -37,17 +38,20 @@ export class StepSequencer {
 
   isRunning(): boolean { return this.running }
 
-  private schedule(config: StepSequencerConfig): void {
+  private schedule(getConfig: () => StepSequencerConfig): void {
     if (!this.running) return
+    const config = getConfig()
     const now = this.audioEngine.getCurrentTime()
     const stepDuration = 60 / config.bpm / 4
     while (this.nextStepTime < now + this.lookAheadSeconds) {
+      const scheduledTime = this.nextStepTime + (this.nextStepIndex % 2 === 1 ? stepDuration * config.swing * 0.5 : 0)
       for (const track of config.tracks) {
-        if (track.steps[this.nextStepIndex]) this.audioEngine.scheduleSample(track.sampleId, this.nextStepTime, track.options)
+        const velocity = track.steps[this.nextStepIndex]
+        if (velocity > 0) this.audioEngine.scheduleSample(track.sampleId, scheduledTime, { ...track.options, gain: (track.options.gain ?? 1) * velocity })
       }
       this.nextStepIndex = (this.nextStepIndex + 1) % 16
       this.nextStepTime += stepDuration
     }
-    this.timer = window.setTimeout(() => this.schedule(config), this.wakeIntervalMilliseconds)
+    this.timer = window.setTimeout(() => this.schedule(getConfig), this.wakeIntervalMilliseconds)
   }
 }

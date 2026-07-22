@@ -4,7 +4,7 @@ This file defines the working rules for coding agents in the Station repository.
 
 ## Product boundary
 
-Station is a browser-first sampler groovebox. It is not a general-purpose DAW.
+Station is a desktop-browser sampler groovebox. It is not a general-purpose DAW.
 
 Do not add features merely because they are common in Ableton Live, FL Studio, Logic, MPC software or other production tools. Every implementation must support the core path:
 
@@ -12,7 +12,9 @@ Do not add features merely because they are common in Ableton Live, FL Studio, L
 
 ## Current phase
 
-The project is currently in M0 — Project Definition. Do not create application code, install dependencies or scaffold React/Vite unless the task explicitly authorizes it.
+The project is currently in M1 — Audio Proof of Concept. The only approved implementation scope is `docs/tasks/M1_AUDIO_PROOF_OF_CONCEPT.md`.
+
+Do not begin M2 or add product functionality beyond that task until M1 has been explicitly accepted. Project code, dependencies and a React/Vite scaffold are permitted only where the approved M1 task requires them.
 
 ## Agent behavior
 
@@ -32,7 +34,7 @@ During implementation:
 - Never use React rendering, animation frames, `setTimeout` or `setInterval` as the source of truth for audio timing.
 - Use `AudioContext.currentTime` and an approved scheduling strategy for audio events.
 - Do not add Tone.js, WebAssembly, Capacitor, JUCE or another major dependency without an explicit architectural decision.
-- Preserve browser-first and mobile-browser compatibility.
+- Preserve desktop-browser compatibility for current Chrome and Edge on Windows.
 - Prefer clear TypeScript types and small modules over clever patterns.
 
 ## Required completion report
@@ -63,10 +65,9 @@ Do not begin the next milestone without an explicit instruction.
 
 ## Testing priority
 
-When implementation begins, the minimum browser matrix is:
+For M1, the required browser matrix is:
 
-- Chromium desktop on Windows
-- Safari on iPhone
-- Chrome on Android
+- Current Chrome on Windows
+- Current Edge on Windows
 
-Firefox and Edge are useful secondary checks. Real mobile-device tests are mandatory for audio milestones; desktop emulation is not sufficient.
+Do not claim that the WAV import and playback path was tested unless a real WAV was manually loaded and triggered with both mouse and keyboard in each required browser. Mobile-browser testing is outside the approved M1 scope.

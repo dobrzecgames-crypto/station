@@ -12,6 +12,9 @@ export interface TriggerSampleOptions {
   pitchSemitones?: number
 }
 
+export type PumpCurve = 'snap' | 'smooth' | 'swell'
+export interface PumpConfig { sourceSampleId: SampleId | null; targetSampleIds: readonly SampleId[]; depth: number; lengthSeconds: number; curve: PumpCurve }
+
 interface ActiveVoice {
   source: AudioBufferSourceNode
   gain: GainNode
@@ -21,6 +24,8 @@ interface ActiveVoice {
 export class AudioEngine {
   private context: AudioContext | undefined
   private masterGain: GainNode | undefined
+  private padGains = new Map<SampleId, GainNode>()
+  private pumpConfig: PumpConfig = { sourceSampleId: null, targetSampleIds: [], depth: 0, lengthSeconds: 0.2, curve: 'smooth' }
   private samples = new Map<SampleId, AudioBuffer>()
   private activeVoices = new Set<ActiveVoice>()
   private status: AudioEngineStatus = 'inactive'
@@ -85,6 +90,8 @@ export class AudioEngine {
     return this.samples.delete(sampleId)
   }
 
+  setPumpConfig(config: PumpConfig): void { this.pumpConfig = config }
+
   triggerSample(sampleId: SampleId, options: TriggerSampleOptions = {}): void {
     if (!this.context) {
       return
@@ -107,10 +114,11 @@ export class AudioEngine {
     gain.gain.setValueAtTime(this.toGain(options.gain), when)
     source.playbackRate.setValueAtTime(this.toPlaybackRate(options.pitchSemitones), when)
     source.connect(gain)
-    gain.connect(this.masterGain)
+    gain.connect(this.getPadGain(sampleId))
     source.addEventListener('ended', () => this.cleanUpVoice(voice), { once: true })
 
     this.activeVoices.add(voice)
+    if (sampleId === this.pumpConfig.sourceSampleId) this.triggerPump(when)
     source.start(when)
   }
 
@@ -136,6 +144,8 @@ export class AudioEngine {
   dispose(): void {
     this.stopAll()
     this.samples.clear()
+    for (const padGain of this.padGains.values()) padGain.disconnect()
+    this.padGains.clear()
     this.masterGain?.disconnect()
 
     if (this.context && this.context.state !== 'closed') {
@@ -152,6 +162,31 @@ export class AudioEngine {
     masterGain.gain.setValueAtTime(1, context.currentTime)
     masterGain.connect(context.destination)
     return masterGain
+  }
+
+  private getPadGain(sampleId: SampleId): GainNode {
+    const existing = this.padGains.get(sampleId)
+    if (existing) return existing
+    const padGain = this.context!.createGain()
+    padGain.gain.setValueAtTime(1, this.context!.currentTime)
+    padGain.connect(this.masterGain!)
+    this.padGains.set(sampleId, padGain)
+    return padGain
+  }
+
+  private triggerPump(when: number): void {
+    const { depth, lengthSeconds, curve, targetSampleIds } = this.pumpConfig
+    for (const sampleId of targetSampleIds) {
+      if (sampleId === this.pumpConfig.sourceSampleId) continue
+      const gain = this.getPadGain(sampleId).gain
+      const low = Math.max(0, 1 - depth)
+      gain.cancelScheduledValues(when)
+      gain.setValueAtTime(gain.value, when)
+      gain.linearRampToValueAtTime(low, when + 0.005)
+      if (curve === 'snap') gain.setValueAtTime(1, when + lengthSeconds)
+      else if (curve === 'smooth') gain.exponentialRampToValueAtTime(1, when + lengthSeconds)
+      else gain.linearRampToValueAtTime(1, when + lengthSeconds)
+    }
   }
 
   private cleanUpVoice(voice: ActiveVoice): void {

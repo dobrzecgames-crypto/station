@@ -30,6 +30,11 @@ export function App({ audioEngine }: AppProps) {
   const [swing, setSwing] = useState(0)
   const [patterns, setPatterns] = useState<Record<PadState['id'], number[]>>(() => Object.fromEntries(createPadBank().map((pad) => [pad.id, Array(16).fill(0)])))
   const [isPlaying, setIsPlaying] = useState(false)
+  const [pumpSourceId, setPumpSourceId] = useState<string | null>(null)
+  const [pumpTargets, setPumpTargets] = useState<string[]>([])
+  const [pumpDepth, setPumpDepth] = useState(0.5)
+  const [pumpLengthBeats, setPumpLengthBeats] = useState(0.5)
+  const [pumpCurve, setPumpCurve] = useState<'snap' | 'smooth' | 'swell'>('smooth')
   const sequencerRef = useRef(new StepSequencer(audioEngine))
   const selectedPad = pads.find((pad) => pad.id === selectedPadId)!
   const audioReady = audioStatus === 'ready'
@@ -44,6 +49,10 @@ export function App({ audioEngine }: AppProps) {
       options: { gain: pad.gain, pitchSemitones: pad.pitchSemitones },
     })),
   }
+
+  useEffect(() => {
+    audioEngine.setPumpConfig({ sourceSampleId: pumpSourceId, targetSampleIds: pumpTargets, depth: pumpDepth, lengthSeconds: 60 / bpm * pumpLengthBeats, curve: pumpCurve })
+  }, [audioEngine, bpm, pumpCurve, pumpDepth, pumpLengthBeats, pumpSourceId, pumpTargets])
 
   useEffect(() => () => sequencerRef.current.stop(), [])
 
@@ -156,6 +165,14 @@ export function App({ audioEngine }: AppProps) {
           <PadEditor pad={selectedPad} audioReady={audioReady} onImport={(event) => void loadSelectedPad(event)} onUpdate={updateSelectedPad} onClear={clearSelectedPad} />
         </div>
           <SequencerControls bpm={bpm} swing={swing} isPlaying={isPlaying} steps={patterns[selectedPad.id]} padLabel={selectedPad.label} loadedTrackCount={pads.filter((pad) => pad.fileName).length} onBpmChange={setBpm} onSwingChange={setSwing} onToggleStep={toggleStep} onTogglePlayback={togglePlayback} />
+          <section className="sequencer" aria-labelledby="pump-title">
+            <p className="eyebrow">BASIC PUMP</p><h2 id="pump-title">{pumpSourceId === selectedPad.id ? 'Kick source selected' : 'Select kick source or target'}</h2>
+            <button className="transport-button" type="button" onClick={() => setPumpSourceId(selectedPad.id)}>SET {selectedPad.label} AS KICK</button>
+            <label className="file-picker"><span><input type="checkbox" checked={pumpTargets.includes(selectedPad.id)} onChange={() => setPumpTargets((targets) => targets.includes(selectedPad.id) ? targets.filter((id) => id !== selectedPad.id) : [...targets, selectedPad.id])} /> Pump selected pad</span></label>
+            <label className="bpm-control">DEPTH <output>{Math.round(pumpDepth * 100)}%</output><input type="range" min="0" max="1" step="0.01" value={pumpDepth} onChange={(event) => setPumpDepth(Number(event.target.value))} /></label>
+            <label className="bpm-control">LENGTH <output>{pumpLengthBeats} beat</output><input type="range" min="0.25" max="1" step="0.25" value={pumpLengthBeats} onChange={(event) => setPumpLengthBeats(Number(event.target.value))} /></label>
+            <div className="pump-curves">{(['snap', 'smooth', 'swell'] as const).map((curve) => <button key={curve} className={`step ${pumpCurve === curve ? 'step-full' : ''}`} type="button" onClick={() => setPumpCurve(curve)}>{curve.toUpperCase()}</button>)}</div>
+          </section>
       </section>
     </main>
   )

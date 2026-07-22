@@ -206,7 +206,6 @@ export function App({ audioEngine }: AppProps) {
     const nextSlices = currentSlices.flatMap((currentSlice, index) => index === splitIndex ? [{ ...currentSlice, endSeconds: timeSeconds }, newSlice] : [currentSlice])
     setPads((currentPads) => currentPads.map((pad) => pad.id === selectedPad.id ? { ...pad, slices: nextSlices } : pad))
     setActiveSliceId(newSlice.id)
-    setAddingSlice(false)
   }
 
   const moveCut = (cutIndex: number, timeSeconds: number) => {

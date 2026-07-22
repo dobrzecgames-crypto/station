@@ -193,7 +193,6 @@ Exit criteria:
 ### M9 — Chop
 
 - reverse and gate/loop decisions,
-- manual slices,
 - equal auto-chop,
 - distribute slices to pads.
 

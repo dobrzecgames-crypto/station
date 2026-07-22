@@ -68,6 +68,10 @@ Each loaded pad has one non-destructive playback region:
 
 The region is bounded by the decoded sample duration and has a small positive minimum length. Importing a replacement sample resets the region to the new file's full duration. The region is a playback setting, not a copied or cropped SampleAsset.
 
+### SampleSlice
+
+A manual slice is another non-destructive region of one shared SampleAsset. It has a stable ID, source asset ID, start seconds and end seconds. Slice boundaries are ordered, do not overlap and are capped at 16 slices per source pad. Assigning slices to pads copies only the asset reference and per-pad region settings.
+
 ### ChannelState
 
 Each of the 16 stable pad IDs also identifies one fixed runtime mixer channel. The UI state contains `id`, `volume`, `muted` and `solo`; the matching Web Audio GainNodes remain engine-owned runtime state and are never placed in React state or serialized as nodes.

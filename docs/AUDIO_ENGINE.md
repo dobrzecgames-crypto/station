@@ -65,6 +65,10 @@ Each pad supplies a non-destructive start and end time for new voices. The engin
 
 After WAV decoding, the engine reduces the decoded buffer to cached amplitude peaks per stable sample ID. React receives only a copied peak snapshot for canvas drawing, never an `AudioBuffer` or an audio node. The cache is removed with its sample and is not rebuilt during triggers or scheduling.
 
+### Shared sample assets
+
+Decoded buffers and waveform caches are keyed by `SampleAssetId`, while channel routing and Pump source events remain keyed by pad ID. A trigger supplies both IDs: the engine reads the shared asset while routing the resulting voice through the requesting pad's channel. Several pads can therefore use different regions of one decoded asset without duplicating the `AudioBuffer`.
+
 ## Voice management
 
 The engine should maintain enough internal information to:

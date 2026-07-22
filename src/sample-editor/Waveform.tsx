@@ -1,18 +1,24 @@
 import { useEffect, useRef } from 'react'
-import type { SamplePlaybackRegion } from '../pads/types'
+import type { SamplePlaybackRegion, SampleSlice } from '../pads/types'
 
 interface WaveformProps {
   peaks: readonly number[]
   durationSeconds: number
   region: SamplePlaybackRegion
+  slices: readonly SampleSlice[]
+  activeSliceId: string | null
+  addingSlice: boolean
   onRegionChange: (region: SamplePlaybackRegion) => void
+  onAddSlice: (timeSeconds: number) => void
+  onMoveCut: (cutIndex: number, timeSeconds: number) => void
+  onSelectSlice: (sliceId: string) => void
 }
 
-type DragHandle = 'start' | 'end' | null
+type DragState = { kind: 'start' | 'end' } | { kind: 'cut'; index: number } | null
 
-export function Waveform({ peaks, durationSeconds, region, onRegionChange }: WaveformProps) {
+export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId, addingSlice, onRegionChange, onAddSlice, onMoveCut, onSelectSlice }: WaveformProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const dragHandleRef = useRef<DragHandle>(null)
+  const dragStateRef = useRef<DragState>(null)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -38,6 +44,12 @@ export function Waveform({ peaks, durationSeconds, region, onRegionChange }: Wav
       context.fillRect(0, 0, startX, height)
       context.fillRect(endX, 0, width - endX, height)
 
+      const activeSlice = slices.find((slice) => slice.id === activeSliceId)
+      if (activeSlice) {
+        context.fillStyle = 'rgb(243 180 79 / 16%)'
+        context.fillRect(width * activeSlice.startSeconds / durationSeconds, 0, width * (activeSlice.endSeconds - activeSlice.startSeconds) / durationSeconds, height)
+      }
+
       const centerY = height / 2
       context.strokeStyle = '#75d28a'
       context.lineWidth = 1
@@ -58,46 +70,81 @@ export function Waveform({ peaks, durationSeconds, region, onRegionChange }: Wav
         context.lineTo(x, height)
         context.stroke()
       }
+
+      context.strokeStyle = '#7bb7ff'
+      context.fillStyle = '#d9ebff'
+      context.font = '700 11px Inter, sans-serif'
+      slices.forEach((slice, index) => {
+        if (index < slices.length - 1) {
+          const cutX = width * slice.endSeconds / durationSeconds
+          context.beginPath()
+          context.moveTo(cutX, 0)
+          context.lineTo(cutX, height)
+          context.stroke()
+        }
+        const labelX = width * ((slice.startSeconds + slice.endSeconds) / 2) / durationSeconds
+        context.fillText(String(index + 1), labelX + 4, 14)
+      })
     }
 
     const resizeObserver = new ResizeObserver(draw)
     resizeObserver.observe(canvas)
     draw()
     return () => resizeObserver.disconnect()
-  }, [durationSeconds, peaks, region])
+  }, [activeSliceId, durationSeconds, peaks, region, slices])
+
+  const timeFromPointer = (clientX: number): number | null => {
+    const canvas = canvasRef.current
+    if (!canvas) return null
+    const rect = canvas.getBoundingClientRect()
+    return Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)) * durationSeconds
+  }
 
   const updateFromPointer = (clientX: number) => {
-    const canvas = canvasRef.current
-    const dragHandle = dragHandleRef.current
-    if (!canvas || !dragHandle) return
-    const rect = canvas.getBoundingClientRect()
-    const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
-    const position = ratio * durationSeconds
+    const timeSeconds = timeFromPointer(clientX)
+    const dragState = dragStateRef.current
+    if (timeSeconds === null || !dragState) return
     const minimumLength = Math.min(0.01, durationSeconds)
 
-    if (dragHandle === 'start') {
-      onRegionChange({ startSeconds: Math.min(position, region.endSeconds - minimumLength), endSeconds: region.endSeconds })
-    } else {
-      onRegionChange({ startSeconds: region.startSeconds, endSeconds: Math.max(position, region.startSeconds + minimumLength) })
+    if (dragState.kind === 'start') {
+      onRegionChange({ startSeconds: Math.min(timeSeconds, region.endSeconds - minimumLength), endSeconds: region.endSeconds })
+    } else if (dragState.kind === 'end') {
+      onRegionChange({ startSeconds: region.startSeconds, endSeconds: Math.max(timeSeconds, region.startSeconds + minimumLength) })
+    } else if (dragState.kind === 'cut') {
+      onMoveCut(dragState.index, timeSeconds)
     }
   }
 
   return (
     <canvas
       ref={canvasRef}
-      className="waveform"
+      className={`waveform ${addingSlice ? 'waveform-adding-slice' : ''}`}
       role="img"
-      aria-label="Sample waveform with draggable start and end handles"
+      aria-label="Sample waveform with playback handles and slice markers"
       onPointerDown={(event) => {
-        const rect = event.currentTarget.getBoundingClientRect()
-        const position = (event.clientX - rect.left) / rect.width * durationSeconds
-        dragHandleRef.current = Math.abs(position - region.startSeconds) <= Math.abs(position - region.endSeconds) ? 'start' : 'end'
-        event.currentTarget.setPointerCapture(event.pointerId)
-        updateFromPointer(event.clientX)
+        const timeSeconds = timeFromPointer(event.clientX)
+        if (timeSeconds === null) return
+        const canvas = event.currentTarget
+        const markerThreshold = durationSeconds * 12 / canvas.getBoundingClientRect().width
+        const cutIndex = slices.slice(0, -1).findIndex((slice) => Math.abs(slice.endSeconds - timeSeconds) <= markerThreshold)
+        if (cutIndex >= 0) {
+          dragStateRef.current = { kind: 'cut', index: cutIndex }
+          onSelectSlice(slices[cutIndex].id)
+        } else if (addingSlice) {
+          onAddSlice(timeSeconds)
+          return
+        } else {
+          const matchingSlice = slices.find((slice) => timeSeconds >= slice.startSeconds && timeSeconds <= slice.endSeconds)
+          if (matchingSlice) onSelectSlice(matchingSlice.id)
+          if (Math.abs(timeSeconds - region.startSeconds) <= markerThreshold) dragStateRef.current = { kind: 'start' }
+          else if (Math.abs(timeSeconds - region.endSeconds) <= markerThreshold) dragStateRef.current = { kind: 'end' }
+          else return
+        }
+        canvas.setPointerCapture(event.pointerId)
       }}
       onPointerMove={(event) => updateFromPointer(event.clientX)}
-      onPointerUp={() => { dragHandleRef.current = null }}
-      onPointerCancel={() => { dragHandleRef.current = null }}
+      onPointerUp={() => { dragStateRef.current = null }}
+      onPointerCancel={() => { dragStateRef.current = null }}
     />
   )
 }

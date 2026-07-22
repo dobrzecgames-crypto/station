@@ -1,4 +1,4 @@
-import type { SampleId } from '../audio/AudioEngine'
+import type { SampleAssetId, SampleId } from '../audio/AudioEngine'
 
 export interface ChannelState {
   id: SampleId
@@ -12,11 +12,18 @@ export interface SamplePlaybackRegion {
   endSeconds: number
 }
 
+export interface SampleSlice extends SamplePlaybackRegion {
+  id: string
+  sourceAssetId: SampleAssetId
+}
+
 export interface PadState extends ChannelState {
   label: string
+  assetId: SampleAssetId | null
   fileName: string | null
   durationSeconds: number | null
   region: SamplePlaybackRegion
+  slices: SampleSlice[]
   pitchSemitones: number
 }
 

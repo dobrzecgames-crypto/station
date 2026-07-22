@@ -35,9 +35,11 @@ export function createPadBank(): PadState[] {
   return padDefinitions.map((pad) => ({
     id: pad.id,
     label: pad.label,
+    assetId: null,
     fileName: null,
     durationSeconds: null,
     region: { startSeconds: 0, endSeconds: 0 },
+    slices: [],
     volume: 1,
     muted: false,
     solo: false,

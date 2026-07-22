@@ -1,4 +1,5 @@
 export type SampleId = string
+export type SampleAssetId = string
 
 export type AudioEngineStatus = 'inactive' | 'starting' | 'ready' | 'error'
 
@@ -84,7 +85,7 @@ export class AudioEngine {
     }
   }
 
-  async loadSample(sampleId: SampleId, file: File): Promise<LoadedSampleInfo> {
+  async loadSample(assetId: SampleAssetId, file: File): Promise<LoadedSampleInfo> {
     if (this.status !== 'ready' || !this.context) {
       throw new Error('Start audio before loading a sample.')
     }
@@ -97,8 +98,8 @@ export class AudioEngine {
       const audioData = await file.arrayBuffer()
       const decodedBuffer = await this.context.decodeAudioData(audioData)
 
-      this.samples.set(sampleId, decodedBuffer)
-      this.waveforms.set(sampleId, this.createWaveform(decodedBuffer))
+      this.samples.set(assetId, decodedBuffer)
+      this.waveforms.set(assetId, this.createWaveform(decodedBuffer))
       return {
         filename: file.name,
         durationSeconds: decodedBuffer.duration,
@@ -108,17 +109,17 @@ export class AudioEngine {
     }
   }
 
-  hasSample(sampleId: SampleId): boolean {
-    return this.samples.has(sampleId)
+  hasSampleAsset(assetId: SampleAssetId): boolean {
+    return this.samples.has(assetId)
   }
 
-  removeSample(sampleId: SampleId): boolean {
-    this.waveforms.delete(sampleId)
-    return this.samples.delete(sampleId)
+  removeSampleAsset(assetId: SampleAssetId): boolean {
+    this.waveforms.delete(assetId)
+    return this.samples.delete(assetId)
   }
 
-  getWaveformPeaks(sampleId: SampleId): number[] | undefined {
-    return this.waveforms.get(sampleId)?.slice()
+  getWaveformPeaks(assetId: SampleAssetId): number[] | undefined {
+    return this.waveforms.get(assetId)?.slice()
   }
 
   setChannelVolume(sampleId: SampleId, volume: number): void {
@@ -146,17 +147,17 @@ export class AudioEngine {
     this.pumpConfig = config
   }
 
-  triggerSample(sampleId: SampleId, options: TriggerSampleOptions = {}): void {
+  triggerSample(padId: SampleId, assetId: SampleAssetId, options: TriggerSampleOptions = {}): void {
     if (!this.context) {
       return
     }
 
-    this.scheduleSample(sampleId, this.context.currentTime, options)
+    this.scheduleSample(padId, assetId, this.context.currentTime, options)
   }
 
-  scheduleSample(sampleId: SampleId, when: number, options: TriggerSampleOptions = {}): void {
-    const sampleBuffer = this.samples.get(sampleId)
-    const channel = this.channels.get(sampleId)
+  scheduleSample(padId: SampleId, assetId: SampleAssetId, when: number, options: TriggerSampleOptions = {}): void {
+    const sampleBuffer = this.samples.get(assetId)
+    const channel = this.channels.get(padId)
 
     if (this.status !== 'ready' || !this.context || !this.masterGain || !sampleBuffer || !channel?.gain) {
       return
@@ -181,7 +182,7 @@ export class AudioEngine {
     source.addEventListener('ended', () => this.cleanUpVoice(voice), { once: true })
 
     this.activeVoices.add(voice)
-    if (sampleId === this.pumpConfig.sourceSampleId) this.triggerPump(when)
+    if (padId === this.pumpConfig.sourceSampleId) this.triggerPump(when)
     source.start(when, region.startSeconds, region.durationSeconds)
   }
 

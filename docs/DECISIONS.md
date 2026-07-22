@@ -153,3 +153,16 @@ Consequences:
 - region edits affect only future voices,
 - waveform drawing does not perform per-render or scheduler-time analysis,
 - chop and slicing remain separate future workflows.
+
+## DEC-011 — Shared sample assets are separate from pad configuration
+
+**Status:** Accepted
+
+AudioEngine stores decoded buffers and waveform peaks by `SampleAssetId`. A pad holds an optional asset reference plus its own playback region, pitch, channel state and pattern. Every trigger passes the requesting pad ID for routing and the asset ID for buffer lookup.
+
+Consequences:
+
+- slice assignment can distribute one decoded asset to several pads without copying or decoding it again,
+- each assigned pad has an independent region and musical settings,
+- replacing a source pad's asset clears pads that depended on its prior asset rather than guessing how to remap old slice boundaries,
+- AudioBuffer ownership remains entirely in the engine.

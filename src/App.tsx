@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
-import type { AudioEngine, AudioEngineStatus } from './audio/AudioEngine'
+import type { AudioEngine, AudioEngineStatus, SampleAssetId } from './audio/AudioEngine'
 import { StepSequencer } from './audio/StepSequencer'
 import { Mixer } from './mixer/Mixer'
 import { createPadBank, padIdByKeyCode } from './pads/padBank'
 import { PadEditor } from './pads/PadEditor'
 import { PadGrid } from './pads/PadGrid'
-import type { PadState, SamplePlaybackRegion } from './pads/types'
+import type { PadState, SamplePlaybackRegion, SampleSlice } from './pads/types'
 import { SampleEditor } from './sample-editor/SampleEditor'
 import { SequencerControls } from './sequencer/SequencerControls'
 import './App.css'
@@ -20,6 +20,21 @@ const statusLabels: Record<AudioEngineStatus, string> = {
   starting: 'Starting audio…',
   ready: 'Audio ready',
   error: 'Audio error',
+}
+
+let nextAssetNumber = 1
+let nextSliceNumber = 1
+
+function createAssetId(padId: string): SampleAssetId {
+  return `asset-${padId}-${nextAssetNumber++}`
+}
+
+function createSliceId(padId: string): string {
+  return `slice-${padId}-${nextSliceNumber++}`
+}
+
+function clearPadAssignment(pad: PadState): PadState {
+  return { ...pad, assetId: null, fileName: null, durationSeconds: null, region: { startSeconds: 0, endSeconds: 0 }, slices: [] }
 }
 
 export function App({ audioEngine }: AppProps) {
@@ -37,17 +52,20 @@ export function App({ audioEngine }: AppProps) {
   const [pumpDepth, setPumpDepth] = useState(0.5)
   const [pumpLengthBeats, setPumpLengthBeats] = useState(0.5)
   const [pumpCurve, setPumpCurve] = useState<'snap' | 'smooth' | 'swell'>('smooth')
-  const [waveforms, setWaveforms] = useState<Record<PadState['id'], number[]>>({})
+  const [waveforms, setWaveforms] = useState<Record<string, number[]>>({})
+  const [activeSliceId, setActiveSliceId] = useState<string | null>(null)
+  const [addingSlice, setAddingSlice] = useState(false)
   const sequencerRef = useRef(new StepSequencer(audioEngine))
   const selectedPad = pads.find((pad) => pad.id === selectedPadId)!
   const audioReady = audioStatus === 'ready'
-  const sequenceConfigRef = useRef({ bpm, swing, tracks: [] as { sampleId: string; steps: number[]; options: { pitchSemitones: number; startSeconds: number; endSeconds: number } }[] })
+  const sequenceConfigRef = useRef({ bpm, swing, tracks: [] as { sampleId: string; assetId: SampleAssetId; steps: number[]; options: { pitchSemitones: number; startSeconds: number; endSeconds: number } }[] })
 
   sequenceConfigRef.current = {
     bpm,
     swing,
-    tracks: pads.filter((pad) => audioEngine.hasSample(pad.id)).map((pad) => ({
+    tracks: pads.filter((pad): pad is PadState & { assetId: SampleAssetId } => pad.assetId !== null && audioEngine.hasSampleAsset(pad.assetId)).map((pad) => ({
       sampleId: pad.id,
+      assetId: pad.assetId,
       steps: patterns[pad.id],
       options: { pitchSemitones: pad.pitchSemitones, startSeconds: pad.region.startSeconds, endSeconds: pad.region.endSeconds },
     })),
@@ -62,10 +80,12 @@ export function App({ audioEngine }: AppProps) {
   const triggerPad = (padId: PadState['id']) => {
     const pad = pads.find((candidate) => candidate.id === padId)
     setSelectedPadId(padId)
-    if (!pad || !audioReady || !audioEngine.hasSample(padId)) {
+    setActiveSliceId(null)
+    setAddingSlice(false)
+    if (!pad || !pad.assetId || !audioReady || !audioEngine.hasSampleAsset(pad.assetId)) {
       return
     }
-    audioEngine.triggerSample(padId, { pitchSemitones: pad.pitchSemitones, startSeconds: pad.region.startSeconds, endSeconds: pad.region.endSeconds })
+    audioEngine.triggerSample(padId, pad.assetId, { pitchSemitones: pad.pitchSemitones, startSeconds: pad.region.startSeconds, endSeconds: pad.region.endSeconds })
     setActivePadId(padId)
   }
 
@@ -125,22 +145,38 @@ export function App({ audioEngine }: AppProps) {
     }
     setErrorMessage(undefined)
     try {
-      const loadedSample = await audioEngine.loadSample(selectedPadId, file)
-      const waveform = audioEngine.getWaveformPeaks(selectedPadId) ?? []
-      setPads((currentPads) => currentPads.map((pad) => (pad.id === selectedPadId ? { ...pad, fileName: loadedSample.filename, durationSeconds: loadedSample.durationSeconds, region: { startSeconds: 0, endSeconds: loadedSample.durationSeconds } } : pad)))
-      setWaveforms((currentWaveforms) => ({ ...currentWaveforms, [selectedPadId]: waveform }))
+      const assetId = createAssetId(selectedPadId)
+      const loadedSample = await audioEngine.loadSample(assetId, file)
+      const waveform = audioEngine.getWaveformPeaks(assetId) ?? []
+      const previousAssetId = selectedPad.assetId
+      if (previousAssetId) audioEngine.removeSampleAsset(previousAssetId)
+      setPads((currentPads) => currentPads.map((pad) => {
+        if (pad.id === selectedPadId) return { ...pad, assetId, fileName: loadedSample.filename, durationSeconds: loadedSample.durationSeconds, region: { startSeconds: 0, endSeconds: loadedSample.durationSeconds }, slices: [] }
+        if (pad.assetId === previousAssetId) return clearPadAssignment(pad)
+        return pad
+      }))
+      setWaveforms((currentWaveforms) => {
+        const { [previousAssetId ?? '']: _, ...remainingWaveforms } = currentWaveforms
+        return { ...remainingWaveforms, [assetId]: waveform }
+      })
+      setActiveSliceId(null)
+      setAddingSlice(false)
     } catch (error) {
       setErrorMessage(toMessage(error))
     }
   }
 
   const clearSelectedPad = () => {
-    audioEngine.removeSample(selectedPadId)
-    setPads((currentPads) => currentPads.map((pad) => (pad.id === selectedPadId ? { ...pad, fileName: null, durationSeconds: null, region: { startSeconds: 0, endSeconds: 0 }, pitchSemitones: 0 } : pad)))
-    setWaveforms((currentWaveforms) => {
-      const { [selectedPadId]: _, ...remainingWaveforms } = currentWaveforms
+    const assetId = selectedPad.assetId
+    const stillAssignedElsewhere = assetId ? pads.some((pad) => pad.id !== selectedPadId && pad.assetId === assetId) : false
+    if (assetId && !stillAssignedElsewhere) audioEngine.removeSampleAsset(assetId)
+    setPads((currentPads) => currentPads.map((pad) => (pad.id === selectedPadId ? clearPadAssignment(pad) : pad)))
+    if (!stillAssignedElsewhere) setWaveforms((currentWaveforms) => {
+      const { [assetId ?? '']: _, ...remainingWaveforms } = currentWaveforms
       return remainingWaveforms
     })
+    setActiveSliceId(null)
+    setAddingSlice(false)
     setActivePadId((currentPadId) => (currentPadId === selectedPadId ? null : currentPadId))
   }
 
@@ -156,6 +192,76 @@ export function App({ audioEngine }: AppProps) {
   const resetSelectedRegion = () => {
     if (!selectedPad.durationSeconds) return
     updateSelectedRegion({ startSeconds: 0, endSeconds: selectedPad.durationSeconds })
+  }
+
+  const addSlice = (timeSeconds: number) => {
+    if (!selectedPad.assetId || !selectedPad.durationSeconds) return
+    const minimumLength = Math.min(0.01, selectedPad.durationSeconds)
+    const currentSlices = selectedPad.slices.length > 0 ? selectedPad.slices : [{ id: createSliceId(selectedPad.id), sourceAssetId: selectedPad.assetId, startSeconds: 0, endSeconds: selectedPad.durationSeconds }]
+    if (currentSlices.length >= 16) return
+    const splitIndex = currentSlices.findIndex((slice) => timeSeconds > slice.startSeconds + minimumLength && timeSeconds < slice.endSeconds - minimumLength)
+    if (splitIndex < 0) return
+    const slice = currentSlices[splitIndex]
+    const newSlice: SampleSlice = { id: createSliceId(selectedPad.id), sourceAssetId: selectedPad.assetId, startSeconds: timeSeconds, endSeconds: slice.endSeconds }
+    const nextSlices = currentSlices.flatMap((currentSlice, index) => index === splitIndex ? [{ ...currentSlice, endSeconds: timeSeconds }, newSlice] : [currentSlice])
+    setPads((currentPads) => currentPads.map((pad) => pad.id === selectedPad.id ? { ...pad, slices: nextSlices } : pad))
+    setActiveSliceId(newSlice.id)
+    setAddingSlice(false)
+  }
+
+  const moveCut = (cutIndex: number, timeSeconds: number) => {
+    const slices = selectedPad.slices
+    const left = slices[cutIndex]
+    const right = slices[cutIndex + 1]
+    if (!left || !right) return
+    const minimumLength = Math.min(0.01, selectedPad.durationSeconds ?? 0.01)
+    const cutTime = Math.min(right.endSeconds - minimumLength, Math.max(left.startSeconds + minimumLength, timeSeconds))
+    const nextSlices = slices.map((slice, index) => index === cutIndex ? { ...slice, endSeconds: cutTime } : index === cutIndex + 1 ? { ...slice, startSeconds: cutTime } : slice)
+    setPads((currentPads) => currentPads.map((pad) => pad.id === selectedPad.id ? { ...pad, slices: nextSlices } : pad))
+  }
+
+  const removeActiveCut = () => {
+    const activeIndex = selectedPad.slices.findIndex((slice) => slice.id === activeSliceId)
+    if (selectedPad.slices.length < 2 || activeIndex < 0) return
+    const cutIndex = activeIndex < selectedPad.slices.length - 1 ? activeIndex : activeIndex - 1
+    const left = selectedPad.slices[cutIndex]
+    const right = selectedPad.slices[cutIndex + 1]
+    const nextSlices = selectedPad.slices.flatMap((slice, index) => index === cutIndex ? [{ ...left, endSeconds: right.endSeconds }] : index === cutIndex + 1 ? [] : [slice])
+    setPads((currentPads) => currentPads.map((pad) => pad.id === selectedPad.id ? { ...pad, slices: nextSlices.length === 1 ? [] : nextSlices } : pad))
+    setActiveSliceId(nextSlices.length === 1 ? null : left.id)
+  }
+
+  const clearSlices = () => {
+    setPads((currentPads) => currentPads.map((pad) => pad.id === selectedPad.id ? { ...pad, slices: [] } : pad))
+    setActiveSliceId(null)
+    setAddingSlice(false)
+  }
+
+  const previewSlice = (slice: SampleSlice) => {
+    if (!audioReady || !selectedPad.assetId || !audioEngine.hasSampleAsset(slice.sourceAssetId)) return
+    audioEngine.triggerSample(selectedPad.id, slice.sourceAssetId, { pitchSemitones: selectedPad.pitchSemitones, startSeconds: slice.startSeconds, endSeconds: slice.endSeconds })
+    setActiveSliceId(slice.id)
+    setActivePadId(selectedPad.id)
+  }
+
+  const assignSlicesToPads = () => {
+    if (!selectedPad.assetId || selectedPad.slices.length === 0 || !selectedPad.durationSeconds) return
+    const startIndex = pads.findIndex((pad) => pad.id === selectedPad.id)
+    const assignableSlices = selectedPad.slices.slice(0, pads.length - startIndex)
+    const targetIds = new Set(pads.slice(startIndex, startIndex + assignableSlices.length).map((pad) => pad.id))
+    const orphanedAssets = new Set(pads.filter((pad) => targetIds.has(pad.id) && pad.assetId && pad.assetId !== selectedPad.assetId).map((pad) => pad.assetId!).filter((assetId) => !pads.some((pad) => !targetIds.has(pad.id) && pad.assetId === assetId)))
+    for (const assetId of orphanedAssets) audioEngine.removeSampleAsset(assetId)
+    setWaveforms((currentWaveforms) => {
+      const nextWaveforms = { ...currentWaveforms }
+      for (const assetId of orphanedAssets) delete nextWaveforms[assetId]
+      return nextWaveforms
+    })
+    setPads((currentPads) => currentPads.map((pad, index) => {
+      const slice = assignableSlices[index - startIndex]
+      if (!slice) return pad
+      return { ...pad, assetId: slice.sourceAssetId, fileName: selectedPad.fileName, durationSeconds: selectedPad.durationSeconds, region: { startSeconds: slice.startSeconds, endSeconds: slice.endSeconds }, slices: pad.id === selectedPad.id ? pad.slices : [] }
+    }))
+    setErrorMessage(selectedPad.slices.length > assignableSlices.length ? `Assigned ${assignableSlices.length} slices. ${selectedPad.slices.length - assignableSlices.length} did not fit in the 16-pad bank.` : undefined)
   }
 
   const toggleStep = (stepIndex: number) => {
@@ -213,7 +319,7 @@ export function App({ audioEngine }: AppProps) {
             <div className="pump-curves">{(['snap', 'smooth', 'swell'] as const).map((curve) => <button key={curve} className={`step ${pumpCurve === curve ? 'step-full' : ''}`} type="button" onClick={() => setPumpCurve(curve)}>{curve.toUpperCase()}</button>)}</div>
           </section>
           <Mixer pads={pads} pumpSourceId={pumpSourceId} pumpTargets={pumpTargets} onVolumeChange={updateChannelVolume} onMutedChange={updateChannelMuted} onSoloChange={updateChannelSolo} />
-          <SampleEditor pad={selectedPad} peaks={waveforms[selectedPad.id] ?? []} audioReady={audioReady} onPreview={() => triggerPad(selectedPad.id)} onRegionChange={updateSelectedRegion} onResetRegion={resetSelectedRegion} />
+          <SampleEditor pad={selectedPad} peaks={selectedPad.assetId ? waveforms[selectedPad.assetId] ?? [] : []} audioReady={audioReady} onPreview={() => triggerPad(selectedPad.id)} onRegionChange={updateSelectedRegion} onResetRegion={resetSelectedRegion} activeSliceId={activeSliceId} addingSlice={addingSlice} onStartAddingSlice={() => setAddingSlice((current) => !current)} onAddSlice={addSlice} onMoveCut={moveCut} onSelectSlice={setActiveSliceId} onPreviewSlice={previewSlice} onRemoveActiveCut={removeActiveCut} onClearSlices={clearSlices} onAssignSlices={assignSlicesToPads} />
       </section>
     </main>
   )

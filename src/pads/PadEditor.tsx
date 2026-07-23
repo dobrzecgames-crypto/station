@@ -9,10 +9,11 @@ interface PadEditorProps {
   onImport: (event: ChangeEvent<HTMLInputElement>) => void
   onUpdate: (changes: Pick<PadState, 'volume' | 'pitchSemitones'>) => void
   onMapToProjectScale: () => void
+  onEditSample: () => void
   onClear: () => void
 }
 
-export function PadEditor({ pad, audioReady, projectBusy, projectKeyLabel, onImport, onUpdate, onMapToProjectScale, onClear }: PadEditorProps) {
+export function PadEditor({ pad, audioReady, projectBusy, projectKeyLabel, onImport, onUpdate, onMapToProjectScale, onEditSample, onClear }: PadEditorProps) {
   return (
     <aside className="pad-editor" aria-labelledby="pad-editor-title">
       <div className="editor-heading">
@@ -43,6 +44,9 @@ export function PadEditor({ pad, audioReady, projectBusy, projectKeyLabel, onImp
         MAP TO PROJECT SCALE
       </button>
       <p className="project-key-summary">{projectKeyLabel}</p>
+      <button className="mixer-toggle edit-sample-button" type="button" onClick={onEditSample}>
+        EDIT SAMPLE
+      </button>
       <button className="clear-button" type="button" disabled={!pad.fileName} onClick={onClear}>
         CLEAR PAD
       </button>

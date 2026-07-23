@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import type { AudioEngine, AudioEngineStatus, SampleAssetId } from './audio/AudioEngine'
 import { createDefaultMasterEffectRack } from './audio/effects'
-import type { CompressorConfig, DelayConfig, EffectRackState } from './audio/effects'
+import type { EffectRackState } from './audio/effects'
 import { createChannelId, sameGroupPadReference } from './audio/channelIdentity'
 import type { GroupPadReference } from './audio/channelIdentity'
 import { StepSequencer } from './audio/StepSequencer'
@@ -11,8 +11,8 @@ import { ChopWorkspace } from './chop/ChopWorkspace'
 import { LibraryWorkspace } from './library/LibraryWorkspace'
 import type { LibrarySample } from './library/builtInLibrary'
 import { Mixer } from './mixer/Mixer'
-import { EffectRackPanel } from './mixer/EffectRackPanel'
 import { GroupMixPanel } from './mixer/GroupMixPanel'
+import { ContextPanel } from './mixer/ContextPanel'
 import { clonePadBank, createPadBank, padIdByKeyCode } from './pads/padBank'
 import type { PadBankState } from './pads/padBank'
 import { PadEditor } from './pads/PadEditor'
@@ -25,6 +25,7 @@ import type { MainView } from './shell/MainNavigation'
 import { TransportBar } from './shell/TransportBar'
 import { collectReferencedAssetIds, createProjectState, projectSchemaVersion, validateProjectState } from './project/ProjectState'
 import { ProjectKeyPanel } from './project/ProjectKeyPanel'
+import { ProjectMenu } from './project/ProjectMenu'
 import { defaultProjectKey, formatProjectKey } from './music/scales'
 import type { ProjectKey } from './music/scales'
 import { findProjectScaleMapConflicts, mapPadBankToProjectScale } from './music/scaleMapping'
@@ -63,6 +64,7 @@ export function App({ audioEngine }: AppProps) {
   const [master, setMaster] = useState({ volume: 1, muted: false })
   const [masterEffects, setMasterEffects] = useState<EffectRackState>(() => createDefaultMasterEffectRack())
   const [activeFxContext, setActiveFxContext] = useState<FxContext | null>(null)
+  const [sampleEditorOpen, setSampleEditorOpen] = useState(false)
   const [patternGroups, setPatternGroups] = useState<PatternGroup[]>(() => createInitialPatternGroups(createPadBank().map((pad) => pad.id)))
   const [selectedPatternGroupId, setSelectedPatternGroupId] = useState('pattern-group-1')
   const [selectedPatternVariant, setSelectedPatternVariant] = useState<PatternVariantName>('A')
@@ -330,13 +332,6 @@ export function App({ audioEngine }: AppProps) {
     setPatternGroups((groups) => groups.map((group) => group.id === groupId ? { ...group, effects } : group))
     audioEngine.setGroupEffects(groupId, effects)
   }
-  const updateMasterDelay = (changes: Partial<DelayConfig>) => {
-    setMasterEffects((current) => ({ ...current, slots: current.slots.map((slot, index) => index === 0 ? { ...slot, delay: { ...slot.delay, ...changes } } : { ...slot, compressor: { ...slot.compressor }, delay: { ...slot.delay } }) as EffectRackState['slots'] }))
-  }
-  const updateMasterCompressor = (changes: Partial<CompressorConfig>) => {
-    setMasterEffects((current) => ({ ...current, slots: current.slots.map((slot, index) => index === 1 ? { ...slot, compressor: { ...slot.compressor, ...changes } } : { ...slot, compressor: { ...slot.compressor }, delay: { ...slot.delay } }) as EffectRackState['slots'] }))
-  }
-
   const groupsWithActiveBank = (bank: PadBankState) => patternGroups.map((group) => group.id === selectedPatternGroupId ? { ...group, bank } : group)
   const removeAssetIfUnused = (assetId: SampleAssetId | null, groups: readonly PatternGroup[]) => {
     if (!assetId || assetIsReferencedByGroups(groups, assetId)) return
@@ -585,25 +580,368 @@ export function App({ audioEngine }: AppProps) {
   const selectedPadReference = { patternGroupId: selectedPatternGroupId, padId: selectedPad.id }
   const selectedPumpSourceId = pumpSource?.patternGroupId === selectedPatternGroupId ? pumpSource.padId : null
   const selectedPumpTargets = pumpTargets.filter((target) => target.patternGroupId === selectedPatternGroupId).map((target) => target.padId)
-  const masterDelay = masterEffects.slots[0].delay
-  const masterCompressor = masterEffects.slots[1].compressor
-  const masterDelayTimeSeconds = masterDelay.sync ? (60 / bpm) * ({ '1/2': 2, '1/4': 1, '1/8': 0.5, '1/16': 0.25 } as const)[masterDelay.division] : masterDelay.timeSeconds
-  return <main className="station-shell"><section className="station-panel" aria-labelledby="station-title">
-    <header className="station-header"><div><p className="eyebrow">STATION / M4</p><h1 id="station-title">STATION</h1></div><MainNavigation view={mainView} onViewChange={setMainView} /><div className="audio-controls"><div className="status-row" role="status" aria-live="polite"><span className={`status-dot status-${audioStatus}`} aria-hidden="true" />{statusLabels[audioStatus]}</div><button className="start-button" type="button" onClick={() => void startAudio()} disabled={audioStatus === 'starting' || projectBusy}>{audioReady ? 'AUDIO READY' : 'START AUDIO'}</button><div className="project-controls"><button className="mixer-toggle" type="button" onClick={() => void saveProject()} disabled={projectBusy}>SAVE PROJECT</button><button className="mixer-toggle" type="button" onClick={() => void openProject()} disabled={!audioReady || projectBusy} title={audioReady ? 'Open the last saved project.' : 'Start audio before opening a project.'}>OPEN PROJECT</button></div></div></header>
-    <TransportBar bpm={bpm} swing={swing} isPlaying={isPlaying} mode={transportMode} loopSong={loopSong} metronomeEnabled={metronomeEnabled} onBpmChange={setBpm} onSwingChange={setSwing} onModeChange={setTransportMode} onLoopSongChange={setLoopSong} onMetronomeEnabledChange={setMetronomeEnabled} onPlay={startPlayback} onStop={stopPlayback} />
-    <ProjectKeyPanel projectKey={projectKey} disabled={projectBusy} onChange={setProjectKey} />
-    {projectMessage && <p className="project-message" role="status">{projectMessage}</p>}
-    {errorMessage && <p className="error-message" role="alert">{errorMessage}</p>}
-    {mainView === 'mix' && <GroupMixPanel groups={patternGroups} selectedGroup={selectedGroup} master={master} masterEffects={masterEffects} bpm={bpm} activeFxContext={activeFxContext} onGroupBusChange={updateGroupBus} onMasterChange={updateMaster} onGroupEffectsChange={updateGroupEffects} onMasterEffectsChange={setMasterEffects} onOpenGroupSlot={(slotIndex) => setActiveFxContext({ scope: 'group', slotIndex })} onOpenMasterSlot={(slotIndex) => setActiveFxContext({ scope: 'master', slotIndex })} onCloseFx={() => setActiveFxContext(null)} />}
-    {mainView === 'chop' && <ChopWorkspace pads={pads} selectedPadId={selectedPadId} activePadId={activePadId} audioReady={audioReady} sourceFileName={chopSession.fileName} sourceDurationSeconds={chopSession.durationSeconds} peaks={chopSession.assetId ? waveforms[chopSession.assetId] ?? [] : []} playheadSeconds={waveformPlayback?.assetId === chopSession.assetId ? waveformPlayheadSeconds : null} slices={chopSession.slices} activeSliceId={chopSession.activeSliceId} addingSlice={chopAddingSlice} onLoadSource={(event) => void loadChopSource(event)} sourcePreviewing={sourcePreviewing} onPreviewSource={previewChopSource} onStopPreviewSource={stopChopSourcePreview} onTriggerPad={triggerPad} onFeedbackEnd={(padId) => setActivePadId((current) => current === padId ? null : current)} onAddSlice={addChopSlice} onMoveCut={moveChopCut} onSelectSlice={selectChopSlice} onPreviewSlice={previewChopSlice} onToggleAdding={() => setChopAddingSlice((current) => !current)} onRemoveActiveCut={removeActiveChopCut} onClearSlices={clearChopSlices} />}
-    {mainView === 'pad' && <div className="instrument-layout"><PadGrid pads={pads} selectedPadId={selectedPadId} activePadId={activePadId} audioReady={audioReady} onTrigger={triggerPad} onFeedbackEnd={(padId) => setActivePadId((current) => current === padId ? null : current)} /><PadEditor pad={selectedPad} audioReady={audioReady} projectBusy={projectBusy} projectKeyLabel={formatProjectKey(projectKey)} onImport={(event) => void loadSelectedPad(event)} onUpdate={updateSelectedPad} onMapToProjectScale={mapSelectedPadToProjectScale} onClear={clearSelectedPad} /></div>}
-    {mainView === 'library' && <LibraryWorkspace audioReady={audioReady} busySampleId={loadingLibrarySampleId} previewingSampleId={previewingLibrarySampleId} onPreview={(sample) => void previewLibrarySample(sample)} onLoad={(sample, padNumber) => void loadLibrarySample(sample, padNumber)} />}
-    {mainView === 'seq' && <SequencerControls pattern={selectedPattern} shifts={selectedPatternShifts} pads={pads.filter((pad) => pad.fileName || pad.id === selectedPad.id)} selectedPadId={selectedPad.id} groups={patternGroups} selectedGroupId={selectedPatternGroupId} selectedVariant={selectedPatternVariant} selectedPad={selectedPad} selectedPeaks={selectedPeaks} playheadSeconds={waveformPlayback?.assetId === selectedPad.assetId ? waveformPlayheadSeconds : null} playingStep={playingStep} onSelectPad={triggerPad} onSelectGroup={(groupId) => { audioEngine.stopPreview(); setSourcePreviewing(false); setChopAddingSlice(false); setSelectedPatternGroupId(groupId); setSelectedPatternVariant('A') }} onSelectVariant={setSelectedPatternVariant} onNewGroup={createNewPatternGroup} onDuplicateVariant={duplicateCurrentVariant} onClearVariant={clearCurrentVariant} onDeleteGroup={deleteCurrentPatternGroup} onToggleStep={toggleStep} onVelocityChange={setStepVelocity} onShiftChange={setStepShift} />}
-    {mainView === 'song' && <SongWorkspace groups={patternGroups} clips={playlist} selectedGroupId={selectedPatternGroupId} selectedVariant={selectedPatternVariant} activeSlot={isPlaying && transportMode === 'song' ? playingSongSlot : null} onAddClip={addPlaylistClip} />}
-    {mainView === 'sample' && <SampleEditor pad={selectedPad} peaks={selectedPeaks} playheadSeconds={waveformPlayback?.assetId === selectedPad.assetId ? waveformPlayheadSeconds : null} audioReady={audioReady} onPreview={() => triggerPad(selectedPad.id)} onRegionChange={updateSelectedRegion} onResetRegion={resetSelectedRegion} />}
-    {mainView === 'mix' && <><section className="mixer" aria-labelledby="group-mixer-title"><div className="sequencer-heading"><div><p className="eyebrow">GROUP MIX</p><h2 id="group-mixer-title">Pattern Group buses + Master</h2></div><p className="mixer-summary">MUTE overrides SOLO</p></div><div className="mixer-grid">{patternGroups.map((group) => <article className="mixer-channel" key={group.id}><div className="mixer-channel-heading"><strong>{group.name}</strong><span className="sample-badge sample-loaded">GROUP</span></div><p className="mixer-sample">16 PAD BANK</p><label className="mixer-volume">VOL <output>{group.bus!.volume.toFixed(2)}</output><input type="range" min="0" max="1" step="0.01" value={group.bus!.volume} onChange={(event) => updateGroupBus(group.id, { volume: Number(event.target.value) })} /></label><div className="mixer-buttons"><button className={group.bus!.muted ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" onClick={() => updateGroupBus(group.id, { muted: !group.bus!.muted })}>MUTE</button><button className={group.bus!.solo ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" onClick={() => updateGroupBus(group.id, { solo: !group.bus!.solo })}>SOLO</button></div></article>)}<article className="mixer-channel"><div className="mixer-channel-heading"><strong>MASTER</strong><span className="sample-badge sample-loaded">OUT</span></div><p className="mixer-sample">MAIN OUTPUT</p><label className="mixer-volume">VOL <output>{master.volume.toFixed(2)}</output><input type="range" min="0" max="1" step="0.01" value={master.volume} onChange={(event) => updateMaster({ volume: Number(event.target.value) })} /></label><div className="mixer-buttons"><button className={master.muted ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" onClick={() => updateMaster({ muted: !master.muted })}>MUTE</button></div></article><article className={masterDelay.enabled ? 'mixer-channel' : 'mixer-channel master-effect-bypassed'}><div className="mixer-channel-heading"><strong>MASTER DELAY</strong><span className={masterDelay.enabled ? 'sample-badge sample-loaded' : 'sample-badge'}>{masterDelay.enabled ? 'ON' : 'BYPASS'}</span></div><div className="mixer-buttons"><button className={masterDelay.enabled ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" aria-pressed={masterDelay.enabled} onClick={() => updateMasterDelay({ enabled: !masterDelay.enabled })}>ENABLED</button><button className={masterDelay.sync ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" aria-pressed={masterDelay.sync} onClick={() => updateMasterDelay({ sync: !masterDelay.sync })}>SYNC</button></div><div className="master-delay-divisions">{(['1/2', '1/4', '1/8', '1/16'] as const).map((division) => <button key={division} className={masterDelay.division === division ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" disabled={!masterDelay.sync} aria-pressed={masterDelay.division === division} onClick={() => updateMasterDelay({ division })}>{division}</button>)}</div><label className="mixer-volume">TIME <output>{Math.round(masterDelayTimeSeconds * 1000)} ms</output><input type="range" min="0.02" max={masterDelay.sync ? '2' : '1'} step="0.01" disabled={masterDelay.sync} value={masterDelay.sync ? masterDelayTimeSeconds : masterDelay.timeSeconds} onChange={(event) => updateMasterDelay({ timeSeconds: Number(event.target.value) })} /></label><label className="mixer-volume">FEEDBACK <output>{Math.round(masterDelay.feedback * 100)}%</output><input type="range" min="0" max="0.85" step="0.01" value={masterDelay.feedback} onChange={(event) => updateMasterDelay({ feedback: Number(event.target.value) })} /></label><label className="mixer-volume">MIX <output>{Math.round(masterDelay.mix * 100)}%</output><input type="range" min="0" max="0.5" step="0.01" value={masterDelay.mix} onChange={(event) => updateMasterDelay({ mix: Number(event.target.value) })} /></label></article><article className={masterCompressor.enabled ? 'mixer-channel' : 'mixer-channel master-effect-bypassed'}><div className="mixer-channel-heading"><strong>MASTER COMP</strong><span className={masterCompressor.enabled ? 'sample-badge sample-loaded' : 'sample-badge'}>{masterCompressor.enabled ? 'ON' : 'BYPASS'}</span></div><div className="mixer-buttons"><button className={masterCompressor.enabled ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" aria-pressed={masterCompressor.enabled} onClick={() => updateMasterCompressor({ enabled: !masterCompressor.enabled })}>ENABLED</button></div><label className="mixer-volume">THRESHOLD <output>{masterCompressor.thresholdDb.toFixed(0)} dB</output><input type="range" min="-60" max="0" step="1" value={masterCompressor.thresholdDb} onChange={(event) => updateMasterCompressor({ thresholdDb: Number(event.target.value) })} /></label><label className="mixer-volume">RATIO <output>{masterCompressor.ratio.toFixed(1)}:1</output><input type="range" min="1" max="12" step="0.1" value={masterCompressor.ratio} onChange={(event) => updateMasterCompressor({ ratio: Number(event.target.value) })} /></label><label className="mixer-volume">ATTACK <output>{Math.round(masterCompressor.attackSeconds * 1000)} ms</output><input type="range" min="0.003" max="0.1" step="0.001" value={masterCompressor.attackSeconds} onChange={(event) => updateMasterCompressor({ attackSeconds: Number(event.target.value) })} /></label><label className="mixer-volume">RELEASE <output>{Math.round(masterCompressor.releaseSeconds * 1000)} ms</output><input type="range" min="0.05" max="1" step="0.01" value={masterCompressor.releaseSeconds} onChange={(event) => updateMasterCompressor({ releaseSeconds: Number(event.target.value) })} /></label></article></div></section><section className="sequencer" aria-labelledby="pump-title"><p className="eyebrow">PAD MIX / {selectedGroup.name}</p><h2 id="pump-title">{sameGroupPadReference(pumpSource, selectedPadReference) ? 'Kick source selected' : 'Select kick source or target'}</h2><button className="transport-button" type="button" onClick={() => setPumpSource(selectedPadReference)}>SET {selectedPad.label} AS KICK</button><label className="file-picker"><span><input type="checkbox" checked={pumpTargets.some((target) => sameGroupPadReference(target, selectedPadReference))} onChange={() => setPumpTargets((targets) => targets.some((target) => sameGroupPadReference(target, selectedPadReference)) ? targets.filter((target) => !sameGroupPadReference(target, selectedPadReference)) : [...targets, selectedPadReference])} /> Pump selected pad</span></label><label className="bpm-control">DEPTH <output>{Math.round(pumpDepth * 100)}%</output><input type="range" min="0" max="1" step="0.01" value={pumpDepth} onChange={(event) => setPumpDepth(Number(event.target.value))} /></label><label className="bpm-control">LENGTH <output>{pumpLengthBeats} beat</output><input type="range" min="0.25" max="1" step="0.25" value={pumpLengthBeats} onChange={(event) => setPumpLengthBeats(Number(event.target.value))} /></label><div className="pump-curves">{(['snap', 'smooth', 'swell'] as const).map((curve) => <button key={curve} className={`step ${pumpCurve === curve ? 'step-full' : ''}`} type="button" onClick={() => setPumpCurve(curve)}>{curve.toUpperCase()}</button>)}</div></section><Mixer pads={pads} pumpSourceId={selectedPumpSourceId} pumpTargets={selectedPumpTargets} onVolumeChange={updateChannelVolume} onMutedChange={updateChannelMuted} onSoloChange={updateChannelSolo} /></>}
-    {mainView === 'mix' && <><EffectRackPanel title={`GROUP FX / ${selectedGroup.name}`} rack={selectedGroup.effects} onSelectSlot={(slotIndex) => setActiveFxContext({ scope: 'group', slotIndex })} /><EffectRackPanel title="MASTER FX" rack={masterEffects} onSelectSlot={(slotIndex) => setActiveFxContext({ scope: 'master', slotIndex })} /></>}
-  </section></main>
+  const selectPatternGroup = (groupId: string) => {
+    if (groupId === selectedPatternGroupId) return
+    audioEngine.stopPreview()
+    setSourcePreviewing(false)
+    setChopAddingSlice(false)
+    setSelectedPatternGroupId(groupId)
+    setSelectedPatternVariant('A')
+  }
+  const changeMainView = (view: MainView) => {
+    setMainView(view)
+    setActiveFxContext(null)
+    if (view !== 'pad') setSampleEditorOpen(false)
+  }
+  const activeFxRack = activeFxContext?.scope === 'group' ? selectedGroup.effects : activeFxContext?.scope === 'master' ? masterEffects : undefined
+  const updateActiveFxRack = (effects: EffectRackState) => {
+    if (activeFxContext?.scope === 'group') updateGroupEffects(selectedPatternGroupId, effects)
+    if (activeFxContext?.scope === 'master') setMasterEffects(effects)
+  }
+
+  return (
+    <main className="station-shell">
+      <section className="station-panel" aria-labelledby="station-title">
+        <header className="station-header">
+          <div>
+            <p className="eyebrow">STATION / M4</p>
+            <h1 id="station-title">STATION</h1>
+          </div>
+          <MainNavigation view={mainView} onViewChange={changeMainView} />
+          <div className="audio-controls">
+            <div className="status-row" role="status" aria-live="polite">
+              <span
+                className={`status-dot status-${audioStatus}`}
+                aria-hidden="true"
+              />
+              {audioReady ? "AUDIO READY" : statusLabels[audioStatus]}
+            </div>
+            <button
+              className="start-button"
+              type="button"
+              onClick={() => void startAudio()}
+              disabled={audioStatus === "starting" || projectBusy}
+            >
+              {audioReady ? "AUDIO READY" : "START AUDIO"}
+            </button>
+            <ProjectMenu
+              busy={projectBusy}
+              audioReady={audioReady}
+              onSave={() => void saveProject()}
+              onOpen={() => void openProject()}
+            >
+              <ProjectKeyPanel
+                projectKey={projectKey}
+                disabled={projectBusy}
+                onChange={setProjectKey}
+              />
+            </ProjectMenu>
+          </div>
+        </header>
+        <TransportBar
+          bpm={bpm}
+          swing={swing}
+          isPlaying={isPlaying}
+          mode={transportMode}
+          loopSong={loopSong}
+          metronomeEnabled={metronomeEnabled}
+          groups={patternGroups}
+          selectedGroupId={selectedPatternGroupId}
+          selectedVariant={selectedPatternVariant}
+          onBpmChange={setBpm}
+          onSwingChange={setSwing}
+          onModeChange={setTransportMode}
+          onLoopSongChange={setLoopSong}
+          onMetronomeEnabledChange={setMetronomeEnabled}
+          onGroupChange={selectPatternGroup}
+          onVariantChange={setSelectedPatternVariant}
+          onPlay={startPlayback}
+          onStop={stopPlayback}
+        />
+        {(projectMessage || errorMessage) && (
+          <div className="station-notices">
+            {projectMessage && (
+              <p className="project-message" role="status">
+                {projectMessage}
+              </p>
+            )}
+            {errorMessage && (
+              <p className="error-message" role="alert">
+                {errorMessage}
+              </p>
+            )}
+          </div>
+        )}
+        <div className="station-workspace">
+          {mainView === "library" && (
+            <LibraryWorkspace
+              audioReady={audioReady}
+              selectedPadNumber={
+                pads.findIndex((pad) => pad.id === selectedPad.id) + 1
+              }
+              busySampleId={loadingLibrarySampleId}
+              previewingSampleId={previewingLibrarySampleId}
+              onPreview={(sample) => void previewLibrarySample(sample)}
+              onLoad={(sample, padNumber) =>
+                void loadLibrarySample(sample, padNumber)
+              }
+            />
+          )}
+          {mainView === "chop" && (
+            <ChopWorkspace
+              pads={pads}
+              selectedPadId={selectedPadId}
+              activePadId={activePadId}
+              audioReady={audioReady}
+              sourceFileName={chopSession.fileName}
+              sourceDurationSeconds={chopSession.durationSeconds}
+              peaks={
+                chopSession.assetId
+                  ? (waveforms[chopSession.assetId] ?? [])
+                  : []
+              }
+              playheadSeconds={
+                waveformPlayback?.assetId === chopSession.assetId
+                  ? waveformPlayheadSeconds
+                  : null
+              }
+              slices={chopSession.slices}
+              activeSliceId={chopSession.activeSliceId}
+              addingSlice={chopAddingSlice}
+              onLoadSource={(event) => void loadChopSource(event)}
+              sourcePreviewing={sourcePreviewing}
+              onPreviewSource={previewChopSource}
+              onStopPreviewSource={stopChopSourcePreview}
+              onTriggerPad={triggerPad}
+              onFeedbackEnd={(padId) =>
+                setActivePadId((current) =>
+                  current === padId ? null : current,
+                )
+              }
+              onAddSlice={addChopSlice}
+              onMoveCut={moveChopCut}
+              onSelectSlice={selectChopSlice}
+              onPreviewSlice={previewChopSlice}
+              onToggleAdding={() => setChopAddingSlice((current) => !current)}
+              onRemoveActiveCut={removeActiveChopCut}
+              onClearSlices={clearChopSlices}
+            />
+          )}
+          {mainView === "pad" && (
+            <>
+              <div className="instrument-layout">
+                <PadGrid
+                  pads={pads}
+                  selectedPadId={selectedPadId}
+                  activePadId={activePadId}
+                  audioReady={audioReady}
+                  onTrigger={triggerPad}
+                  onFeedbackEnd={(padId) =>
+                    setActivePadId((current) =>
+                      current === padId ? null : current,
+                    )
+                  }
+                />
+                <PadEditor
+                  pad={selectedPad}
+                  audioReady={audioReady}
+                  projectBusy={projectBusy}
+                  projectKeyLabel={formatProjectKey(projectKey)}
+                  onImport={(event) => void loadSelectedPad(event)}
+                  onUpdate={updateSelectedPad}
+                  onMapToProjectScale={mapSelectedPadToProjectScale}
+                  onEditSample={() => setSampleEditorOpen(true)}
+                  onClear={clearSelectedPad}
+                />
+              </div>
+              {sampleEditorOpen && (
+                <div className="contextual-sample-editor">
+                  <SampleEditor
+                    pad={selectedPad}
+                    peaks={selectedPeaks}
+                    playheadSeconds={
+                      waveformPlayback?.assetId === selectedPad.assetId
+                        ? waveformPlayheadSeconds
+                        : null
+                    }
+                    audioReady={audioReady}
+                    onPreview={() => triggerPad(selectedPad.id)}
+                    onRegionChange={updateSelectedRegion}
+                    onResetRegion={resetSelectedRegion}
+                    onClose={() => setSampleEditorOpen(false)}
+                  />
+                </div>
+              )}
+            </>
+          )}
+          {mainView === "seq" && (
+            <SequencerControls
+              pattern={selectedPattern}
+              shifts={selectedPatternShifts}
+              pads={pads.filter(
+                (pad) => pad.fileName || pad.id === selectedPad.id,
+              )}
+              selectedPadId={selectedPad.id}
+              group={selectedGroup}
+              canDeleteGroup={patternGroups.length > 1}
+              selectedVariant={selectedPatternVariant}
+              selectedPad={selectedPad}
+              selectedPeaks={selectedPeaks}
+              playheadSeconds={
+                waveformPlayback?.assetId === selectedPad.assetId
+                  ? waveformPlayheadSeconds
+                  : null
+              }
+              playingStep={playingStep}
+              onSelectPad={triggerPad}
+              onNewGroup={createNewPatternGroup}
+              onDuplicateVariant={duplicateCurrentVariant}
+              onClearVariant={clearCurrentVariant}
+              onDeleteGroup={deleteCurrentPatternGroup}
+              onToggleStep={toggleStep}
+              onVelocityChange={setStepVelocity}
+              onShiftChange={setStepShift}
+            />
+          )}
+          {mainView === "song" && (
+            <SongWorkspace
+              groups={patternGroups}
+              clips={playlist}
+              selectedGroupId={selectedPatternGroupId}
+              selectedVariant={selectedPatternVariant}
+              activeSlot={
+                isPlaying && transportMode === "song" ? playingSongSlot : null
+              }
+              onAddClip={addPlaylistClip}
+            />
+          )}
+          {mainView === "mix" && (
+            <>
+              <GroupMixPanel
+                groups={patternGroups}
+                selectedGroup={selectedGroup}
+                master={master}
+                masterEffects={masterEffects}
+                onSelectGroup={selectPatternGroup}
+                onGroupBusChange={updateGroupBus}
+                onMasterChange={updateMaster}
+                onOpenGroupSlot={(slotIndex) =>
+                  setActiveFxContext({ scope: "group", slotIndex })
+                }
+                onOpenMasterSlot={(slotIndex) =>
+                  setActiveFxContext({ scope: "master", slotIndex })
+                }
+              />
+              <Mixer
+                pads={pads}
+                pumpSourceId={selectedPumpSourceId}
+                pumpTargets={selectedPumpTargets}
+                onVolumeChange={updateChannelVolume}
+                onMutedChange={updateChannelMuted}
+                onSoloChange={updateChannelSolo}
+              />
+              <section
+                className="sequencer pump-panel"
+                aria-labelledby="pump-title"
+              >
+                <p className="eyebrow">PUMP / {selectedGroup.name}</p>
+                <h2 id="pump-title">
+                  {sameGroupPadReference(pumpSource, selectedPadReference)
+                    ? "Kick source selected"
+                    : "Selected pad Pump"}
+                </h2>
+                <button
+                  className="transport-button"
+                  type="button"
+                  onClick={() => setPumpSource(selectedPadReference)}
+                >
+                  SET {selectedPad.label} AS KICK
+                </button>
+                <label className="file-picker">
+                  <span>
+                    <input
+                      type="checkbox"
+                      checked={pumpTargets.some((target) =>
+                        sameGroupPadReference(target, selectedPadReference),
+                      )}
+                      onChange={() =>
+                        setPumpTargets((targets) =>
+                          targets.some((target) =>
+                            sameGroupPadReference(target, selectedPadReference),
+                          )
+                            ? targets.filter(
+                                (target) =>
+                                  !sameGroupPadReference(
+                                    target,
+                                    selectedPadReference,
+                                  ),
+                              )
+                            : [...targets, selectedPadReference],
+                        )
+                      }
+                    />{" "}
+                    Pump selected pad
+                  </span>
+                </label>
+                <label className="bpm-control">
+                  DEPTH <output>{Math.round(pumpDepth * 100)}%</output>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={pumpDepth}
+                    onChange={(event) =>
+                      setPumpDepth(Number(event.target.value))
+                    }
+                  />
+                </label>
+                <label className="bpm-control">
+                  LENGTH <output>{pumpLengthBeats} beat</output>
+                  <input
+                    type="range"
+                    min="0.25"
+                    max="1"
+                    step="0.25"
+                    value={pumpLengthBeats}
+                    onChange={(event) =>
+                      setPumpLengthBeats(Number(event.target.value))
+                    }
+                  />
+                </label>
+                <div className="pump-curves">
+                  {(["snap", "smooth", "swell"] as const).map((curve) => (
+                    <button
+                      key={curve}
+                      className={`step ${pumpCurve === curve ? "step-full" : ""}`}
+                      type="button"
+                      onClick={() => setPumpCurve(curve)}
+                    >
+                      {curve.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </section>
+              <ContextPanel
+                scopeLabel={
+                  activeFxContext
+                    ? activeFxContext.scope === "group"
+                      ? `GROUP FX / ${selectedGroup.name}`
+                      : "MASTER FX"
+                    : undefined
+                }
+                slotIndex={activeFxContext?.slotIndex}
+                rack={activeFxRack}
+                bpm={bpm}
+                onChange={updateActiveFxRack}
+                onClose={() => setActiveFxContext(null)}
+              />
+            </>
+          )}
+        </div>
+      </section>
+    </main>
+  );
 }
 
 function isTypingTarget(target: EventTarget | null): boolean { return target instanceof HTMLElement && (target.isContentEditable || target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) }

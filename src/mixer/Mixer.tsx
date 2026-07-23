@@ -19,7 +19,7 @@ export function Mixer({ pads, pumpSourceId, pumpTargets, onVolumeChange, onMuted
         </div>
         <p className="mixer-summary">MUTE overrides SOLO</p>
       </div>
-      <div className="mixer-grid">
+      <div className="mixer-channel-scroll"><div className="mixer-grid">
         {pads.map((pad) => {
           const isPumpSource = pumpSourceId === pad.id
           const isPumpTarget = pumpTargets.includes(pad.id)
@@ -41,7 +41,7 @@ export function Mixer({ pads, pumpSourceId, pumpTargets, onVolumeChange, onMuted
             </article>
           )
         })}
-      </div>
+      </div></div>
     </section>
   )
 }

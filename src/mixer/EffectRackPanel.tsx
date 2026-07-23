@@ -60,7 +60,6 @@ export function EffectSlotList({ title, rack, onSelectSlot }: EffectRackPanelPro
               <strong>{getSlotLabel(slot)}</strong>
               <small>{getSlotStatus(slot)}</small>
             </button>
-            {!isEmpty && <label className="effect-slot-amount">AMOUNT <input type="range" min="0" max="1" step="0.01" value="0.5" disabled aria-label={`${slot.type} amount preview`} /><output>PREVIEW</output></label>}
           </div>
         )
       })}

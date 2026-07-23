@@ -9,14 +9,15 @@ interface SampleEditorProps {
   onPreview: () => void
   onRegionChange: (region: SamplePlaybackRegion) => void
   onResetRegion: () => void
+  onClose?: () => void
 }
 
-export function SampleEditor({ pad, peaks, playheadSeconds, audioReady, onPreview, onRegionChange, onResetRegion }: SampleEditorProps) {
+export function SampleEditor({ pad, peaks, playheadSeconds, audioReady, onPreview, onRegionChange, onResetRegion, onClose }: SampleEditorProps) {
   if (!pad.fileName || !pad.durationSeconds) {
     return (
       <section className="sample-editor" aria-labelledby="sample-editor-title">
         <p className="eyebrow">SAMPLE</p>
-        <h2 id="sample-editor-title">{pad.label}</h2>
+        <div className="sequencer-heading"><h2 id="sample-editor-title">{pad.label}</h2>{onClose && <button className="mixer-toggle" type="button" onClick={onClose}>CLOSE</button>}</div>
         <p className="sample-editor-empty">EMPTY - assign a WAV to edit its playback region.</p>
       </section>
     )
@@ -34,7 +35,7 @@ export function SampleEditor({ pad, peaks, playheadSeconds, audioReady, onPrevie
           <p className="eyebrow">SAMPLE</p>
           <h2 id="sample-editor-title">{pad.label}</h2>
         </div>
-        <button className="transport-button" type="button" disabled={!audioReady} onClick={onPreview}>PREVIEW</button>
+        <div className="sample-editor-actions"><button className="transport-button" type="button" disabled={!audioReady} onClick={onPreview}>PREVIEW</button>{onClose && <button className="mixer-toggle" type="button" onClick={onClose}>CLOSE</button>}</div>
       </div>
       <p className="sample-editor-file" title={pad.fileName}>{pad.fileName} - {durationSeconds.toFixed(3)} s</p>
       {pad.chopSessionId && <p className="chop-managed-note">This pad is live-managed by the current Chop Session. A later marker edit can replace this region.</p>}

@@ -39,7 +39,7 @@ export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, so
     <label className="file-picker chop-source-picker"><span>LOAD SOURCE SAMPLE</span><input type="file" accept="audio/wav,.wav" disabled={!audioReady} onChange={onLoadSource} /></label>
     {!hasSource ? <p className="sample-editor-empty">Load a WAV source. It will not occupy any pad until you add slices.</p> : <>
       <p className="sample-editor-file">{sourceFileName} - {sourceDurationSeconds.toFixed(3)} s</p>
-      <Waveform peaks={peaks} durationSeconds={sourceDurationSeconds} region={{ startSeconds: 0, endSeconds: sourceDurationSeconds }} slices={slices} activeSliceId={activeSliceId} addingSlice={addingSlice} onRegionChange={() => undefined} onAddSlice={onAddSlice} onMoveCut={onMoveCut} onSelectSlice={onSelectSlice} />
+      <Waveform peaks={peaks} durationSeconds={sourceDurationSeconds} region={{ startSeconds: 0, endSeconds: sourceDurationSeconds }} slices={slices} activeSliceId={activeSliceId} addingSlice={addingSlice} onRegionChange={() => undefined} onAddSlice={onAddSlice} onMoveCut={onMoveCut} onSelectSlice={onSelectSlice} sliceMarkersDraggable />
       <ChopControls slices={slices} activeSliceId={activeSliceId} addingSlice={addingSlice} onStartAdding={onToggleAdding} onSelectSlice={onSelectSlice} onPreviewSlice={onPreviewSlice} onRemoveActiveCut={onRemoveActiveCut} onClearSlices={onClearSlices} onAssignSlices={() => undefined} showAssign={false} />
     </>}
     <div className="chop-pad-heading"><p className="eyebrow">LIVE SLICE MAP</p><p>Slice 1 maps to PAD 01, slice 2 to PAD 02, and so on.</p></div>

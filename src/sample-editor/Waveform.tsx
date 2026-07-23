@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { SamplePlaybackRegion, SampleSlice } from '../pads/types'
 
 interface WaveformProps {
@@ -12,13 +12,18 @@ interface WaveformProps {
   onAddSlice: (timeSeconds: number) => void
   onMoveCut: (cutIndex: number, timeSeconds: number) => void
   onSelectSlice: (sliceId: string) => void
+  sliceMarkersDraggable?: boolean
 }
 
-type DragState = { kind: 'start' | 'end' } | { kind: 'cut'; index: number } | null
+const minimumSliceSeconds = 0.01
+const markerHitWidthPixels = 18
 
-export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId, addingSlice, onRegionChange, onAddSlice, onMoveCut, onSelectSlice }: WaveformProps) {
+type DragState = { kind: 'start' | 'end'; pointerId: number } | { kind: 'cut'; index: number; pointerId: number } | null
+
+export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId, addingSlice, onRegionChange, onAddSlice, onMoveCut, onSelectSlice, sliceMarkersDraggable = false }: WaveformProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const dragStateRef = useRef<DragState>(null)
+  const [draggingMarker, setDraggingMarker] = useState(false)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -72,17 +77,22 @@ export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId
       }
 
       context.strokeStyle = '#7bb7ff'
-      context.fillStyle = '#d9ebff'
       context.font = '700 11px Inter, sans-serif'
       slices.forEach((slice, index) => {
         if (index < slices.length - 1) {
           const cutX = width * slice.endSeconds / durationSeconds
+          const activeMarker = slice.id === activeSliceId || slices[index + 1].id === activeSliceId
+          context.lineWidth = activeMarker ? 4 : 2
+          context.strokeStyle = activeMarker ? '#f3b44f' : '#7bb7ff'
           context.beginPath()
           context.moveTo(cutX, 0)
           context.lineTo(cutX, height)
           context.stroke()
+          context.fillStyle = activeMarker ? '#f3b44f' : '#7bb7ff'
+          context.fillRect(cutX - 5, 5, 10, 16)
         }
         const labelX = width * ((slice.startSeconds + slice.endSeconds) / 2) / durationSeconds
+        context.fillStyle = '#d9ebff'
         context.fillText(String(index + 1), labelX + 4, 14)
       })
     }
@@ -104,7 +114,7 @@ export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId
     const timeSeconds = timeFromPointer(clientX)
     const dragState = dragStateRef.current
     if (timeSeconds === null || !dragState) return
-    const minimumLength = Math.min(0.01, durationSeconds)
+    const minimumLength = Math.min(minimumSliceSeconds, durationSeconds)
 
     if (dragState.kind === 'start') {
       onRegionChange({ startSeconds: Math.min(timeSeconds, region.endSeconds - minimumLength), endSeconds: region.endSeconds })
@@ -115,36 +125,53 @@ export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId
     }
   }
 
+  const stopDragging = (event?: React.PointerEvent<HTMLCanvasElement>) => {
+    if (event && dragStateRef.current?.pointerId === event.pointerId) {
+      updateFromPointer(event.clientX)
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    dragStateRef.current = null
+    setDraggingMarker(false)
+  }
+
   return (
     <canvas
       ref={canvasRef}
-      className={`waveform ${addingSlice ? 'waveform-adding-slice' : ''}`}
+      className={`waveform ${addingSlice ? 'waveform-adding-slice' : ''} ${sliceMarkersDraggable ? 'waveform-slice-markers' : ''} ${draggingMarker ? 'waveform-dragging-marker' : ''}`}
       role="img"
       aria-label="Sample waveform with playback handles and slice markers"
       onPointerDown={(event) => {
         const timeSeconds = timeFromPointer(event.clientX)
         if (timeSeconds === null) return
         const canvas = event.currentTarget
-        const markerThreshold = durationSeconds * 12 / canvas.getBoundingClientRect().width
+        const markerThreshold = durationSeconds * markerHitWidthPixels / canvas.getBoundingClientRect().width
         const cutIndex = slices.slice(0, -1).findIndex((slice) => Math.abs(slice.endSeconds - timeSeconds) <= markerThreshold)
         if (cutIndex >= 0) {
-          dragStateRef.current = { kind: 'cut', index: cutIndex }
+          event.preventDefault()
+          dragStateRef.current = { kind: 'cut', index: cutIndex, pointerId: event.pointerId }
+          setDraggingMarker(true)
           onSelectSlice(slices[cutIndex].id)
         } else if (addingSlice) {
+          event.preventDefault()
           onAddSlice(timeSeconds)
           return
         } else {
           const matchingSlice = slices.find((slice) => timeSeconds >= slice.startSeconds && timeSeconds <= slice.endSeconds)
           if (matchingSlice) onSelectSlice(matchingSlice.id)
-          if (Math.abs(timeSeconds - region.startSeconds) <= markerThreshold) dragStateRef.current = { kind: 'start' }
-          else if (Math.abs(timeSeconds - region.endSeconds) <= markerThreshold) dragStateRef.current = { kind: 'end' }
+          if (Math.abs(timeSeconds - region.startSeconds) <= markerThreshold) dragStateRef.current = { kind: 'start', pointerId: event.pointerId }
+          else if (Math.abs(timeSeconds - region.endSeconds) <= markerThreshold) dragStateRef.current = { kind: 'end', pointerId: event.pointerId }
           else return
         }
         canvas.setPointerCapture(event.pointerId)
       }}
-      onPointerMove={(event) => updateFromPointer(event.clientX)}
-      onPointerUp={() => { dragStateRef.current = null }}
-      onPointerCancel={() => { dragStateRef.current = null }}
+      onPointerMove={(event) => {
+        if (dragStateRef.current?.pointerId !== event.pointerId) return
+        event.preventDefault()
+        updateFromPointer(event.clientX)
+      }}
+      onPointerUp={stopDragging}
+      onPointerCancel={stopDragging}
+      onLostPointerCapture={() => stopDragging()}
     />
   )
 }

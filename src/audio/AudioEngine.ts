@@ -1,3 +1,6 @@
+import { createDefaultMasterEffectRack, createEmptyEffectRack, defaultCompressorConfig, defaultDelayConfig, getDelayTimeSeconds, normalizeEffectRackState } from './effects'
+import type { EffectRackState, EffectSlotState, EffectType } from './effects'
+
 export type SampleId = string
 export type SampleAssetId = string
 export type ChannelId = string
@@ -51,13 +54,38 @@ interface Channel {
 
 interface GroupBus { volume: number; muted: boolean; solo: boolean; gain?: GainNode }
 
+interface RuntimeEffect {
+  input: AudioNode
+  output: AudioNode
+  applyConfig(config: EffectSlotState, immediately: boolean): void
+  dispose(): void
+}
+
+interface RuntimeEffectSlot {
+  input: GainNode
+  output: GainNode
+  type: EffectType
+  effect?: RuntimeEffect
+}
+
+interface RuntimeEffectRack {
+  input: GainNode
+  output: GainNode
+  slots: [RuntimeEffectSlot, RuntimeEffectSlot]
+}
+
 export class AudioEngine {
   private context: AudioContext | undefined
+  private masterEffects: RuntimeEffectRack | undefined
   private masterGain: GainNode | undefined
   private readonly channels = new Map<ChannelId, Channel>()
   private readonly groupBuses = new Map<GroupId, GroupBus>()
+  private readonly groupEffects = new Map<GroupId, RuntimeEffectRack>()
+  private readonly groupEffectStates = new Map<GroupId, EffectRackState>()
   private masterVolume = 1
   private masterMuted = false
+  private masterEffectState: EffectRackState
+  private bpm = 120
   private pumpConfig: PumpConfig = { sourceChannelId: null, targetChannelIds: [], depth: 0, lengthSeconds: 0.2, curve: 'smooth' }
   private samples = new Map<SampleId, AudioBuffer>()
   private waveforms = new Map<SampleId, number[]>()
@@ -68,6 +96,7 @@ export class AudioEngine {
   private readonly statusListeners = new Set<(status: AudioEngineStatus) => void>()
 
   constructor(channelIds: readonly ChannelId[] = []) {
+    this.masterEffectState = createDefaultMasterEffectRack()
     for (const channelId of channelIds) {
       this.channels.set(channelId, { groupId: '', volume: 1, muted: false, solo: false })
     }
@@ -94,7 +123,7 @@ export class AudioEngine {
       const AudioContextConstructor = window.AudioContext
       this.context ??= new AudioContextConstructor()
       this.context.onstatechange = () => this.syncContextStatus()
-      this.masterGain ??= this.createMasterGain(this.context)
+      this.createMasterOutput(this.context)
       this.createChannelNodes()
       await this.context.resume()
 
@@ -188,6 +217,21 @@ export class AudioEngine {
   setGroupSolo(groupId: GroupId, solo: boolean): void { const bus = this.ensureGroupBus(groupId); bus.solo = solo; this.applyAllGroupGains() }
   setMasterVolume(volume: number): void { this.masterVolume = this.toGain(volume); this.applyMasterGain() }
   setMasterMuted(muted: boolean): void { this.masterMuted = muted; this.applyMasterGain() }
+  setMasterEffects(config: EffectRackState): void {
+    this.masterEffectState = normalizeEffectRackState(config, 'master', createDefaultMasterEffectRack())
+    this.applyRuntimeEffectRack(this.masterEffects, this.masterEffectState)
+  }
+  setGroupEffects(groupId: GroupId, config: EffectRackState): void {
+    const state = normalizeEffectRackState(config, groupId)
+    this.groupEffectStates.set(groupId, state)
+    this.applyRuntimeEffectRack(this.groupEffects.get(groupId), state)
+  }
+  setBpm(bpm: number): void {
+    const nextBpm = this.toBoundedNumber(bpm, 60, 200, 120)
+    if (this.bpm === nextBpm) return
+    this.bpm = nextBpm
+    this.applySynchronizedDelayTimes()
+  }
 
   triggerSample(groupId: GroupId, channelId: ChannelId, assetId: SampleAssetId, options: TriggerSampleOptions = {}): void {
     if (!this.context) {
@@ -199,7 +243,7 @@ export class AudioEngine {
 
   previewAsset(assetId: SampleAssetId, options: TriggerSampleOptions = {}, onEnded?: () => void): void {
     const sampleBuffer = this.samples.get(assetId)
-    if (this.status !== 'ready' || !this.context || !this.masterGain || !sampleBuffer) return
+    if (this.status !== 'ready' || !this.context || !this.masterEffects || !sampleBuffer) return
 
     const when = this.context.currentTime
     const source = this.context.createBufferSource()
@@ -216,7 +260,7 @@ export class AudioEngine {
     gain.gain.linearRampToValueAtTime(0, when + outputDuration)
     source.playbackRate.setValueAtTime(playbackRate, when)
     source.connect(gain)
-    gain.connect(this.masterGain)
+    gain.connect(this.masterEffects.input)
     source.addEventListener('ended', () => this.cleanUpVoice(voice), { once: true })
     this.activeVoices.add(voice)
     this.previewVoices.add(voice)
@@ -238,7 +282,7 @@ export class AudioEngine {
     const sampleBuffer = this.samples.get(assetId)
     const channel = this.ensureChannel(groupId, channelId)
 
-    if (this.status !== 'ready' || !this.context || !this.masterGain || !sampleBuffer || !channel?.gain) {
+    if (this.status !== 'ready' || !this.context || !this.masterEffects || !sampleBuffer || !channel?.gain) {
       return
     }
 
@@ -310,6 +354,10 @@ export class AudioEngine {
     }
     for (const bus of this.groupBuses.values()) bus.gain?.disconnect()
     this.groupBuses.clear()
+    for (const rack of this.groupEffects.values()) this.disposeRuntimeEffectRack(rack)
+    this.groupEffects.clear()
+    this.groupEffectStates.clear()
+    this.disposeRuntimeEffectRack(this.masterEffects)
     this.masterGain?.disconnect()
 
     if (this.context && this.context.state !== 'closed') {
@@ -317,6 +365,7 @@ export class AudioEngine {
     }
 
     this.context = undefined
+    this.masterEffects = undefined
     this.masterGain = undefined
     this.setStatus('inactive')
   }
@@ -333,11 +382,13 @@ export class AudioEngine {
     for (const listener of this.statusListeners) listener(status)
   }
 
-  private createMasterGain(context: AudioContext): GainNode {
-    const masterGain = context.createGain()
-    masterGain.gain.setValueAtTime(this.masterMuted ? 0 : this.masterVolume, context.currentTime)
-    masterGain.connect(context.destination)
-    return masterGain
+  private createMasterOutput(context: AudioContext): void {
+    if (this.masterEffects || this.masterGain) return
+    this.masterEffects = this.createRuntimeEffectRack(this.masterEffectState)
+    this.masterGain = context.createGain()
+    this.masterEffects.output.connect(this.masterGain)
+    this.masterGain.connect(context.destination)
+    this.applyMasterGain(true)
   }
 
   private createChannelNodes(): void {
@@ -347,7 +398,7 @@ export class AudioEngine {
       channel.gain = context.createGain()
       channel.pumpGain = context.createGain()
       channel.gain.connect(channel.pumpGain)
-      channel.pumpGain.connect(this.masterGain!)
+      channel.pumpGain.connect(this.ensureGroupBus(channel.groupId).gain!)
       channel.pumpGain.gain.setValueAtTime(1, context.currentTime)
     }
     this.applyAllChannelGains(true)
@@ -356,9 +407,9 @@ export class AudioEngine {
   private ensureGroupBus(groupId: GroupId): GroupBus {
     let bus = this.groupBuses.get(groupId)
     if (!bus) { bus = { volume: 1, muted: false, solo: false }; this.groupBuses.set(groupId, bus) }
-    if (this.context && this.masterGain && !bus.gain) {
+    if (this.context && this.masterEffects && !bus.gain) {
       bus.gain = this.context.createGain()
-      bus.gain.connect(this.masterGain)
+      bus.gain.connect(this.ensureGroupEffects(groupId).input)
       this.applyAllGroupGains(true)
     }
     return bus
@@ -370,7 +421,7 @@ export class AudioEngine {
       channel = { groupId, volume: 1, muted: false, solo: false }
       this.channels.set(channelId, channel)
     }
-    if (this.context && this.masterGain && !channel.gain) {
+    if (this.context && this.masterEffects && !channel.gain) {
       const bus = this.ensureGroupBus(groupId)
       channel.gain = this.context.createGain()
       channel.pumpGain = this.context.createGain()
@@ -443,13 +494,161 @@ export class AudioEngine {
     else bus.gain.gain.linearRampToValueAtTime(target, now + 0.01)
   }
 
-  private applyMasterGain(): void {
+  private applyMasterGain(immediately = false): void {
     if (!this.masterGain || !this.context) return
-    const now = this.context.currentTime
     const target = this.masterMuted ? 0 : this.masterVolume
-    this.masterGain.gain.cancelScheduledValues(now)
-    this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, now)
-    this.masterGain.gain.linearRampToValueAtTime(target, now + 0.01)
+    if (immediately) this.masterGain.gain.setValueAtTime(target, this.context.currentTime)
+    else this.rampAudioParam(this.masterGain.gain, target, 0.01)
+  }
+
+  private ensureGroupEffects(groupId: GroupId): RuntimeEffectRack {
+    let rack = this.groupEffects.get(groupId)
+    if (!rack && this.context && this.masterEffects) {
+      const state = this.groupEffectStates.get(groupId) ?? createEmptyEffectRack(groupId)
+      this.groupEffectStates.set(groupId, state)
+      rack = this.createRuntimeEffectRack(state)
+      rack.output.connect(this.masterEffects.input)
+      this.groupEffects.set(groupId, rack)
+    }
+    if (!rack) throw new Error('Audio effect rack is unavailable.')
+    return rack
+  }
+
+  private createRuntimeEffectRack(state: EffectRackState): RuntimeEffectRack {
+    const context = this.context!
+    const first = this.createRuntimeEffectSlot()
+    const second = this.createRuntimeEffectSlot()
+    const rack = { input: context.createGain(), output: context.createGain(), slots: [first, second] as [RuntimeEffectSlot, RuntimeEffectSlot] }
+    rack.input.connect(first.input)
+    first.output.connect(second.input)
+    second.output.connect(rack.output)
+    this.applyRuntimeEffectRack(rack, state, true)
+    return rack
+  }
+
+  private createRuntimeEffectSlot(): RuntimeEffectSlot {
+    const context = this.context!
+    const input = context.createGain()
+    const output = context.createGain()
+    input.connect(output)
+    return { input, output, type: 'none' }
+  }
+
+  private applyRuntimeEffectRack(rack: RuntimeEffectRack | undefined, state: EffectRackState, immediately = false): void {
+    if (!rack) return
+    this.applyRuntimeEffectSlot(rack.slots[0], state.slots[0], immediately)
+    this.applyRuntimeEffectSlot(rack.slots[1], state.slots[1], immediately)
+  }
+
+  private applyRuntimeEffectSlot(runtime: RuntimeEffectSlot, state: EffectSlotState, immediately: boolean): void {
+    if (runtime.type !== state.type) this.replaceRuntimeEffect(runtime, state.type)
+    runtime.effect?.applyConfig(state, immediately)
+  }
+
+  private replaceRuntimeEffect(runtime: RuntimeEffectSlot, type: EffectType): void {
+    runtime.input.disconnect()
+    runtime.effect?.dispose()
+    runtime.effect = undefined
+    runtime.type = type
+    if (type === 'none') {
+      runtime.input.connect(runtime.output)
+      return
+    }
+    const effect = this.createRuntimeEffect(type)
+    runtime.effect = effect
+    runtime.input.connect(effect.input)
+    effect.output.connect(runtime.output)
+  }
+
+  private createRuntimeEffect(type: Exclude<EffectType, 'none'>): RuntimeEffect {
+    return type === 'compressor' ? this.createCompressorEffect() : this.createDelayEffect()
+  }
+
+  private createCompressorEffect(): RuntimeEffect {
+    const compressor = this.context!.createDynamicsCompressor()
+    return {
+      input: compressor,
+      output: compressor,
+      applyConfig: (slot, immediately) => {
+        const config = slot.enabled ? slot.compressor : { ...defaultCompressorConfig, enabled: false }
+        const values = config.enabled
+          ? { threshold: config.thresholdDb, ratio: config.ratio, attack: config.attackSeconds, release: config.releaseSeconds, knee: 12 }
+          : { threshold: 0, ratio: 1, attack: 0.003, release: 0.05, knee: 0 }
+        this.applyEffectParameter(compressor.threshold, values.threshold, immediately, 0.02)
+        this.applyEffectParameter(compressor.ratio, values.ratio, immediately, 0.02)
+        this.applyEffectParameter(compressor.attack, values.attack, immediately, 0.02)
+        this.applyEffectParameter(compressor.release, values.release, immediately, 0.02)
+        this.applyEffectParameter(compressor.knee, values.knee, immediately, 0.02)
+      },
+      dispose: () => compressor.disconnect(),
+    }
+  }
+
+  private createDelayEffect(): RuntimeEffect {
+    const context = this.context!
+    const input = context.createGain()
+    const delay = context.createDelay(2)
+    const dry = context.createGain()
+    const wet = context.createGain()
+    const feedback = context.createGain()
+    const output = context.createGain()
+    input.connect(dry)
+    input.connect(delay)
+    delay.connect(wet)
+    delay.connect(feedback)
+    feedback.connect(delay)
+    dry.connect(output)
+    wet.connect(output)
+    return {
+      input,
+      output,
+      applyConfig: (slot, immediately) => {
+        const config = slot.enabled ? slot.delay : { ...defaultDelayConfig, enabled: false }
+        this.applyEffectParameter(dry.gain, 1, immediately, 0.02)
+        this.applyEffectParameter(wet.gain, config.enabled ? config.mix : 0, immediately, 0.02)
+        this.applyEffectParameter(feedback.gain, config.enabled ? config.feedback : 0, immediately, 0.02)
+        this.applyEffectParameter(delay.delayTime, getDelayTimeSeconds(config, this.bpm), immediately, 0.03)
+      },
+      dispose: () => {
+        feedback.gain.setValueAtTime(0, context.currentTime)
+        input.disconnect()
+        delay.disconnect()
+        dry.disconnect()
+        wet.disconnect()
+        feedback.disconnect()
+        output.disconnect()
+      },
+    }
+  }
+
+  private applySynchronizedDelayTimes(): void {
+    for (const [groupId, state] of this.groupEffectStates) this.applyRuntimeEffectRack(this.groupEffects.get(groupId), state)
+    this.applyRuntimeEffectRack(this.masterEffects, this.masterEffectState)
+  }
+
+  private disposeRuntimeEffectRack(rack: RuntimeEffectRack | undefined): void {
+    if (!rack) return
+    for (const slot of rack.slots) {
+      slot.input.disconnect()
+      slot.effect?.dispose()
+      slot.output.disconnect()
+    }
+    rack.input.disconnect()
+    rack.output.disconnect()
+  }
+
+  private applyEffectParameter(parameter: AudioParam, target: number, immediately: boolean, durationSeconds: number): void {
+    if (!this.context) return
+    if (immediately) parameter.setValueAtTime(target, this.context.currentTime)
+    else this.rampAudioParam(parameter, target, durationSeconds)
+  }
+
+  private rampAudioParam(parameter: AudioParam, target: number, durationSeconds = 0.02): void {
+    if (!this.context) return
+    const now = this.context.currentTime
+    parameter.cancelScheduledValues(now)
+    parameter.setValueAtTime(parameter.value, now)
+    parameter.linearRampToValueAtTime(target, now + durationSeconds)
   }
 
 
@@ -497,6 +696,11 @@ export class AudioEngine {
 
   private toGain(gain: number | undefined): number {
     return typeof gain === 'number' && Number.isFinite(gain) ? Math.min(1, Math.max(0, gain)) : 1
+  }
+
+  private toBoundedNumber(value: unknown, minimum: number, maximum: number, fallback: number): number {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
+    return Math.min(maximum, Math.max(minimum, value))
   }
 
   private toPlaybackRate(pitchSemitones: number | undefined): number {

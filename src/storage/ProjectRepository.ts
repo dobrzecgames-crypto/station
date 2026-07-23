@@ -1,5 +1,5 @@
 import type { RuntimeSampleAsset, SampleAssetId } from '../audio/AudioEngine'
-import { createProjectState, legacyProjectSchemaVersion, migrateLegacyProjectState, migrateV2ProjectState, normalizeProjectState, previousProjectSchemaVersion, projectSchemaVersion, validateProjectState } from '../project/ProjectState'
+import { createProjectState, legacyProjectSchemaVersion, migrateLegacyProjectState, migrateV2ProjectState, migrateV3ProjectState, migrateV4ProjectState, migrateV5ProjectState, normalizeProjectState, previousProjectSchemaVersion, projectSchemaVersion, v2ProjectSchemaVersion, v3ProjectSchemaVersion, v4ProjectSchemaVersion, validateProjectState } from '../project/ProjectState'
 import { defaultProjectKey } from '../music/scales'
 import { assetStoreName, metadataStoreName, openStationDatabase, projectStoreName, requestResult, transactionComplete } from './StationDatabase'
 import { defaultProjectId } from './storageTypes'
@@ -75,7 +75,7 @@ export const projectRepository = new ProjectRepository()
 function readProjectState(record: unknown): ReturnType<typeof createProjectState> {
   if (!isRecord(record) || !isRecord(record.state)) throw new Error('Saved project manifest is corrupted.')
   const schemaVersion = record.state.schemaVersion
-  if (schemaVersion !== projectSchemaVersion && schemaVersion !== previousProjectSchemaVersion && schemaVersion !== legacyProjectSchemaVersion) throw new Error(`Unsupported project schema version: ${String(schemaVersion)}.`)
+  if (schemaVersion !== projectSchemaVersion && schemaVersion !== previousProjectSchemaVersion && schemaVersion !== v4ProjectSchemaVersion && schemaVersion !== v3ProjectSchemaVersion && schemaVersion !== v2ProjectSchemaVersion && schemaVersion !== legacyProjectSchemaVersion) throw new Error(`Unsupported project schema version: ${String(schemaVersion)}.`)
   const baseState = {
     ...record.state,
     // Schema v1 projects written before Project Key used the same stable fields;
@@ -84,9 +84,15 @@ function readProjectState(record: unknown): ReturnType<typeof createProjectState
   }
   const state = schemaVersion === legacyProjectSchemaVersion
     ? migrateLegacyProjectState(baseState as unknown as Parameters<typeof migrateLegacyProjectState>[0])
-    : schemaVersion === previousProjectSchemaVersion
+    : schemaVersion === v2ProjectSchemaVersion
       ? migrateV2ProjectState(baseState as unknown as Parameters<typeof migrateV2ProjectState>[0])
-      : normalizeProjectState(baseState as ReturnType<typeof createProjectState>)
+      : schemaVersion === v3ProjectSchemaVersion
+        ? migrateV3ProjectState(baseState)
+        : schemaVersion === v4ProjectSchemaVersion
+          ? migrateV4ProjectState(baseState)
+          : schemaVersion === previousProjectSchemaVersion
+            ? migrateV5ProjectState(baseState)
+        : normalizeProjectState(baseState as ReturnType<typeof createProjectState>)
   const errors = validateProjectState(state)
   if (errors.length > 0) throw new Error(`Saved project manifest is corrupted: ${errors[0]}`)
   return createProjectState(state)

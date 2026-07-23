@@ -88,10 +88,10 @@ In **SEQ**, each active step has a manual **VELOCITY** value (0–100%) and a pe
 
 ### Local project persistence
 
-**SAVE PROJECT** stores one local project in IndexedDB: its schema-v3 manifest and each referenced source WAV under a stable asset ID. **OPEN PROJECT** restores the last saved project after **START AUDIO**; it re-decodes WAV data, regenerates waveform caches, restores all Pattern Group banks, Playlist, mixer, Pump and Project Key settings, and leaves transport stopped. Schema-v1 and v2 projects migrate safely: their global pad bank and CHOP source become Pattern Group 1, while existing later Pattern Groups receive empty banks rather than guessed copies. Projects saved before Project Key use the safe default C Minor / Aeolian when opened.
+**SAVE PROJECT** stores one local project in IndexedDB: its schema-v6 manifest and each referenced source WAV under a stable asset ID. **OPEN PROJECT** restores the last saved project after **START AUDIO**; it re-decodes WAV data, regenerates waveform caches, restores all Pattern Group banks, Playlist, mixer, Pump, FX racks and Project Key settings, and leaves transport stopped. Schema-v1 through v5 projects migrate safely: their global pad bank and CHOP source become Pattern Group 1 where applicable, while existing later Pattern Groups receive empty banks rather than guessed copies. Projects saved before the FX Rack preserve the prior master delay → compressor order in master slots.
 
 There is no autosave, project browser, rename, duplicate, delete or export/import. IndexedDB quota is browser-managed, so saving large WAV projects can fail when local storage is full.
 
 ### Current limitations
 
-Only one local project is available and it must be opened explicitly after each page reload. There are no effects or master-volume control. Audio must be explicitly started after each page reload; switching tabs may cause a browser to suspend audio, in which case use **START AUDIO** again.
+Only one local project is available and it must be opened explicitly after each page reload. Each Pattern Group and the master have two serial insert FX slots, supporting only NONE, compressor and BPM-synced delay. Audio must be explicitly started after each page reload; switching tabs may cause a browser to suspend audio, in which case use **START AUDIO** again.

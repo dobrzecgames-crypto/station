@@ -87,10 +87,10 @@ Do not build a complex voice allocator before measurements justify it.
 The engine defines a predictable path:
 
 ```text
-AudioBufferSourceNode -> voice gain -> channel gain -> Pump gain -> master gain -> destination
+AudioBufferSourceNode -> voice gain -> channel gain -> Pump gain -> Pattern Group bus -> Group FX slot 1 -> Group FX slot 2 -> Master FX slot 1 -> Master FX slot 2 -> master gain -> destination
 ```
 
-There are 16 channels per Pattern Group bank, keyed by a stable group-and-pad identity. Channel volume, mute and solo act at the channel gain, so they affect active as well as future voices. Mute takes precedence over solo. Pump has a dedicated gain after the channel gain, so its envelope remains active when a target is muted and source-trigger events still fire even when the source channel is not audible.
+There are 16 channels per Pattern Group bank, keyed by a stable group-and-pad identity. Channel volume, mute and solo act at the channel gain, so they affect active as well as future voices. Mute takes precedence over solo. Pump has a dedicated gain after the channel gain, so its envelope remains active when a target is muted and source-trigger events still fire even when the source channel is not audible. Every group has two independent serial insert slots; group outputs and source previews then pass through the two serial master slots before the final master gain.
 
 The MVP should leave sensible headroom. Avoid adding saturation, soft clipping or machine-character processing until the clean engine is stable and measured.
 

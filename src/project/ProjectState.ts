@@ -1,3 +1,5 @@
+import { createDefaultMasterEffectRack, createEmptyEffectRack, createMigratedMasterEffectRack, cloneEffectRackState, isEffectRackState, normalizeEffectRackState } from '../audio/effects'
+import type { EffectRackState } from '../audio/effects'
 import type { PumpCurve, SampleAssetId } from '../audio/AudioEngine'
 import type { GroupPadReference } from '../audio/channelIdentity'
 import { defaultProjectKey, isNoteName, isScaleId } from '../music/scales'
@@ -10,8 +12,11 @@ import type { PatternGroup, PatternVariantName } from '../patterns/patternTypes'
 import { validatePatternClipReferences } from '../song/songOperations'
 import type { PatternClip, TransportMode } from '../song/songTypes'
 
-export const projectSchemaVersion = 3
-export const previousProjectSchemaVersion = 2
+export const projectSchemaVersion = 6
+export const previousProjectSchemaVersion = 5
+export const v4ProjectSchemaVersion = 4
+export const v3ProjectSchemaVersion = 3
+export const v2ProjectSchemaVersion = 2
 export const legacyProjectSchemaVersion = 1
 export const padCount = 16
 export const stepCount = 16
@@ -39,6 +44,7 @@ export interface ProjectState {
   bpm: number
   swing: number
   master: MasterMixerState
+  masterEffects: EffectRackState
   pump: { source: GroupPadReference | null; targets: GroupPadReference[]; depth: number; lengthBeats: number; curve: PumpCurve }
 }
 
@@ -57,6 +63,7 @@ export function createEmptyProjectState(): ProjectState {
     bpm: 120,
     swing: 0,
     master: { volume: 1, muted: false },
+    masterEffects: createDefaultMasterEffectRack(),
     pump: { source: null, targets: [], depth: 0.5, lengthBeats: 0.5, curve: 'smooth' },
   }
 }
@@ -69,6 +76,7 @@ export function createProjectState(state: ProjectState): ProjectState {
     patternGroups: state.patternGroups.map(clonePatternGroup),
     playlist: state.playlist.map((clip) => ({ ...clip })),
     master: { ...state.master },
+    masterEffects: cloneEffectRackState(state.masterEffects),
     pump: { ...state.pump, source: state.pump.source ? { ...state.pump.source } : null, targets: state.pump.targets.map((target) => ({ ...target })) },
   }
 }
@@ -76,7 +84,7 @@ export function createProjectState(state: ProjectState): ProjectState {
 export function normalizeProjectState(state: ProjectState): ProjectState {
   const padIds = state.patternGroups[0]?.bank?.pads.map((pad) => pad.id)
   if (!padIds) throw new Error('Project has no Pattern Group bank.')
-  return createProjectState({ ...state, master: state.master ? { ...state.master } : { volume: 1, muted: false }, patternGroups: ensurePatternGroupShifts(state.patternGroups, padIds).map((group) => ({ ...group, bus: group.bus ? { ...group.bus } : createGroupBusState() })) })
+  return createProjectState({ ...state, master: state.master ? { ...state.master } : { volume: 1, muted: false }, masterEffects: normalizeEffectRackState(state.masterEffects, 'master', createDefaultMasterEffectRack()), patternGroups: ensurePatternGroupShifts(state.patternGroups, padIds).map((group) => ({ ...group, bus: group.bus ? { ...group.bus } : createGroupBusState(), effects: normalizeEffectRackState(group.effects, group.id) })) })
 }
 
 export function migrateLegacyProjectState(legacy: { pads: ReturnType<typeof createPadBankState>['pads']; patterns?: unknown; [key: string]: unknown }): ProjectState {
@@ -94,6 +102,7 @@ export function migrateLegacyProjectState(legacy: { pads: ReturnType<typeof crea
     playlist: [],
     transportMode: 'pattern',
     loopSong: false,
+    masterEffects: createDefaultMasterEffectRack(),
     pump: { source: typeof legacy.pump === 'object' && legacy.pump !== null && typeof (legacy.pump as { sourcePadId?: unknown }).sourcePadId === 'string' ? { patternGroupId: group.id, padId: (legacy.pump as { sourcePadId: string }).sourcePadId } : null, targets: typeof legacy.pump === 'object' && legacy.pump !== null && Array.isArray((legacy.pump as { targetPadIds?: unknown }).targetPadIds) ? (legacy.pump as { targetPadIds: string[] }).targetPadIds.map((padId) => ({ patternGroupId: group.id, padId })) : [], depth: (legacy.pump as { depth: number }).depth, lengthBeats: (legacy.pump as { lengthBeats: number }).lengthBeats, curve: (legacy.pump as { curve: PumpCurve }).curve },
   } as unknown as ProjectState
 }
@@ -112,9 +121,24 @@ export function migrateV2ProjectState(previous: { pads: ReturnType<typeof create
   return {
     ...state,
     schemaVersion: projectSchemaVersion,
-    patternGroups: groups,
+    patternGroups: withGroupEffectRacks(groups),
+    masterEffects: createDefaultMasterEffectRack(),
     pump: { source: pump.sourcePadId ? { patternGroupId: firstGroup.id, padId: pump.sourcePadId } : null, targets: pump.targetPadIds.map((padId) => ({ patternGroupId: firstGroup.id, padId })), depth: pump.depth, lengthBeats: pump.lengthBeats, curve: pump.curve },
   } as ProjectState
+}
+
+export function migrateV3ProjectState(previous: { [key: string]: unknown }): ProjectState {
+  return { ...previous, schemaVersion: projectSchemaVersion, patternGroups: withGroupEffectRacks(previous.patternGroups as PatternGroup[]), masterEffects: createDefaultMasterEffectRack() } as ProjectState
+}
+
+export function migrateV4ProjectState(previous: { [key: string]: unknown }): ProjectState {
+  const { masterCompressor, ...state } = previous
+  return { ...state, schemaVersion: projectSchemaVersion, patternGroups: withGroupEffectRacks(state.patternGroups as PatternGroup[]), masterEffects: createMigratedMasterEffectRack(undefined, masterCompressor) } as ProjectState
+}
+
+export function migrateV5ProjectState(previous: { [key: string]: unknown }): ProjectState {
+  const { masterDelay, masterCompressor, ...state } = previous
+  return { ...state, schemaVersion: projectSchemaVersion, patternGroups: withGroupEffectRacks(state.patternGroups as PatternGroup[]), masterEffects: createMigratedMasterEffectRack(masterDelay, masterCompressor) } as ProjectState
 }
 
 export function collectReferencedAssetIds(project: ProjectState): Set<SampleAssetId> {
@@ -142,6 +166,7 @@ export function validateProjectState(project: ProjectState): string[] {
   for (const group of project.patternGroups) {
     if (!group.id || !group.name || !group.variants.A) errors.push('Every Pattern Group requires variant A.')
     if (!group.bus || !Number.isFinite(group.bus.volume) || group.bus.volume < 0 || group.bus.volume > 1 || typeof group.bus.muted !== 'boolean' || typeof group.bus.solo !== 'boolean') errors.push(`${group.name} has an invalid Group Bus.`)
+    if (!isEffectRackState(group.effects, group.id)) errors.push(`${group.name} has invalid effects.`)
     if (!group.bank || group.bank.pads.length !== padCount) errors.push(`${group.name} must contain exactly ${padCount} bank pads.`)
     const bankPadIds = new Set(group.bank?.pads.map((pad) => pad.id))
     if (bankPadIds.size !== group.bank?.pads.length) errors.push(`${group.name} bank pad IDs must be unique.`)
@@ -184,11 +209,16 @@ export function validateProjectState(project: ProjectState): string[] {
   if (!Number.isFinite(project.bpm) || project.bpm < 60 || project.bpm > 200) errors.push('BPM must be between 60 and 200.')
   if (!Number.isFinite(project.swing) || project.swing < 0 || project.swing > 0.5) errors.push('Swing must be between 0 and 0.5.')
   if (!Number.isFinite(project.master?.volume) || project.master.volume < 0 || project.master.volume > 1 || typeof project.master.muted !== 'boolean') errors.push('Master mixer state is invalid.')
+  if (!isEffectRackState(project.masterEffects, 'master')) errors.push('Master effects are invalid.')
   if (!Number.isFinite(project.pump.depth) || project.pump.depth < 0 || project.pump.depth > 1) errors.push('Pump depth must be between 0 and 1.')
   if (!Number.isFinite(project.pump.lengthBeats) || project.pump.lengthBeats <= 0) errors.push('Pump length must be positive.')
   if (project.pump.source && !hasPumpPadReference(project.pump.source, project.patternGroups)) errors.push('Pump source references a missing group pad.')
   for (const target of project.pump.targets) if (!hasPumpPadReference(target, project.patternGroups)) errors.push('Pump target references a missing group pad.')
   return errors
+}
+
+function withGroupEffectRacks(groups: readonly PatternGroup[]): PatternGroup[] {
+  return groups.map((group) => ({ ...group, effects: createEmptyEffectRack(group.id) }))
 }
 
 function hasPumpPadReference(reference: GroupPadReference, groups: readonly PatternGroup[]): boolean {

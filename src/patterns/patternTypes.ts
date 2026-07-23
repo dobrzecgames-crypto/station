@@ -1,4 +1,5 @@
 import type { SampleId } from '../audio/AudioEngine'
+import type { EffectRackState } from '../audio/effects'
 import type { PadBankState } from '../pads/padBank'
 
 export const patternVariantNames = ['A', 'B', 'C', 'D'] as const
@@ -19,6 +20,7 @@ export interface PatternGroup {
   name: string
   bank: PadBankState
   bus?: GroupBusState
+  effects: EffectRackState
   variants: Partial<Record<PatternVariantName, StepPattern>>
   shifts: Partial<Record<PatternVariantName, StepShiftPattern>>
 }

@@ -16,6 +16,7 @@ Suggested fields:
 
 - project ID,
 - schema version,
+- master FX Rack: two ordered slots with NONE, compressor or delay configuration,
 - name,
 - created and modified timestamps,
 - up to eight Pattern Groups, each with a private 16-pad bank and A–D variants,
@@ -154,7 +155,7 @@ The following must not be serialized into the project:
 
 ## Pre-persistence ProjectState
 
-ProjectState schema v3 is a serializable boundary. Each Pattern Group contains its private bank: 16 pad configurations and that group's CHOP session. It contains shared asset references and durations, Pattern Groups and their 16-step velocities, selected Pattern Group/variant, Pattern Clips, persisted transport mode and Loop Song, BPM, swing, group-and-pad Pump references, and the global Project Key (`root`, `scale`). Waveform peaks are runtime cache regenerated after decoding; they are not part of schema v3.
+ProjectState schema v6 is a serializable boundary. Each Pattern Group contains its private bank, CHOP session and two-slot serial FX Rack. It contains shared asset references and durations, Pattern Groups and their 16-step velocities, selected Pattern Group/variant, Pattern Clips, persisted transport mode and Loop Song, BPM, swing, group-and-pad Pump references, the global Project Key (`root`, `scale`) and a serializable two-slot master FX Rack. Waveform peaks are runtime cache regenerated after decoding; they are not part of schema v6.
 
 Project Key is a preference for future Project Scale mappings. A mapping writes normal independent pad configurations that reference one shared SampleAsset and contain their calculated pitch offsets. Existing mapped pads have no runtime link to Project Key and are not retuned when it changes.
 
@@ -162,7 +163,7 @@ It intentionally excludes AudioContext, buffers, nodes, active voices, transport
 
 ## Persistence v1 records
 
-The one saved local project has ID `default-project`. Its manifest contains `ProjectState` with `schemaVersion: 3`; a separate asset record contains each referenced asset ID, filename, MIME type, byte size and original WAV Blob. A shared asset is represented by one asset record even when referenced by many group banks. `lastProjectId` points to the most recently saved project. Schema-v1 manifests migrate to Pattern 1A. Schema-v2's single global bank and CHOP session migrate exactly to Pattern Group 1; all pre-existing later Pattern Groups receive empty banks, so no ambiguous sound assignment is guessed.
+The one saved local project has ID `default-project`. Its manifest contains `ProjectState` with `schemaVersion: 6`; a separate asset record contains each referenced asset ID, filename, MIME type, byte size and original WAV Blob. A shared asset is represented by one asset record even when referenced by many group banks. `lastProjectId` points to the most recently saved project. Schema-v1 manifests migrate to Pattern 1A. Schema-v2's single global bank and CHOP session migrate exactly to Pattern Group 1; all pre-existing later Pattern Groups receive empty banks, so no ambiguous sound assignment is guessed. Schema-v3 and v4 receive bypassed defaults for their unavailable master effects. Schema-v5 converts the existing master delay → compressor chain into master FX slots 1 and 2 and adds empty group racks.
 
 Only assets used by pads or by the active CHOP source are included in a save. Waveform peaks, AudioBuffers, transport playback state, preview state and UI-only Chop editing state are rebuilt or reset on OPEN.
 

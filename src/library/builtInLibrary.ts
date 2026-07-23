@@ -1,4 +1,4 @@
-export type LibraryCategory = 'KICK' | 'SNARE' | 'HAT'
+export type LibraryCategory = 'KICK' | 'SNARE' | 'HAT' | 'SOUND'
 
 export interface LibrarySample {
   id: string
@@ -7,7 +7,7 @@ export interface LibrarySample {
   url: string
 }
 
-export const libraryCategories: readonly LibraryCategory[] = ['KICK', 'SNARE', 'HAT']
+export const libraryCategories: readonly LibraryCategory[] = ['KICK', 'SNARE', 'HAT', 'SOUND']
 
 export const builtInLibrary: readonly LibrarySample[] = [
   { id: 'kick-01', category: 'KICK', filename: 'Kick 01.wav', url: '/library/kick-01.wav' },
@@ -22,4 +22,8 @@ export const builtInLibrary: readonly LibrarySample[] = [
   { id: 'hat-02', category: 'HAT', filename: 'Hat 02.wav', url: '/library/hat-02.wav' },
   { id: 'hat-03', category: 'HAT', filename: 'Hat 03.wav', url: '/library/hat-03.wav' },
   { id: 'hat-04', category: 'HAT', filename: 'Hat 04.wav', url: '/library/hat-04.wav' },
+  { id: 'piano-c5', category: 'SOUND', filename: 'Piano C5.wav', url: '/library/piano-c5.wav' },
+  { id: 'pluck-c5', category: 'SOUND', filename: 'Pluck C5.wav', url: '/library/pluck-c5.wav' },
+  { id: 'saw-c5', category: 'SOUND', filename: 'Saw C5.wav', url: '/library/saw-c5.wav' },
+  { id: 'synth-c5', category: 'SOUND', filename: 'Synth C5.wav', url: '/library/synth-c5.wav' },
 ]

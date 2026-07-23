@@ -33,7 +33,7 @@ import { projectRepository } from './storage/ProjectRepository'
 import { defaultProjectId } from './storage/storageTypes'
 import { addPatternGroup, clearVariant, createInitialPatternGroups, duplicateVariant, getVariant, getVariantShifts, setVariantStepShift, setVariantStepVelocity, updateVariantStep } from './patterns/patternOperations'
 import type { PatternGroup, PatternVariantName } from './patterns/patternTypes'
-import { addPatternClip, getActiveClipsForSlot, getLastOccupiedSlot, removeClipsForGroup, removeClipsForVariant } from './song/songOperations'
+import { addPatternClip, getActiveClipsForSlot, getLastOccupiedSlot, removeClipsForGroup, removeClipsForVariant, removePatternClip } from './song/songOperations'
 import type { PatternClip, TransportMode } from './song/songTypes'
 import { SongWorkspace } from './song/SongWorkspace'
 import './App.css'
@@ -82,6 +82,8 @@ export function App({ audioEngine }: AppProps) {
   const [waveforms, setWaveforms] = useState<Record<string, number[]>>({})
   const [chopAddingSlice, setChopAddingSlice] = useState(false)
   const [sourcePreviewing, setSourcePreviewing] = useState(false)
+  const [cutOnPadTrigger, setCutOnPadTrigger] = useState(true)
+  const [loadingChopTest, setLoadingChopTest] = useState(false)
   const [projectMessage, setProjectMessage] = useState<string>()
   const [projectBusy, setProjectBusy] = useState(false)
   const [projectKey, setProjectKey] = useState<ProjectKey>(defaultProjectKey)
@@ -91,6 +93,7 @@ export function App({ audioEngine }: AppProps) {
   const [sequencerPlayhead, setSequencerPlayhead] = useState<SequencerPlayhead | null>(null)
   const [visualAudioTime, setVisualAudioTime] = useState(0)
   const sequencerRef = useRef(new StepSequencer(audioEngine))
+  const workspaceRef = useRef<HTMLDivElement>(null)
   const selectedGroup = patternGroups.find((group) => group.id === selectedPatternGroupId)!
   const pads = selectedGroup.bank.pads
   const chopSession = selectedGroup.bank.chopSession
@@ -124,7 +127,7 @@ export function App({ audioEngine }: AppProps) {
     return () => window.cancelAnimationFrame(frameId)
   }, [audioEngine, isPlaying, waveformPlayback])
 
-  const sequenceConfigRef = useRef<StepSequencerConfig>({ bpm, swing, metronomeEnabled: false, mode: 'pattern', loopSong: false, lastSongSlot: null, getTracksForSlot: () => [] })
+  const sequenceConfigRef = useRef<StepSequencerConfig>({ bpm, swing, metronomeEnabled: false, mode: 'pattern', loopSong: false, cutOnStepTrigger: true, lastSongSlot: null, getTracksForSlot: () => [] })
 
   sequenceConfigRef.current = {
     bpm,
@@ -132,6 +135,7 @@ export function App({ audioEngine }: AppProps) {
     metronomeEnabled,
     mode: transportMode,
     loopSong,
+    cutOnStepTrigger: cutOnPadTrigger,
     lastSongSlot: getLastOccupiedSlot(playlist),
     getTracksForSlot: (slot) => {
       const variants = transportMode === 'song'
@@ -166,6 +170,7 @@ export function App({ audioEngine }: AppProps) {
     const pad = pads.find((candidate) => candidate.id === padId)
     setSelectedPadId(padId)
     if (!pad || !pad.assetId || !audioReady || !audioEngine.hasSampleAsset(pad.assetId)) return
+    if (cutOnPadTrigger) audioEngine.stopManualVoices()
     const startedAt = audioEngine.getCurrentTime()
     audioEngine.triggerSample(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), pad.assetId, { pitchSemitones: pad.pitchSemitones, startSeconds: pad.region.startSeconds, endSeconds: pad.region.endSeconds })
     showWaveformPlayback(pad.assetId, pad.region.startSeconds, pad.region.endSeconds, startedAt)
@@ -182,7 +187,7 @@ export function App({ audioEngine }: AppProps) {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [pads, audioReady])
+  }, [pads, audioReady, cutOnPadTrigger, selectedPatternGroupId])
 
   const startAudio = async () => {
     setErrorMessage(undefined)
@@ -448,16 +453,13 @@ export function App({ audioEngine }: AppProps) {
     return true
   }
 
-  const loadChopSource = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file) return
+  const loadChopSourceBlob = async (blob: Blob, filename: string) => {
     setErrorMessage(undefined)
     audioEngine.stopPreview()
     setSourcePreviewing(false)
     try {
       const assetId = createAssetId('chop')
-      const loaded = await audioEngine.loadSample(assetId, file)
+      const loaded = await audioEngine.loadSampleBlob(assetId, blob, filename)
       const waveform = audioEngine.getWaveformPeaks(assetId) ?? []
       const oldAssetId = chopSession.assetId
       const bank = { pads: pads.map((pad) => pad.chopSessionId === chopSession.id ? { ...pad, chopSessionId: null } : pad), chopSession: { id: createChopSessionId(), assetId, fileName: loaded.filename, durationSeconds: loaded.durationSeconds, slices: [], activeSliceId: null } }
@@ -467,6 +469,26 @@ export function App({ audioEngine }: AppProps) {
       setChopAddingSlice(false)
       removeAssetIfUnused(oldAssetId, groups)
     } catch (error) { setErrorMessage(toMessage(error)) }
+  }
+
+  const loadChopSource = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (file) void loadChopSourceBlob(file, file.name)
+  }
+
+  const loadChopTest = async () => {
+    if (!audioReady || loadingChopTest) return
+    setLoadingChopTest(true)
+    try {
+      const response = await fetch('/library/chop-test.wav')
+      if (!response.ok) throw new Error('Unable to load the built-in CHOP test loop.')
+      await loadChopSourceBlob(await response.blob(), 'CHOP Test Loop.wav')
+    } catch (error) {
+      setErrorMessage(toMessage(error))
+    } finally {
+      setLoadingChopTest(false)
+    }
   }
 
   const addChopSlice = (timeSeconds: number) => {
@@ -568,6 +590,11 @@ export function App({ audioEngine }: AppProps) {
     setSelectedPatternVariant('A')
   }
   const addPlaylistClip = (groupId: string, variant: PatternVariantName, startSlot: number) => setPlaylist((current) => addPatternClip(current, { id: createPatternClipId(), patternGroupId: groupId, variant, startSlot }))
+  const paintPlaylistSlot = (groupId: string, variant: PatternVariantName, startSlot: number, shouldExist: boolean) => setPlaylist((current) => {
+    const existing = current.find((clip) => clip.patternGroupId === groupId && clip.variant === variant && clip.startSlot === startSlot)
+    if (shouldExist) return existing ? current : addPatternClip(current, { id: createPatternClipId(), patternGroupId: groupId, variant, startSlot })
+    return existing ? removePatternClip(current, existing.id) : current
+  })
   const startPlayback = () => {
     if (isPlaying) return
     if (!audioReady) { setErrorMessage('Start audio before playing the sequencer.'); return }
@@ -589,6 +616,7 @@ export function App({ audioEngine }: AppProps) {
     setSelectedPatternVariant('A')
   }
   const changeMainView = (view: MainView) => {
+    workspaceRef.current?.scrollTo({ top: 0 })
     setMainView(view)
     setActiveFxContext(null)
     if (view !== 'pad') setSampleEditorOpen(false)
@@ -672,7 +700,7 @@ export function App({ audioEngine }: AppProps) {
             )}
           </div>
         )}
-        <div className="station-workspace">
+        <div ref={workspaceRef} className="station-workspace">
           {mainView === "library" && (
             <LibraryWorkspace
               audioReady={audioReady}
@@ -708,7 +736,11 @@ export function App({ audioEngine }: AppProps) {
               slices={chopSession.slices}
               activeSliceId={chopSession.activeSliceId}
               addingSlice={chopAddingSlice}
-              onLoadSource={(event) => void loadChopSource(event)}
+              onLoadSource={loadChopSource}
+              cutOnPadTrigger={cutOnPadTrigger}
+              onCutOnPadTriggerChange={setCutOnPadTrigger}
+              loadingTest={loadingChopTest}
+              onLoadTest={() => void loadChopTest()}
               sourcePreviewing={sourcePreviewing}
               onPreviewSource={previewChopSource}
               onStopPreviewSource={stopChopSourcePreview}
@@ -813,6 +845,7 @@ export function App({ audioEngine }: AppProps) {
                 isPlaying && transportMode === "song" ? playingSongSlot : null
               }
               onAddClip={addPlaylistClip}
+              onPaintSlot={paintPlaylistSlot}
             />
           )}
           {mainView === "mix" && (

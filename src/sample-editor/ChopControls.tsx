@@ -25,7 +25,7 @@ export function ChopControls({ slices, activeSliceId, addingSlice, onStartAdding
           {addingSlice ? 'CLICK WAVEFORM' : 'ADD SLICE'}
         </button>
       </div>
-      <p className="chop-help">{addingSlice ? 'ADD SLICE is active - click the waveform to add more cuts, then click ADD SLICE again to stop.' : slices.length ? `${slices.length} slice${slices.length === 1 ? '' : 's'} - drag blue cut markers to move them.` : 'Enable ADD SLICE, then click the waveform to create slices.'}</p>
+      <p className="chop-help">{addingSlice ? 'Click anywhere on the waveform to add a slice. Click ADD SLICE again when you\'re done.' : slices.length ? `${slices.length} slice${slices.length === 1 ? '' : 's'} - drag the blue markers to move them.` : 'Click ADD SLICE, then click the waveform to create slices.'}</p>
       {slices.length > 0 && (
         <div className="slice-list" aria-label="Slice list">
           {slices.map((slice, index) => (

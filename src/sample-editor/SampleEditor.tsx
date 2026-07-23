@@ -18,7 +18,7 @@ export function SampleEditor({ pad, peaks, playheadSeconds, audioReady, onPrevie
       <section className="sample-editor" aria-labelledby="sample-editor-title">
         <p className="eyebrow">SAMPLE</p>
         <div className="sequencer-heading"><h2 id="sample-editor-title">{pad.label}</h2>{onClose && <button className="mixer-toggle" type="button" onClick={onClose}>CLOSE</button>}</div>
-        <p className="sample-editor-empty">EMPTY - assign a WAV to edit its playback region.</p>
+        <p className="sample-editor-empty">This pad is empty - load a sample first, then you can trim where it starts and stops.</p>
       </section>
     )
   }
@@ -38,7 +38,7 @@ export function SampleEditor({ pad, peaks, playheadSeconds, audioReady, onPrevie
         <div className="sample-editor-actions"><button className="transport-button" type="button" disabled={!audioReady} onClick={onPreview}>PREVIEW</button>{onClose && <button className="mixer-toggle" type="button" onClick={onClose}>CLOSE</button>}</div>
       </div>
       <p className="sample-editor-file" title={pad.fileName}>{pad.fileName} - {durationSeconds.toFixed(3)} s</p>
-      {pad.chopSessionId && <p className="chop-managed-note">This pad is live-managed by the current Chop Session. A later marker edit can replace this region.</p>}
+      {pad.chopSessionId && <p className="chop-managed-note">This pad follows a slice from CHOP - moving that slice marker later will update it here too.</p>}
       <Waveform peaks={peaks} durationSeconds={durationSeconds} region={pad.region} slices={[]} activeSliceId={null} addingSlice={false} playheadSeconds={playheadSeconds} onRegionChange={onRegionChange} onAddSlice={() => undefined} onMoveCut={() => undefined} onSelectSlice={() => undefined} />
       <div className="region-controls">
         <label htmlFor="region-start">START <output>{pad.region.startSeconds.toFixed(3)} s</output>

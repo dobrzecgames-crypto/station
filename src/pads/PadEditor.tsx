@@ -26,11 +26,11 @@ export function PadEditor({ pad, audioReady, projectBusy, projectKeyLabel, onImp
         </span>
       </div>
       <p className="sample-details">
-        {pad.fileName ? `${pad.fileName} · ${pad.durationSeconds?.toFixed(2)} s` : 'No WAV sample assigned to this pad.'}
+        {pad.fileName ? `${pad.fileName} · ${pad.durationSeconds?.toFixed(2)} s` : 'No sample loaded on this pad yet.'}
       </p>
       <label className="file-picker">
-        <span>Assign WAV</span>
-        <input type="file" accept="audio/wav,.wav" disabled={!audioReady} onChange={onImport} />
+        <span>LOAD A SAMPLE</span>
+        <span className="file-picker-button">CHOOSE WAV FILE<input type="file" accept="audio/wav,.wav" disabled={!audioReady} onChange={onImport} /></span>
       </label>
       <div className="parameter-control">
         <label htmlFor="pad-volume">Volume <output>{pad.volume.toFixed(2)}</output></label>

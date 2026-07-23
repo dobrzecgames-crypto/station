@@ -6,6 +6,7 @@ export interface StepSequencerConfig {
   metronomeEnabled: boolean
   mode: 'pattern' | 'song'
   loopSong: boolean
+  cutOnStepTrigger: boolean
   lastSongSlot: number | null
   getTracksForSlot: (slot: number) => readonly StepSequencerTrack[]
   onStepScheduled?: (stepIndex: number, scheduledTime: number, durationSeconds: number) => void
@@ -65,10 +66,18 @@ export class StepSequencer {
       if (config.metronomeEnabled && this.nextStepIndex % 4 === 0) this.audioEngine.scheduleMetronome(scheduledTime, this.nextStepIndex === 0)
       if (config.mode === 'song' && this.nextStepIndex === 0) config.onSongSlotChange?.(this.currentSongSlot)
       const tracks = config.getTracksForSlot(config.mode === 'song' ? this.currentSongSlot : 1)
-      for (const track of tracks) {
+      const activeTracks = tracks.flatMap((track) => {
         const velocity = track.steps[this.nextStepIndex]
+        if (velocity <= 0) return []
         const shift = track.shifts[this.nextStepIndex] ?? 0
-        if (velocity > 0) this.audioEngine.scheduleSample(track.groupId, track.channelId, track.assetId, scheduledTime + shift * stepDuration, { ...track.options, gain: (track.options.gain ?? 1) * velocity }, 'sequencer')
+        return [{ track, velocity, shift }]
+      })
+      if (config.cutOnStepTrigger && activeTracks.length > 0) {
+        const firstTriggerTime = Math.min(...activeTracks.map(({ shift }) => scheduledTime + shift * stepDuration))
+        this.audioEngine.stopSequencerVoicesAt(firstTriggerTime)
+      }
+      for (const { track, velocity, shift } of activeTracks) {
+        this.audioEngine.scheduleSample(track.groupId, track.channelId, track.assetId, scheduledTime + shift * stepDuration, { ...track.options, gain: (track.options.gain ?? 1) * velocity }, 'sequencer')
       }
       const wasLastStep = this.nextStepIndex === 15
       this.nextStepIndex = (this.nextStepIndex + 1) % 16

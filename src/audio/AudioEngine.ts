@@ -40,6 +40,9 @@ interface ActiveVoice {
   gain: GainNode
   cleanedUp: boolean
   origin: 'manual' | 'sequencer' | 'preview'
+  isSample: boolean
+  startsAt: number
+  stopAt?: number
   onEnded?: () => void
 }
 
@@ -248,7 +251,7 @@ export class AudioEngine {
     const when = this.context.currentTime
     const source = this.context.createBufferSource()
     const gain = this.context.createGain()
-    const voice: ActiveVoice = { source, gain, cleanedUp: false, origin: 'preview', onEnded }
+    const voice: ActiveVoice = { source, gain, cleanedUp: false, origin: 'preview', isSample: true, startsAt: when, onEnded }
     const playbackRate = this.toPlaybackRate(options.pitchSemitones)
     const region = this.toPlaybackRegion(sampleBuffer.duration, options.startSeconds, options.endSeconds)
     const outputDuration = region.durationSeconds / playbackRate
@@ -288,8 +291,8 @@ export class AudioEngine {
 
     const source = this.context.createBufferSource()
     const gain = this.context.createGain()
-    const voice: ActiveVoice = { source, gain, cleanedUp: false, origin }
     const scheduledWhen = Math.max(this.context.currentTime, when)
+    const voice: ActiveVoice = { source, gain, cleanedUp: false, origin, isSample: true, startsAt: scheduledWhen }
     const playbackRate = this.toPlaybackRate(options.pitchSemitones)
     const region = this.toPlaybackRegion(sampleBuffer.duration, options.startSeconds, options.endSeconds)
     const voiceGain = this.toGain(options.gain)
@@ -318,7 +321,7 @@ export class AudioEngine {
     const gain = this.context.createGain()
     const durationSeconds = accented ? 0.045 : 0.03
     const peakGain = accented ? 0.16 : 0.1
-    const voice: ActiveVoice = { source: oscillator, gain, cleanedUp: false, origin: 'sequencer' }
+    const voice: ActiveVoice = { source: oscillator, gain, cleanedUp: false, origin: 'sequencer', isSample: false, startsAt: scheduledWhen }
     oscillator.type = 'square'
     oscillator.frequency.setValueAtTime(accented ? 1760 : 1320, scheduledWhen)
     gain.gain.setValueAtTime(0, scheduledWhen)
@@ -350,6 +353,32 @@ export class AudioEngine {
         voice.source.stop()
       } catch {
         // A scheduled source may have already ended before transport stop.
+      }
+      this.cleanUpVoice(voice)
+    }
+  }
+
+  stopSequencerVoicesAt(when: number): void {
+    if (!this.context) return
+    const stopAt = Math.max(this.context.currentTime, when)
+    for (const voice of this.activeVoices) {
+      if (voice.origin !== 'sequencer' || !voice.isSample || voice.startsAt > stopAt || (voice.stopAt !== undefined && voice.stopAt <= stopAt)) continue
+      try {
+        voice.source.stop(stopAt)
+        voice.stopAt = stopAt
+      } catch {
+        // A sequenced source may already have ended before the next step cuts it.
+      }
+    }
+  }
+
+  stopManualVoices(): void {
+    for (const voice of [...this.activeVoices]) {
+      if (voice.origin !== 'manual') continue
+      try {
+        voice.source.stop()
+      } catch {
+        // A manually triggered source may already have ended before it is cut.
       }
       this.cleanUpVoice(voice)
     }

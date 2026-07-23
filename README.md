@@ -84,11 +84,15 @@ The fixed shell provides **CHOP**, **PAD**, **SEQ**, **SONG**, **SAMPLE** and **
 
 In **SEQ**, each active step has a manual **VELOCITY** value (0–100%) and a per-step **SHIFT** from −50% to +50% of a 16th-note duration. SHIFT moves only that scheduled trigger; the AudioContext clock, BPM and slot boundaries remain unchanged.
 
+To record a Pattern, select **PATTERN** transport mode, arm **REC**, press **PLAY**, and trigger loaded pads. Each hit is written to the current Pattern Group and A–D variant at the nearest **1/4**, **1/8** or **1/16** grid point selected in SEQ. Recording stores a full-velocity step; the REC and quantization controls are session-only, while the resulting pattern steps save with the project.
+
 **PROJECT KEY** sets a global root and scale for future mappings. In PAD view, select a loaded pad and use **MAP TO PROJECT SCALE** to fill that pad through PAD 16 with the same asset and playback region at consecutive scale degrees. The selected pad is degree zero; map targets retain their own patterns, mute/solo state and Pump settings. Mapping never wraps to PAD 01, does not retune earlier mappings after a key change, and asks once before replacing occupied target pads.
 
 ### Local project persistence
 
-**SAVE PROJECT** stores one local project in IndexedDB: its schema-v6 manifest and each referenced source WAV under a stable asset ID. **OPEN PROJECT** restores the last saved project after **START AUDIO**; it re-decodes WAV data, regenerates waveform caches, restores all Pattern Group banks, Playlist, mixer, Pump, FX racks and Project Key settings, and leaves transport stopped. Schema-v1 through v5 projects migrate safely: their global pad bank and CHOP source become Pattern Group 1 where applicable, while existing later Pattern Groups receive empty banks rather than guessed copies. Projects saved before the FX Rack preserve the prior master delay → compressor order in master slots.
+Each Pattern Group has one **RETRIGGER** setting in SEQ: **LAYER** allows its pads to overlap, while **CUT PREVIOUS** fades and stops all earlier hits from that Pattern Group before the next pad plays. Different Pattern Groups retain independent settings.
+
+**SAVE PROJECT** stores one local project in IndexedDB: its schema-v9 manifest and each referenced source WAV under a stable asset ID. **OPEN PROJECT** restores the last saved project after **START AUDIO**; it re-decodes WAV data, regenerates waveform caches, restores all Pattern Group banks, Playlist, mixer, Pump, FX racks and Project Key settings, and leaves transport stopped. Schema-v1 through v8 projects migrate safely: their global pad bank and CHOP source become Pattern Group 1 where applicable, while existing later Pattern Groups receive empty banks rather than guessed copies. Older single Pump sources become one ghost sidechain source. Projects saved before the FX Rack preserve the prior master delay → compressor order in master slots.
 
 There is no autosave, project browser, rename, duplicate, delete or export/import. IndexedDB quota is browser-managed, so saving large WAV projects can fail when local storage is full.
 

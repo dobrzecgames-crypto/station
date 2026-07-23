@@ -27,7 +27,7 @@ export function cloneStepShiftPattern(pattern: StepShiftPattern): StepShiftPatte
 }
 
 export function createPatternGroup(id: string, groupNumber: number, padIds: readonly SampleId[]): PatternGroup {
-  return { id, name: `Pattern ${groupNumber}`, bank: createPadBankState(), bus: createGroupBusState(), effects: createEmptyEffectRack(id), variants: { A: createEmptyStepPattern(padIds) }, shifts: { A: createEmptyStepShiftPattern(padIds) } }
+  return { id, name: `Pattern ${groupNumber}`, retriggerMode: 'layer', bank: createPadBankState(), bus: createGroupBusState(), effects: createEmptyEffectRack(id), variants: { A: createEmptyStepPattern(padIds) }, shifts: { A: createEmptyStepShiftPattern(padIds) } }
 }
 
 export function createInitialPatternGroups(padIds: readonly SampleId[]): PatternGroup[] {

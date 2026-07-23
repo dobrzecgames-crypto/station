@@ -23,12 +23,12 @@ export interface TriggerSampleOptions {
   pitchSemitones?: number
   startSeconds?: number
   endSeconds?: number
+  retriggerMode?: 'layer' | 'cut-previous'
 }
 
 export type PumpCurve = 'snap' | 'smooth' | 'swell'
 
 export interface PumpConfig {
-  sourceChannelId: ChannelId | null
   targetChannelIds: readonly ChannelId[]
   depth: number
   lengthSeconds: number
@@ -40,6 +40,7 @@ interface ActiveVoice {
   gain: GainNode
   cleanedUp: boolean
   origin: 'manual' | 'sequencer' | 'preview'
+  groupId?: GroupId
   onEnded?: () => void
 }
 
@@ -86,7 +87,7 @@ export class AudioEngine {
   private masterMuted = false
   private masterEffectState: EffectRackState
   private bpm = 120
-  private pumpConfig: PumpConfig = { sourceChannelId: null, targetChannelIds: [], depth: 0, lengthSeconds: 0.2, curve: 'smooth' }
+  private pumpConfig: PumpConfig = { targetChannelIds: [], depth: 0, lengthSeconds: 0.2, curve: 'smooth' }
   private samples = new Map<SampleId, AudioBuffer>()
   private waveforms = new Map<SampleId, number[]>()
   private runtimeAssets = new Map<SampleAssetId, RuntimeSampleAsset>()
@@ -288,8 +289,9 @@ export class AudioEngine {
 
     const source = this.context.createBufferSource()
     const gain = this.context.createGain()
-    const voice: ActiveVoice = { source, gain, cleanedUp: false, origin }
+    const voice: ActiveVoice = { source, gain, cleanedUp: false, origin, groupId }
     const scheduledWhen = Math.max(this.context.currentTime, when)
+    if (options.retriggerMode === 'cut-previous') this.stopGroupVoices(groupId, scheduledWhen)
     const playbackRate = this.toPlaybackRate(options.pitchSemitones)
     const region = this.toPlaybackRegion(sampleBuffer.duration, options.startSeconds, options.endSeconds)
     const voiceGain = this.toGain(options.gain)
@@ -306,7 +308,6 @@ export class AudioEngine {
     source.addEventListener('ended', () => this.cleanUpVoice(voice), { once: true })
 
     this.activeVoices.add(voice)
-    if (channelId === this.pumpConfig.sourceChannelId) this.triggerPump(scheduledWhen)
     source.start(scheduledWhen, region.startSeconds, region.durationSeconds)
   }
 
@@ -411,6 +412,21 @@ export class AudioEngine {
     this.masterEffects.output.connect(this.masterGain)
     this.masterGain.connect(context.destination)
     this.applyMasterGain(true)
+  }
+
+  private stopGroupVoices(groupId: GroupId, when: number): void {
+    for (const voice of this.activeVoices) {
+      if (voice.groupId !== groupId) continue
+      try {
+        const stopAt = Math.max(this.context?.currentTime ?? when, when)
+        voice.gain.gain.cancelScheduledValues(stopAt)
+        voice.gain.gain.setValueAtTime(voice.gain.gain.value, stopAt)
+        voice.gain.gain.linearRampToValueAtTime(0, stopAt + 0.003)
+        voice.source.stop(stopAt + 0.004)
+      } catch {
+        // A voice may have ended before its channel is retriggered.
+      }
+    }
   }
 
   private createChannelNodes(): void {
@@ -674,13 +690,16 @@ export class AudioEngine {
   }
 
 
-  private triggerPump(when: number): void {
+  /**
+   * Triggers the Pump envelope without scheduling or routing any audio source.
+   * Ghost sidechain events use this path so source-pad FX cannot affect ducking.
+   */
+  triggerPump(when: number): void {
     const { depth, lengthSeconds, curve, targetChannelIds } = this.pumpConfig
     const low = Math.max(0.0001, 1 - this.toGain(depth))
     const recoveryTime = Math.max(0.01, lengthSeconds)
 
     for (const channelId of targetChannelIds) {
-      if (channelId === this.pumpConfig.sourceChannelId) continue
       const pumpGain = this.channels.get(channelId)?.pumpGain
       if (!pumpGain) continue
       const gain = pumpGain.gain

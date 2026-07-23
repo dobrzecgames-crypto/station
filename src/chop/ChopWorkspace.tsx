@@ -16,7 +16,9 @@ interface ChopWorkspaceProps {
   slices: readonly SampleSlice[]
   activeSliceId: string | null
   addingSlice: boolean
+  testSourceLoading: boolean
   onLoadSource: (event: ChangeEvent<HTMLInputElement>) => void
+  onLoadTestSource: () => void
   sourcePreviewing: boolean
   onPreviewSource: () => void
   onStopPreviewSource: () => void
@@ -31,15 +33,15 @@ interface ChopWorkspaceProps {
   onClearSlices: () => void
 }
 
-export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, sourceFileName, sourceDurationSeconds, peaks, playheadSeconds, slices, activeSliceId, addingSlice, onLoadSource, sourcePreviewing, onPreviewSource, onStopPreviewSource, onTriggerPad, onFeedbackEnd, onAddSlice, onMoveCut, onSelectSlice, onPreviewSlice, onToggleAdding, onRemoveActiveCut, onClearSlices }: ChopWorkspaceProps) {
+export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, sourceFileName, sourceDurationSeconds, peaks, playheadSeconds, slices, activeSliceId, addingSlice, testSourceLoading, onLoadSource, onLoadTestSource, sourcePreviewing, onPreviewSource, onStopPreviewSource, onTriggerPad, onFeedbackEnd, onAddSlice, onMoveCut, onSelectSlice, onPreviewSlice, onToggleAdding, onRemoveActiveCut, onClearSlices }: ChopWorkspaceProps) {
   const hasSource = sourceFileName !== null && sourceDurationSeconds !== null
 
   return <section className="chop-workspace" aria-labelledby="chop-workspace-title">
     <div className="sequencer-heading">
       <div><p className="eyebrow">CHOP WORKSPACE</p><h2 id="chop-workspace-title">Source sample to live pads</h2></div>
-      <div className="source-preview-controls"><button className="transport-button" type="button" disabled={!audioReady || !hasSource || sourcePreviewing} onClick={onPreviewSource}>PLAY SOURCE</button><button className="mixer-toggle" type="button" disabled={!sourcePreviewing} onClick={onStopPreviewSource}>STOP SOURCE</button></div>
+      <div className="source-preview-controls"><button className="transport-button" type="button" disabled={!audioReady || testSourceLoading} onClick={onLoadTestSource}>{testSourceLoading ? 'LOADING TEST...' : 'LOAD TEST SAMPLE'}</button><button className="transport-button" type="button" disabled={!audioReady || !hasSource || sourcePreviewing} onClick={onPreviewSource}>PLAY SOURCE</button><button className="mixer-toggle" type="button" disabled={!sourcePreviewing} onClick={onStopPreviewSource}>STOP SOURCE</button></div>
     </div>
-    <label className="file-picker chop-source-picker"><span>LOAD SOURCE SAMPLE</span><input type="file" accept="audio/wav,.wav" disabled={!audioReady} onChange={onLoadSource} /></label>
+    <label className="file-picker chop-source-picker"><span>LOAD YOUR OWN WAV</span><input type="file" accept="audio/wav,.wav" disabled={!audioReady || testSourceLoading} onChange={onLoadSource} /></label>
     {!hasSource ? <p className="sample-editor-empty">Load a WAV source. It will not occupy any pad until you add slices.</p> : <>
       <p className="sample-editor-file">{sourceFileName} - {sourceDurationSeconds.toFixed(3)} s</p>
       <Waveform peaks={peaks} durationSeconds={sourceDurationSeconds} region={{ startSeconds: 0, endSeconds: sourceDurationSeconds }} slices={slices} activeSliceId={activeSliceId} addingSlice={addingSlice} playheadSeconds={playheadSeconds} onRegionChange={() => undefined} onAddSlice={onAddSlice} onMoveCut={onMoveCut} onSelectSlice={onSelectSlice} sliceMarkersDraggable />

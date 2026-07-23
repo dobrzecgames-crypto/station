@@ -29,6 +29,7 @@ interface ActiveVoice {
   source: AudioBufferSourceNode
   gain: GainNode
   cleanedUp: boolean
+  onEnded?: () => void
 }
 
 interface Channel {
@@ -47,6 +48,7 @@ export class AudioEngine {
   private samples = new Map<SampleId, AudioBuffer>()
   private waveforms = new Map<SampleId, number[]>()
   private activeVoices = new Set<ActiveVoice>()
+  private previewVoices = new Set<ActiveVoice>()
   private status: AudioEngineStatus = 'inactive'
 
   constructor(channelIds: readonly SampleId[]) {
@@ -155,14 +157,14 @@ export class AudioEngine {
     this.scheduleSample(padId, assetId, this.context.currentTime, options)
   }
 
-  previewAsset(assetId: SampleAssetId, options: TriggerSampleOptions = {}): void {
+  previewAsset(assetId: SampleAssetId, options: TriggerSampleOptions = {}, onEnded?: () => void): void {
     const sampleBuffer = this.samples.get(assetId)
     if (this.status !== 'ready' || !this.context || !this.masterGain || !sampleBuffer) return
 
     const when = this.context.currentTime
     const source = this.context.createBufferSource()
     const gain = this.context.createGain()
-    const voice: ActiveVoice = { source, gain, cleanedUp: false }
+    const voice: ActiveVoice = { source, gain, cleanedUp: false, onEnded }
     const playbackRate = this.toPlaybackRate(options.pitchSemitones)
     const region = this.toPlaybackRegion(sampleBuffer.duration, options.startSeconds, options.endSeconds)
     const outputDuration = region.durationSeconds / playbackRate
@@ -177,7 +179,19 @@ export class AudioEngine {
     gain.connect(this.masterGain)
     source.addEventListener('ended', () => this.cleanUpVoice(voice), { once: true })
     this.activeVoices.add(voice)
+    this.previewVoices.add(voice)
     source.start(when, region.startSeconds, region.durationSeconds)
+  }
+
+  stopPreview(): void {
+    for (const voice of [...this.previewVoices]) {
+      try {
+        voice.source.stop()
+      } catch {
+        // A preview source may already have ended before it is stopped.
+      }
+      this.cleanUpVoice(voice)
+    }
   }
 
   scheduleSample(padId: SampleId, assetId: SampleAssetId, when: number, options: TriggerSampleOptions = {}): void {
@@ -351,8 +365,10 @@ export class AudioEngine {
 
     voice.cleanedUp = true
     this.activeVoices.delete(voice)
+    this.previewVoices.delete(voice)
     voice.source.disconnect()
     voice.gain.disconnect()
+    voice.onEnded?.()
   }
 
   private isWavFile(file: File): boolean {

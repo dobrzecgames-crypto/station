@@ -58,6 +58,7 @@ export function App({ audioEngine }: AppProps) {
   const [pumpCurve, setPumpCurve] = useState<'snap' | 'smooth' | 'swell'>('smooth')
   const [waveforms, setWaveforms] = useState<Record<string, number[]>>({})
   const [chopSession, setChopSession] = useState<ChopSession>(emptyChopSession)
+  const [sourcePreviewing, setSourcePreviewing] = useState(false)
   const sequencerRef = useRef(new StepSequencer(audioEngine))
   const selectedPad = pads.find((pad) => pad.id === selectedPadId)!
   const audioReady = audioStatus === 'ready'
@@ -162,6 +163,8 @@ export function App({ audioEngine }: AppProps) {
     event.target.value = ''
     if (!file) return
     setErrorMessage(undefined)
+    audioEngine.stopPreview()
+    setSourcePreviewing(false)
     try {
       const assetId = createAssetId('chop')
       const loaded = await audioEngine.loadSample(assetId, file)
@@ -214,7 +217,12 @@ export function App({ audioEngine }: AppProps) {
     setChopSession((current) => ({ ...current, slices: [], activeSliceId: null, addingSlice: false }))
   }
 
-  const previewChopSource = () => { if (audioReady && chopSession.assetId) audioEngine.previewAsset(chopSession.assetId) }
+  const previewChopSource = () => {
+    if (!audioReady || !chopSession.assetId || sourcePreviewing) return
+    setSourcePreviewing(true)
+    audioEngine.previewAsset(chopSession.assetId, {}, () => setSourcePreviewing(false))
+  }
+  const stopChopSourcePreview = () => { audioEngine.stopPreview(); setSourcePreviewing(false) }
   const previewChopSlice = (slice: SampleSlice) => { if (audioReady) audioEngine.previewAsset(slice.sourceAssetId, { startSeconds: slice.startSeconds, endSeconds: slice.endSeconds }); setChopSession((current) => ({ ...current, activeSliceId: slice.id })) }
   const selectChopSlice = (sliceId: string) => { const index = chopSession.slices.findIndex((slice) => slice.id === sliceId); setChopSession((current) => ({ ...current, activeSliceId: sliceId })); if (index >= 0) setSelectedPadId(pads[index].id) }
 
@@ -231,7 +239,7 @@ export function App({ audioEngine }: AppProps) {
     <header className="station-header"><div><p className="eyebrow">STATION / M4</p><h1 id="station-title">STATION</h1></div><MainNavigation view={mainView} onViewChange={setMainView} /><div className="audio-controls"><div className="status-row" role="status" aria-live="polite"><span className={`status-dot status-${audioStatus}`} aria-hidden="true" />{statusLabels[audioStatus]}</div><button className="start-button" type="button" onClick={() => void startAudio()} disabled={audioStatus === 'starting'}>{audioReady ? 'AUDIO READY' : 'START AUDIO'}</button></div></header>
     <TransportBar bpm={bpm} swing={swing} isPlaying={isPlaying} onBpmChange={setBpm} onSwingChange={setSwing} onPlay={startPlayback} onStop={stopPlayback} />
     {errorMessage && <p className="error-message" role="alert">{errorMessage}</p>}
-    {mainView === 'chop' && <ChopWorkspace pads={pads} selectedPadId={selectedPadId} activePadId={activePadId} audioReady={audioReady} sourceFileName={chopSession.fileName} sourceDurationSeconds={chopSession.durationSeconds} peaks={chopSession.peaks} slices={chopSession.slices} activeSliceId={chopSession.activeSliceId} addingSlice={chopSession.addingSlice} onLoadSource={(event) => void loadChopSource(event)} onPreviewSource={previewChopSource} onTriggerPad={triggerPad} onFeedbackEnd={(padId) => setActivePadId((current) => current === padId ? null : current)} onAddSlice={addChopSlice} onMoveCut={moveChopCut} onSelectSlice={selectChopSlice} onPreviewSlice={previewChopSlice} onToggleAdding={() => setChopSession((current) => ({ ...current, addingSlice: !current.addingSlice }))} onRemoveActiveCut={removeActiveChopCut} onClearSlices={clearChopSlices} />}
+    {mainView === 'chop' && <ChopWorkspace pads={pads} selectedPadId={selectedPadId} activePadId={activePadId} audioReady={audioReady} sourceFileName={chopSession.fileName} sourceDurationSeconds={chopSession.durationSeconds} peaks={chopSession.peaks} slices={chopSession.slices} activeSliceId={chopSession.activeSliceId} addingSlice={chopSession.addingSlice} onLoadSource={(event) => void loadChopSource(event)} sourcePreviewing={sourcePreviewing} onPreviewSource={previewChopSource} onStopPreviewSource={stopChopSourcePreview} onTriggerPad={triggerPad} onFeedbackEnd={(padId) => setActivePadId((current) => current === padId ? null : current)} onAddSlice={addChopSlice} onMoveCut={moveChopCut} onSelectSlice={selectChopSlice} onPreviewSlice={previewChopSlice} onToggleAdding={() => setChopSession((current) => ({ ...current, addingSlice: !current.addingSlice }))} onRemoveActiveCut={removeActiveChopCut} onClearSlices={clearChopSlices} />}
     {mainView === 'pad' && <div className="instrument-layout"><PadGrid pads={pads} selectedPadId={selectedPadId} activePadId={activePadId} audioReady={audioReady} onTrigger={triggerPad} onFeedbackEnd={(padId) => setActivePadId((current) => current === padId ? null : current)} /><PadEditor pad={selectedPad} audioReady={audioReady} onImport={(event) => void loadSelectedPad(event)} onUpdate={updateSelectedPad} onClear={clearSelectedPad} /></div>}
     {mainView === 'seq' && <SequencerControls steps={patterns[selectedPad.id]} padLabel={selectedPad.label} loadedTrackCount={pads.filter((pad) => pad.fileName).length} onToggleStep={toggleStep} />}
     {mainView === 'sample' && <SampleEditor pad={selectedPad} peaks={selectedPeaks} audioReady={audioReady} onPreview={() => triggerPad(selectedPad.id)} onRegionChange={updateSelectedRegion} onResetRegion={resetSelectedRegion} />}

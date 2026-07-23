@@ -16,7 +16,9 @@ interface ChopWorkspaceProps {
   activeSliceId: string | null
   addingSlice: boolean
   onLoadSource: (event: ChangeEvent<HTMLInputElement>) => void
+  sourcePreviewing: boolean
   onPreviewSource: () => void
+  onStopPreviewSource: () => void
   onTriggerPad: (padId: PadState['id']) => void
   onFeedbackEnd: (padId: PadState['id']) => void
   onAddSlice: (timeSeconds: number) => void
@@ -28,13 +30,13 @@ interface ChopWorkspaceProps {
   onClearSlices: () => void
 }
 
-export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, sourceFileName, sourceDurationSeconds, peaks, slices, activeSliceId, addingSlice, onLoadSource, onPreviewSource, onTriggerPad, onFeedbackEnd, onAddSlice, onMoveCut, onSelectSlice, onPreviewSlice, onToggleAdding, onRemoveActiveCut, onClearSlices }: ChopWorkspaceProps) {
+export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, sourceFileName, sourceDurationSeconds, peaks, slices, activeSliceId, addingSlice, onLoadSource, sourcePreviewing, onPreviewSource, onStopPreviewSource, onTriggerPad, onFeedbackEnd, onAddSlice, onMoveCut, onSelectSlice, onPreviewSlice, onToggleAdding, onRemoveActiveCut, onClearSlices }: ChopWorkspaceProps) {
   const hasSource = sourceFileName !== null && sourceDurationSeconds !== null
 
   return <section className="chop-workspace" aria-labelledby="chop-workspace-title">
     <div className="sequencer-heading">
       <div><p className="eyebrow">CHOP WORKSPACE</p><h2 id="chop-workspace-title">Source sample to live pads</h2></div>
-      <button className="transport-button" type="button" disabled={!audioReady || !hasSource} onClick={onPreviewSource}>PREVIEW SOURCE</button>
+      <div className="source-preview-controls"><button className="transport-button" type="button" disabled={!audioReady || !hasSource || sourcePreviewing} onClick={onPreviewSource}>PLAY SOURCE</button><button className="mixer-toggle" type="button" disabled={!sourcePreviewing} onClick={onStopPreviewSource}>STOP SOURCE</button></div>
     </div>
     <label className="file-picker chop-source-picker"><span>LOAD SOURCE SAMPLE</span><input type="file" accept="audio/wav,.wav" disabled={!audioReady} onChange={onLoadSource} /></label>
     {!hasSource ? <p className="sample-editor-empty">Load a WAV source. It will not occupy any pad until you add slices.</p> : <>

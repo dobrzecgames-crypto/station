@@ -40,6 +40,7 @@ export function createPadBank(): PadState[] {
     durationSeconds: null,
     region: { startSeconds: 0, endSeconds: 0 },
     slices: [],
+    chopSessionId: null,
     volume: 1,
     muted: false,
     solo: false,

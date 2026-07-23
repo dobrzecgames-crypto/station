@@ -4,7 +4,7 @@ Station is a desktop-browser sampler groovebox for turning audio samples into pl
 
 ## Current status
 
-The repository is in **M4 — Sequencer Timing**. The 16-pad instrument includes one 16-step sequence per pad, BPM, audio-clock-based play/stop, Basic Pump, a compact 16-channel MIX foundation, non-destructive regions and manual CHOP slices.
+The repository is in **M4 — Sequencer Timing** with the explicitly approved Unified Chop Workspace task. The 16-pad instrument includes one 16-step sequence per pad, BPM, audio-clock-based play/stop, Basic Pump, a compact 16-channel MIX foundation, non-destructive regions and a live CHOP workspace.
 
 ## Product principles
 
@@ -79,7 +79,7 @@ A  S  D  F
 Z  X  C  V
 ```
 
-The selected-pad editor provides per-channel volume and per-pad pitch controls, plus **CLEAR PAD**. The SAMPLE panel exposes a waveform, start/end playback region, preview, reset and manual CHOP slices for the selected pad. Slices can be assigned across subsequent pads without copying decoded audio. Use the 16-step panel to edit the selected pad's own pattern; **PLAY** runs all loaded pad patterns together. The MIX panel controls channel volume, mute and multi-solo for all 16 pads; mute takes precedence over solo. Audio events are scheduled from the Web Audio clock, not React timing.
+The fixed shell provides **CHOP**, **PAD**, **SEQ**, **SAMPLE** and **MIX** views, plus a permanent transport. In CHOP, load a separate source WAV, enable **ADD SLICE**, then click the waveform: slice 1 maps live to PAD 01, slice 2 to PAD 02, and so on. The source itself does not occupy a pad and all mapped pads share one decoded asset. The selected-pad editor provides per-channel volume and per-pad pitch controls, plus **CLEAR PAD**. SAMPLE provides start/end playback-region editing, preview and reset for the current pad. Use SEQ to edit the selected pad's own pattern; **PLAY** runs all loaded pad patterns together. MIX controls channel volume, mute and multi-solo for all 16 pads; mute takes precedence over solo. Audio events are scheduled from the Web Audio clock, not React timing.
 
 ### Current limitations
 

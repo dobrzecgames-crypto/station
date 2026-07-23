@@ -192,9 +192,10 @@ Exit criteria:
 
 ### M9 — Chop
 
+- The explicitly approved Unified Chop Workspace foundation is available earlier: independent source asset, manual live slice 1–16 mapping and shared-asset pad regions.
 - reverse and gate/loop decisions,
 - equal auto-chop,
-- distribute slices to pads.
+- further chop workflows only after a dedicated approval.
 
 ### M10 — Resampling
 

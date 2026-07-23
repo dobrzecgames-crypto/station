@@ -69,6 +69,8 @@ After WAV decoding, the engine reduces the decoded buffer to cached amplitude pe
 
 Decoded buffers and waveform caches are keyed by `SampleAssetId`, while channel routing and Pump source events remain keyed by pad ID. A trigger supplies both IDs: the engine reads the shared asset while routing the resulting voice through the requesting pad's channel. Several pads can therefore use different regions of one decoded asset without duplicating the `AudioBuffer`.
 
+The Chop Workspace may also hold a source `SampleAssetId` which is not routed through a pad channel. Its preview uses the normal voice fade and master path, while mapped pad playback continues to use the requesting pad's channel and Pump routing. Source assets remain registered while the active Chop Session or any pad references them; replacement source loading never removes an asset still used by pads.
+
 ## Voice management
 
 The engine should maintain enough internal information to:

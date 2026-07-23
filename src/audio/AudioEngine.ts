@@ -155,6 +155,31 @@ export class AudioEngine {
     this.scheduleSample(padId, assetId, this.context.currentTime, options)
   }
 
+  previewAsset(assetId: SampleAssetId, options: TriggerSampleOptions = {}): void {
+    const sampleBuffer = this.samples.get(assetId)
+    if (this.status !== 'ready' || !this.context || !this.masterGain || !sampleBuffer) return
+
+    const when = this.context.currentTime
+    const source = this.context.createBufferSource()
+    const gain = this.context.createGain()
+    const voice: ActiveVoice = { source, gain, cleanedUp: false }
+    const playbackRate = this.toPlaybackRate(options.pitchSemitones)
+    const region = this.toPlaybackRegion(sampleBuffer.duration, options.startSeconds, options.endSeconds)
+    const outputDuration = region.durationSeconds / playbackRate
+    const fadeDuration = Math.min(0.004, outputDuration / 2)
+    source.buffer = sampleBuffer
+    gain.gain.setValueAtTime(0, when)
+    gain.gain.linearRampToValueAtTime(this.toGain(options.gain), when + fadeDuration)
+    gain.gain.setValueAtTime(this.toGain(options.gain), when + Math.max(fadeDuration, outputDuration - fadeDuration))
+    gain.gain.linearRampToValueAtTime(0, when + outputDuration)
+    source.playbackRate.setValueAtTime(playbackRate, when)
+    source.connect(gain)
+    gain.connect(this.masterGain)
+    source.addEventListener('ended', () => this.cleanUpVoice(voice), { once: true })
+    this.activeVoices.add(voice)
+    source.start(when, region.startSeconds, region.durationSeconds)
+  }
+
   scheduleSample(padId: SampleId, assetId: SampleAssetId, when: number, options: TriggerSampleOptions = {}): void {
     const sampleBuffer = this.samples.get(assetId)
     const channel = this.channels.get(padId)

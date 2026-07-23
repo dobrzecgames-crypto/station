@@ -166,3 +166,29 @@ Consequences:
 - each assigned pad has an independent region and musical settings,
 - replacing a source pad's asset clears pads that depended on its prior asset rather than guessing how to remap old slice boundaries,
 - AudioBuffer ownership remains entirely in the engine.
+
+## DEC-012 — Station uses one main application shell
+
+**Status:** Accepted
+
+The application exposes CHOP, PAD, SEQ, SAMPLE and MIX as mutually exclusive main views with one permanent transport.
+
+Consequences:
+
+- changing view preserves the active pad, engine state, patterns, mixer state, Pump settings and Chop Session,
+- large workspaces are not rendered as one long vertical screen,
+- no URL router is required for this fixed local navigation.
+
+## DEC-013 — Chop has an independent source asset and live pad mapping
+
+**Status:** Accepted
+
+CHOP loads one independent source SampleAsset. Adding or moving manual markers live-maps slice 1–16 to pad 1–16, with every mapped pad referencing the same decoded asset and retaining its own musical settings.
+
+Consequences:
+
+- source import does not occupy a pad, pattern, mixer channel or Pump target,
+- current-session pad ownership is tracked by `chopSessionId`, allowing only its surplus pads to be cleared,
+- occupied pads are never replaced silently: the first live mapping asks for confirmation,
+- loading another Chop source detaches prior mapped pads as playable snapshots,
+- an asset may be removed only when neither the current source nor any pad references it.

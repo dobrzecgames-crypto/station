@@ -94,6 +94,12 @@ This is a direction, not permission to scaffold files before the implementation 
 - Audio time belongs to AudioContext.
 - The visual playhead is a projection of audio time, never the timing authority.
 
+## Current UI shell and Chop Workspace
+
+Station renders one main workspace at a time: CHOP, PAD, SEQ, SAMPLE or MIX. The transport remains outside those views, so changing views does not recreate audio, patterns, mixer settings, the active pad or the current Chop Session.
+
+CHOP owns a source-asset reference and serializable slice boundaries; pads own their playback and musical state. A live map applies slice 1–16 to pad 1–16 without placing an AudioBuffer in React. The workspace tracks the pads it currently manages so that shrinking the slice set clears only its own surplus assignments.
+
 ## Event flow example
 
 1. User presses a pad.

@@ -12,7 +12,7 @@ Do not add features merely because they are common in Ableton Live, FL Studio, L
 
 ## Current phase
 
-The project is currently in M4 — Sequencer Timing. The approved M4 scope is the current explicit implementation task.
+The project is currently in M4 — Sequencer Timing. The approved M4 scope is the current explicit implementation task. The Unified Chop Workspace is an explicitly approved exception within the current task; it does not authorize equal/auto chop, resampling, scenes or further post-MVP work.
 
 Do not begin M5 or add product functionality beyond the approved M4 task until M4 has been explicitly accepted. Keep scheduler timing in the audio layer and preserve the single shared audio-engine boundary.
 
@@ -60,7 +60,7 @@ Do not begin the next milestone without an explicit instruction.
 - Cloud accounts or collaboration
 - Native JUCE application
 - Advanced Smart Pump kick analysis
-- Chop, resampling or scenes before their roadmap phase
+- Chop beyond the explicitly approved Unified Chop Workspace, resampling or scenes before their roadmap phase
 - Decorative 3D interface work that compromises usability or performance
 
 ## Testing priority

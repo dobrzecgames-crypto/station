@@ -24,6 +24,7 @@ export interface PadState extends ChannelState {
   durationSeconds: number | null
   region: SamplePlaybackRegion
   slices: SampleSlice[]
+  chopSessionId: string | null
   pitchSemitones: number
 }
 

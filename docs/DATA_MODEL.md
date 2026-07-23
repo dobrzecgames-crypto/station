@@ -72,6 +72,12 @@ The region is bounded by the decoded sample duration and has a small positive mi
 
 A manual slice is another non-destructive region of one shared SampleAsset. It has a stable ID, source asset ID, start seconds and end seconds. Slice boundaries are ordered, do not overlap and are capped at 16 slices per source pad. Assigning slices to pads copies only the asset reference and per-pad region settings.
 
+### ChopSession
+
+The active Chop Workspace has one independent source asset, filename, duration, cached waveform peaks, ordered slices and an active slice selection. The source asset is not assigned to a pad merely by loading it. Live mapping assigns slice 1–16 to pad 1–16 by sharing that source asset and updating only each mapped pad's region.
+
+Each pad has an optional `chopSessionId`. It marks a pad currently managed by the active session; it is not an audio object or a copy of source data. When the slice count shrinks, only pads bearing the current session ID are cleared. Loading a new source detaches existing mapped pads into ordinary working snapshots, preserving their old asset references. A manually occupied target pad requires user confirmation before live mapping replaces it.
+
 ### ChannelState
 
 Each of the 16 stable pad IDs also identifies one fixed runtime mixer channel. The UI state contains `id`, `volume`, `muted` and `solo`; the matching Web Audio GainNodes remain engine-owned runtime state and are never placed in React state or serialized as nodes.

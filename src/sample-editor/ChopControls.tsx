@@ -10,9 +10,10 @@ interface ChopControlsProps {
   onRemoveActiveCut: () => void
   onClearSlices: () => void
   onAssignSlices: () => void
+  showAssign?: boolean
 }
 
-export function ChopControls({ slices, activeSliceId, addingSlice, onStartAdding, onSelectSlice, onPreviewSlice, onRemoveActiveCut, onClearSlices, onAssignSlices }: ChopControlsProps) {
+export function ChopControls({ slices, activeSliceId, addingSlice, onStartAdding, onSelectSlice, onPreviewSlice, onRemoveActiveCut, onClearSlices, onAssignSlices, showAssign = true }: ChopControlsProps) {
   return (
     <section className="chop-controls" aria-labelledby="chop-title">
       <div className="sequencer-heading">
@@ -40,7 +41,7 @@ export function ChopControls({ slices, activeSliceId, addingSlice, onStartAdding
       <div className="chop-actions">
         <button className="mixer-toggle" type="button" disabled={slices.length < 2 || !activeSliceId} onClick={onRemoveActiveCut}>REMOVE CUT</button>
         <button className="mixer-toggle" type="button" disabled={slices.length === 0} onClick={onClearSlices}>CLEAR SLICES</button>
-        <button className="transport-button" type="button" disabled={slices.length === 0} onClick={onAssignSlices}>ASSIGN SLICES TO PADS</button>
+        {showAssign && <button className="transport-button" type="button" disabled={slices.length === 0} onClick={onAssignSlices}>ASSIGN SLICES TO PADS</button>}
       </div>
     </section>
   )

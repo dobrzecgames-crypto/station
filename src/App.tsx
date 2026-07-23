@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import type { AudioEngine, AudioEngineStatus, SampleAssetId } from './audio/AudioEngine'
 import { StepSequencer } from './audio/StepSequencer'
+import type { StepSequencerConfig, StepSequencerTrack } from './audio/StepSequencer'
 import { ChopWorkspace } from './chop/ChopWorkspace'
 import { Mixer } from './mixer/Mixer'
 import { createPadBank, padIdByKeyCode } from './pads/padBank'
@@ -13,6 +14,18 @@ import { SequencerControls } from './sequencer/SequencerControls'
 import { MainNavigation } from './shell/MainNavigation'
 import type { MainView } from './shell/MainNavigation'
 import { TransportBar } from './shell/TransportBar'
+import { collectReferencedAssetIds, createProjectState, projectSchemaVersion, validateProjectState } from './project/ProjectState'
+import { ProjectKeyPanel } from './project/ProjectKeyPanel'
+import { defaultProjectKey, formatProjectKey } from './music/scales'
+import type { ProjectKey } from './music/scales'
+import { findProjectScaleMapConflicts, mapPadBankToProjectScale } from './music/scaleMapping'
+import { projectRepository } from './storage/ProjectRepository'
+import { defaultProjectId } from './storage/storageTypes'
+import { addPatternGroup, clearVariant, createInitialPatternGroups, duplicateVariant, getVariant, getVariantShifts, setVariantStepShift, setVariantStepVelocity, updateVariantStep } from './patterns/patternOperations'
+import type { PatternGroup, PatternVariantName } from './patterns/patternTypes'
+import { addPatternClip, getActiveClipsForSlot, getLastOccupiedSlot, removeClipsForGroup, removeClipsForVariant } from './song/songOperations'
+import type { PatternClip, TransportMode } from './song/songTypes'
+import { SongWorkspace } from './song/SongWorkspace'
 import './App.css'
 
 interface AppProps { audioEngine: AudioEngine }
@@ -28,14 +41,13 @@ interface ChopSession {
   addingSlice: boolean
 }
 
-const statusLabels: Record<AudioEngineStatus, string> = { inactive: 'Audio inactive', starting: 'Starting audio…', ready: 'Audio ready', error: 'Audio error' }
+const statusLabels: Record<AudioEngineStatus, string> = { inactive: 'Audio inactive', starting: 'Starting audio…', ready: 'Audio ready', suspended: 'Audio suspended', error: 'Audio error' }
 const emptyChopSession = (): ChopSession => ({ id: '', assetId: null, fileName: null, durationSeconds: null, peaks: [], slices: [], activeSliceId: null, addingSlice: false })
-let nextAssetNumber = 1
-let nextSliceNumber = 1
-let nextChopSessionNumber = 1
-
-function createAssetId(scope: string): SampleAssetId { return `asset-${scope}-${nextAssetNumber++}` }
-function createSliceId(scope: string): string { return `slice-${scope}-${nextSliceNumber++}` }
+function createAssetId(scope: string): SampleAssetId { return `asset-${scope}-${crypto.randomUUID()}` }
+function createSliceId(scope: string): string { return `slice-${scope}-${crypto.randomUUID()}` }
+function createChopSessionId(): string { return `chop-session-${crypto.randomUUID()}` }
+function createPatternGroupId(): string { return `pattern-group-${crypto.randomUUID()}` }
+function createPatternClipId(): string { return `pattern-clip-${crypto.randomUUID()}` }
 function clearPadAssignment(pad: PadState): PadState {
   return { ...pad, assetId: null, fileName: null, durationSeconds: null, region: { startSeconds: 0, endSeconds: 0 }, slices: [], chopSessionId: null }
 }
@@ -49,7 +61,13 @@ export function App({ audioEngine }: AppProps) {
   const [errorMessage, setErrorMessage] = useState<string>()
   const [bpm, setBpm] = useState(120)
   const [swing, setSwing] = useState(0)
-  const [patterns, setPatterns] = useState<Record<PadState['id'], number[]>>(() => Object.fromEntries(createPadBank().map((pad) => [pad.id, Array(16).fill(0)])))
+  const [patternGroups, setPatternGroups] = useState<PatternGroup[]>(() => createInitialPatternGroups(createPadBank().map((pad) => pad.id)))
+  const [selectedPatternGroupId, setSelectedPatternGroupId] = useState('pattern-group-1')
+  const [selectedPatternVariant, setSelectedPatternVariant] = useState<PatternVariantName>('A')
+  const [playlist, setPlaylist] = useState<PatternClip[]>([])
+  const [transportMode, setTransportMode] = useState<TransportMode>('pattern')
+  const [loopSong, setLoopSong] = useState(false)
+  const [playingSongSlot, setPlayingSongSlot] = useState<number | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [pumpSourceId, setPumpSourceId] = useState<string | null>(null)
   const [pumpTargets, setPumpTargets] = useState<string[]>([])
@@ -59,20 +77,41 @@ export function App({ audioEngine }: AppProps) {
   const [waveforms, setWaveforms] = useState<Record<string, number[]>>({})
   const [chopSession, setChopSession] = useState<ChopSession>(emptyChopSession)
   const [sourcePreviewing, setSourcePreviewing] = useState(false)
+  const [projectMessage, setProjectMessage] = useState<string>()
+  const [projectBusy, setProjectBusy] = useState(false)
+  const [projectKey, setProjectKey] = useState<ProjectKey>(defaultProjectKey)
   const sequencerRef = useRef(new StepSequencer(audioEngine))
   const selectedPad = pads.find((pad) => pad.id === selectedPadId)!
   const audioReady = audioStatus === 'ready'
   const selectedPeaks = selectedPad.assetId === chopSession.assetId ? chopSession.peaks : selectedPad.assetId ? waveforms[selectedPad.assetId] ?? [] : []
-  const sequenceConfigRef = useRef({ bpm, swing, tracks: [] as { sampleId: string; assetId: SampleAssetId; steps: number[]; options: { pitchSemitones: number; startSeconds: number; endSeconds: number } }[] })
+  const sequenceConfigRef = useRef<StepSequencerConfig>({ bpm, swing, mode: 'pattern', loopSong: false, lastSongSlot: null, getTracksForSlot: () => [] })
 
   sequenceConfigRef.current = {
     bpm,
     swing,
-    tracks: pads.filter((pad): pad is PadState & { assetId: SampleAssetId } => pad.assetId !== null && audioEngine.hasSampleAsset(pad.assetId)).map((pad) => ({ sampleId: pad.id, assetId: pad.assetId, steps: patterns[pad.id], options: { pitchSemitones: pad.pitchSemitones, startSeconds: pad.region.startSeconds, endSeconds: pad.region.endSeconds } })),
+    mode: transportMode,
+    loopSong,
+    lastSongSlot: getLastOccupiedSlot(playlist),
+    getTracksForSlot: (slot) => {
+      const variants = transportMode === 'song'
+        ? getActiveClipsForSlot(playlist, slot).map((clip) => ({ steps: getVariant(patternGroups, clip.patternGroupId, clip.variant), shifts: getVariantShifts(patternGroups, clip.patternGroupId, clip.variant) })).filter((pattern): pattern is { steps: NonNullable<typeof pattern.steps>; shifts: NonNullable<typeof pattern.shifts> } => Boolean(pattern.steps && pattern.shifts))
+        : [{ steps: getVariant(patternGroups, selectedPatternGroupId, selectedPatternVariant), shifts: getVariantShifts(patternGroups, selectedPatternGroupId, selectedPatternVariant) }].filter((pattern): pattern is { steps: NonNullable<typeof pattern.steps>; shifts: NonNullable<typeof pattern.shifts> } => Boolean(pattern.steps && pattern.shifts))
+      return variants.flatMap((pattern) => pads.filter((pad): pad is PadState & { assetId: SampleAssetId } => pad.assetId !== null && audioEngine.hasSampleAsset(pad.assetId)).map<StepSequencerTrack>((pad) => ({ sampleId: pad.id, assetId: pad.assetId, steps: pattern.steps[pad.id], shifts: pattern.shifts[pad.id], options: { pitchSemitones: pad.pitchSemitones, startSeconds: pad.region.startSeconds, endSeconds: pad.region.endSeconds } })))
+    },
+    onSongSlotChange: setPlayingSongSlot,
+    onSongComplete: () => { setIsPlaying(false); setPlayingSongSlot(null) },
   }
 
   useEffect(() => { audioEngine.setPumpConfig({ sourceSampleId: pumpSourceId, targetSampleIds: pumpTargets, depth: pumpDepth, lengthSeconds: 60 / bpm * pumpLengthBeats, curve: pumpCurve }) }, [audioEngine, bpm, pumpCurve, pumpDepth, pumpLengthBeats, pumpSourceId, pumpTargets])
-  useEffect(() => () => sequencerRef.current.stop(), [])
+  useEffect(() => audioEngine.subscribeToStatus((status) => {
+    setAudioStatus(status)
+    if (status === 'suspended' && sequencerRef.current.isRunning()) {
+      sequencerRef.current.stop()
+      audioEngine.stopSequencerVoices()
+      setIsPlaying(false)
+    }
+  }), [audioEngine])
+  useEffect(() => () => { sequencerRef.current.stop(); audioEngine.stopSequencerVoices() }, [audioEngine])
 
   const triggerPad = (padId: PadState['id']) => {
     const pad = pads.find((candidate) => candidate.id === padId)
@@ -98,6 +137,113 @@ export function App({ audioEngine }: AppProps) {
     setErrorMessage(undefined)
     setAudioStatus('starting')
     try { await audioEngine.initialize(); setAudioStatus(audioEngine.getStatus()) } catch (error) { setAudioStatus(audioEngine.getStatus()); setErrorMessage(toMessage(error)) }
+  }
+
+  const createCurrentProjectState = () => {
+    const assetReferences = new Map<SampleAssetId, { filename: string; durationSeconds: number }>()
+    for (const pad of pads) if (pad.assetId && pad.fileName && pad.durationSeconds) assetReferences.set(pad.assetId, { filename: pad.fileName, durationSeconds: pad.durationSeconds })
+    if (chopSession.assetId && chopSession.fileName && chopSession.durationSeconds) assetReferences.set(chopSession.assetId, { filename: chopSession.fileName, durationSeconds: chopSession.durationSeconds })
+    return createProjectState({
+      schemaVersion: projectSchemaVersion,
+      projectKey,
+      assets: [...assetReferences].map(([id, asset]) => ({ id, ...asset })),
+      pads,
+      patternGroups,
+      selectedPatternGroupId,
+      selectedPatternVariant,
+      playlist,
+      transportMode,
+      loopSong,
+      bpm,
+      swing,
+      pump: { sourcePadId: pumpSourceId, targetPadIds: pumpTargets, depth: pumpDepth, lengthBeats: pumpLengthBeats, curve: pumpCurve },
+      chopSession: { id: chopSession.id, assetId: chopSession.assetId, fileName: chopSession.fileName, durationSeconds: chopSession.durationSeconds, slices: chopSession.slices, activeSliceId: chopSession.activeSliceId },
+    })
+  }
+
+  const saveProject = async () => {
+    if (projectBusy) return
+    setProjectBusy(true)
+    setProjectMessage(undefined)
+    try {
+      const snapshot = createCurrentProjectState()
+      const validationErrors = validateProjectState(snapshot)
+      if (validationErrors.length > 0) throw new Error(`Project cannot be saved: ${validationErrors[0]}`)
+      const runtimeAssets = new Map<SampleAssetId, NonNullable<ReturnType<AudioEngine['getRuntimeSampleAsset']>>>()
+      for (const assetId of collectReferencedAssetIds(snapshot)) {
+        const asset = audioEngine.getRuntimeSampleAsset(assetId)
+        if (!asset) throw new Error('Project cannot be saved because a referenced WAV is unavailable.')
+        runtimeAssets.set(assetId, asset)
+      }
+      await projectRepository.saveProject(defaultProjectId, snapshot, runtimeAssets)
+      setProjectMessage('Project saved.')
+    } catch (error) {
+      setProjectMessage(toMessage(error))
+    } finally {
+      setProjectBusy(false)
+    }
+  }
+
+  const openProject = async () => {
+    if (projectBusy) return
+    if (!audioReady) { setProjectMessage('Start audio before opening a project.'); return }
+    setProjectBusy(true)
+    setProjectMessage(undefined)
+    stopPlayback()
+    audioEngine.stopPreview()
+    setSourcePreviewing(false)
+    try {
+      const loadedProject = await projectRepository.loadLastProject()
+      const nextWaveforms: Record<string, number[]> = {}
+      for (const asset of loadedProject.assets) {
+        await audioEngine.loadSampleBlob(asset.id, asset.blob, asset.filename)
+        nextWaveforms[asset.id] = audioEngine.getWaveformPeaks(asset.id) ?? []
+      }
+      const state = loadedProject.state
+      const openedAssetIds = new Set(loadedProject.assets.map((asset) => asset.id))
+      for (const assetId of audioEngine.getSampleAssetIds()) if (!openedAssetIds.has(assetId)) audioEngine.removeSampleAsset(assetId)
+      const nextChopSession: ChopSession = {
+        id: state.chopSession.id,
+        assetId: state.chopSession.assetId,
+        fileName: state.chopSession.fileName,
+        durationSeconds: state.chopSession.durationSeconds,
+        peaks: state.chopSession.assetId ? nextWaveforms[state.chopSession.assetId] ?? [] : [],
+        slices: state.chopSession.slices,
+        activeSliceId: state.chopSession.activeSliceId,
+        addingSlice: false,
+      }
+      for (const pad of state.pads) {
+        audioEngine.setChannelVolume(pad.id, pad.volume)
+        audioEngine.setChannelMuted(pad.id, pad.muted)
+        audioEngine.setChannelSolo(pad.id, pad.solo)
+      }
+      audioEngine.setPumpConfig({ sourceSampleId: state.pump.sourcePadId, targetSampleIds: state.pump.targetPadIds, depth: state.pump.depth, lengthSeconds: 60 / state.bpm * state.pump.lengthBeats, curve: state.pump.curve })
+      setPads(state.pads)
+      setPatternGroups(state.patternGroups)
+      setSelectedPatternGroupId(state.selectedPatternGroupId)
+      setSelectedPatternVariant(state.selectedPatternVariant)
+      setPlaylist(state.playlist)
+      setTransportMode(state.transportMode)
+      setLoopSong(state.loopSong)
+      setPlayingSongSlot(null)
+      setBpm(state.bpm)
+      setSwing(state.swing)
+      setPumpSourceId(state.pump.sourcePadId)
+      setPumpTargets(state.pump.targetPadIds)
+      setPumpDepth(state.pump.depth)
+      setPumpLengthBeats(state.pump.lengthBeats)
+      setPumpCurve(state.pump.curve)
+      setProjectKey(state.projectKey)
+      setWaveforms(nextWaveforms)
+      setChopSession(nextChopSession)
+      setSelectedPadId('pad-01')
+      setActivePadId(null)
+      setProjectMessage('Project opened.')
+    } catch (error) {
+      setProjectMessage(toMessage(error))
+    } finally {
+      setProjectBusy(false)
+    }
   }
 
   const updateSelectedPad = (changes: Pick<PadState, 'volume' | 'pitchSemitones'>) => {
@@ -136,6 +282,15 @@ export function App({ audioEngine }: AppProps) {
     setActivePadId((current) => current === selectedPadId ? null : current)
   }
 
+  const mapSelectedPadToProjectScale = () => {
+    if (projectBusy || !selectedPad.assetId) return
+    const conflicts = findProjectScaleMapConflicts(pads, selectedPad.id)
+    if (conflicts.length > 0 && !window.confirm(`Replace ${conflicts.length} occupied pad${conflicts.length === 1 ? '' : 's'} with the Project Scale map?`)) return
+    const result = mapPadBankToProjectScale(pads, selectedPad.id, projectKey)
+    setPads(result.pads)
+    setProjectMessage(`Mapped ${result.mappedPadCount} pad${result.mappedPadCount === 1 ? '' : 's'} to ${formatProjectKey(projectKey)}.`)
+  }
+
   const updateSelectedRegion = (region: SamplePlaybackRegion) => {
     const durationSeconds = selectedPad.durationSeconds
     if (!durationSeconds) return
@@ -170,7 +325,7 @@ export function App({ audioEngine }: AppProps) {
       const loaded = await audioEngine.loadSample(assetId, file)
       const oldAssetId = chopSession.assetId
       setPads((currentPads) => currentPads.map((pad) => pad.chopSessionId === chopSession.id ? { ...pad, chopSessionId: null } : pad))
-      setChopSession({ id: `chop-session-${nextChopSessionNumber++}`, assetId, fileName: loaded.filename, durationSeconds: loaded.durationSeconds, peaks: audioEngine.getWaveformPeaks(assetId) ?? [], slices: [], activeSliceId: null, addingSlice: false })
+      setChopSession({ id: createChopSessionId(), assetId, fileName: loaded.filename, durationSeconds: loaded.durationSeconds, peaks: audioEngine.getWaveformPeaks(assetId) ?? [], slices: [], activeSliceId: null, addingSlice: false })
       if (oldAssetId && !pads.some((pad) => pad.assetId === oldAssetId)) audioEngine.removeSampleAsset(oldAssetId)
     } catch (error) { setErrorMessage(toMessage(error)) }
   }
@@ -226,22 +381,66 @@ export function App({ audioEngine }: AppProps) {
   const previewChopSlice = (slice: SampleSlice) => { if (audioReady) audioEngine.previewAsset(slice.sourceAssetId, { startSeconds: slice.startSeconds, endSeconds: slice.endSeconds }); setChopSession((current) => ({ ...current, activeSliceId: slice.id })) }
   const selectChopSlice = (sliceId: string) => { const index = chopSession.slices.findIndex((slice) => slice.id === sliceId); setChopSession((current) => ({ ...current, activeSliceId: sliceId })); if (index >= 0) setSelectedPadId(pads[index].id) }
 
-  const toggleStep = (stepIndex: number) => setPatterns((current) => ({ ...current, [selectedPad.id]: current[selectedPad.id].map((velocity, index) => index === stepIndex ? velocity === 0 ? 0.6 : velocity === 0.6 ? 1 : 0 : velocity) }))
+  const selectedPattern = getVariant(patternGroups, selectedPatternGroupId, selectedPatternVariant)!
+  const selectedPatternShifts = getVariantShifts(patternGroups, selectedPatternGroupId, selectedPatternVariant)!
+  const toggleStep = (padId: PadState['id'], stepIndex: number) => setPatternGroups((current) => updateVariantStep(current, selectedPatternGroupId, selectedPatternVariant, padId, stepIndex))
+  const setStepVelocity = (padId: PadState['id'], stepIndex: number, velocity: number) => setPatternGroups((current) => setVariantStepVelocity(current, selectedPatternGroupId, selectedPatternVariant, padId, stepIndex, velocity))
+  const setStepShift = (padId: PadState['id'], stepIndex: number, shift: number) => setPatternGroups((current) => setVariantStepShift(current, selectedPatternGroupId, selectedPatternVariant, padId, stepIndex, shift))
+  const createNewPatternGroup = () => {
+    try {
+      const next = addPatternGroup(patternGroups, createPatternGroupId(), pads.map((pad) => pad.id))
+      setPatternGroups(next)
+      setSelectedPatternGroupId(next.at(-1)!.id)
+      setSelectedPatternVariant('A')
+    } catch (error) { setProjectMessage(toMessage(error)) }
+  }
+  const duplicateCurrentVariant = (target: PatternVariantName) => {
+    const group = patternGroups.find((item) => item.id === selectedPatternGroupId)!
+    const exists = Boolean(group.variants[target])
+    if (exists && !window.confirm(`Overwrite ${group.name}${target} with ${group.name}${selectedPatternVariant}? Its pattern data will be replaced.`)) return
+    try { setPatternGroups((current) => duplicateVariant(current, selectedPatternGroupId, selectedPatternVariant, target, exists)); setSelectedPatternVariant(target) } catch (error) { setProjectMessage(toMessage(error)) }
+  }
+  const clearCurrentVariant = () => {
+    const group = patternGroups.find((item) => item.id === selectedPatternGroupId)!
+    const references = playlist.filter((clip) => clip.patternGroupId === group.id && clip.variant === selectedPatternVariant)
+    const warning = references.length > 0 ? `Clear ${group.name}${selectedPatternVariant}? This also removes ${references.length} Playlist clip${references.length === 1 ? '' : 's'} that reference it.` : `Clear ${group.name}${selectedPatternVariant}?`
+    if (!window.confirm(warning)) return
+    setPatternGroups((current) => clearVariant(current, selectedPatternGroupId, selectedPatternVariant, pads.map((pad) => pad.id)))
+    if (references.length > 0) setPlaylist((current) => removeClipsForVariant(current, group.id, selectedPatternVariant))
+  }
+  const deleteCurrentPatternGroup = () => {
+    if (patternGroups.length <= 1) return
+    const group = patternGroups.find((item) => item.id === selectedPatternGroupId)!
+    const references = playlist.filter((clip) => clip.patternGroupId === group.id)
+    const warning = references.length > 0 ? `Delete ${group.name}? This also removes ${references.length} Playlist clip${references.length === 1 ? '' : 's'} that reference it.` : `Delete ${group.name}?`
+    if (!window.confirm(warning)) return
+    const next = patternGroups.filter((item) => item.id !== group.id)
+    setPatternGroups(next)
+    setPlaylist((current) => removeClipsForGroup(current, group.id))
+    setSelectedPatternGroupId(next[0].id)
+    setSelectedPatternVariant('A')
+  }
+  const addPlaylistClip = (groupId: string, variant: PatternVariantName, startSlot: number) => setPlaylist((current) => addPatternClip(current, { id: createPatternClipId(), patternGroupId: groupId, variant, startSlot }))
   const startPlayback = () => {
     if (isPlaying) return
-    if (!audioReady || sequenceConfigRef.current.tracks.length === 0) { setErrorMessage('Assign a WAV to at least one pad before starting the sequencer.'); return }
+    if (!audioReady) { setErrorMessage('Start audio before playing the sequencer.'); return }
+    if (transportMode === 'song' && playlist.length === 0) { setErrorMessage('Add at least one Pattern Clip before playing SONG.'); return }
+    if (sequenceConfigRef.current.getTracksForSlot(transportMode === 'song' ? 1 : 1).length === 0 && !pads.some((pad) => pad.assetId && audioEngine.hasSampleAsset(pad.assetId))) { setErrorMessage('Assign a WAV to at least one pad before starting the sequencer.'); return }
     sequencerRef.current.start(() => sequenceConfigRef.current)
     setIsPlaying(true)
   }
-  const stopPlayback = () => { sequencerRef.current.stop(); setIsPlaying(false) }
+  const stopPlayback = () => { sequencerRef.current.stop(); audioEngine.stopSequencerVoices(); setIsPlaying(false); setPlayingSongSlot(null) }
 
   return <main className="station-shell"><section className="station-panel" aria-labelledby="station-title">
-    <header className="station-header"><div><p className="eyebrow">STATION / M4</p><h1 id="station-title">STATION</h1></div><MainNavigation view={mainView} onViewChange={setMainView} /><div className="audio-controls"><div className="status-row" role="status" aria-live="polite"><span className={`status-dot status-${audioStatus}`} aria-hidden="true" />{statusLabels[audioStatus]}</div><button className="start-button" type="button" onClick={() => void startAudio()} disabled={audioStatus === 'starting'}>{audioReady ? 'AUDIO READY' : 'START AUDIO'}</button></div></header>
-    <TransportBar bpm={bpm} swing={swing} isPlaying={isPlaying} onBpmChange={setBpm} onSwingChange={setSwing} onPlay={startPlayback} onStop={stopPlayback} />
+    <header className="station-header"><div><p className="eyebrow">STATION / M4</p><h1 id="station-title">STATION</h1></div><MainNavigation view={mainView} onViewChange={setMainView} /><div className="audio-controls"><div className="status-row" role="status" aria-live="polite"><span className={`status-dot status-${audioStatus}`} aria-hidden="true" />{statusLabels[audioStatus]}</div><button className="start-button" type="button" onClick={() => void startAudio()} disabled={audioStatus === 'starting' || projectBusy}>{audioReady ? 'AUDIO READY' : 'START AUDIO'}</button><div className="project-controls"><button className="mixer-toggle" type="button" onClick={() => void saveProject()} disabled={projectBusy}>SAVE PROJECT</button><button className="mixer-toggle" type="button" onClick={() => void openProject()} disabled={!audioReady || projectBusy} title={audioReady ? 'Open the last saved project.' : 'Start audio before opening a project.'}>OPEN PROJECT</button></div></div></header>
+    <TransportBar bpm={bpm} swing={swing} isPlaying={isPlaying} mode={transportMode} loopSong={loopSong} onBpmChange={setBpm} onSwingChange={setSwing} onModeChange={setTransportMode} onLoopSongChange={setLoopSong} onPlay={startPlayback} onStop={stopPlayback} />
+    <ProjectKeyPanel projectKey={projectKey} disabled={projectBusy} onChange={setProjectKey} />
+    {projectMessage && <p className="project-message" role="status">{projectMessage}</p>}
     {errorMessage && <p className="error-message" role="alert">{errorMessage}</p>}
     {mainView === 'chop' && <ChopWorkspace pads={pads} selectedPadId={selectedPadId} activePadId={activePadId} audioReady={audioReady} sourceFileName={chopSession.fileName} sourceDurationSeconds={chopSession.durationSeconds} peaks={chopSession.peaks} slices={chopSession.slices} activeSliceId={chopSession.activeSliceId} addingSlice={chopSession.addingSlice} onLoadSource={(event) => void loadChopSource(event)} sourcePreviewing={sourcePreviewing} onPreviewSource={previewChopSource} onStopPreviewSource={stopChopSourcePreview} onTriggerPad={triggerPad} onFeedbackEnd={(padId) => setActivePadId((current) => current === padId ? null : current)} onAddSlice={addChopSlice} onMoveCut={moveChopCut} onSelectSlice={selectChopSlice} onPreviewSlice={previewChopSlice} onToggleAdding={() => setChopSession((current) => ({ ...current, addingSlice: !current.addingSlice }))} onRemoveActiveCut={removeActiveChopCut} onClearSlices={clearChopSlices} />}
-    {mainView === 'pad' && <div className="instrument-layout"><PadGrid pads={pads} selectedPadId={selectedPadId} activePadId={activePadId} audioReady={audioReady} onTrigger={triggerPad} onFeedbackEnd={(padId) => setActivePadId((current) => current === padId ? null : current)} /><PadEditor pad={selectedPad} audioReady={audioReady} onImport={(event) => void loadSelectedPad(event)} onUpdate={updateSelectedPad} onClear={clearSelectedPad} /></div>}
-    {mainView === 'seq' && <SequencerControls steps={patterns[selectedPad.id]} padLabel={selectedPad.label} loadedTrackCount={pads.filter((pad) => pad.fileName).length} onToggleStep={toggleStep} />}
+    {mainView === 'pad' && <div className="instrument-layout"><PadGrid pads={pads} selectedPadId={selectedPadId} activePadId={activePadId} audioReady={audioReady} onTrigger={triggerPad} onFeedbackEnd={(padId) => setActivePadId((current) => current === padId ? null : current)} /><PadEditor pad={selectedPad} audioReady={audioReady} projectBusy={projectBusy} projectKeyLabel={formatProjectKey(projectKey)} onImport={(event) => void loadSelectedPad(event)} onUpdate={updateSelectedPad} onMapToProjectScale={mapSelectedPadToProjectScale} onClear={clearSelectedPad} /></div>}
+    {mainView === 'seq' && <SequencerControls pattern={selectedPattern} shifts={selectedPatternShifts} pads={pads.filter((pad) => pad.fileName || pad.id === selectedPad.id)} selectedPadId={selectedPad.id} groups={patternGroups} selectedGroupId={selectedPatternGroupId} selectedVariant={selectedPatternVariant} onSelectPad={triggerPad} onSelectGroup={(groupId) => { setSelectedPatternGroupId(groupId); setSelectedPatternVariant('A') }} onSelectVariant={setSelectedPatternVariant} onNewGroup={createNewPatternGroup} onDuplicateVariant={duplicateCurrentVariant} onClearVariant={clearCurrentVariant} onDeleteGroup={deleteCurrentPatternGroup} onToggleStep={toggleStep} onVelocityChange={setStepVelocity} onShiftChange={setStepShift} />}
+    {mainView === 'song' && <SongWorkspace groups={patternGroups} clips={playlist} selectedGroupId={selectedPatternGroupId} selectedVariant={selectedPatternVariant} activeSlot={isPlaying && transportMode === 'song' ? playingSongSlot : null} onAddClip={addPlaylistClip} />}
     {mainView === 'sample' && <SampleEditor pad={selectedPad} peaks={selectedPeaks} audioReady={audioReady} onPreview={() => triggerPad(selectedPad.id)} onRegionChange={updateSelectedRegion} onResetRegion={resetSelectedRegion} />}
     {mainView === 'mix' && <><section className="sequencer" aria-labelledby="pump-title"><p className="eyebrow">BASIC PUMP</p><h2 id="pump-title">{pumpSourceId === selectedPad.id ? 'Kick source selected' : 'Select kick source or target'}</h2><button className="transport-button" type="button" onClick={() => setPumpSourceId(selectedPad.id)}>SET {selectedPad.label} AS KICK</button><label className="file-picker"><span><input type="checkbox" checked={pumpTargets.includes(selectedPad.id)} onChange={() => setPumpTargets((targets) => targets.includes(selectedPad.id) ? targets.filter((id) => id !== selectedPad.id) : [...targets, selectedPad.id])} /> Pump selected pad</span></label><label className="bpm-control">DEPTH <output>{Math.round(pumpDepth * 100)}%</output><input type="range" min="0" max="1" step="0.01" value={pumpDepth} onChange={(event) => setPumpDepth(Number(event.target.value))} /></label><label className="bpm-control">LENGTH <output>{pumpLengthBeats} beat</output><input type="range" min="0.25" max="1" step="0.25" value={pumpLengthBeats} onChange={(event) => setPumpLengthBeats(Number(event.target.value))} /></label><div className="pump-curves">{(['snap', 'smooth', 'swell'] as const).map((curve) => <button key={curve} className={`step ${pumpCurve === curve ? 'step-full' : ''}`} type="button" onClick={() => setPumpCurve(curve)}>{curve.toUpperCase()}</button>)}</div></section><Mixer pads={pads} pumpSourceId={pumpSourceId} pumpTargets={pumpTargets} onVolumeChange={updateChannelVolume} onMutedChange={updateChannelMuted} onSoloChange={updateChannelSolo} /></>}
   </section></main>

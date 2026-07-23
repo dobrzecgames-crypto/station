@@ -108,9 +108,15 @@ The scheduler must:
 
 The visual playhead may use animation frames, but it reads transport position; it does not trigger sound.
 
-### M4 implementation
+## Current scheduler and transport status
 
-The initial sequencer schedules a single 16-step pattern for the selected pad. It wakes every 25 ms and schedules into a 100 ms look-ahead window. The wake timer only invokes planning; each sample is started with an absolute `AudioContext.currentTime` timestamp.
+The current implementation schedules all loaded pad tracks against one 16-step timeline, not only the selected pad. It wakes every 25 ms and uses a 100 ms look-ahead window; each voice receives an absolute AudioContext.currentTime timestamp.
+
+Transport STOP cancels further scheduling and stops voices created by the sequencer. Manual pad voices and source-preview voices remain separate; source preview has its own STOP SOURCE control. The engine reports a suspended context to the UI, which stops the transport and its voices; START AUDIO resumes the context. Suspend/resume and timing behavior still require acceptance testing in current Chrome and Edge.
+
+### M4 implementation history
+
+The original M4 scheduler established the 25 ms wake interval and 100 ms look-ahead strategy. Its current extension schedules every loaded pad track, and the wake timer only invokes planning; it does not provide musical time.
 
 ## Basic Pump
 

@@ -192,3 +192,83 @@ Consequences:
 - occupied pads are never replaced silently: the first live mapping asks for confirmation,
 - loading another Chop source detaches prior mapped pads as playable snapshots,
 - an asset may be removed only when neither the current source nor any pad references it.
+
+## DEC-014 — ProjectState separates persisted musical data from runtime caches
+
+**Status:** Accepted
+
+The first persistence-ready schema contains only serializable musical state and asset references. Waveform peaks are regenerated runtime cache; audio objects, active voices, transport timestamps and preview UI state are never persisted.
+
+Consequences:
+
+- schema validation can run before a future storage implementation,
+- asset bytes and decoded AudioBuffers remain separate concerns,
+- save/load UI and storage are deferred to a dedicated persistence task.
+
+## DEC-015 — Transport STOP owns sequencer-created voices only
+
+**Status:** Accepted
+
+STOP stops the scheduler and voices it created for pattern playback. Manual pad voices remain independent, and Chop source preview is controlled only by its separate STOP SOURCE action.
+
+Consequences:
+
+- stopping the transport also cancels already scheduled long pattern voices,
+- manually played pads are not unintentionally silenced by a transport action,
+- preview voice cleanup remains independent from transport cleanup.
+
+## DEC-016 — Persistence v1 uses one IndexedDB project with raw WAV Blobs
+
+**Status:** Accepted
+
+Persistence v1 stores one local `default-project` in IndexedDB. Its manifest is schema-versioned ProjectState, its source WAV files are separate Blob records keyed by stable UUID-derived asset IDs, and last-project metadata is stored in the same database. SAVE writes these records transactionally; OPEN validates the manifest, reads all required assets and re-decodes them before replacing React project state.
+
+Consequences:
+
+- a shared pad/CHOP asset is saved only once,
+- waveform peaks are regenerated and transport remains stopped after OPEN,
+- no AudioBuffer, AudioNode, voice, timer, preview or playback position is persisted,
+- unsupported versions, corrupt manifests, missing assets, storage failures and decode errors are reported without guessing,
+- v1 has no autosave, project browser, multiple projects, delete, rename or export/import,
+- browser-managed IndexedDB quota can prevent saving large sample sets.
+
+## DEC-017 — Project Key maps future pads without a runtime tuning link
+
+**Status:** Accepted
+
+Project Key is one persisted project preference containing a chromatic root name and a selected scale. It affects only a future explicit map action: the source pad is degree zero and later pads through PAD 16 receive consecutive scale pitch offsets while sharing the source SampleAsset and playback region.
+
+Consequences:
+
+- mapping creates ordinary independent pad snapshots; their patterns, mute/solo state, Pump assignments, Chop ownership and UI state are not copied from the source,
+- a Project Key change never retunes or otherwise changes existing pads, regions, patterns or Chop Sessions,
+- source pitch is user-declared; Station performs no pitch detection, tuning, FFT analysis or correction,
+- pitch continues to use playback-rate, so pitch changes sample duration and no time-stretching is introduced,
+- pre-Project-Key schema-v1 manifests safely load with C Minor / Aeolian while malformed present values fail validation.
+
+## DEC-018 — Pattern Groups use four constrained variants and a reference Playlist
+
+**Status:** Accepted
+
+A Pattern Group represents one musical idea and has one required A pattern plus optional B, C and D variations. Each variation remains exactly 16 steps across the fixed 16 pads. A Playlist clip stores only a Pattern Group ID, variant and positive start slot; it does not duplicate pattern data. Multiple clips may share a slot and therefore schedule independent overlapping triggers.
+
+Consequences:
+
+- Station supports at most eight Pattern Groups and has no arbitrary pattern lengths,
+- editing a referenced variant affects every one of its Playlist clips,
+- deleting or clearing a referenced variant/group requires confirmation and removes the affected clips instead of leaving broken references,
+- Playlist length grows with its clips and is not capped at 32 or 64 slots,
+- PATTERN mode loops the selected variant; SONG mode changes slots only at 16-step boundaries and may loop after the last occupied slot,
+- this is a constrained groovebox arrangement system, not a full DAW timeline, audio-clip system or scene framework.
+
+## DEC-019 — Per-step velocity and bounded SHIFT remain part of the pattern
+
+**Status:** Accepted
+
+Every 16-step pad pattern stores a manual velocity and a SHIFT value per step. SHIFT is limited to half a 16th-note early or late and is applied by the audio scheduler to the individual Web Audio event timestamp.
+
+Consequences:
+
+- velocity and SHIFT are copied when duplicating a variant and persisted with the project,
+- SHIFT does not alter BPM, swing, Playlist slots or the audio clock,
+- a negative SHIFT too close to the current scheduling time is safely clamped by the audio engine rather than causing React-driven timing.

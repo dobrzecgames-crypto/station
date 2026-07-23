@@ -4,12 +4,15 @@ import type { PadState } from './types'
 interface PadEditorProps {
   pad: PadState
   audioReady: boolean
+  projectBusy: boolean
+  projectKeyLabel: string
   onImport: (event: ChangeEvent<HTMLInputElement>) => void
   onUpdate: (changes: Pick<PadState, 'volume' | 'pitchSemitones'>) => void
+  onMapToProjectScale: () => void
   onClear: () => void
 }
 
-export function PadEditor({ pad, audioReady, onImport, onUpdate, onClear }: PadEditorProps) {
+export function PadEditor({ pad, audioReady, projectBusy, projectKeyLabel, onImport, onUpdate, onMapToProjectScale, onClear }: PadEditorProps) {
   return (
     <aside className="pad-editor" aria-labelledby="pad-editor-title">
       <div className="editor-heading">
@@ -34,8 +37,12 @@ export function PadEditor({ pad, audioReady, onImport, onUpdate, onClear }: PadE
       </div>
       <div className="parameter-control">
         <label htmlFor="pad-pitch">Pitch <output>{pad.pitchSemitones > 0 ? '+' : ''}{pad.pitchSemitones} st</output></label>
-        <input id="pad-pitch" type="range" min="-12" max="12" step="1" value={pad.pitchSemitones} onChange={(event) => onUpdate({ volume: pad.volume, pitchSemitones: Number(event.target.value) })} />
+        <input id="pad-pitch" type="range" min="-12" max="36" step="1" value={pad.pitchSemitones} onChange={(event) => onUpdate({ volume: pad.volume, pitchSemitones: Number(event.target.value) })} />
       </div>
+      <button className="map-scale-button" type="button" disabled={!pad.assetId || projectBusy} onClick={onMapToProjectScale}>
+        MAP TO PROJECT SCALE
+      </button>
+      <p className="project-key-summary">{projectKeyLabel}</p>
       <button className="clear-button" type="button" disabled={!pad.fileName} onClick={onClear}>
         CLEAR PAD
       </button>

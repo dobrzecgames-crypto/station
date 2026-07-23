@@ -19,9 +19,11 @@ Suggested fields:
 - name,
 - created and modified timestamps,
 - one pad bank,
-- one pattern,
+- up to eight Pattern Groups with A–D variants,
+- a Pattern Playlist,
 - transport settings,
 - Pump configuration,
+- global Project Key preference (`root` and `scale`) used only for future scale maps,
 - references to sample assets.
 
 ### SampleAsset
@@ -93,17 +95,13 @@ Suggested fields:
 - Pump enabled state,
 - future mute/solo or sequencing configuration.
 
-### Pattern
+### Pattern Group and variants
 
-Represents the single MVP pattern.
+A Pattern Group is one musical idea. It has an always-present A variant and optional B, C and D variants. Each existing variant is a complete 16-pad, 16-step pattern with a velocity and a SHIFT value for each step. SHIFT is constrained to −50% through +50% of one 16th-note duration. Creating a variation copies steps, velocity and SHIFT only; it never copies pad assets, pad settings, mixer/Pump configuration, BPM, swing or Project Key. The A–D limit is intentional.
 
-Suggested fields:
+### Pattern Clip / Playlist
 
-- pattern ID,
-- name,
-- step count fixed at 16 for MVP,
-- events grouped by track or step,
-- future pattern version metadata.
+A Pattern Clip contains `patternGroupId`, `variant` and a positive `startSlot`. One slot always means one 16-step pass. Clips point to the live variant data rather than copying it, and any number of clips may share a slot. The Playlist grows with its clips and has no user-visible short length cap. It is not a general DAW timeline: clips cannot be stretched, cut, audio-based or automated.
 
 ### StepEvent
 
@@ -114,8 +112,9 @@ Suggested fields:
 - step index 0-15,
 - track ID,
 - enabled state or existence,
-- velocity normalized to a documented range,
-- future microtiming, probability, ratchet and parameter-lock fields.
+- velocity normalized to 0–1,
+- manual SHIFT microtiming normalized to −0.5 through +0.5 of a 16th-note duration,
+- future probability, ratchet and parameter-lock fields.
 
 Do not add future fields until they are needed, but reserve clean extension points through schema versioning.
 
@@ -154,6 +153,22 @@ The following must not be serialized into the project:
 - current visual playhead animation state,
 - object URLs that cannot be restored reliably.
 
+## Pre-persistence ProjectState
+
+ProjectState schema v2 is a serializable boundary. It contains pad configuration, asset references and durations, Pattern Groups and their 16-step velocities, selected Pattern Group/variant, Pattern Clips, persisted transport mode and Loop Song, BPM, swing, Pump configuration, the global Project Key (`root`, `scale`) and the source/slice boundaries of the active Chop Session. Waveform peaks are runtime cache regenerated after decoding; they are not part of schema v2.
+
+Project Key is a preference for future Project Scale mappings. A mapping writes normal independent pad configurations that reference one shared SampleAsset and contain their calculated pitch offsets. Existing mapped pads have no runtime link to Project Key and are not retuned when it changes.
+
+It intentionally excludes AudioContext, buffers, nodes, active voices, transport playback state, preview state and timestamps. Validation rejects unsupported schema versions, invalid pad/pattern counts, malformed regions or slices, invalid transport/Pump values and references to missing pads or assets.
+
+## Persistence v1 records
+
+The one saved local project has ID `default-project`. Its manifest contains `ProjectState` with `schemaVersion: 2`; a separate asset record contains each referenced asset ID, filename, MIME type, byte size and original WAV Blob. A shared CHOP source is represented by one asset record even when it maps to many pads. `lastProjectId` points to the most recently saved project. Schema-v1 manifests are migrated on load: their sole pattern becomes Pattern 1A, B–D are absent, the Playlist is empty and transport defaults to PATTERN.
+
+Only assets used by pads or by the active CHOP source are included in a save. Waveform peaks, AudioBuffers, transport playback state, preview state and UI-only Chop editing state are rebuilt or reset on OPEN.
+
+The already-written schema-v1 manifest remains compatible with pre-Project-Key saves: a missing `projectKey` is normalized to C Minor / Aeolian during load. A present but malformed key remains invalid and fails manifest validation.
+
 ## Persistence rules
 
 - Every saved project includes a schema version.
@@ -167,7 +182,7 @@ The following must not be serialized into the project:
 
 - Exactly one bank.
 - Exactly 16 pads.
-- Exactly one pattern.
+- One to eight Pattern Groups, each with A and optional B–D variants.
 - Exactly 16 steps.
 - One track associated with each pad.
 - WAV is the only guaranteed import format.

@@ -13,7 +13,8 @@ A user should be able to open Station, import samples, build a groove and make i
 1. Start the audio engine through an intentional user gesture.
 2. Import WAV samples into a 16-pad bank.
 3. Play samples directly through touch, mouse or keyboard.
-4. Build one 16-step pattern.
+4. Build a 16-step Pattern Group and, when useful, create up to A–D variations.
+5. Arrange short pattern clips in a practical-length Playlist, including parallel clips.
 5. Select a kick source and apply Basic Pump to another track.
 6. Save the project locally and reopen it later.
 
@@ -65,4 +66,4 @@ Station is not intended to provide:
 - real-time cloud collaboration,
 - exact emulation of an MPC, SP-404, Digitakt or tracker.
 
-A limited scene- or pattern-based arrangement system may appear after the MVP, but it must remain consistent with the groovebox model.
+The Playlist is a limited pattern-based arrangement system: it uses fixed one-pattern clips, not arbitrary audio clips or a full DAW timeline.

@@ -1,11 +1,16 @@
 export type SampleId = string
 export type SampleAssetId = string
 
-export type AudioEngineStatus = 'inactive' | 'starting' | 'ready' | 'error'
+export type AudioEngineStatus = 'inactive' | 'starting' | 'ready' | 'suspended' | 'error'
 
 export interface LoadedSampleInfo {
   filename: string
   durationSeconds: number
+}
+
+export interface RuntimeSampleAsset {
+  filename: string
+  blob: Blob
 }
 
 export interface TriggerSampleOptions {
@@ -29,6 +34,7 @@ interface ActiveVoice {
   source: AudioBufferSourceNode
   gain: GainNode
   cleanedUp: boolean
+  origin: 'manual' | 'sequencer' | 'preview'
   onEnded?: () => void
 }
 
@@ -47,9 +53,11 @@ export class AudioEngine {
   private pumpConfig: PumpConfig = { sourceSampleId: null, targetSampleIds: [], depth: 0, lengthSeconds: 0.2, curve: 'smooth' }
   private samples = new Map<SampleId, AudioBuffer>()
   private waveforms = new Map<SampleId, number[]>()
+  private runtimeAssets = new Map<SampleAssetId, RuntimeSampleAsset>()
   private activeVoices = new Set<ActiveVoice>()
   private previewVoices = new Set<ActiveVoice>()
   private status: AudioEngineStatus = 'inactive'
+  private readonly statusListeners = new Set<(status: AudioEngineStatus) => void>()
 
   constructor(channelIds: readonly SampleId[]) {
     for (const channelId of channelIds) {
@@ -61,17 +69,23 @@ export class AudioEngine {
     return this.status
   }
 
+  subscribeToStatus(listener: (status: AudioEngineStatus) => void): () => void {
+    this.statusListeners.add(listener)
+    return () => this.statusListeners.delete(listener)
+  }
+
   async initialize(): Promise<void> {
     if (this.context?.state === 'running') {
-      this.status = 'ready'
+      this.setStatus('ready')
       return
     }
 
-    this.status = 'starting'
+    this.setStatus('starting')
 
     try {
       const AudioContextConstructor = window.AudioContext
       this.context ??= new AudioContextConstructor()
+      this.context.onstatechange = () => this.syncContextStatus()
       this.masterGain ??= this.createMasterGain(this.context)
       this.createChannelNodes()
       await this.context.resume()
@@ -80,34 +94,39 @@ export class AudioEngine {
         throw new Error('Audio is still suspended. Try START AUDIO again.')
       }
 
-      this.status = 'ready'
+      this.setStatus('ready')
     } catch (error) {
-      this.status = 'error'
+      this.setStatus('error')
       throw this.toError(error, 'Unable to start Web Audio.')
     }
   }
 
   async loadSample(assetId: SampleAssetId, file: File): Promise<LoadedSampleInfo> {
+    return this.loadSampleBlob(assetId, file, file.name)
+  }
+
+  async loadSampleBlob(assetId: SampleAssetId, blob: Blob, filename: string): Promise<LoadedSampleInfo> {
     if (this.status !== 'ready' || !this.context) {
       throw new Error('Start audio before loading a sample.')
     }
 
-    if (!this.isWavFile(file)) {
+    if (!this.isWavAsset(blob, filename)) {
       throw new Error('Select a WAV file.')
     }
 
     try {
-      const audioData = await file.arrayBuffer()
+      const audioData = await blob.arrayBuffer()
       const decodedBuffer = await this.context.decodeAudioData(audioData)
 
       this.samples.set(assetId, decodedBuffer)
       this.waveforms.set(assetId, this.createWaveform(decodedBuffer))
+      this.runtimeAssets.set(assetId, { filename, blob })
       return {
-        filename: file.name,
+        filename,
         durationSeconds: decodedBuffer.duration,
       }
     } catch (error) {
-      throw this.toError(error, `Could not decode "${file.name}" as WAV audio.`)
+      throw this.toError(error, `Could not decode "${filename}" as WAV audio.`)
     }
   }
 
@@ -117,7 +136,17 @@ export class AudioEngine {
 
   removeSampleAsset(assetId: SampleAssetId): boolean {
     this.waveforms.delete(assetId)
+    this.runtimeAssets.delete(assetId)
     return this.samples.delete(assetId)
+  }
+
+  getRuntimeSampleAsset(assetId: SampleAssetId): RuntimeSampleAsset | undefined {
+    const asset = this.runtimeAssets.get(assetId)
+    return asset ? { ...asset } : undefined
+  }
+
+  getSampleAssetIds(): SampleAssetId[] {
+    return [...this.samples.keys()]
   }
 
   getWaveformPeaks(assetId: SampleAssetId): number[] | undefined {
@@ -164,7 +193,7 @@ export class AudioEngine {
     const when = this.context.currentTime
     const source = this.context.createBufferSource()
     const gain = this.context.createGain()
-    const voice: ActiveVoice = { source, gain, cleanedUp: false, onEnded }
+    const voice: ActiveVoice = { source, gain, cleanedUp: false, origin: 'preview', onEnded }
     const playbackRate = this.toPlaybackRate(options.pitchSemitones)
     const region = this.toPlaybackRegion(sampleBuffer.duration, options.startSeconds, options.endSeconds)
     const outputDuration = region.durationSeconds / playbackRate
@@ -194,7 +223,7 @@ export class AudioEngine {
     }
   }
 
-  scheduleSample(padId: SampleId, assetId: SampleAssetId, when: number, options: TriggerSampleOptions = {}): void {
+  scheduleSample(padId: SampleId, assetId: SampleAssetId, when: number, options: TriggerSampleOptions = {}, origin: 'manual' | 'sequencer' = 'manual'): void {
     const sampleBuffer = this.samples.get(assetId)
     const channel = this.channels.get(padId)
 
@@ -204,25 +233,26 @@ export class AudioEngine {
 
     const source = this.context.createBufferSource()
     const gain = this.context.createGain()
-    const voice: ActiveVoice = { source, gain, cleanedUp: false }
+    const voice: ActiveVoice = { source, gain, cleanedUp: false, origin }
+    const scheduledWhen = Math.max(this.context.currentTime, when)
     const playbackRate = this.toPlaybackRate(options.pitchSemitones)
     const region = this.toPlaybackRegion(sampleBuffer.duration, options.startSeconds, options.endSeconds)
     const voiceGain = this.toGain(options.gain)
     const outputDuration = region.durationSeconds / playbackRate
     const fadeDuration = Math.min(0.004, outputDuration / 2)
     source.buffer = sampleBuffer
-    gain.gain.setValueAtTime(0, when)
-    gain.gain.linearRampToValueAtTime(voiceGain, when + fadeDuration)
-    gain.gain.setValueAtTime(voiceGain, when + Math.max(fadeDuration, outputDuration - fadeDuration))
-    gain.gain.linearRampToValueAtTime(0, when + outputDuration)
-    source.playbackRate.setValueAtTime(playbackRate, when)
+    gain.gain.setValueAtTime(0, scheduledWhen)
+    gain.gain.linearRampToValueAtTime(voiceGain, scheduledWhen + fadeDuration)
+    gain.gain.setValueAtTime(voiceGain, scheduledWhen + Math.max(fadeDuration, outputDuration - fadeDuration))
+    gain.gain.linearRampToValueAtTime(0, scheduledWhen + outputDuration)
+    source.playbackRate.setValueAtTime(playbackRate, scheduledWhen)
     source.connect(gain)
     gain.connect(channel.gain)
     source.addEventListener('ended', () => this.cleanUpVoice(voice), { once: true })
 
     this.activeVoices.add(voice)
-    if (padId === this.pumpConfig.sourceSampleId) this.triggerPump(when)
-    source.start(when, region.startSeconds, region.durationSeconds)
+    if (padId === this.pumpConfig.sourceSampleId) this.triggerPump(scheduledWhen)
+    source.start(scheduledWhen, region.startSeconds, region.durationSeconds)
   }
 
   stopAll(): void {
@@ -231,6 +261,18 @@ export class AudioEngine {
         voice.source.stop()
       } catch {
         // A source may already have ended before stopAll runs.
+      }
+      this.cleanUpVoice(voice)
+    }
+  }
+
+  stopSequencerVoices(): void {
+    for (const voice of [...this.activeVoices]) {
+      if (voice.origin !== 'sequencer') continue
+      try {
+        voice.source.stop()
+      } catch {
+        // A scheduled source may have already ended before transport stop.
       }
       this.cleanUpVoice(voice)
     }
@@ -248,6 +290,7 @@ export class AudioEngine {
     this.stopAll()
     this.samples.clear()
     this.waveforms.clear()
+    this.runtimeAssets.clear()
     for (const channel of this.channels.values()) {
       channel.gain?.disconnect()
       channel.pumpGain?.disconnect()
@@ -262,7 +305,19 @@ export class AudioEngine {
 
     this.context = undefined
     this.masterGain = undefined
-    this.status = 'inactive'
+    this.setStatus('inactive')
+  }
+
+  private syncContextStatus(): void {
+    if (this.context?.state === 'running') this.setStatus('ready')
+    else if (this.context?.state === 'suspended') this.setStatus('suspended')
+    else if (this.context?.state === 'closed') this.setStatus('inactive')
+  }
+
+  private setStatus(status: AudioEngineStatus): void {
+    if (this.status === status) return
+    this.status = status
+    for (const listener of this.statusListeners) listener(status)
   }
 
   private createMasterGain(context: AudioContext): GainNode {
@@ -371,8 +426,8 @@ export class AudioEngine {
     voice.onEnded?.()
   }
 
-  private isWavFile(file: File): boolean {
-    return file.type === 'audio/wav' || file.type === 'audio/x-wav' || /\.wav$/i.test(file.name)
+  private isWavAsset(blob: Blob, filename: string): boolean {
+    return blob.type === 'audio/wav' || blob.type === 'audio/x-wav' || /\.wav$/i.test(filename)
   }
 
   private toGain(gain: number | undefined): number {

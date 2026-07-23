@@ -4,7 +4,7 @@ Station is a desktop-browser sampler groovebox for turning audio samples into pl
 
 ## Current status
 
-The repository is in **M4 — Sequencer Timing** with the explicitly approved Unified Chop Workspace task. The 16-pad instrument includes one 16-step sequence per pad, BPM, audio-clock-based play/stop, Basic Pump, a compact 16-channel MIX foundation, non-destructive regions and a live CHOP workspace.
+The repository contains a playable 16-track sequencer with Pattern Groups A–D and a Pattern Playlist / Song Mode, Basic Pump and mixer foundations, non-destructive sample regions, the Unified Chop Workspace, Persistence v2 (with v1 migration), and Project Key + Scale Map v1. Browser audio lifecycle and listening acceptance still require testing in current Chrome and Edge on Windows.
 
 ## Product principles
 
@@ -12,7 +12,8 @@ The repository is in **M4 — Sequencer Timing** with the explicitly approved Un
 - The desktop browser is the primary product platform, not a temporary prototype target.
 - Chrome and Edge on Windows are the first supported development and validation environment.
 - Mobile browsers, phone UX, PWA packaging and Capacitor are separate future topics and do not block the browser MVP.
-- The MVP contains one 16-pad bank, one 16-step pattern and one Basic Pump system.
+- The project has one 16-pad bank, up to eight Pattern Groups, and always-16-step pattern variants A–D.
+- Pattern Clips point to a Pattern Group variant and can run in parallel on a Playlist; Station still has no general DAW timeline.
 - React owns the user interface, never audio timing.
 - The audio engine must remain independent from React components.
 - Smart Pump starts as a manual, musical volume-shaping tool.
@@ -79,8 +80,18 @@ A  S  D  F
 Z  X  C  V
 ```
 
-The fixed shell provides **CHOP**, **PAD**, **SEQ**, **SAMPLE** and **MIX** views, plus a permanent transport. In CHOP, load a separate source WAV, enable **ADD SLICE**, then click the waveform: slice 1 maps live to PAD 01, slice 2 to PAD 02, and so on. The source itself does not occupy a pad and all mapped pads share one decoded asset. The selected-pad editor provides per-channel volume and per-pad pitch controls, plus **CLEAR PAD**. SAMPLE provides start/end playback-region editing, preview and reset for the current pad. Use SEQ to edit the selected pad's own pattern; **PLAY** runs all loaded pad patterns together. MIX controls channel volume, mute and multi-solo for all 16 pads; mute takes precedence over solo. Audio events are scheduled from the Web Audio clock, not React timing.
+The fixed shell provides **CHOP**, **PAD**, **SEQ**, **SONG**, **SAMPLE** and **MIX** views, plus a permanent transport. In SEQ, a Pattern Group represents one musical idea and its A–D buttons select deliberately limited 16-step variations. Create B–D by duplicating an existing variant; use **NEW PATTERN** for up to eight groups. SONG supplies a simple slot Playlist: clips such as `1A` reference their pattern rather than copying it, may overlap in the same slot, and may be placed at any positive slot. Select **PATTERN** to loop the current variant or **SONG** to play the Playlist; **LOOP SONG** restarts after its last occupied slot. In CHOP, load a separate source WAV, enable **ADD SLICE**, then click the waveform: slice 1 maps live to PAD 01, slice 2 to PAD 02, and so on. The source itself does not occupy a pad and all mapped pads share one decoded asset. The selected-pad editor provides per-channel volume and per-pad pitch controls, plus **CLEAR PAD**. SAMPLE provides start/end playback-region editing, preview and reset for the current pad. MIX controls channel volume, mute and multi-solo for all 16 pads; mute takes precedence over solo. Audio events are scheduled from the Web Audio clock, not React timing.
+
+In **SEQ**, each active step has a manual **VELOCITY** value (0–100%) and a per-step **SHIFT** from −50% to +50% of a 16th-note duration. SHIFT moves only that scheduled trigger; the AudioContext clock, BPM and slot boundaries remain unchanged.
+
+**PROJECT KEY** sets a global root and scale for future mappings. In PAD view, select a loaded pad and use **MAP TO PROJECT SCALE** to fill that pad through PAD 16 with the same asset and playback region at consecutive scale degrees. The selected pad is degree zero; map targets retain their own patterns, mute/solo state and Pump settings. Mapping never wraps to PAD 01, does not retune earlier mappings after a key change, and asks once before replacing occupied target pads.
+
+### Local project persistence
+
+**SAVE PROJECT** stores one local project in IndexedDB: its schema-v2 manifest and each referenced source WAV under a stable asset ID. **OPEN PROJECT** restores the last saved project after **START AUDIO**; it re-decodes WAV data, regenerates waveform caches, restores pads, Pattern Groups, Playlist, mixer, Pump and Project Key settings, and leaves transport stopped. Persistence v1 projects with one pattern migrate safely to Pattern 1A, with an empty Playlist and PATTERN mode. Projects saved before Project Key use the safe default C Minor / Aeolian when opened.
+
+There is no autosave, project browser, rename, duplicate, delete or export/import. IndexedDB quota is browser-managed, so saving large WAV projects can fail when local storage is full.
 
 ### Current limitations
 
-The bank, sequences, regions and BPM are non-persistent and reset on page reload. There are no saved patterns, effects or master-volume control. Audio must be explicitly started after each page reload; switching tabs may cause a browser to suspend audio, in which case use **START AUDIO** again.
+Only one local project is available and it must be opened explicitly after each page reload. There are no effects or master-volume control. Audio must be explicitly started after each page reload; switching tabs may cause a browser to suspend audio, in which case use **START AUDIO** again.

@@ -31,6 +31,8 @@ It must prove four things:
 - Volume per pad.
 - Pitch per pad expressed in semitones.
 - Pitch changes playback speed and duration; no time-stretching.
+- One global Project Key root and scale preference, used by an explicit map action to distribute one selected sample over later pads at consecutive scale degrees.
+- Project Key changes affect only future maps; existing pad pitch values remain unchanged.
 - Basic visual feedback for pad triggers.
 
 ### Sequencer
@@ -76,6 +78,8 @@ It must prove four things:
 - Basic Station visual identity without expensive decorative systems.
 
 ## Explicitly excluded from the MVP
+
+Waveforms, non-destructive regions, swing and the Unified Chop Workspace foundation have been implemented early as explicitly approved extensions. They do not change the MVP's product boundary and must not delay persistence or audio-stability acceptance.
 
 - Mobile-specific UX and multitouch requirements.
 - iPhone Safari and Android Chrome compatibility requirements.

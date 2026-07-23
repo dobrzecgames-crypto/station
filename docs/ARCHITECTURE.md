@@ -70,7 +70,7 @@ Responsibilities:
 - migration between supported schema versions,
 - recovery and user-facing errors.
 
-The exact IndexedDB/OPFS split remains an open decision until a compatibility spike is completed.
+Persistence v1 uses IndexedDB only: `projects` stores the versioned manifest, `assets` stores original WAV `Blob`s by stable asset ID, and `metadata` stores `lastProjectId`. SAVE writes referenced assets, manifest and last-project metadata in one read/write transaction. OPEN validates the manifest and reads every required asset before asking the audio engine to re-decode it. OPFS remains a future option only if measured asset-library needs justify it.
 
 ## Suggested module boundaries
 
@@ -96,9 +96,13 @@ This is a direction, not permission to scaffold files before the implementation 
 
 ## Current UI shell and Chop Workspace
 
-Station renders one main workspace at a time: CHOP, PAD, SEQ, SAMPLE or MIX. The transport remains outside those views, so changing views does not recreate audio, patterns, mixer settings, the active pad or the current Chop Session.
+Station renders one main workspace at a time: CHOP, PAD, SEQ, SONG, SAMPLE or MIX. The transport remains outside those views, so changing views does not recreate audio, Pattern Groups, Playlist, mixer settings, the active pad or the current Chop Session.
 
 CHOP owns a source-asset reference and serializable slice boundaries; pads own their playback and musical state. A live map applies slice 1–16 to pad 1–16 without placing an AudioBuffer in React. The workspace tracks the pads it currently manages so that shrinking the slice set clears only its own surplus assignments.
+
+## Persistence runtime boundary
+
+At import time, AudioEngine retains the original WAV `Blob` alongside its decoded AudioBuffer and generated waveform peaks. The Blob is available only through a small engine API for persistence; the audio graph, scheduling, voices and waveform cache remain runtime-only. On OPEN, the engine decodes stored Blobs again and recreates waveform peaks before React receives the replacement project state.
 
 ## Event flow example
 
@@ -119,6 +123,10 @@ The initial sequencer should use a look-ahead scheduling approach:
 - background throttling and resumed contexts must be handled explicitly.
 
 No implementation should assume that a visually smooth playhead proves stable audio timing.
+
+Pattern Mode asks the scheduler for the selected Pattern Group variant on every scheduling window. Song Mode asks it for every clip active in the current 16-step slot, so all referenced patterns are scheduled independently and may trigger the same pad at the same timestamp. Slot changes occur only after the sixteenth scheduled step. The UI receives a display-only current-slot projection; it never controls the scheduler clock.
+
+Each scheduled step may have a persisted velocity and a local SHIFT expressed as a fraction of the 16th-note duration (−50% to +50%). The scheduler adds this offset to that event's Web Audio timestamp; React only edits the value and is never the timing authority.
 
 ## AudioWorklet policy
 

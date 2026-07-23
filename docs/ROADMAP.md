@@ -1,5 +1,13 @@
 # Station Roadmap
 
+## Current implementation status
+
+- M5 implementation is present; acceptance is pending.
+- M6 Persistence v1 is implemented locally; Chrome/Edge and listening acceptance is pending.
+- M7 Basic Pump implementation is present; listening and hardening are pending.
+- The approved M9 Chop foundation was implemented early.
+- The current approved task is Pattern Groups A–D + Pattern Playlist / Song Mode. It is implemented locally; acceptance, listening and Chrome/Edge validation remain pending.
+
 ## M0 — Project Definition
 
 Goal: freeze the first product direction before application code exists.
@@ -104,7 +112,8 @@ Scope:
 - start and stop,
 - look-ahead scheduling based on AudioContext time,
 - timing diagnostics,
-- UI stress test during playback.
+- UI stress test during playback,
+- approved scoped extension: Project Key + Scale Map v1, with a persisted global root/scale preference and explicit one-bank shared-asset mapping; no piano roll or MIDI system.
 
 Exit criteria:
 
@@ -139,7 +148,7 @@ Scope:
 - pad, pattern, BPM and Pump-ready settings serialization,
 - save and reopen,
 - failure states and validation,
-- compatibility spike for IndexedDB and/or OPFS.
+- IndexedDB compatibility verification in current Chrome and Edge on Windows.
 
 Exit criteria:
 
@@ -204,10 +213,10 @@ Exit criteria:
 - assign result to a pad or send to Chop,
 - preserve a clear resample history.
 
-### M11 — Multiple Patterns and Scenes
+### M11 — Further pattern performance and scenes
 
-- duplicate and switch patterns,
-- quantized scene changes,
+- performance-level pattern changes beyond the current limited A–D variants,
+- quantized scene changes beyond the current fixed Playlist slots,
 - performance mute workflow,
 - limited scene-based arrangement.
 

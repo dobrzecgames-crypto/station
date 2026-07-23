@@ -17,6 +17,15 @@ export interface SampleSlice extends SamplePlaybackRegion {
   sourceAssetId: SampleAssetId
 }
 
+export interface ChopSessionState {
+  id: string
+  assetId: SampleAssetId | null
+  fileName: string | null
+  durationSeconds: number | null
+  slices: SampleSlice[]
+  activeSliceId: string | null
+}
+
 export interface PadState extends ChannelState {
   label: string
   assetId: SampleAssetId | null

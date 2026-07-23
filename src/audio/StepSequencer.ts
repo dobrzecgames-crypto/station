@@ -1,4 +1,4 @@
-import type { AudioEngine, SampleAssetId, SampleId, TriggerSampleOptions } from './AudioEngine'
+import type { AudioEngine, ChannelId, GroupId, SampleAssetId, TriggerSampleOptions } from './AudioEngine'
 
 export interface StepSequencerConfig {
   bpm: number
@@ -12,7 +12,8 @@ export interface StepSequencerConfig {
 }
 
 export interface StepSequencerTrack {
-  sampleId: SampleId
+  groupId: GroupId
+  channelId: ChannelId
   assetId: SampleAssetId
   steps: readonly number[]
   shifts: readonly number[]
@@ -63,7 +64,7 @@ export class StepSequencer {
       for (const track of tracks) {
         const velocity = track.steps[this.nextStepIndex]
         const shift = track.shifts[this.nextStepIndex] ?? 0
-        if (velocity > 0) this.audioEngine.scheduleSample(track.sampleId, track.assetId, scheduledTime + shift * stepDuration, { ...track.options, gain: (track.options.gain ?? 1) * velocity }, 'sequencer')
+        if (velocity > 0) this.audioEngine.scheduleSample(track.groupId, track.channelId, track.assetId, scheduledTime + shift * stepDuration, { ...track.options, gain: (track.options.gain ?? 1) * velocity }, 'sequencer')
       }
       const wasLastStep = this.nextStepIndex === 15
       this.nextStepIndex = (this.nextStepIndex + 1) % 16

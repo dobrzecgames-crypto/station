@@ -18,8 +18,7 @@ Suggested fields:
 - schema version,
 - name,
 - created and modified timestamps,
-- one pad bank,
-- up to eight Pattern Groups with A–D variants,
+- up to eight Pattern Groups, each with a private 16-pad bank and A–D variants,
 - a Pattern Playlist,
 - transport settings,
 - Pump configuration,
@@ -82,7 +81,7 @@ Each pad has an optional `chopSessionId`. It marks a pad currently managed by th
 
 ### ChannelState
 
-Each of the 16 stable pad IDs also identifies one fixed runtime mixer channel. The UI state contains `id`, `volume`, `muted` and `solo`; the matching Web Audio GainNodes remain engine-owned runtime state and are never placed in React state or serialized as nodes.
+Each Pattern Group bank has 16 stable pad IDs. Runtime mixer channels use the group-and-pad identity, so the same pad ID in different groups receives an independent channel. The UI state contains `id`, `volume`, `muted` and `solo`; matching Web Audio GainNodes remain engine-owned runtime state and are never placed in React state or serialized as nodes.
 
 ### Track
 
@@ -97,7 +96,7 @@ Suggested fields:
 
 ### Pattern Group and variants
 
-A Pattern Group is one musical idea. It has an always-present A variant and optional B, C and D variants. Each existing variant is a complete 16-pad, 16-step pattern with a velocity and a SHIFT value for each step. SHIFT is constrained to −50% through +50% of one 16th-note duration. Creating a variation copies steps, velocity and SHIFT only; it never copies pad assets, pad settings, mixer/Pump configuration, BPM, swing or Project Key. The A–D limit is intentional.
+A Pattern Group is one musical idea. It owns one private 16-pad bank and has an always-present A variant with optional B, C and D variants. Each existing variant is a complete 16-pad, 16-step pattern with a velocity and a SHIFT value for each step. SHIFT is constrained to −50% through +50% of one 16th-note duration. Creating a variation copies steps, velocity and SHIFT only; it never copies or changes the group's bank. The A–D limit is intentional.
 
 ### Pattern Clip / Playlist
 
@@ -155,7 +154,7 @@ The following must not be serialized into the project:
 
 ## Pre-persistence ProjectState
 
-ProjectState schema v2 is a serializable boundary. It contains pad configuration, asset references and durations, Pattern Groups and their 16-step velocities, selected Pattern Group/variant, Pattern Clips, persisted transport mode and Loop Song, BPM, swing, Pump configuration, the global Project Key (`root`, `scale`) and the source/slice boundaries of the active Chop Session. Waveform peaks are runtime cache regenerated after decoding; they are not part of schema v2.
+ProjectState schema v3 is a serializable boundary. Each Pattern Group contains its private bank: 16 pad configurations and that group's CHOP session. It contains shared asset references and durations, Pattern Groups and their 16-step velocities, selected Pattern Group/variant, Pattern Clips, persisted transport mode and Loop Song, BPM, swing, group-and-pad Pump references, and the global Project Key (`root`, `scale`). Waveform peaks are runtime cache regenerated after decoding; they are not part of schema v3.
 
 Project Key is a preference for future Project Scale mappings. A mapping writes normal independent pad configurations that reference one shared SampleAsset and contain their calculated pitch offsets. Existing mapped pads have no runtime link to Project Key and are not retuned when it changes.
 
@@ -163,7 +162,7 @@ It intentionally excludes AudioContext, buffers, nodes, active voices, transport
 
 ## Persistence v1 records
 
-The one saved local project has ID `default-project`. Its manifest contains `ProjectState` with `schemaVersion: 2`; a separate asset record contains each referenced asset ID, filename, MIME type, byte size and original WAV Blob. A shared CHOP source is represented by one asset record even when it maps to many pads. `lastProjectId` points to the most recently saved project. Schema-v1 manifests are migrated on load: their sole pattern becomes Pattern 1A, B–D are absent, the Playlist is empty and transport defaults to PATTERN.
+The one saved local project has ID `default-project`. Its manifest contains `ProjectState` with `schemaVersion: 3`; a separate asset record contains each referenced asset ID, filename, MIME type, byte size and original WAV Blob. A shared asset is represented by one asset record even when referenced by many group banks. `lastProjectId` points to the most recently saved project. Schema-v1 manifests migrate to Pattern 1A. Schema-v2's single global bank and CHOP session migrate exactly to Pattern Group 1; all pre-existing later Pattern Groups receive empty banks, so no ambiguous sound assignment is guessed.
 
 Only assets used by pads or by the active CHOP source are included in a save. Waveform peaks, AudioBuffers, transport playback state, preview state and UI-only Chop editing state are rebuilt or reset on OPEN.
 
@@ -180,8 +179,7 @@ The already-written schema-v1 manifest remains compatible with pre-Project-Key s
 
 ## Initial constraints
 
-- Exactly one bank.
-- Exactly 16 pads.
+- Exactly one 16-pad bank per Pattern Group.
 - One to eight Pattern Groups, each with A and optional B–D variants.
 - Exactly 16 steps.
 - One track associated with each pad.

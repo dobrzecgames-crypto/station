@@ -1,15 +1,17 @@
-import type { PumpCurve, SampleAssetId, SampleId } from '../audio/AudioEngine'
+import type { PumpCurve, SampleAssetId } from '../audio/AudioEngine'
+import type { GroupPadReference } from '../audio/channelIdentity'
 import { defaultProjectKey, isNoteName, isScaleId } from '../music/scales'
 import type { ProjectKey } from '../music/scales'
-import { createPadBank } from '../pads/padBank'
-import type { PadState, SampleSlice } from '../pads/types'
-import { clonePatternGroup, createInitialPatternGroups, ensurePatternGroupShifts } from '../patterns/patternOperations'
+import { createEmptyChopSession, createPadBankState } from '../pads/padBank'
+import type { ChopSessionState, SampleSlice } from '../pads/types'
+import { clonePatternGroup, createGroupBusState, createInitialPatternGroups, ensurePatternGroupShifts } from '../patterns/patternOperations'
 import { maximumPatternGroups, patternVariantNames } from '../patterns/patternTypes'
 import type { PatternGroup, PatternVariantName } from '../patterns/patternTypes'
 import { validatePatternClipReferences } from '../song/songOperations'
 import type { PatternClip, TransportMode } from '../song/songTypes'
 
-export const projectSchemaVersion = 2
+export const projectSchemaVersion = 3
+export const previousProjectSchemaVersion = 2
 export const legacyProjectSchemaVersion = 1
 export const padCount = 16
 export const stepCount = 16
@@ -20,20 +22,14 @@ export interface ProjectAssetReference {
   durationSeconds: number
 }
 
-export interface PersistedChopSession {
-  id: string
-  assetId: SampleAssetId | null
-  fileName: string | null
-  durationSeconds: number | null
-  slices: SampleSlice[]
-  activeSliceId: string | null
-}
+export interface MasterMixerState { volume: number; muted: boolean }
+
+export type PersistedChopSession = ChopSessionState
 
 export interface ProjectState {
   schemaVersion: typeof projectSchemaVersion
   projectKey: ProjectKey
   assets: ProjectAssetReference[]
-  pads: PadState[]
   patternGroups: PatternGroup[]
   selectedPatternGroupId: string
   selectedPatternVariant: PatternVariantName
@@ -42,18 +38,17 @@ export interface ProjectState {
   loopSong: boolean
   bpm: number
   swing: number
-  pump: { sourcePadId: SampleId | null; targetPadIds: SampleId[]; depth: number; lengthBeats: number; curve: PumpCurve }
-  chopSession: PersistedChopSession
+  master: MasterMixerState
+  pump: { source: GroupPadReference | null; targets: GroupPadReference[]; depth: number; lengthBeats: number; curve: PumpCurve }
 }
 
 export function createEmptyProjectState(): ProjectState {
-  const pads = createPadBank()
+  const bank = createPadBankState()
   return {
     schemaVersion: projectSchemaVersion,
     projectKey: { ...defaultProjectKey },
     assets: [],
-    pads,
-    patternGroups: createInitialPatternGroups(pads.map((pad) => pad.id)),
+    patternGroups: createInitialPatternGroups(bank.pads.map((pad) => pad.id)),
     selectedPatternGroupId: 'pattern-group-1',
     selectedPatternVariant: 'A',
     playlist: [],
@@ -61,8 +56,8 @@ export function createEmptyProjectState(): ProjectState {
     loopSong: false,
     bpm: 120,
     swing: 0,
-    pump: { sourcePadId: null, targetPadIds: [], depth: 0.5, lengthBeats: 0.5, curve: 'smooth' },
-    chopSession: { id: '', assetId: null, fileName: null, durationSeconds: null, slices: [], activeSliceId: null },
+    master: { volume: 1, muted: false },
+    pump: { source: null, targets: [], depth: 0.5, lengthBeats: 0.5, curve: 'smooth' },
   }
 }
 
@@ -71,22 +66,24 @@ export function createProjectState(state: ProjectState): ProjectState {
     ...state,
     projectKey: { ...state.projectKey },
     assets: state.assets.map((asset) => ({ ...asset })),
-    pads: state.pads.map((pad) => ({ ...pad, region: { ...pad.region }, slices: pad.slices.map((slice) => ({ ...slice })) })),
     patternGroups: state.patternGroups.map(clonePatternGroup),
     playlist: state.playlist.map((clip) => ({ ...clip })),
-    pump: { ...state.pump, targetPadIds: [...state.pump.targetPadIds] },
-    chopSession: { ...state.chopSession, slices: state.chopSession.slices.map((slice) => ({ ...slice })) },
+    master: { ...state.master },
+    pump: { ...state.pump, source: state.pump.source ? { ...state.pump.source } : null, targets: state.pump.targets.map((target) => ({ ...target })) },
   }
 }
 
 export function normalizeProjectState(state: ProjectState): ProjectState {
-  return createProjectState({ ...state, patternGroups: ensurePatternGroupShifts(state.patternGroups, state.pads.map((pad) => pad.id)) })
+  const padIds = state.patternGroups[0]?.bank?.pads.map((pad) => pad.id)
+  if (!padIds) throw new Error('Project has no Pattern Group bank.')
+  return createProjectState({ ...state, master: state.master ? { ...state.master } : { volume: 1, muted: false }, patternGroups: ensurePatternGroupShifts(state.patternGroups, padIds).map((group) => ({ ...group, bus: group.bus ? { ...group.bus } : createGroupBusState() })) })
 }
 
-export function migrateLegacyProjectState(legacy: Omit<ProjectState, 'schemaVersion' | 'patternGroups' | 'selectedPatternGroupId' | 'selectedPatternVariant' | 'playlist' | 'transportMode' | 'loopSong'> & { patterns?: unknown }): ProjectState {
+export function migrateLegacyProjectState(legacy: { pads: ReturnType<typeof createPadBankState>['pads']; patterns?: unknown; [key: string]: unknown }): ProjectState {
   const group = createInitialPatternGroups(legacy.pads.map((pad) => pad.id))[0]
   const legacyPatterns = typeof legacy.patterns === 'object' && legacy.patterns !== null ? legacy.patterns as Record<string, unknown> : {}
-  const { patterns: _legacyPatterns, ...legacyState } = legacy
+  const { patterns: _legacyPatterns, pads, chopSession, schemaVersion: _schemaVersion, ...legacyState } = legacy
+  group.bank = { pads: pads.map((pad) => ({ ...pad, region: { ...pad.region }, slices: pad.slices.map((slice) => ({ ...slice })) })), chopSession: isChopSessionState(chopSession) ? cloneChopSession(chopSession) : createEmptyChopSession() }
   group.variants.A = Object.fromEntries(legacy.pads.map((pad) => [pad.id, Array.isArray(legacyPatterns[pad.id]) ? [...legacyPatterns[pad.id] as number[]] : []]))
   return {
     ...legacyState,
@@ -97,13 +94,35 @@ export function migrateLegacyProjectState(legacy: Omit<ProjectState, 'schemaVers
     playlist: [],
     transportMode: 'pattern',
     loopSong: false,
-  }
+    pump: { source: typeof legacy.pump === 'object' && legacy.pump !== null && typeof (legacy.pump as { sourcePadId?: unknown }).sourcePadId === 'string' ? { patternGroupId: group.id, padId: (legacy.pump as { sourcePadId: string }).sourcePadId } : null, targets: typeof legacy.pump === 'object' && legacy.pump !== null && Array.isArray((legacy.pump as { targetPadIds?: unknown }).targetPadIds) ? (legacy.pump as { targetPadIds: string[] }).targetPadIds.map((padId) => ({ patternGroupId: group.id, padId })) : [], depth: (legacy.pump as { depth: number }).depth, lengthBeats: (legacy.pump as { lengthBeats: number }).lengthBeats, curve: (legacy.pump as { curve: PumpCurve }).curve },
+  } as unknown as ProjectState
+}
+
+export function migrateV2ProjectState(previous: { pads: ReturnType<typeof createPadBankState>['pads']; chopSession: ChopSessionState; pump: { sourcePadId: string | null; targetPadIds: string[]; depth: number; lengthBeats: number; curve: PumpCurve }; [key: string]: unknown }): ProjectState {
+  const { pads, chopSession, pump, schemaVersion: _schemaVersion, ...state } = previous
+  if (!Array.isArray(state.patternGroups) || !isChopSessionState(chopSession)) throw new Error('Cannot migrate a v2 project with a missing or malformed global bank.')
+  const groups = (state.patternGroups as PatternGroup[]).map((group, index) => ({
+    ...group,
+    // v2 had one global bank. Its complete configuration and only CHOP session
+    // become Group 1; later groups deliberately begin empty rather than guessing.
+    bank: index === 0 ? { pads: pads.map((pad) => ({ ...pad, region: { ...pad.region }, slices: pad.slices.map((slice) => ({ ...slice })) })), chopSession: cloneChopSession(chopSession) } : createPadBankState(),
+  }))
+  const firstGroup = groups[0]
+  if (!firstGroup) throw new Error('Cannot migrate a v2 project without Pattern Group 1.')
+  return {
+    ...state,
+    schemaVersion: projectSchemaVersion,
+    patternGroups: groups,
+    pump: { source: pump.sourcePadId ? { patternGroupId: firstGroup.id, padId: pump.sourcePadId } : null, targets: pump.targetPadIds.map((padId) => ({ patternGroupId: firstGroup.id, padId })), depth: pump.depth, lengthBeats: pump.lengthBeats, curve: pump.curve },
+  } as ProjectState
 }
 
 export function collectReferencedAssetIds(project: ProjectState): Set<SampleAssetId> {
   const ids = new Set<SampleAssetId>()
-  for (const pad of project.pads) if (pad.assetId) ids.add(pad.assetId)
-  if (project.chopSession.assetId) ids.add(project.chopSession.assetId)
+  for (const group of project.patternGroups) {
+    for (const pad of group.bank.pads) if (pad.assetId) ids.add(pad.assetId)
+    if (group.bank.chopSession.assetId) ids.add(group.bank.chopSession.assetId)
+  }
   return ids
 }
 
@@ -111,9 +130,6 @@ export function validateProjectState(project: ProjectState): string[] {
   const errors: string[] = []
   if (project.schemaVersion !== projectSchemaVersion) errors.push('Unsupported project schema version: ' + String(project.schemaVersion) + '.')
   if (!isNoteName(project.projectKey?.root) || !isScaleId(project.projectKey?.scale)) errors.push('Project key is invalid.')
-  if (project.pads.length !== padCount) errors.push('Project must contain exactly ' + padCount + ' pads.')
-  const padIds = new Set(project.pads.map((pad) => pad.id))
-  if (padIds.size !== project.pads.length) errors.push('Pad IDs must be unique.')
   const assets = new Map(project.assets.map((asset) => [asset.id, asset]))
   if (assets.size !== project.assets.length) errors.push('Asset IDs must be unique.')
   for (const asset of project.assets) if (!asset.id || !Number.isFinite(asset.durationSeconds) || asset.durationSeconds <= 0) errors.push('Asset has an invalid duration.')
@@ -122,15 +138,20 @@ export function validateProjectState(project: ProjectState): string[] {
   if (groupIds.size !== project.patternGroups.length) errors.push('Pattern Group IDs must be unique.')
   if (!groupIds.has(project.selectedPatternGroupId)) errors.push('Selected Pattern Group is missing.')
   if (!patternVariantNames.includes(project.selectedPatternVariant)) errors.push('Selected Pattern variant is invalid.')
+  const chopSessionIds = new Set<string>()
   for (const group of project.patternGroups) {
     if (!group.id || !group.name || !group.variants.A) errors.push('Every Pattern Group requires variant A.')
+    if (!group.bus || !Number.isFinite(group.bus.volume) || group.bus.volume < 0 || group.bus.volume > 1 || typeof group.bus.muted !== 'boolean' || typeof group.bus.solo !== 'boolean') errors.push(`${group.name} has an invalid Group Bus.`)
+    if (!group.bank || group.bank.pads.length !== padCount) errors.push(`${group.name} must contain exactly ${padCount} bank pads.`)
+    const bankPadIds = new Set(group.bank?.pads.map((pad) => pad.id))
+    if (bankPadIds.size !== group.bank?.pads.length) errors.push(`${group.name} bank pad IDs must be unique.`)
     if (Object.keys(group.variants).some((variant) => !patternVariantNames.includes(variant as PatternVariantName))) errors.push('Pattern Groups only support variants A through D.')
     for (const variant of patternVariantNames) {
       const pattern = group.variants[variant]
       if (!pattern) continue
       const shifts = group.shifts[variant]
       if (!shifts) errors.push(`${group.name}${variant} is missing step shifts.`)
-      for (const pad of project.pads) {
+      for (const pad of group.bank?.pads ?? []) {
         if (!pattern[pad.id] || pattern[pad.id].length !== stepCount) errors.push(`${group.name}${variant} must have exactly ${stepCount} steps for ${pad.id}.`)
         for (const velocity of pattern[pad.id] ?? []) if (!Number.isFinite(velocity) || velocity < 0 || velocity > 1) errors.push(`${group.name}${variant} has an invalid step velocity.`)
         if (!shifts?.[pad.id] || shifts[pad.id].length !== stepCount) errors.push(`${group.name}${variant} must have exactly ${stepCount} shifts for ${pad.id}.`)
@@ -142,23 +163,44 @@ export function validateProjectState(project: ProjectState): string[] {
   errors.push(...validatePatternClipReferences(project.playlist, project.patternGroups))
   if (project.transportMode !== 'pattern' && project.transportMode !== 'song') errors.push('Transport mode is invalid.')
   if (typeof project.loopSong !== 'boolean') errors.push('Loop Song must be a boolean.')
-  for (const pad of project.pads) {
-    if (pad.assetId && !assets.has(pad.assetId)) errors.push(pad.id + ' references a missing asset.')
-    if (pad.assetId || pad.region.startSeconds !== 0 || pad.region.endSeconds !== 0) validateRegion(pad.region.startSeconds, pad.region.endSeconds, pad.assetId ? assets.get(pad.assetId)?.durationSeconds : undefined, pad.id + ' region', errors)
-    validateSlices(pad.slices, assets, pad.id + ' slices', errors)
+  for (const group of project.patternGroups) {
+    for (const pad of group.bank?.pads ?? []) {
+      if (pad.assetId && !assets.has(pad.assetId)) errors.push(`${group.name} ${pad.id} references a missing asset.`)
+      if (pad.assetId || pad.region.startSeconds !== 0 || pad.region.endSeconds !== 0) validateRegion(pad.region.startSeconds, pad.region.endSeconds, pad.assetId ? assets.get(pad.assetId)?.durationSeconds : undefined, `${group.name} ${pad.id} region`, errors)
+      validateSlices(pad.slices, assets, `${group.name} ${pad.id} slices`, errors)
+    }
+    const chop = group.bank?.chopSession
+    if (!chop) errors.push(`${group.name} is missing its Chop Session.`)
+    else {
+      if (chop.id && chopSessionIds.has(chop.id)) errors.push('CHOP session IDs must be unique across Pattern Group banks.')
+      if (chop.id) chopSessionIds.add(chop.id)
+      if (chop.assetId && !assets.has(chop.assetId)) errors.push(`${group.name} Chop Session references a missing asset.`)
+      if (chop.slices.length > 0 && !chop.assetId) errors.push(`${group.name} Chop Session slices require a source asset.`)
+      validateSlices(chop.slices, assets, `${group.name} Chop Session slices`, errors)
+      if (chop.activeSliceId && !chop.slices.some((slice) => slice.id === chop.activeSliceId)) errors.push(`${group.name} Chop Session active slice is missing.`)
+      for (const pad of group.bank.pads) if (pad.chopSessionId && pad.chopSessionId !== chop.id) errors.push(`${group.name} ${pad.id} references a missing CHOP session.`)
+    }
   }
   if (!Number.isFinite(project.bpm) || project.bpm < 60 || project.bpm > 200) errors.push('BPM must be between 60 and 200.')
   if (!Number.isFinite(project.swing) || project.swing < 0 || project.swing > 0.5) errors.push('Swing must be between 0 and 0.5.')
+  if (!Number.isFinite(project.master?.volume) || project.master.volume < 0 || project.master.volume > 1 || typeof project.master.muted !== 'boolean') errors.push('Master mixer state is invalid.')
   if (!Number.isFinite(project.pump.depth) || project.pump.depth < 0 || project.pump.depth > 1) errors.push('Pump depth must be between 0 and 1.')
   if (!Number.isFinite(project.pump.lengthBeats) || project.pump.lengthBeats <= 0) errors.push('Pump length must be positive.')
-  if (project.pump.sourcePadId && !padIds.has(project.pump.sourcePadId)) errors.push('Pump source references a missing pad.')
-  for (const targetId of project.pump.targetPadIds) if (!padIds.has(targetId)) errors.push('Pump target references a missing pad.')
-  const chop = project.chopSession
-  if (chop.assetId && !assets.has(chop.assetId)) errors.push('Chop Session references a missing asset.')
-  if (chop.slices.length > 0 && !chop.assetId) errors.push('Chop Session slices require a source asset.')
-  validateSlices(chop.slices, assets, 'Chop Session slices', errors)
-  if (chop.activeSliceId && !chop.slices.some((slice) => slice.id === chop.activeSliceId)) errors.push('Chop Session active slice is missing.')
+  if (project.pump.source && !hasPumpPadReference(project.pump.source, project.patternGroups)) errors.push('Pump source references a missing group pad.')
+  for (const target of project.pump.targets) if (!hasPumpPadReference(target, project.patternGroups)) errors.push('Pump target references a missing group pad.')
   return errors
+}
+
+function hasPumpPadReference(reference: GroupPadReference, groups: readonly PatternGroup[]): boolean {
+  return groups.some((group) => group.id === reference.patternGroupId && group.bank.pads.some((pad) => pad.id === reference.padId))
+}
+
+function isChopSessionState(value: unknown): value is ChopSessionState {
+  return typeof value === 'object' && value !== null && Array.isArray((value as ChopSessionState).slices)
+}
+
+function cloneChopSession(session: ChopSessionState): ChopSessionState {
+  return { ...session, slices: session.slices.map((slice) => ({ ...slice })) }
 }
 
 function validateRegion(start: number, end: number, duration: number | undefined, label: string, errors: string[]): void {

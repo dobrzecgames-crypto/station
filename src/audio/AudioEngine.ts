@@ -1,5 +1,7 @@
 export type SampleId = string
 export type SampleAssetId = string
+export type ChannelId = string
+export type GroupId = string
 
 export type AudioEngineStatus = 'inactive' | 'starting' | 'ready' | 'suspended' | 'error'
 
@@ -23,8 +25,8 @@ export interface TriggerSampleOptions {
 export type PumpCurve = 'snap' | 'smooth' | 'swell'
 
 export interface PumpConfig {
-  sourceSampleId: SampleId | null
-  targetSampleIds: readonly SampleId[]
+  sourceChannelId: ChannelId | null
+  targetChannelIds: readonly ChannelId[]
   depth: number
   lengthSeconds: number
   curve: PumpCurve
@@ -39,6 +41,7 @@ interface ActiveVoice {
 }
 
 interface Channel {
+  groupId: GroupId
   volume: number
   muted: boolean
   solo: boolean
@@ -46,11 +49,16 @@ interface Channel {
   pumpGain?: GainNode
 }
 
+interface GroupBus { volume: number; muted: boolean; solo: boolean; gain?: GainNode }
+
 export class AudioEngine {
   private context: AudioContext | undefined
   private masterGain: GainNode | undefined
-  private readonly channels = new Map<SampleId, Channel>()
-  private pumpConfig: PumpConfig = { sourceSampleId: null, targetSampleIds: [], depth: 0, lengthSeconds: 0.2, curve: 'smooth' }
+  private readonly channels = new Map<ChannelId, Channel>()
+  private readonly groupBuses = new Map<GroupId, GroupBus>()
+  private masterVolume = 1
+  private masterMuted = false
+  private pumpConfig: PumpConfig = { sourceChannelId: null, targetChannelIds: [], depth: 0, lengthSeconds: 0.2, curve: 'smooth' }
   private samples = new Map<SampleId, AudioBuffer>()
   private waveforms = new Map<SampleId, number[]>()
   private runtimeAssets = new Map<SampleAssetId, RuntimeSampleAsset>()
@@ -59,9 +67,9 @@ export class AudioEngine {
   private status: AudioEngineStatus = 'inactive'
   private readonly statusListeners = new Set<(status: AudioEngineStatus) => void>()
 
-  constructor(channelIds: readonly SampleId[]) {
+  constructor(channelIds: readonly ChannelId[] = []) {
     for (const channelId of channelIds) {
-      this.channels.set(channelId, { volume: 1, muted: false, solo: false })
+      this.channels.set(channelId, { groupId: '', volume: 1, muted: false, solo: false })
     }
   }
 
@@ -153,23 +161,20 @@ export class AudioEngine {
     return this.waveforms.get(assetId)?.slice()
   }
 
-  setChannelVolume(sampleId: SampleId, volume: number): void {
-    const channel = this.channels.get(sampleId)
-    if (!channel) return
+  setChannelVolume(groupId: GroupId, channelId: ChannelId, volume: number): void {
+    const channel = this.ensureChannel(groupId, channelId)
     channel.volume = this.toGain(volume)
     this.applyChannelGain(channel)
   }
 
-  setChannelMuted(sampleId: SampleId, muted: boolean): void {
-    const channel = this.channels.get(sampleId)
-    if (!channel) return
+  setChannelMuted(groupId: GroupId, channelId: ChannelId, muted: boolean): void {
+    const channel = this.ensureChannel(groupId, channelId)
     channel.muted = muted
     this.applyAllChannelGains()
   }
 
-  setChannelSolo(sampleId: SampleId, solo: boolean): void {
-    const channel = this.channels.get(sampleId)
-    if (!channel) return
+  setChannelSolo(groupId: GroupId, channelId: ChannelId, solo: boolean): void {
+    const channel = this.ensureChannel(groupId, channelId)
     channel.solo = solo
     this.applyAllChannelGains()
   }
@@ -178,12 +183,18 @@ export class AudioEngine {
     this.pumpConfig = config
   }
 
-  triggerSample(padId: SampleId, assetId: SampleAssetId, options: TriggerSampleOptions = {}): void {
+  setGroupVolume(groupId: GroupId, volume: number): void { const bus = this.ensureGroupBus(groupId); bus.volume = this.toGain(volume); this.applyAllGroupGains() }
+  setGroupMuted(groupId: GroupId, muted: boolean): void { const bus = this.ensureGroupBus(groupId); bus.muted = muted; this.applyAllGroupGains() }
+  setGroupSolo(groupId: GroupId, solo: boolean): void { const bus = this.ensureGroupBus(groupId); bus.solo = solo; this.applyAllGroupGains() }
+  setMasterVolume(volume: number): void { this.masterVolume = this.toGain(volume); this.applyMasterGain() }
+  setMasterMuted(muted: boolean): void { this.masterMuted = muted; this.applyMasterGain() }
+
+  triggerSample(groupId: GroupId, channelId: ChannelId, assetId: SampleAssetId, options: TriggerSampleOptions = {}): void {
     if (!this.context) {
       return
     }
 
-    this.scheduleSample(padId, assetId, this.context.currentTime, options)
+    this.scheduleSample(groupId, channelId, assetId, this.context.currentTime, options)
   }
 
   previewAsset(assetId: SampleAssetId, options: TriggerSampleOptions = {}, onEnded?: () => void): void {
@@ -223,9 +234,9 @@ export class AudioEngine {
     }
   }
 
-  scheduleSample(padId: SampleId, assetId: SampleAssetId, when: number, options: TriggerSampleOptions = {}, origin: 'manual' | 'sequencer' = 'manual'): void {
+  scheduleSample(groupId: GroupId, channelId: ChannelId, assetId: SampleAssetId, when: number, options: TriggerSampleOptions = {}, origin: 'manual' | 'sequencer' = 'manual'): void {
     const sampleBuffer = this.samples.get(assetId)
-    const channel = this.channels.get(padId)
+    const channel = this.ensureChannel(groupId, channelId)
 
     if (this.status !== 'ready' || !this.context || !this.masterGain || !sampleBuffer || !channel?.gain) {
       return
@@ -251,7 +262,7 @@ export class AudioEngine {
     source.addEventListener('ended', () => this.cleanUpVoice(voice), { once: true })
 
     this.activeVoices.add(voice)
-    if (padId === this.pumpConfig.sourceSampleId) this.triggerPump(scheduledWhen)
+    if (channelId === this.pumpConfig.sourceChannelId) this.triggerPump(scheduledWhen)
     source.start(scheduledWhen, region.startSeconds, region.durationSeconds)
   }
 
@@ -297,6 +308,8 @@ export class AudioEngine {
       channel.gain = undefined
       channel.pumpGain = undefined
     }
+    for (const bus of this.groupBuses.values()) bus.gain?.disconnect()
+    this.groupBuses.clear()
     this.masterGain?.disconnect()
 
     if (this.context && this.context.state !== 'closed') {
@@ -322,7 +335,7 @@ export class AudioEngine {
 
   private createMasterGain(context: AudioContext): GainNode {
     const masterGain = context.createGain()
-    masterGain.gain.setValueAtTime(1, context.currentTime)
+    masterGain.gain.setValueAtTime(this.masterMuted ? 0 : this.masterVolume, context.currentTime)
     masterGain.connect(context.destination)
     return masterGain
   }
@@ -338,6 +351,35 @@ export class AudioEngine {
       channel.pumpGain.gain.setValueAtTime(1, context.currentTime)
     }
     this.applyAllChannelGains(true)
+  }
+
+  private ensureGroupBus(groupId: GroupId): GroupBus {
+    let bus = this.groupBuses.get(groupId)
+    if (!bus) { bus = { volume: 1, muted: false, solo: false }; this.groupBuses.set(groupId, bus) }
+    if (this.context && this.masterGain && !bus.gain) {
+      bus.gain = this.context.createGain()
+      bus.gain.connect(this.masterGain)
+      this.applyAllGroupGains(true)
+    }
+    return bus
+  }
+
+  private ensureChannel(groupId: GroupId, channelId: ChannelId): Channel {
+    let channel = this.channels.get(channelId)
+    if (!channel) {
+      channel = { groupId, volume: 1, muted: false, solo: false }
+      this.channels.set(channelId, channel)
+    }
+    if (this.context && this.masterGain && !channel.gain) {
+      const bus = this.ensureGroupBus(groupId)
+      channel.gain = this.context.createGain()
+      channel.pumpGain = this.context.createGain()
+      channel.gain.connect(channel.pumpGain)
+      channel.pumpGain.connect(bus.gain!)
+      channel.pumpGain.gain.setValueAtTime(1, this.context.currentTime)
+      this.applyAllChannelGains(true)
+    }
+    return channel
   }
 
   private createWaveform(sampleBuffer: AudioBuffer): number[] {
@@ -379,7 +421,7 @@ export class AudioEngine {
 
   private applyChannelGain(channel: Channel, immediately = false): void {
     if (!channel.gain || !this.context) return
-    const hasSolo = [...this.channels.values()].some((candidate) => candidate.solo)
+    const hasSolo = [...this.channels.values()].some((candidate) => candidate.groupId === channel.groupId && candidate.solo)
     const target = channel.muted || (hasSolo && !channel.solo) ? 0 : channel.volume
     const now = this.context.currentTime
     channel.gain.gain.cancelScheduledValues(now)
@@ -388,14 +430,37 @@ export class AudioEngine {
     else channel.gain.gain.linearRampToValueAtTime(target, now + 0.01)
   }
 
+  private applyAllGroupGains(immediately = false): void { for (const bus of this.groupBuses.values()) this.applyGroupGain(bus, immediately) }
+
+  private applyGroupGain(bus: GroupBus, immediately = false): void {
+    if (!bus.gain || !this.context) return
+    const hasSolo = [...this.groupBuses.values()].some((candidate) => candidate.solo)
+    const target = bus.muted || (hasSolo && !bus.solo) ? 0 : bus.volume
+    const now = this.context.currentTime
+    bus.gain.gain.cancelScheduledValues(now)
+    bus.gain.gain.setValueAtTime(bus.gain.gain.value, now)
+    if (immediately) bus.gain.gain.setValueAtTime(target, now)
+    else bus.gain.gain.linearRampToValueAtTime(target, now + 0.01)
+  }
+
+  private applyMasterGain(): void {
+    if (!this.masterGain || !this.context) return
+    const now = this.context.currentTime
+    const target = this.masterMuted ? 0 : this.masterVolume
+    this.masterGain.gain.cancelScheduledValues(now)
+    this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, now)
+    this.masterGain.gain.linearRampToValueAtTime(target, now + 0.01)
+  }
+
+
   private triggerPump(when: number): void {
-    const { depth, lengthSeconds, curve, targetSampleIds } = this.pumpConfig
+    const { depth, lengthSeconds, curve, targetChannelIds } = this.pumpConfig
     const low = Math.max(0.0001, 1 - this.toGain(depth))
     const recoveryTime = Math.max(0.01, lengthSeconds)
 
-    for (const sampleId of targetSampleIds) {
-      if (sampleId === this.pumpConfig.sourceSampleId) continue
-      const pumpGain = this.channels.get(sampleId)?.pumpGain
+    for (const channelId of targetChannelIds) {
+      if (channelId === this.pumpConfig.sourceChannelId) continue
+      const pumpGain = this.channels.get(channelId)?.pumpGain
       if (!pumpGain) continue
       const gain = pumpGain.gain
       gain.cancelScheduledValues(when)

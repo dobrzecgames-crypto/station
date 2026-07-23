@@ -1,8 +1,13 @@
 import type { SampleId } from '../audio/AudioEngine'
+import { clonePadBank, createPadBankState } from '../pads/padBank'
 import { patternVariantNames, maximumPatternGroups } from './patternTypes'
-import type { PatternGroup, PatternVariantName, StepPattern, StepShiftPattern } from './patternTypes'
+import type { GroupBusState, PatternGroup, PatternVariantName, StepPattern, StepShiftPattern } from './patternTypes'
 
 export const patternStepCount = 16
+
+export function createGroupBusState(): GroupBusState {
+  return { volume: 1, muted: false, solo: false }
+}
 
 export function createEmptyStepPattern(padIds: readonly SampleId[]): StepPattern {
   return Object.fromEntries(padIds.map((padId) => [padId, Array(patternStepCount).fill(0)]))
@@ -21,7 +26,7 @@ export function cloneStepShiftPattern(pattern: StepShiftPattern): StepShiftPatte
 }
 
 export function createPatternGroup(id: string, groupNumber: number, padIds: readonly SampleId[]): PatternGroup {
-  return { id, name: `Pattern ${groupNumber}`, variants: { A: createEmptyStepPattern(padIds) }, shifts: { A: createEmptyStepShiftPattern(padIds) } }
+  return { id, name: `Pattern ${groupNumber}`, bank: createPadBankState(), bus: createGroupBusState(), variants: { A: createEmptyStepPattern(padIds) }, shifts: { A: createEmptyStepShiftPattern(padIds) } }
 }
 
 export function createInitialPatternGroups(padIds: readonly SampleId[]): PatternGroup[] {
@@ -86,7 +91,7 @@ function updateVariantPatternValue(groups: readonly PatternGroup[], groupId: str
 }
 
 export function clonePatternGroup(group: PatternGroup): PatternGroup {
-  return { ...group, variants: Object.fromEntries(patternVariantNames.flatMap((variant) => group.variants[variant] ? [[variant, cloneStepPattern(group.variants[variant]!)] as const] : [])), shifts: Object.fromEntries(patternVariantNames.flatMap((variant) => group.shifts?.[variant] ? [[variant, cloneStepShiftPattern(group.shifts[variant]!)] as const] : [])) }
+  return { ...group, bank: clonePadBank(group.bank), bus: group.bus ? { ...group.bus } : createGroupBusState(), variants: Object.fromEntries(patternVariantNames.flatMap((variant) => group.variants[variant] ? [[variant, cloneStepPattern(group.variants[variant]!)] as const] : [])), shifts: Object.fromEntries(patternVariantNames.flatMap((variant) => group.shifts?.[variant] ? [[variant, cloneStepShiftPattern(group.shifts[variant]!)] as const] : [])) }
 }
 
 export function getVariant(groups: readonly PatternGroup[], groupId: string, variant: PatternVariantName): StepPattern | undefined {

@@ -12,7 +12,7 @@ The repository contains a playable 16-track sequencer with Pattern Groups A–D 
 - The desktop browser is the primary product platform, not a temporary prototype target.
 - Chrome and Edge on Windows are the first supported development and validation environment.
 - Mobile browsers, phone UX, PWA packaging and Capacitor are separate future topics and do not block the browser MVP.
-- The project has one 16-pad bank, up to eight Pattern Groups, and always-16-step pattern variants A–D.
+- Each Pattern Group has its own 16-pad bank, up to eight Pattern Groups are supported, and each group has always-16-step pattern variants A–D.
 - Pattern Clips point to a Pattern Group variant and can run in parallel on a Playlist; Station still has no general DAW timeline.
 - React owns the user interface, never audio timing.
 - The audio engine must remain independent from React components.
@@ -88,7 +88,7 @@ In **SEQ**, each active step has a manual **VELOCITY** value (0–100%) and a pe
 
 ### Local project persistence
 
-**SAVE PROJECT** stores one local project in IndexedDB: its schema-v2 manifest and each referenced source WAV under a stable asset ID. **OPEN PROJECT** restores the last saved project after **START AUDIO**; it re-decodes WAV data, regenerates waveform caches, restores pads, Pattern Groups, Playlist, mixer, Pump and Project Key settings, and leaves transport stopped. Persistence v1 projects with one pattern migrate safely to Pattern 1A, with an empty Playlist and PATTERN mode. Projects saved before Project Key use the safe default C Minor / Aeolian when opened.
+**SAVE PROJECT** stores one local project in IndexedDB: its schema-v3 manifest and each referenced source WAV under a stable asset ID. **OPEN PROJECT** restores the last saved project after **START AUDIO**; it re-decodes WAV data, regenerates waveform caches, restores all Pattern Group banks, Playlist, mixer, Pump and Project Key settings, and leaves transport stopped. Schema-v1 and v2 projects migrate safely: their global pad bank and CHOP source become Pattern Group 1, while existing later Pattern Groups receive empty banks rather than guessed copies. Projects saved before Project Key use the safe default C Minor / Aeolian when opened.
 
 There is no autosave, project browser, rename, duplicate, delete or export/import. IndexedDB quota is browser-managed, so saving large WAV projects can fail when local storage is full.
 

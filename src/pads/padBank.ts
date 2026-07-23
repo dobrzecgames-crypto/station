@@ -1,4 +1,9 @@
-import type { PadDefinition, PadState } from './types'
+import type { PadDefinition, PadState, ChopSessionState } from './types'
+
+export interface PadBankState {
+  pads: PadState[]
+  chopSession: ChopSessionState
+}
 
 const padKeys = [
   ['Digit1', '1'],
@@ -46,4 +51,23 @@ export function createPadBank(): PadState[] {
     solo: false,
     pitchSemitones: 0,
   }))
+}
+
+export function createEmptyChopSession(): ChopSessionState {
+  return { id: '', assetId: null, fileName: null, durationSeconds: null, slices: [], activeSliceId: null }
+}
+
+export function createPadBankState(): PadBankState {
+  return { pads: createPadBank(), chopSession: createEmptyChopSession() }
+}
+
+export function clonePadBank(bank: PadBankState): PadBankState {
+  return {
+    pads: bank.pads.map((pad) => ({ ...pad, region: { ...pad.region }, slices: pad.slices.map((slice) => ({ ...slice })) })),
+    chopSession: { ...bank.chopSession, slices: bank.chopSession.slices.map((slice) => ({ ...slice })) },
+  }
+}
+
+export function findPadInBank(bank: PadBankState, padId: string): PadState | undefined {
+  return bank.pads.find((pad) => pad.id === padId)
 }

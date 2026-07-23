@@ -67,7 +67,7 @@ After WAV decoding, the engine reduces the decoded buffer to cached amplitude pe
 
 ### Shared sample assets
 
-Decoded buffers and waveform caches are keyed by `SampleAssetId`, while channel routing and Pump source events remain keyed by pad ID. A trigger supplies both IDs: the engine reads the shared asset while routing the resulting voice through the requesting pad's channel. Several pads can therefore use different regions of one decoded asset without duplicating the `AudioBuffer`.
+Decoded buffers and waveform caches are keyed by `SampleAssetId`, while channel routing and Pump source events use a group-aware channel identity (`patternGroupId:padId`). A trigger supplies both IDs: the engine reads the shared asset while routing the resulting voice through the requesting group pad channel. Several pads can therefore use different regions of one decoded asset without duplicating the `AudioBuffer`.
 
 The Chop Workspace may also hold a source `SampleAssetId` which is not routed through a pad channel. Its preview uses the normal voice fade and master path, while mapped pad playback continues to use the requesting pad's channel and Pump routing. Source assets remain registered while the active Chop Session or any pad references them; replacement source loading never removes an asset still used by pads.
 
@@ -90,7 +90,7 @@ The engine defines a predictable path:
 AudioBufferSourceNode -> voice gain -> channel gain -> Pump gain -> master gain -> destination
 ```
 
-There are exactly 16 fixed channels, keyed by the same stable IDs as pads. Channel volume, mute and solo act at the channel gain, so they affect active as well as future voices. Mute takes precedence over solo. Pump has a dedicated gain after the channel gain, so its envelope remains active when a target is muted and source-trigger events still fire even when the source channel is not audible.
+There are 16 channels per Pattern Group bank, keyed by a stable group-and-pad identity. Channel volume, mute and solo act at the channel gain, so they affect active as well as future voices. Mute takes precedence over solo. Pump has a dedicated gain after the channel gain, so its envelope remains active when a target is muted and source-trigger events still fire even when the source channel is not audible.
 
 The MVP should leave sensible headroom. Avoid adding saturation, soft clipping or machine-character processing until the clean engine is stable and measured.
 

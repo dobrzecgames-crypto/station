@@ -1,4 +1,4 @@
-export type LibraryCategory = 'KICK' | 'SNARE' | 'HAT'
+export type LibraryCategory = 'KICK' | 'SNARE' | 'HAT' | 'CHOP'
 
 export interface LibrarySample {
   id: string
@@ -7,7 +7,7 @@ export interface LibrarySample {
   url: string
 }
 
-export const libraryCategories: readonly LibraryCategory[] = ['KICK', 'SNARE', 'HAT']
+export const libraryCategories: readonly LibraryCategory[] = ['KICK', 'SNARE', 'HAT', 'CHOP']
 
 export const builtInLibrary: readonly LibrarySample[] = [
   { id: 'kick-01', category: 'KICK', filename: 'Kick 01.wav', url: '/library/kick-01.wav' },
@@ -22,4 +22,7 @@ export const builtInLibrary: readonly LibrarySample[] = [
   { id: 'hat-02', category: 'HAT', filename: 'Hat 02.wav', url: '/library/hat-02.wav' },
   { id: 'hat-03', category: 'HAT', filename: 'Hat 03.wav', url: '/library/hat-03.wav' },
   { id: 'hat-04', category: 'HAT', filename: 'Hat 04.wav', url: '/library/hat-04.wav' },
+  { id: 'chop-test', category: 'CHOP', filename: 'Chop Test.wav', url: '/library/chop-test.wav' },
 ]
+
+export const testChopSample: LibrarySample = builtInLibrary.find((sample) => sample.id === 'chop-test')!

@@ -5,19 +5,22 @@ interface TransportBarProps {
   mode: 'pattern' | 'song'
   loopSong: boolean
   metronomeEnabled: boolean
+  recording: boolean
   onBpmChange: (bpm: number) => void
   onSwingChange: (swing: number) => void
   onModeChange: (mode: 'pattern' | 'song') => void
   onLoopSongChange: (loopSong: boolean) => void
   onMetronomeEnabledChange: (enabled: boolean) => void
+  onRecordingChange: (recording: boolean) => void
   onPlay: () => void
   onStop: () => void
 }
 
-export function TransportBar({ bpm, swing, isPlaying, mode, loopSong, metronomeEnabled, onBpmChange, onSwingChange, onModeChange, onLoopSongChange, onMetronomeEnabledChange, onPlay, onStop }: TransportBarProps) {
+export function TransportBar({ bpm, swing, isPlaying, mode, loopSong, metronomeEnabled, recording, onBpmChange, onSwingChange, onModeChange, onLoopSongChange, onMetronomeEnabledChange, onRecordingChange, onPlay, onStop }: TransportBarProps) {
   return <section className="transport-bar" aria-label="Transport">
     <button className="transport-button" type="button" disabled={isPlaying} onClick={onPlay}>PLAY</button>
     <button className="mixer-toggle" type="button" disabled={!isPlaying} onClick={onStop}>STOP</button>
+    <button className={recording ? 'mixer-toggle mixer-toggle-active transport-recording' : 'mixer-toggle'} type="button" disabled={mode === 'song'} aria-pressed={recording} title={mode === 'song' ? 'Recording targets one Pattern, so select PATTERN mode first.' : 'Record pad hits into the current Pattern Group and variant.'} onClick={() => onRecordingChange(!recording)}>REC</button>
     <div className="transport-modes" aria-label="Transport mode"><button className={mode === 'pattern' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" onClick={() => onModeChange('pattern')}>PATTERN</button><button className={mode === 'song' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" onClick={() => onModeChange('song')}>SONG</button></div>
     <label className="loop-song-toggle"><input type="checkbox" checked={loopSong} disabled={mode !== 'song'} onChange={(event) => onLoopSongChange(event.target.checked)} /> LOOP SONG</label>
     <label className="loop-song-toggle"><input type="checkbox" checked={metronomeEnabled} onChange={(event) => onMetronomeEnabledChange(event.target.checked)} /> METRONOME</label>

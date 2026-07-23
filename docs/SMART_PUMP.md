@@ -4,7 +4,7 @@
 
 Pump is one of Station's primary musical differentiators. It replaces compressor-style setup with a direct musical action:
 
-1. choose a kick source,
+1. mark one or more ghost sidechain sources,
 2. enable Pump on a target,
 3. set depth,
 4. choose a musical length,
@@ -16,15 +16,15 @@ The first implementation is called **Basic Pump**. Automatic kick analysis is a 
 
 ### Source
 
-- One user-selected pad acts as the kick trigger source.
-- A trigger may come from pad performance or the sequencer.
+- One or more user-selected pads may act as ghost trigger sources.
+- A ghost trigger follows the marked pad's performance or sequencer step, including its step shift.
+- The ghost trigger calls the Pump envelope directly; it does not route the source sample through its channel, group, master path or FX racks.
 - All Pump timing uses the same AudioContext clock as sample playback.
 
 ### Targets
 
 - Pump is enabled per target track.
-- The source kick track should not be pumped by default.
-- More than one target track may respond to the same source.
+- Any target track may respond to the same set of ghost sources, including a marked source pad when deliberately selected as a target.
 
 ### Processing
 
@@ -140,7 +140,6 @@ Future user modes may include:
 - LOW mode,
 - SPLIT mode,
 - separate low/high return times,
-- ghost trigger,
 - independent Pump pattern,
 - envelope overlap mode,
 - automatic adaptation to the next kick interval,

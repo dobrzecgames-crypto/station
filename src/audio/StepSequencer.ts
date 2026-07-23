@@ -16,10 +16,11 @@ export interface StepSequencerConfig {
 export interface StepSequencerTrack {
   groupId: GroupId
   channelId: ChannelId
-  assetId: SampleAssetId
+  assetId: SampleAssetId | null
   steps: readonly number[]
   shifts: readonly number[]
   options: TriggerSampleOptions
+  ghostPumpTrigger?: boolean
 }
 
 export class StepSequencer {
@@ -68,7 +69,11 @@ export class StepSequencer {
       for (const track of tracks) {
         const velocity = track.steps[this.nextStepIndex]
         const shift = track.shifts[this.nextStepIndex] ?? 0
-        if (velocity > 0) this.audioEngine.scheduleSample(track.groupId, track.channelId, track.assetId, scheduledTime + shift * stepDuration, { ...track.options, gain: (track.options.gain ?? 1) * velocity }, 'sequencer')
+        if (velocity > 0) {
+          const eventTime = scheduledTime + shift * stepDuration
+          if (track.ghostPumpTrigger) this.audioEngine.triggerPump(eventTime)
+          if (track.assetId) this.audioEngine.scheduleSample(track.groupId, track.channelId, track.assetId, eventTime, { ...track.options, gain: (track.options.gain ?? 1) * velocity }, 'sequencer')
+        }
       }
       const wasLastStep = this.nextStepIndex === 15
       this.nextStepIndex = (this.nextStepIndex + 1) % 16

@@ -3,10 +3,12 @@ import type { AudioEngine, ChannelId, GroupId, SampleAssetId, TriggerSampleOptio
 export interface StepSequencerConfig {
   bpm: number
   swing: number
+  metronomeEnabled: boolean
   mode: 'pattern' | 'song'
   loopSong: boolean
   lastSongSlot: number | null
   getTracksForSlot: (slot: number) => readonly StepSequencerTrack[]
+  onStepScheduled?: (stepIndex: number, scheduledTime: number, durationSeconds: number) => void
   onSongSlotChange?: (slot: number) => void
   onSongComplete?: () => void
 }
@@ -59,6 +61,8 @@ export class StepSequencer {
     }
     while (this.nextStepTime < now + this.lookAheadSeconds) {
       const scheduledTime = this.nextStepTime + (this.nextStepIndex % 2 === 1 ? stepDuration * config.swing * 0.5 : 0)
+      config.onStepScheduled?.(this.nextStepIndex, scheduledTime, stepDuration)
+      if (config.metronomeEnabled && this.nextStepIndex % 4 === 0) this.audioEngine.scheduleMetronome(scheduledTime, this.nextStepIndex === 0)
       if (config.mode === 'song' && this.nextStepIndex === 0) config.onSongSlotChange?.(this.currentSongSlot)
       const tracks = config.getTracksForSlot(config.mode === 'song' ? this.currentSongSlot : 1)
       for (const track of tracks) {

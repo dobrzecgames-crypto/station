@@ -36,7 +36,7 @@ export interface PumpConfig {
 }
 
 interface ActiveVoice {
-  source: AudioBufferSourceNode
+  source: AudioScheduledSourceNode
   gain: GainNode
   cleanedUp: boolean
   origin: 'manual' | 'sequencer' | 'preview'
@@ -308,6 +308,28 @@ export class AudioEngine {
     this.activeVoices.add(voice)
     if (channelId === this.pumpConfig.sourceChannelId) this.triggerPump(scheduledWhen)
     source.start(scheduledWhen, region.startSeconds, region.durationSeconds)
+  }
+
+  scheduleMetronome(when: number, accented: boolean): void {
+    if (this.status !== 'ready' || !this.context || !this.masterGain) return
+
+    const scheduledWhen = Math.max(this.context.currentTime, when)
+    const oscillator = this.context.createOscillator()
+    const gain = this.context.createGain()
+    const durationSeconds = accented ? 0.045 : 0.03
+    const peakGain = accented ? 0.16 : 0.1
+    const voice: ActiveVoice = { source: oscillator, gain, cleanedUp: false, origin: 'sequencer' }
+    oscillator.type = 'square'
+    oscillator.frequency.setValueAtTime(accented ? 1760 : 1320, scheduledWhen)
+    gain.gain.setValueAtTime(0, scheduledWhen)
+    gain.gain.linearRampToValueAtTime(peakGain, scheduledWhen + 0.001)
+    gain.gain.exponentialRampToValueAtTime(0.0001, scheduledWhen + durationSeconds)
+    oscillator.connect(gain)
+    gain.connect(this.masterGain)
+    oscillator.addEventListener('ended', () => this.cleanUpVoice(voice), { once: true })
+    this.activeVoices.add(voice)
+    oscillator.start(scheduledWhen)
+    oscillator.stop(scheduledWhen + durationSeconds)
   }
 
   stopAll(): void {

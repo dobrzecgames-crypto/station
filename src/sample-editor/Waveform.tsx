@@ -13,6 +13,8 @@ interface WaveformProps {
   onMoveCut: (cutIndex: number, timeSeconds: number) => void
   onSelectSlice: (sliceId: string) => void
   sliceMarkersDraggable?: boolean
+  playheadSeconds?: number | null
+  readOnly?: boolean
 }
 
 const minimumSliceSeconds = 0.01
@@ -20,7 +22,7 @@ const markerHitWidthPixels = 18
 
 type DragState = { kind: 'start' | 'end'; pointerId: number } | { kind: 'cut'; index: number; pointerId: number } | null
 
-export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId, addingSlice, onRegionChange, onAddSlice, onMoveCut, onSelectSlice, sliceMarkersDraggable = false }: WaveformProps) {
+export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId, addingSlice, onRegionChange, onAddSlice, onMoveCut, onSelectSlice, sliceMarkersDraggable = false, playheadSeconds = null, readOnly = false }: WaveformProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const dragStateRef = useRef<DragState>(null)
   const [draggingMarker, setDraggingMarker] = useState(false)
@@ -67,6 +69,16 @@ export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId
       })
       context.stroke()
 
+      if (playheadSeconds !== null && Number.isFinite(playheadSeconds)) {
+        const playheadX = Math.min(width, Math.max(0, width * playheadSeconds / durationSeconds))
+        context.strokeStyle = '#f5f2eb'
+        context.lineWidth = 2
+        context.beginPath()
+        context.moveTo(playheadX, 0)
+        context.lineTo(playheadX, height)
+        context.stroke()
+      }
+
       context.strokeStyle = '#f3b44f'
       context.lineWidth = 2
       for (const x of [startX, endX]) {
@@ -101,7 +113,7 @@ export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId
     resizeObserver.observe(canvas)
     draw()
     return () => resizeObserver.disconnect()
-  }, [activeSliceId, durationSeconds, peaks, region, slices])
+  }, [activeSliceId, durationSeconds, peaks, playheadSeconds, region, slices])
 
   const timeFromPointer = (clientX: number): number | null => {
     const canvas = canvasRef.current
@@ -137,10 +149,11 @@ export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId
   return (
     <canvas
       ref={canvasRef}
-      className={`waveform ${addingSlice ? 'waveform-adding-slice' : ''} ${sliceMarkersDraggable ? 'waveform-slice-markers' : ''} ${draggingMarker ? 'waveform-dragging-marker' : ''}`}
+      className={`waveform ${addingSlice ? 'waveform-adding-slice' : ''} ${sliceMarkersDraggable ? 'waveform-slice-markers' : ''} ${draggingMarker ? 'waveform-dragging-marker' : ''} ${readOnly ? 'waveform-readonly' : ''}`}
       role="img"
       aria-label="Sample waveform with playback handles and slice markers"
       onPointerDown={(event) => {
+        if (readOnly) return
         const timeSeconds = timeFromPointer(event.clientX)
         if (timeSeconds === null) return
         const canvas = event.currentTarget

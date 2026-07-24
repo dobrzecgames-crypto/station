@@ -902,15 +902,15 @@ export function App({ audioEngine }: AppProps) {
                     ? "Kick source selected"
                     : "Selected pad Pump"}
                 </h2>
-                <button
-                  className="transport-button"
-                  type="button"
-                  onClick={() => setPumpSource(selectedPadReference)}
-                >
-                  SET {selectedPad.label} AS KICK
-                </button>
-                <label className="file-picker">
-                  <span>
+                <div className="pump-panel-controls">
+                  <button
+                    className="transport-button"
+                    type="button"
+                    onClick={() => setPumpSource(selectedPadReference)}
+                  >
+                    SET {selectedPad.label} AS KICK
+                  </button>
+                  <label className="loop-song-toggle">
                     <input
                       type="checkbox"
                       checked={pumpTargets.some((target) =>
@@ -932,46 +932,46 @@ export function App({ audioEngine }: AppProps) {
                         )
                       }
                     />{" "}
-                    Pump selected pad
-                  </span>
-                </label>
-                <label className="bpm-control">
-                  DEPTH <output>{Math.round(pumpDepth * 100)}%</output>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={pumpDepth}
-                    onChange={(event) =>
-                      setPumpDepth(Number(event.target.value))
-                    }
-                  />
-                </label>
-                <label className="bpm-control">
-                  LENGTH <output>{pumpLengthBeats} beat</output>
-                  <input
-                    type="range"
-                    min="0.25"
-                    max="1"
-                    step="0.25"
-                    value={pumpLengthBeats}
-                    onChange={(event) =>
-                      setPumpLengthBeats(Number(event.target.value))
-                    }
-                  />
-                </label>
-                <div className="pump-curves">
-                  {(["snap", "smooth", "swell"] as const).map((curve) => (
-                    <button
-                      key={curve}
-                      className={`step ${pumpCurve === curve ? "step-full" : ""}`}
-                      type="button"
-                      onClick={() => setPumpCurve(curve)}
-                    >
-                      {curve.toUpperCase()}
-                    </button>
-                  ))}
+                    PUMP THIS PAD
+                  </label>
+                  <label className="pump-mini-control">
+                    DEPTH <output>{Math.round(pumpDepth * 100)}%</output>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={pumpDepth}
+                      onChange={(event) =>
+                        setPumpDepth(Number(event.target.value))
+                      }
+                    />
+                  </label>
+                  <label className="pump-mini-control">
+                    LENGTH <output>{pumpLengthBeats} beat</output>
+                    <input
+                      type="range"
+                      min="0.25"
+                      max="1"
+                      step="0.25"
+                      value={pumpLengthBeats}
+                      onChange={(event) =>
+                        setPumpLengthBeats(Number(event.target.value))
+                      }
+                    />
+                  </label>
+                  <div className="pump-curves">
+                    {(["snap", "smooth", "swell"] as const).map((curve) => (
+                      <button
+                        key={curve}
+                        className={`step ${pumpCurve === curve ? "step-full" : ""}`}
+                        type="button"
+                        onClick={() => setPumpCurve(curve)}
+                      >
+                        {curve.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </section>
               <ContextPanel

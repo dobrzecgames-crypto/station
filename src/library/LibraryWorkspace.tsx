@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { builtInLibrary, libraryCategories } from './builtInLibrary'
-import type { LibraryCategory, LibrarySample } from './builtInLibrary'
+import type { LibrarySample } from './builtInLibrary'
 import type { PadState } from '../pads/types'
 import './library.css'
 
@@ -15,9 +15,11 @@ interface LibraryWorkspaceProps {
 
 export function LibraryWorkspace({ audioReady, pads, busySampleId, previewingSampleId, onPreview, onLoad }: LibraryWorkspaceProps) {
   const isBusy = busySampleId !== null || previewingSampleId !== null
-  const [openCategory, setOpenCategory] = useState<LibraryCategory | null>(null)
+  const [categoryIndex, setCategoryIndex] = useState(0)
   const [selectedSampleId, setSelectedSampleId] = useState<string | null>(null)
   const selectedSample = builtInLibrary.find((sample) => sample.id === selectedSampleId) ?? null
+  const category = libraryCategories[categoryIndex]
+  const categorySamples = builtInLibrary.filter((sample) => sample.category === category)
 
   const assignToPad = (padNumber: number) => {
     if (!selectedSample) return
@@ -26,24 +28,17 @@ export function LibraryWorkspace({ audioReady, pads, busySampleId, previewingSam
   }
 
   return (
-    <section className="library-workspace" aria-labelledby="library-title">
-      <div className="sequencer-heading"><div><p className="eyebrow">LIBRARY</p><h2 id="library-title">SAMPLES</h2></div></div>
+    <section className="library-workspace" aria-label="Library">
+      <div className="library-category-selector">
+        <button className="mixer-toggle" type="button" aria-label="Previous category" disabled={categoryIndex <= 0} onClick={() => setCategoryIndex((index) => index - 1)}>‹</button>
+        <strong>{category}S</strong>
+        <button className="mixer-toggle" type="button" aria-label="Next category" disabled={categoryIndex >= libraryCategories.length - 1} onClick={() => setCategoryIndex((index) => index + 1)}>›</button>
+      </div>
       <div className="library-browser">
-        {libraryCategories.map((category) => {
-          const isOpen = openCategory === category
-          return (
-            <section className="library-category" key={category} aria-label={`${category} sounds`}>
-              <button className="library-category-toggle" type="button" aria-expanded={isOpen} onClick={() => setOpenCategory((current) => current === category ? null : category)}>
-                <span className="eyebrow">{category}S</span>
-                <span aria-hidden="true">{isOpen ? '▲' : '▾'}</span>
-              </button>
-              {isOpen && builtInLibrary.filter((sample) => sample.category === category).map((sample) => <article className="library-row" key={sample.id}>
-                <button className="library-preview-button" type="button" disabled={!audioReady || isBusy} onClick={() => onPreview(sample)}><span aria-hidden="true">{previewingSampleId === sample.id ? '■' : '▶'}</span><strong>{sample.filename.replace('.wav', '')}</strong></button>
-                <button className={selectedSampleId === sample.id ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" disabled={!audioReady || isBusy} aria-pressed={selectedSampleId === sample.id} onClick={() => setSelectedSampleId((current) => current === sample.id ? null : sample.id)}>{selectedSampleId === sample.id ? 'SELECTED' : 'SELECT'}</button>
-              </article>)}
-            </section>
-          )
-        })}
+        {categorySamples.map((sample) => <article className="library-row" key={sample.id}>
+          <button className="library-preview-button" type="button" disabled={!audioReady || isBusy} onClick={() => onPreview(sample)}><span aria-hidden="true">{previewingSampleId === sample.id ? '■' : '▶'}</span><strong>{sample.filename.replace('.wav', '')}</strong></button>
+          <button className={selectedSampleId === sample.id ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" disabled={!audioReady || isBusy} aria-pressed={selectedSampleId === sample.id} onClick={() => setSelectedSampleId((current) => current === sample.id ? null : sample.id)}>{selectedSampleId === sample.id ? 'SELECTED' : 'SELECT'}</button>
+        </article>)}
       </div>
       <div className="library-assign-panel">
         <p className="eyebrow">ASSIGN</p>

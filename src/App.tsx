@@ -25,7 +25,6 @@ import type { MainView } from './shell/MainNavigation'
 import { TransportBar } from './shell/TransportBar'
 import { collectReferencedAssetIds, createProjectState, projectSchemaVersion, validateProjectState } from './project/ProjectState'
 import { ProjectKeyPanel } from './project/ProjectKeyPanel'
-import { ProjectMenu } from './project/ProjectMenu'
 import { defaultProjectKey, formatProjectKey } from './music/scales'
 import type { ProjectKey } from './music/scales'
 import { findProjectScaleMapConflicts, mapPadBankToProjectScale } from './music/scaleMapping'
@@ -61,6 +60,7 @@ export function App({ audioEngine }: AppProps) {
   const [errorMessage, setErrorMessage] = useState<string>()
   const [bpm, setBpm] = useState(120)
   const [swing, setSwing] = useState(0)
+  const [transportSettingsOpen, setTransportSettingsOpen] = useState(false)
   const [master, setMaster] = useState({ volume: 1, muted: false })
   const [masterEffects, setMasterEffects] = useState<EffectRackState>(() => createDefaultMasterEffectRack())
   const [activeFxContext, setActiveFxContext] = useState<FxContext | null>(null)
@@ -631,9 +631,33 @@ export function App({ audioEngine }: AppProps) {
     <main className="station-shell">
       <section className="station-panel" aria-labelledby="station-title">
         <header className="station-header">
-          <div>
+          <div className="station-branding">
             <p className="eyebrow">STATION / M4</p>
             <h1 id="station-title">STATION</h1>
+          </div>
+          <div className="header-transport-slot">
+            <TransportBar
+              bpm={bpm}
+              swing={swing}
+              isPlaying={isPlaying}
+              mode={transportMode}
+              loopSong={loopSong}
+              metronomeEnabled={metronomeEnabled}
+              settingsOpen={transportSettingsOpen}
+              onSettingsOpenChange={setTransportSettingsOpen}
+              groups={patternGroups}
+              selectedGroupId={selectedPatternGroupId}
+              selectedVariant={selectedPatternVariant}
+              onBpmChange={setBpm}
+              onSwingChange={setSwing}
+              onModeChange={setTransportMode}
+              onLoopSongChange={setLoopSong}
+              onMetronomeEnabledChange={setMetronomeEnabled}
+              onGroupChange={selectPatternGroup}
+              onVariantChange={setSelectedPatternVariant}
+              onPlay={startPlayback}
+              onStop={stopPlayback}
+            />
           </div>
           <MainNavigation view={mainView} onViewChange={changeMainView} />
           <div className="audio-controls">
@@ -652,40 +676,32 @@ export function App({ audioEngine }: AppProps) {
             >
               {audioReady ? "AUDIO READY" : "START AUDIO"}
             </button>
-            <ProjectMenu
-              busy={projectBusy}
-              audioReady={audioReady}
-              onSave={() => void saveProject()}
-              onOpen={() => void openProject()}
-            >
-              <ProjectKeyPanel
-                projectKey={projectKey}
-                disabled={projectBusy}
-                onChange={setProjectKey}
-              />
-            </ProjectMenu>
           </div>
         </header>
-        <TransportBar
-          bpm={bpm}
-          swing={swing}
-          isPlaying={isPlaying}
-          mode={transportMode}
-          loopSong={loopSong}
-          metronomeEnabled={metronomeEnabled}
-          groups={patternGroups}
-          selectedGroupId={selectedPatternGroupId}
-          selectedVariant={selectedPatternVariant}
-          onBpmChange={setBpm}
-          onSwingChange={setSwing}
-          onModeChange={setTransportMode}
-          onLoopSongChange={setLoopSong}
-          onMetronomeEnabledChange={setMetronomeEnabled}
-          onGroupChange={selectPatternGroup}
-          onVariantChange={setSelectedPatternVariant}
-          onPlay={startPlayback}
-          onStop={stopPlayback}
-        />
+        <div className="standalone-transport-slot">
+          <TransportBar
+            bpm={bpm}
+            swing={swing}
+            isPlaying={isPlaying}
+            mode={transportMode}
+            loopSong={loopSong}
+            metronomeEnabled={metronomeEnabled}
+            settingsOpen={transportSettingsOpen}
+            onSettingsOpenChange={setTransportSettingsOpen}
+            groups={patternGroups}
+            selectedGroupId={selectedPatternGroupId}
+            selectedVariant={selectedPatternVariant}
+            onBpmChange={setBpm}
+            onSwingChange={setSwing}
+            onModeChange={setTransportMode}
+            onLoopSongChange={setLoopSong}
+            onMetronomeEnabledChange={setMetronomeEnabled}
+            onGroupChange={selectPatternGroup}
+            onVariantChange={setSelectedPatternVariant}
+            onPlay={startPlayback}
+            onStop={stopPlayback}
+          />
+        </div>
         {(projectMessage || errorMessage) && (
           <div className="station-notices">
             {projectMessage && (
@@ -704,9 +720,7 @@ export function App({ audioEngine }: AppProps) {
           {mainView === "library" && (
             <LibraryWorkspace
               audioReady={audioReady}
-              selectedPadNumber={
-                pads.findIndex((pad) => pad.id === selectedPad.id) + 1
-              }
+              pads={pads}
               busySampleId={loadingLibrarySampleId}
               previewingSampleId={previewingLibrarySampleId}
               onPreview={(sample) => void previewLibrarySample(sample)}
@@ -970,6 +984,16 @@ export function App({ audioEngine }: AppProps) {
                 onClose={() => setActiveFxContext(null)}
               />
             </>
+          )}
+          {mainView === "project" && (
+            <section className="project-workspace" aria-labelledby="project-title">
+              <div className="sequencer-heading"><div><p className="eyebrow">PROJECT</p><h2 id="project-title">SAVE &amp; LOAD</h2></div></div>
+              <div className="project-workspace-actions">
+                <button className="transport-button" type="button" disabled={projectBusy} onClick={() => void saveProject()}>SAVE PROJECT</button>
+                <button className="mixer-toggle" type="button" disabled={!audioReady || projectBusy} onClick={() => void openProject()}>OPEN PROJECT</button>
+              </div>
+              <ProjectKeyPanel projectKey={projectKey} disabled={projectBusy} onChange={setProjectKey} />
+            </section>
           )}
         </div>
       </section>

@@ -8,6 +8,8 @@ interface TransportBarProps {
   mode: 'pattern' | 'song'
   loopSong: boolean
   metronomeEnabled: boolean
+  settingsOpen: boolean
+  onSettingsOpenChange: (open: boolean) => void
   groups: readonly PatternGroup[]
   selectedGroupId: string
   selectedVariant: PatternVariantName
@@ -22,7 +24,7 @@ interface TransportBarProps {
   onStop: () => void
 }
 
-export function TransportBar({ bpm, swing, isPlaying, mode, loopSong, metronomeEnabled, groups, selectedGroupId, selectedVariant, onBpmChange, onSwingChange, onModeChange, onLoopSongChange, onMetronomeEnabledChange, onGroupChange, onVariantChange, onPlay, onStop }: TransportBarProps) {
+export function TransportBar({ bpm, swing, isPlaying, mode, loopSong, metronomeEnabled, settingsOpen, onSettingsOpenChange, groups, selectedGroupId, selectedVariant, onBpmChange, onSwingChange, onModeChange, onLoopSongChange, onMetronomeEnabledChange, onGroupChange, onVariantChange, onPlay, onStop }: TransportBarProps) {
   const groupIndex = groups.findIndex((group) => group.id === selectedGroupId)
   const selectedGroup = groups[groupIndex]
 
@@ -31,10 +33,13 @@ export function TransportBar({ bpm, swing, isPlaying, mode, loopSong, metronomeE
       <button className="transport-button" type="button" disabled={isPlaying} onClick={onPlay}>PLAY</button>
       <button className="mixer-toggle" type="button" disabled={!isPlaying} onClick={onStop}>STOP</button>
       <div className="transport-modes" aria-label="Transport mode"><button className={mode === 'pattern' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" onClick={() => onModeChange('pattern')}>PATTERN</button><button className={mode === 'song' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" onClick={() => onModeChange('song')}>SONG</button></div>
-      <label className="loop-song-toggle"><input type="checkbox" checked={loopSong} disabled={mode !== 'song'} onChange={(event) => onLoopSongChange(event.target.checked)} /> LOOP SONG</label>
-      <label className="loop-song-toggle"><input type="checkbox" checked={metronomeEnabled} onChange={(event) => onMetronomeEnabledChange(event.target.checked)} /> METRONOME</label>
-      <label className="transport-control" htmlFor="bpm">BPM <output>{bpm}</output><input id="bpm" type="range" min="60" max="200" value={bpm} onChange={(event) => onBpmChange(Number(event.target.value))} /></label>
-      <label className="transport-control" htmlFor="swing">SWING <output>{Math.round(swing * 100)}%</output><input id="swing" type="range" min="0" max="0.5" step="0.01" value={swing} onChange={(event) => onSwingChange(Number(event.target.value))} /></label>
+      <button className="transport-settings-toggle" type="button" aria-expanded={settingsOpen} aria-label="Tempo and playback settings" onClick={() => onSettingsOpenChange(!settingsOpen)}>{bpm} BPM · {Math.round(swing * 100)}% SWING {settingsOpen ? '▲' : '▾'}</button>
+      <div className={settingsOpen ? 'transport-settings transport-settings-open' : 'transport-settings'}>
+        <label className="loop-song-toggle"><input type="checkbox" checked={loopSong} disabled={mode !== 'song'} onChange={(event) => onLoopSongChange(event.target.checked)} /> LOOP SONG</label>
+        <label className="loop-song-toggle"><input type="checkbox" checked={metronomeEnabled} onChange={(event) => onMetronomeEnabledChange(event.target.checked)} /> METRONOME</label>
+        <label className="transport-control" htmlFor="bpm">BPM <output>{bpm}</output><input id="bpm" type="range" min="60" max="200" value={bpm} onChange={(event) => onBpmChange(Number(event.target.value))} /></label>
+        <label className="transport-control" htmlFor="swing">SWING <output>{Math.round(swing * 100)}%</output><input id="swing" type="range" min="0" max="0.5" step="0.01" value={swing} onChange={(event) => onSwingChange(Number(event.target.value))} /></label>
+      </div>
     </div>
     <div className="music-context" aria-label="Current music context">
       <div className="group-selector"><button className="mixer-toggle" type="button" aria-label="Previous pattern group" disabled={groupIndex <= 0} onClick={() => onGroupChange(groups[groupIndex - 1].id)}>‹</button><strong>{selectedGroup.name}</strong><button className="mixer-toggle" type="button" aria-label="Next pattern group" disabled={groupIndex >= groups.length - 1} onClick={() => onGroupChange(groups[groupIndex + 1].id)}>›</button></div>

@@ -194,16 +194,6 @@ export function App({ audioEngine }: AppProps) {
     try { await audioEngine.initialize(); setAudioStatus(audioEngine.getStatus()) } catch (error) { setAudioStatus(audioEngine.getStatus()); setErrorMessage(toMessage(error)) }
   }
 
-  useEffect(() => {
-    const onFirstInteraction = () => { void startAudio() }
-    window.addEventListener('pointerdown', onFirstInteraction, { once: true })
-    window.addEventListener('keydown', onFirstInteraction, { once: true })
-    return () => {
-      window.removeEventListener('pointerdown', onFirstInteraction)
-      window.removeEventListener('keydown', onFirstInteraction)
-    }
-  }, [])
-
   const createCurrentProjectState = () => {
     const assetReferences = new Map<SampleAssetId, { filename: string; durationSeconds: number }>()
     for (const group of patternGroups) {
@@ -635,6 +625,12 @@ export function App({ audioEngine }: AppProps) {
     if (activeFxContext?.scope === 'group') updateGroupEffects(selectedPatternGroupId, effects)
     if (activeFxContext?.scope === 'master') setMasterEffects(effects)
   }
+  const audioStatusButton = (
+    <button className="header-audio-button" type="button" onClick={() => void startAudio()} disabled={audioStatus === "starting" || projectBusy}>
+      <span className={`status-dot status-${audioStatus}`} aria-hidden="true" />
+      {audioReady ? "AUDIO ON" : audioStatus === "starting" ? "STARTING…" : "START AUDIO"}
+    </button>
+  )
 
   return (
     <main className="station-shell">
@@ -667,9 +663,13 @@ export function App({ audioEngine }: AppProps) {
               onPlay={startPlayback}
               onStop={stopPlayback}
             />
-            <button className="header-project-button" type="button" onClick={() => changeMainView("project")}>PROJECT</button>
+            <div className="header-secondary-row">
+              <button className="header-project-button" type="button" onClick={() => changeMainView("project")}>PROJECT</button>
+              {audioStatusButton}
+            </div>
           </div>
           <MainNavigation view={mainView} onViewChange={changeMainView} />
+          <div className="audio-controls">{audioStatusButton}</div>
         </header>
         <div className="standalone-transport-slot">
           <TransportBar

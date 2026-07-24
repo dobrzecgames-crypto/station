@@ -42,7 +42,6 @@ interface FxContext { scope: 'group' | 'master'; slotIndex: 0 | 1 }
 interface WaveformPlayback { assetId: SampleAssetId; startedAt: number; startSeconds: number; endSeconds: number }
 interface SequencerPlayhead { stepIndex: number; startsAt: number; durationSeconds: number }
 
-const statusLabels: Record<AudioEngineStatus, string> = { inactive: 'Audio inactive', starting: 'Starting audio…', ready: 'Audio ready', suspended: 'Audio suspended', error: 'Audio error' }
 function createAssetId(scope: string): SampleAssetId { return `asset-${scope}-${crypto.randomUUID()}` }
 function createSliceId(scope: string): string { return `slice-${scope}-${crypto.randomUUID()}` }
 function createChopSessionId(): string { return `chop-session-${crypto.randomUUID()}` }
@@ -194,6 +193,16 @@ export function App({ audioEngine }: AppProps) {
     setAudioStatus('starting')
     try { await audioEngine.initialize(); setAudioStatus(audioEngine.getStatus()) } catch (error) { setAudioStatus(audioEngine.getStatus()); setErrorMessage(toMessage(error)) }
   }
+
+  useEffect(() => {
+    const onFirstInteraction = () => { void startAudio() }
+    window.addEventListener('pointerdown', onFirstInteraction, { once: true })
+    window.addEventListener('keydown', onFirstInteraction, { once: true })
+    return () => {
+      window.removeEventListener('pointerdown', onFirstInteraction)
+      window.removeEventListener('keydown', onFirstInteraction)
+    }
+  }, [])
 
   const createCurrentProjectState = () => {
     const assetReferences = new Map<SampleAssetId, { filename: string; durationSeconds: number }>()
@@ -658,25 +667,9 @@ export function App({ audioEngine }: AppProps) {
               onPlay={startPlayback}
               onStop={stopPlayback}
             />
+            <button className="header-project-button" type="button" onClick={() => changeMainView("project")}>PROJECT</button>
           </div>
           <MainNavigation view={mainView} onViewChange={changeMainView} />
-          <div className="audio-controls">
-            <div className="status-row" role="status" aria-live="polite">
-              <span
-                className={`status-dot status-${audioStatus}`}
-                aria-hidden="true"
-              />
-              {audioReady ? "AUDIO READY" : statusLabels[audioStatus]}
-            </div>
-            <button
-              className="start-button"
-              type="button"
-              onClick={() => void startAudio()}
-              disabled={audioStatus === "starting" || projectBusy}
-            >
-              {audioReady ? "AUDIO READY" : "START AUDIO"}
-            </button>
-          </div>
         </header>
         <div className="standalone-transport-slot">
           <TransportBar

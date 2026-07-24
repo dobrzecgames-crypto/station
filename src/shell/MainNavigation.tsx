@@ -16,5 +16,10 @@ const views: ReadonlyArray<{ id: MainView; label: string }> = [
 ]
 
 export function MainNavigation({ view, onViewChange }: MainNavigationProps) {
-  return <nav className="main-navigation" aria-label="Workspaces">{views.map((item) => <button className={view === item.id ? 'main-nav-button main-nav-button-active' : 'main-nav-button'} type="button" key={item.id} onClick={() => onViewChange(item.id)}>{item.label}</button>)}</nav>
+  return <nav className="main-navigation" aria-label="Workspaces">{views.map((item) => {
+    const isActive = view === item.id
+    const isProject = item.id === 'project'
+    const className = [isProject ? 'main-nav-button main-nav-button-project' : 'main-nav-button', isActive ? 'main-nav-button-active' : ''].filter(Boolean).join(' ')
+    return <button className={className} type="button" key={item.id} onClick={() => onViewChange(item.id)}>{item.label}</button>
+  })}</nav>
 }

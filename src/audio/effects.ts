@@ -78,7 +78,7 @@ export const defaultEQConfig: EQConfig = {
   highShelfGainDb: 0,
 }
 
-const delayDivisionBeats: Record<DelayDivision, number> = {
+export const delayDivisionBeats: Record<DelayDivision, number> = {
   '1/2': 2,
   '1/4': 1,
   '1/8': 0.5,

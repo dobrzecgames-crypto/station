@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import type { AudioEngine, AudioEngineStatus, SampleAssetId } from './audio/AudioEngine'
-import { createDefaultMasterEffectRack } from './audio/effects'
-import type { EffectRackState } from './audio/effects'
+import { createDefaultMasterEffectRack, delayDivisionBeats } from './audio/effects'
+import type { DelayDivision, EffectRackState } from './audio/effects'
 import { createChannelId, sameGroupPadReference } from './audio/channelIdentity'
 import type { GroupPadReference } from './audio/channelIdentity'
 import { StepSequencer } from './audio/StepSequencer'
@@ -45,6 +45,8 @@ interface FxContext { scope: 'group' | 'master'; slotIndex: 0 | 1 }
 interface WaveformPlayback { assetId: SampleAssetId; startedAt: number; startSeconds: number; endSeconds: number }
 interface SequencerPlayhead { stepIndex: number; startsAt: number; durationSeconds: number }
 
+const pumpCurveLabels: Record<'snap' | 'smooth' | 'swell', string> = { snap: 'PUNCH', smooth: 'GLIDE', swell: 'SMASH' }
+
 function createAssetId(scope: string): SampleAssetId { return `asset-${scope}-${crypto.randomUUID()}` }
 function createSliceId(scope: string): string { return `slice-${scope}-${crypto.randomUUID()}` }
 function createChopSessionId(): string { return `chop-session-${crypto.randomUUID()}` }
@@ -78,7 +80,7 @@ export function App({ audioEngine }: AppProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [pumpSource, setPumpSource] = useState<GroupPadReference | null>(null)
   const [pumpTargets, setPumpTargets] = useState<GroupPadReference[]>([])
-  const [pumpDepth, setPumpDepth] = useState(0.5)
+  const [pumpDepth, setPumpDepth] = useState(0.9)
   const [pumpLengthBeats, setPumpLengthBeats] = useState(0.5)
   const [pumpCurve, setPumpCurve] = useState<'snap' | 'smooth' | 'swell'>('smooth')
   const [waveforms, setWaveforms] = useState<Record<string, number[]>>({})
@@ -950,19 +952,32 @@ export function App({ audioEngine }: AppProps) {
                       }
                     />
                   </label>
-                  <label className="pump-mini-control">
-                    LENGTH <output>{pumpLengthBeats} beat</output>
-                    <input
-                      type="range"
-                      min="0.25"
-                      max="1"
-                      step="0.25"
-                      value={pumpLengthBeats}
-                      onChange={(event) =>
-                        setPumpLengthBeats(Number(event.target.value))
-                      }
-                    />
-                  </label>
+                  <div className="pump-length">
+                    <span className="pump-length-label">LENGTH</span>
+                    <div className="pump-divisions">
+                      {(["1/2", "1/4", "1/8", "1/16"] as const).map(
+                        (division: DelayDivision) => (
+                          <button
+                            key={division}
+                            className={
+                              pumpLengthBeats === delayDivisionBeats[division]
+                                ? "mixer-toggle mixer-toggle-active"
+                                : "mixer-toggle"
+                            }
+                            type="button"
+                            aria-pressed={
+                              pumpLengthBeats === delayDivisionBeats[division]
+                            }
+                            onClick={() =>
+                              setPumpLengthBeats(delayDivisionBeats[division])
+                            }
+                          >
+                            {division}
+                          </button>
+                        ),
+                      )}
+                    </div>
+                  </div>
                   <div className="pump-curves">
                     {(["snap", "smooth", "swell"] as const).map((curve) => (
                       <button
@@ -971,7 +986,7 @@ export function App({ audioEngine }: AppProps) {
                         type="button"
                         onClick={() => setPumpCurve(curve)}
                       >
-                        {curve.toUpperCase()}
+                        {pumpCurveLabels[curve]}
                       </button>
                     ))}
                   </div>

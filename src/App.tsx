@@ -36,6 +36,8 @@ import { addPatternClip, getActiveClipsForSlot, getLastOccupiedSlot, removeClips
 import type { PatternClip, TransportMode } from './song/songTypes'
 import { SongWorkspace } from './song/SongWorkspace'
 import type { SliceRegion } from './chop/autoChopOperations'
+import { chopTestSamples } from './chop/chopTestSamples'
+import type { ChopTestSample } from './chop/chopTestSamples'
 import './App.css'
 
 interface AppProps { audioEngine: AudioEngine }
@@ -83,7 +85,7 @@ export function App({ audioEngine }: AppProps) {
   const [chopAddingSlice, setChopAddingSlice] = useState(false)
   const [sourcePreviewing, setSourcePreviewing] = useState(false)
   const [cutOnPadTrigger, setCutOnPadTrigger] = useState(true)
-  const [loadingChopTest, setLoadingChopTest] = useState(false)
+  const [loadingChopTestId, setLoadingChopTestId] = useState<string | null>(null)
   const [projectMessage, setProjectMessage] = useState<string>()
   const [projectBusy, setProjectBusy] = useState(false)
   const [projectKey, setProjectKey] = useState<ProjectKey>(defaultProjectKey)
@@ -487,17 +489,17 @@ export function App({ audioEngine }: AppProps) {
     if (file) void loadChopSourceBlob(file, file.name)
   }
 
-  const loadChopTest = async () => {
-    if (!audioReady || loadingChopTest) return
-    setLoadingChopTest(true)
+  const loadChopTestSample = async (sample: ChopTestSample) => {
+    if (!audioReady || loadingChopTestId) return
+    setLoadingChopTestId(sample.id)
     try {
-      const response = await fetch('/library/chop-test.wav')
-      if (!response.ok) throw new Error('Unable to load the built-in CHOP test loop.')
-      await loadChopSourceBlob(await response.blob(), 'CHOP Test Loop.wav')
+      const response = await fetch(sample.url)
+      if (!response.ok) throw new Error(`Unable to load ${sample.filename}.`)
+      await loadChopSourceBlob(await response.blob(), sample.filename)
     } catch (error) {
       setErrorMessage(toMessage(error))
     } finally {
-      setLoadingChopTest(false)
+      setLoadingChopTestId(null)
     }
   }
 
@@ -757,8 +759,9 @@ export function App({ audioEngine }: AppProps) {
               onLoadSource={loadChopSource}
               cutOnPadTrigger={cutOnPadTrigger}
               onCutOnPadTriggerChange={setCutOnPadTrigger}
-              loadingTest={loadingChopTest}
-              onLoadTest={() => void loadChopTest()}
+              testSamples={chopTestSamples}
+              loadingTestId={loadingChopTestId}
+              onLoadTestSample={(sample) => void loadChopTestSample(sample)}
               sourcePreviewing={sourcePreviewing}
               onPreviewSource={previewChopSource}
               onStopPreviewSource={stopChopSourcePreview}

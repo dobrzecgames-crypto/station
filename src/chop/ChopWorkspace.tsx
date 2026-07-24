@@ -7,6 +7,7 @@ import { ChopControls } from '../sample-editor/ChopControls'
 import { Waveform } from '../sample-editor/Waveform'
 import { detectTransientCandidates, equalSliceRegions, maxSmartSliceCount, smartSliceRegions } from './autoChopOperations'
 import type { SliceRegion } from './autoChopOperations'
+import type { ChopTestSample } from './chopTestSamples'
 
 interface ChopWorkspaceProps {
   pads: PadState[]
@@ -23,8 +24,9 @@ interface ChopWorkspaceProps {
   onLoadSource: (event: ChangeEvent<HTMLInputElement>) => void
   cutOnPadTrigger: boolean
   onCutOnPadTriggerChange: (enabled: boolean) => void
-  loadingTest: boolean
-  onLoadTest: () => void
+  testSamples: readonly ChopTestSample[]
+  loadingTestId: string | null
+  onLoadTestSample: (sample: ChopTestSample) => void
   sourcePreviewing: boolean
   onPreviewSource: () => void
   onStopPreviewSource: () => void
@@ -40,7 +42,7 @@ interface ChopWorkspaceProps {
   onApplyAutoChop: (regions: readonly SliceRegion[]) => boolean
 }
 
-export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, sourceFileName, sourceDurationSeconds, peaks, playheadSeconds, slices, activeSliceId, addingSlice, onLoadSource, cutOnPadTrigger, onCutOnPadTriggerChange, loadingTest, onLoadTest, sourcePreviewing, onPreviewSource, onStopPreviewSource, onTriggerPad, onFeedbackEnd, onAddSlice, onMoveCut, onSelectSlice, onPreviewSlice, onToggleAdding, onRemoveActiveCut, onClearSlices, onApplyAutoChop }: ChopWorkspaceProps) {
+export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, sourceFileName, sourceDurationSeconds, peaks, playheadSeconds, slices, activeSliceId, addingSlice, onLoadSource, cutOnPadTrigger, onCutOnPadTriggerChange, testSamples, loadingTestId, onLoadTestSample, sourcePreviewing, onPreviewSource, onStopPreviewSource, onTriggerPad, onFeedbackEnd, onAddSlice, onMoveCut, onSelectSlice, onPreviewSlice, onToggleAdding, onRemoveActiveCut, onClearSlices, onApplyAutoChop }: ChopWorkspaceProps) {
   const hasSource = sourceFileName !== null && sourceDurationSeconds !== null
   const [previewCount, setPreviewCount] = useState<number | null>(null)
 
@@ -64,18 +66,29 @@ export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, so
     if (onApplyAutoChop(previewRegions)) setPreviewCount(null)
   }
 
-  return <section className="chop-workspace" aria-labelledby="chop-workspace-title">
-    <div className="sequencer-heading">
-      <div><p className="eyebrow">CHOP WORKSPACE</p><h2 id="chop-workspace-title">Chop a sample onto your pads</h2></div>
-      <div className="source-preview-controls"><button className="transport-button" type="button" disabled={!audioReady || !hasSource || sourcePreviewing} onClick={onPreviewSource}>PREVIEW</button><button className="mixer-toggle" type="button" disabled={!sourcePreviewing} onClick={onStopPreviewSource}>STOP PREVIEW</button></div>
-    </div>
-    <div className="chop-source-actions">
-      <label className="file-picker chop-source-picker"><span>LOAD A SAMPLE</span><span className="file-picker-button">CHOOSE WAV FILE<input type="file" accept="audio/wav,.wav" disabled={!audioReady} onChange={onLoadSource} /></span></label>
-      {!hasSource && <button className="mixer-toggle chop-test-button" type="button" disabled={!audioReady || loadingTest} onClick={onLoadTest}>{loadingTest ? 'LOADING…' : 'TRY THE TEST LOOP'}</button>}
-    </div>
-    <label className="chop-cut-toggle"><input type="checkbox" checked={cutOnPadTrigger} onChange={(event) => onCutOnPadTriggerChange(event.target.checked)} /><strong>ONE PAD AT A TIME</strong></label>
-    {hasSource && <>
-      <p className="sample-editor-file">{sourceFileName} - {sourceDurationSeconds.toFixed(3)} s</p>
+  return <section className="chop-workspace" aria-label="Chop">
+    {!hasSource ? (
+      <div className="chop-empty-state">
+        <label className="chop-empty-choose">
+          <span className="file-picker-button chop-empty-choose-button">CHOOSE WAV FILE<input type="file" accept="audio/wav,.wav" disabled={!audioReady} onChange={onLoadSource} /></span>
+        </label>
+        <div className="chop-empty-samples">
+          <span className="chop-empty-samples-label">OR TRY A SAMPLE</span>
+          <div className="chop-empty-samples-buttons">
+            {testSamples.map((sample) => (
+              <button key={sample.id} className="mixer-toggle" type="button" disabled={!audioReady || loadingTestId !== null} onClick={() => onLoadTestSample(sample)}>
+                {loadingTestId === sample.id ? '…' : sample.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    ) : <>
+      <div className="sequencer-heading">
+        <p className="sample-editor-file">{sourceFileName} - {sourceDurationSeconds.toFixed(3)} s</p>
+        <div className="source-preview-controls"><button className="transport-button" type="button" disabled={!audioReady || sourcePreviewing} onClick={onPreviewSource}>PREVIEW</button><button className="mixer-toggle" type="button" disabled={!sourcePreviewing} onClick={onStopPreviewSource}>STOP PREVIEW</button></div>
+      </div>
+      <label className="chop-cut-toggle"><input type="checkbox" checked={cutOnPadTrigger} onChange={(event) => onCutOnPadTriggerChange(event.target.checked)} /><strong>ONE PAD AT A TIME</strong></label>
       <Waveform peaks={peaks} durationSeconds={sourceDurationSeconds} region={{ startSeconds: 0, endSeconds: sourceDurationSeconds }} slices={previewSlices ?? slices} activeSliceId={isPreviewing ? null : activeSliceId} addingSlice={addingSlice} playheadSeconds={playheadSeconds} readOnly={isPreviewing} onRegionChange={() => undefined} onAddSlice={onAddSlice} onMoveCut={onMoveCut} onSelectSlice={onSelectSlice} sliceMarkersDraggable />
       <AutoChopControls
         maxSmartCount={maxSmartCount}

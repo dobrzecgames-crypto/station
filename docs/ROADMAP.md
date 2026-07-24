@@ -5,7 +5,7 @@
 - M5 implementation is present; acceptance is pending.
 - M6 Persistence v1 is implemented locally; Chrome/Edge and listening acceptance is pending.
 - M7 Basic Pump implementation is present; listening and hardening are pending.
-- The approved M9 Chop foundation was implemented early.
+- The approved M9 Chop foundation was implemented early; equal and transient-detection auto-chop are now implemented too, with listening/UX acceptance pending.
 - The current approved task is Pattern Groups A–D + Pattern Playlist / Song Mode. It is implemented locally; acceptance, listening and Chrome/Edge validation remain pending.
 
 ## M0 — Project Definition
@@ -202,8 +202,8 @@ Exit criteria:
 ### M9 — Chop
 
 - The explicitly approved Unified Chop Workspace foundation is available earlier: independent source asset, manual live slice 1–16 mapping and shared-asset pad regions.
+- Equal and transient-detection auto-chop are implemented (see `DECISIONS.md` DEC-020): EQUAL divides the source into an even slice count, SMART detects transient candidates from the cached waveform peaks and previews a chosen count before committing. Both share the existing live slice-to-pad mapping and confirmation behavior.
 - reverse and gate/loop decisions,
-- equal auto-chop,
 - further chop workflows only after a dedicated approval.
 
 ### M10 — Resampling

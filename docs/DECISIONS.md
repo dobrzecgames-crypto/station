@@ -272,3 +272,16 @@ Consequences:
 - velocity and SHIFT are copied when duplicating a variant and persisted with the project,
 - SHIFT does not alter BPM, swing, Playlist slots or the audio clock,
 - a negative SHIFT too close to the current scheduling time is safely clamped by the audio engine rather than causing React-driven timing.
+
+## DEC-020 — Auto-chop offers equal-division and transient-detection modes
+
+**Status:** Accepted
+
+CHOP gained two automatic slicing modes alongside manual slicing. EQUAL divides the loaded source into an even number of slices (4/8/16 presets). SMART detects transient candidates from the existing cached waveform peaks — no new AudioEngine analysis was added — ranks them by amplitude rise, and lets the user preview and adjust the resulting slice count (from 1 up to the number of detected candidates, capped at 16) before committing.
+
+Consequences:
+
+- transient detection reuses the peaks cache already exposed for waveform drawing rather than requiring a new audio-engine method or raw AudioBuffer access,
+- detection precision is bounded by the peaks cache resolution (128 buckets/second up to 4 seconds, capped at 512 buckets total for longer sources), so very fast/close hits on long sources may merge into one candidate,
+- SMART previews locally before commit and disables manual slice editing while a preview is pending, so a rejected or cancelled preview never touches committed Chop Session data,
+- both modes produce ordinary SampleSlice arrays and commit through the existing live slice-to-pad mapping; re-running either mode within the same Chop Session re-maps pads without an occupied-pad confirmation, matching existing manual re-slicing behavior, while pads outside the current session still trigger it.

@@ -5,7 +5,7 @@ interface WaveformProps {
   peaks: readonly number[]
   durationSeconds: number
   region: SamplePlaybackRegion
-  slices: readonly SampleSlice[]
+  slices: readonly Pick<SampleSlice, 'id' | 'startSeconds' | 'endSeconds'>[]
   activeSliceId: string | null
   addingSlice: boolean
   onRegionChange: (region: SamplePlaybackRegion) => void

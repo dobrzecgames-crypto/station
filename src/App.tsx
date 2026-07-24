@@ -35,6 +35,7 @@ import type { PatternGroup, PatternVariantName } from './patterns/patternTypes'
 import { addPatternClip, getActiveClipsForSlot, getLastOccupiedSlot, removeClipsForGroup, removeClipsForVariant, removePatternClip } from './song/songOperations'
 import type { PatternClip, TransportMode } from './song/songTypes'
 import { SongWorkspace } from './song/SongWorkspace'
+import type { SliceRegion } from './chop/autoChopOperations'
 import './App.css'
 
 interface AppProps { audioEngine: AudioEngine }
@@ -452,6 +453,16 @@ export function App({ audioEngine }: AppProps) {
     return true
   }
 
+  const applyAutoChopRegions = (regions: readonly SliceRegion[]): boolean => {
+    const nextSlices: SampleSlice[] = regions.map((region) => ({
+      id: createSliceId(chopSession.id),
+      sourceAssetId: chopSession.assetId!,
+      startSeconds: region.startSeconds,
+      endSeconds: region.endSeconds,
+    }))
+    return applyChopMapping(nextSlices, { ...chopSession, slices: nextSlices, activeSliceId: nextSlices[0]?.id ?? null })
+  }
+
   const loadChopSourceBlob = async (blob: Blob, filename: string) => {
     setErrorMessage(undefined)
     audioEngine.stopPreview()
@@ -764,6 +775,7 @@ export function App({ audioEngine }: AppProps) {
               onToggleAdding={() => setChopAddingSlice((current) => !current)}
               onRemoveActiveCut={removeActiveChopCut}
               onClearSlices={clearChopSlices}
+              onApplyAutoChop={applyAutoChopRegions}
             />
           )}
           {mainView === "pad" && (

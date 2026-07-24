@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getDelayTimeSeconds } from '../audio/effects'
+import { availableEffects, getDelayTimeSeconds } from '../audio/effects'
 import type { EffectRackState, EffectSlotState, EffectType } from '../audio/effects'
 
 interface ContextPanelProps {
@@ -11,7 +11,13 @@ interface ContextPanelProps {
   onClose: () => void
 }
 
-const selectableEffects: readonly Exclude<EffectType, 'none'>[] = ['compressor', 'delay']
+const selectableEffects = availableEffects
+  .map((effect) => effect.type)
+  .filter((type): type is Exclude<EffectType, 'none'> => type !== 'none')
+
+function formatEqGain(gainDb: number): string {
+  return `${gainDb > 0 ? '+' : ''}${gainDb.toFixed(1)} dB`
+}
 
 export function ContextPanel({ scopeLabel, slotIndex, rack, bpm, onChange, onClose }: ContextPanelProps) {
   const slot = rack && slotIndex !== undefined ? rack.slots[slotIndex] : undefined
@@ -37,19 +43,21 @@ export function ContextPanel({ scopeLabel, slotIndex, rack, bpm, onChange, onClo
   const updateSlot = (changes: Partial<EffectSlotState>) => {
     onChange({
       slots: rack.slots.map((candidate, index) => index === slotIndex
-        ? { ...candidate, ...changes, compressor: { ...candidate.compressor, ...changes.compressor }, delay: { ...candidate.delay, ...changes.delay } }
-        : { ...candidate, compressor: { ...candidate.compressor }, delay: { ...candidate.delay } },
+        ? { ...candidate, ...changes, compressor: { ...candidate.compressor, ...changes.compressor }, delay: { ...candidate.delay, ...changes.delay }, eq: { ...candidate.eq, ...changes.eq } }
+        : { ...candidate, compressor: { ...candidate.compressor }, delay: { ...candidate.delay }, eq: { ...candidate.eq } },
       ) as EffectRackState['slots'],
     })
   }
   const updateCompressor = (changes: Partial<EffectSlotState['compressor']>) => updateSlot({ compressor: { ...slot.compressor, ...changes } })
   const updateDelay = (changes: Partial<EffectSlotState['delay']>) => updateSlot({ delay: { ...slot.delay, ...changes } })
+  const updateEQ = (changes: Partial<EffectSlotState['eq']>) => updateSlot({ eq: { ...slot.eq, ...changes } })
   const setEffect = (type: Exclude<EffectType, 'none'>) => {
     updateSlot({
       type,
       enabled: true,
       compressor: { ...slot.compressor, enabled: type === 'compressor' ? true : slot.compressor.enabled },
       delay: { ...slot.delay, enabled: type === 'delay' ? true : slot.delay.enabled },
+      eq: { ...slot.eq, enabled: type === 'eq' ? true : slot.eq.enabled },
     })
     setShowChooser(false)
   }
@@ -59,6 +67,7 @@ export function ContextPanel({ scopeLabel, slotIndex, rack, bpm, onChange, onClo
       enabled,
       compressor: { ...slot.compressor, enabled: slot.type === 'compressor' ? enabled : slot.compressor.enabled },
       delay: { ...slot.delay, enabled: slot.type === 'delay' ? enabled : slot.delay.enabled },
+      eq: { ...slot.eq, enabled: slot.type === 'eq' ? enabled : slot.eq.enabled },
     })
   }
   const removeEffect = () => updateSlot({ type: 'none', enabled: false })
@@ -96,6 +105,19 @@ export function ContextPanel({ scopeLabel, slotIndex, rack, bpm, onChange, onClo
         <label className="mixer-volume">TIME <output>{Math.round(getDelayTimeSeconds(slot.delay, bpm) * 1000)} ms</output><input type="range" min="0.02" max={slot.delay.sync ? '2' : '1'} step="0.01" disabled={slot.delay.sync} value={slot.delay.sync ? getDelayTimeSeconds(slot.delay, bpm) : slot.delay.timeSeconds} onChange={(event) => updateDelay({ timeSeconds: Number(event.target.value) })} /></label>
         <label className="mixer-volume">FEEDBACK <output>{Math.round(slot.delay.feedback * 100)}%</output><input type="range" min="0" max="0.85" step="0.01" value={slot.delay.feedback} onChange={(event) => updateDelay({ feedback: Number(event.target.value) })} /></label>
         <label className="mixer-volume">MIX <output>{Math.round(slot.delay.mix * 100)}%</output><input type="range" min="0" max="0.5" step="0.01" value={slot.delay.mix} onChange={(event) => updateDelay({ mix: Number(event.target.value) })} /></label>
+      </div>}
+
+      {!showChooser && slot.type === 'eq' && <div className="context-panel-controls">
+        <p className="eyebrow eq-band-label">LOW SHELF</p>
+        <label className="mixer-volume">FREQ <output>{Math.round(slot.eq.lowShelfFreqHz)} Hz</output><input type="range" min="40" max="500" step="1" value={slot.eq.lowShelfFreqHz} onChange={(event) => updateEQ({ lowShelfFreqHz: Number(event.target.value) })} /></label>
+        <label className="mixer-volume">GAIN <output>{formatEqGain(slot.eq.lowShelfGainDb)}</output><input type="range" min="-15" max="15" step="0.1" value={slot.eq.lowShelfGainDb} onChange={(event) => updateEQ({ lowShelfGainDb: Number(event.target.value) })} /></label>
+        <p className="eyebrow eq-band-label">MID PEAK</p>
+        <label className="mixer-volume">FREQ <output>{Math.round(slot.eq.midFreqHz)} Hz</output><input type="range" min="200" max="6000" step="1" value={slot.eq.midFreqHz} onChange={(event) => updateEQ({ midFreqHz: Number(event.target.value) })} /></label>
+        <label className="mixer-volume">GAIN <output>{formatEqGain(slot.eq.midGainDb)}</output><input type="range" min="-15" max="15" step="0.1" value={slot.eq.midGainDb} onChange={(event) => updateEQ({ midGainDb: Number(event.target.value) })} /></label>
+        <label className="mixer-volume">Q <output>{slot.eq.midQ.toFixed(2)}</output><input type="range" min="0.4" max="4" step="0.1" value={slot.eq.midQ} onChange={(event) => updateEQ({ midQ: Number(event.target.value) })} /></label>
+        <p className="eyebrow eq-band-label">HIGH SHELF</p>
+        <label className="mixer-volume">FREQ <output>{Math.round(slot.eq.highShelfFreqHz)} Hz</output><input type="range" min="2000" max="12000" step="1" value={slot.eq.highShelfFreqHz} onChange={(event) => updateEQ({ highShelfFreqHz: Number(event.target.value) })} /></label>
+        <label className="mixer-volume">GAIN <output>{formatEqGain(slot.eq.highShelfGainDb)}</output><input type="range" min="-15" max="15" step="0.1" value={slot.eq.highShelfGainDb} onChange={(event) => updateEQ({ highShelfGainDb: Number(event.target.value) })} /></label>
       </div>}
 
       {!showChooser && <div className="context-panel-footer"><button className="mixer-toggle" type="button" onClick={() => setShowChooser(true)}>REPLACE</button><button className="mixer-toggle context-panel-remove" type="button" onClick={removeEffect}>REMOVE</button></div>}

@@ -612,7 +612,7 @@ export class AudioEngine {
   }
 
   private createRuntimeEffect(type: Exclude<EffectType, 'none'>): RuntimeEffect {
-    return type === 'compressor' ? this.createCompressorEffect() : this.createDelayEffect()
+    return type === 'compressor' ? this.createCompressorEffect() : type === 'delay' ? this.createDelayEffect() : this.createEQEffect()
   }
 
   private createCompressorEffect(): RuntimeEffect {
@@ -668,6 +668,37 @@ export class AudioEngine {
         wet.disconnect()
         feedback.disconnect()
         output.disconnect()
+      },
+    }
+  }
+
+  private createEQEffect(): RuntimeEffect {
+    const context = this.context!
+    const lowShelf = context.createBiquadFilter()
+    const mid = context.createBiquadFilter()
+    const highShelf = context.createBiquadFilter()
+    lowShelf.type = 'lowshelf'
+    mid.type = 'peaking'
+    highShelf.type = 'highshelf'
+    lowShelf.connect(mid)
+    mid.connect(highShelf)
+    return {
+      input: lowShelf,
+      output: highShelf,
+      applyConfig: (slot, immediately) => {
+        const config = slot.eq
+        this.applyEffectParameter(lowShelf.frequency, config.lowShelfFreqHz, immediately, 0.02)
+        this.applyEffectParameter(lowShelf.gain, slot.enabled ? config.lowShelfGainDb : 0, immediately, 0.02)
+        this.applyEffectParameter(mid.frequency, config.midFreqHz, immediately, 0.02)
+        this.applyEffectParameter(mid.Q, config.midQ, immediately, 0.02)
+        this.applyEffectParameter(mid.gain, slot.enabled ? config.midGainDb : 0, immediately, 0.02)
+        this.applyEffectParameter(highShelf.frequency, config.highShelfFreqHz, immediately, 0.02)
+        this.applyEffectParameter(highShelf.gain, slot.enabled ? config.highShelfGainDb : 0, immediately, 0.02)
+      },
+      dispose: () => {
+        lowShelf.disconnect()
+        mid.disconnect()
+        highShelf.disconnect()
       },
     }
   }

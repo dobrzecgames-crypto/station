@@ -12,8 +12,9 @@ import type { PatternGroup, PatternVariantName } from '../patterns/patternTypes'
 import { validatePatternClipReferences } from '../song/songOperations'
 import type { PatternClip, TransportMode } from '../song/songTypes'
 
-export const projectSchemaVersion = 6
-export const previousProjectSchemaVersion = 5
+export const projectSchemaVersion = 7
+export const previousProjectSchemaVersion = 6
+export const v5ProjectSchemaVersion = 5
 export const v4ProjectSchemaVersion = 4
 export const v3ProjectSchemaVersion = 3
 export const v2ProjectSchemaVersion = 2
@@ -139,6 +140,12 @@ export function migrateV4ProjectState(previous: { [key: string]: unknown }): Pro
 export function migrateV5ProjectState(previous: { [key: string]: unknown }): ProjectState {
   const { masterDelay, masterCompressor, ...state } = previous
   return { ...state, schemaVersion: projectSchemaVersion, patternGroups: withGroupEffectRacks(state.patternGroups as PatternGroup[]), masterEffects: createMigratedMasterEffectRack(masterDelay, masterCompressor) } as ProjectState
+}
+
+export function migrateV6ProjectState(previous: { [key: string]: unknown }): ProjectState {
+  // Schema v6 FX slots predate the EQ effect type; normalizeProjectState already
+  // backfills a default (bypassed) EQConfig onto every slot that is missing one.
+  return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
 }
 
 export function collectReferencedAssetIds(project: ProjectState): Set<SampleAssetId> {

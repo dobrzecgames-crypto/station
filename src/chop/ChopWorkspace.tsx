@@ -53,7 +53,7 @@ export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, so
       <Waveform peaks={peaks} durationSeconds={sourceDurationSeconds} region={{ startSeconds: 0, endSeconds: sourceDurationSeconds }} slices={slices} activeSliceId={activeSliceId} addingSlice={addingSlice} playheadSeconds={playheadSeconds} onRegionChange={() => undefined} onAddSlice={onAddSlice} onMoveCut={onMoveCut} onSelectSlice={onSelectSlice} sliceMarkersDraggable />
       <ChopControls slices={slices} activeSliceId={activeSliceId} addingSlice={addingSlice} onStartAdding={onToggleAdding} onSelectSlice={onSelectSlice} onPreviewSlice={onPreviewSlice} onRemoveActiveCut={onRemoveActiveCut} onClearSlices={onClearSlices} onAssignSlices={() => undefined} showAssign={false} />
     </>}
-    <div className="chop-pad-heading"><p className="eyebrow">LIVE SLICE MAP</p><p>Slice 1 maps to PAD 01, slice 2 to PAD 02, and so on.</p></div>
+    <div className="chop-pad-heading"><p className="eyebrow">LIVE SLICE MAP</p></div>
     <PadGrid pads={pads} selectedPadId={selectedPadId} activePadId={activePadId} audioReady={audioReady} onTrigger={onTriggerPad} onFeedbackEnd={onFeedbackEnd} />
   </section>
 }

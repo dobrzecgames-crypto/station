@@ -27,7 +27,7 @@ export function LibraryWorkspace({ audioReady, pads, busySampleId, previewingSam
 
   return (
     <section className="library-workspace" aria-labelledby="library-title">
-      <div className="sequencer-heading"><div><p className="eyebrow">LIBRARY</p><h2 id="library-title">SAMPLES</h2></div><p className="mixer-summary">OPEN A CATEGORY, SELECT A SAMPLE, THEN TAP A PAD</p></div>
+      <div className="sequencer-heading"><div><p className="eyebrow">LIBRARY</p><h2 id="library-title">SAMPLES</h2></div></div>
       <div className="library-browser">
         {libraryCategories.map((category) => {
           const isOpen = openCategory === category
@@ -47,7 +47,7 @@ export function LibraryWorkspace({ audioReady, pads, busySampleId, previewingSam
       </div>
       <div className="library-assign-panel">
         <p className="eyebrow">ASSIGN</p>
-        <p className="mixer-summary">{selectedSample ? `TAP A PAD TO ASSIGN ${selectedSample.filename}` : 'SELECT A SAMPLE ABOVE FIRST'}</p>
+        {selectedSample && <p className="mixer-summary">TAP A PAD TO ASSIGN {selectedSample.filename}</p>}
         <div className="library-assign-grid" role="group" aria-label="Assign selected sample to a pad">
           {pads.map((pad, index) => (
             <button

@@ -36,10 +36,9 @@ export function SongWorkspace({ groups, clips, selectedGroupId, selectedVariant,
     window.addEventListener('mouseup', endStroke)
     return () => window.removeEventListener('mouseup', endStroke)
   }, [])
-  return <section className="song-workspace" aria-labelledby="song-title"><div className="sequencer-heading"><div><p className="eyebrow">SONG</p><h2 id="song-title">Pattern Playlist</h2></div><p className="sequence-target">Each row is a pattern, each column is a moment in time - patterns sharing a column play together. Click or drag along a row to place them.</p></div>
+  return <section className="song-workspace" aria-labelledby="song-title"><div className="sequencer-heading"><div><p className="eyebrow">SONG</p><h2 id="song-title">Pattern Playlist</h2></div></div>
     <div className="song-add-controls"><strong>PLACE {selectedLabel}</strong><span className="song-current-note">Pick a different pattern in the SEQ tab first.</span><label>START SLOT <input type="text" inputMode="numeric" pattern="[0-9]*" value={startSlotText} onChange={(event) => setStartSlotText(event.target.value.replace(/\D/g, ''))} onBlur={() => { if (startSlotValid) setStartSlotText(String(startSlot)) }} /></label><button className="transport-button" type="button" disabled={!startSlotValid} onClick={() => onAddClip(selectedGroup.id, selectedVariant, startSlot!)}>ADD CLIP</button></div>
     <div className="playlist-scroll"><div className="playlist-grid" style={{ gridTemplateColumns: `110px repeat(${visibleSlots.length}, minmax(92px, 1fr))` }}><strong className="playlist-label">PATTERN ↓ / SLOT →</strong>{visibleSlots.map((slot) => <strong key={slot} className={activeSlot === slot ? 'playlist-slot active-song-slot' : 'playlist-slot'}>{slot}</strong>)}{rows.map(({ group, variant }) => <PlaylistRow key={`${group.id}-${variant}`} group={group} variant={variant} clips={clips} activeSlot={activeSlot} paintStroke={paintStroke} onPaintSlot={onPaintSlot} />)}</div></div>
-    <p className="sequence-target">{lastSlot ? `Your song is ${lastSlot} slot${lastSlot === 1 ? '' : 's'} long so far. Place clips anywhere - there's no length limit.` : 'Nothing placed yet - click or drag in the grid above to start your song.'}</p>
   </section>
 }
 

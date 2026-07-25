@@ -544,3 +544,15 @@ input[type="text"], input[type="number"], select, textarea {
 .pattern-matrix-row > .pattern-step.pattern-step-beat-dim:not(.step-active) { background: rgb(0 0 0 / 22%); }
 .pattern-matrix-row > .pattern-step.pattern-step-playing { box-shadow: inset 2px 0 0 var(--station-accent); }
 .pattern-matrix-row > .pattern-step.pattern-step-selected { outline: 1px solid var(--station-accent); outline-offset: -1px; }
+
+/* The step buttons carried min-width: 46px while the row's track was 40px, so
+   every step overflowed its column by six pixels and pushed its right edge into
+   the next one. The header spans set no min-width, so they stayed on the true
+   column lines - which is why the two rows drifted apart the further right you
+   looked. The track is the single source of truth now and cells may not set a
+   floor of their own. 44px because that is the smallest comfortable touch
+   target, and this grid is tapped rather than clicked. */
+.pattern-matrix-row { grid-template-columns: 100px repeat(16, 44px); min-width: 804px; }
+/* width as well as min-width: .pattern-step pins both to 46px, and resetting
+   only the floor left the explicit width still overflowing the track. */
+.pattern-matrix-row > * { width: auto; min-width: 0; height: 44px; min-height: 44px; }

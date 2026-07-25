@@ -509,3 +509,38 @@ input[type="text"], input[type="number"], select, textarea {
 .arrangement-slot { min-height: 34px; }
 .arrangement-slot-bar-dim:not(.arrangement-slot-filled) { background: rgb(0 0 0 / 22%); }
 .arrangement-slot-bar-dim:not(.arrangement-slot-filled):hover { background: rgb(var(--station-accent-rgb) / 8%); }
+
+/* ---------- 16. Auto-chop smart slider ---------------------------------- */
+
+/* flex: 1 1 220px was written for a row, where the basis is a width and means
+   "give this slider at least 220px across". The mobile layout turns the row
+   into a column, and in a column the basis is a height - so the same rule
+   demanded a 220px tall slider and ate a quarter of the screen. Size to
+   content instead; the width is already handled by align-items: stretch. */
+.auto-chop-smart-slider { flex: 0 0 auto; }
+.auto-chop-smart-slider input { margin-top: 2px; }
+
+/* ---------- 17. Step matrix ---------------------------------------------- */
+
+/* A table's cells share edges, so each line must be drawn exactly once. The
+   global button rule boxed every step on all four sides and rounded it, while
+   the pad-label column still used the old right/bottom table borders - two grid
+   languages in one table, with every internal line doubled where the boxes met.
+   Inside the matrix a cell draws only its right and bottom edge, and the last
+   column and row drop theirs so they do not double against the frame. */
+.pattern-matrix-row > * {
+  border: 0;
+  border-right: 1px solid var(--station-line);
+  border-bottom: 1px solid var(--station-line);
+  border-radius: 0;
+  box-shadow: none;
+}
+.pattern-matrix-row > *:last-child { border-right: 0; }
+.pattern-matrix-row:last-child > * { border-bottom: 0; }
+.pattern-matrix { border-radius: 4px; }
+
+/* State is carried by fill alone - a border would put the doubling back. */
+.pattern-matrix-row > .pattern-step.step-active { background: var(--station-accent); }
+.pattern-matrix-row > .pattern-step.pattern-step-beat-dim:not(.step-active) { background: rgb(0 0 0 / 22%); }
+.pattern-matrix-row > .pattern-step.pattern-step-playing { box-shadow: inset 2px 0 0 var(--station-accent); }
+.pattern-matrix-row > .pattern-step.pattern-step-selected { outline: 1px solid var(--station-accent); outline-offset: -1px; }

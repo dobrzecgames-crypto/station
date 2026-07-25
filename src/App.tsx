@@ -39,6 +39,9 @@ import type { SliceRegion } from './chop/autoChopOperations'
 import { chopTestSamples } from './chop/chopTestSamples'
 import type { ChopTestSample } from './chop/chopTestSamples'
 import './App.css'
+// Loaded after App.css on purpose - the Lab Interface layer overrides the older
+// visual passes wholesale. See docs/DESIGN_SYSTEM.md.
+import './lab-interface.css'
 
 interface AppProps { audioEngine: AudioEngine }
 interface FxContext { scope: 'group' | 'master'; slotIndex: 0 | 1 }
@@ -640,15 +643,8 @@ export function App({ audioEngine }: AppProps) {
     if (activeFxContext?.scope === 'group') updateGroupEffects(selectedPatternGroupId, effects)
     if (activeFxContext?.scope === 'master') setMasterEffects(effects)
   }
-  const audioStatusButton = (
-    <button className="header-audio-button" type="button" onClick={() => void startAudio()} disabled={audioStatus === "starting" || projectBusy}>
-      <span className={`status-dot status-${audioStatus}`} aria-hidden="true" />
-      {audioReady ? "AUDIO ON" : audioStatus === "starting" ? "STARTING…" : "START AUDIO"}
-    </button>
-  )
-
   return (
-    <main className="station-shell">
+    <main className="station-shell" data-view={mainView}>
       <section className="station-panel" aria-labelledby="station-title">
         <header className="station-header">
           <div className="station-branding">
@@ -656,6 +652,13 @@ export function App({ audioEngine }: AppProps) {
             <h1 id="station-title">STATION</h1>
           </div>
           <div className="header-transport-slot">
+            <div className="header-secondary-row">
+              <button className="header-audio-button" type="button" onClick={() => void startAudio()} disabled={audioStatus === "starting" || projectBusy}>
+                <span className={`status-dot status-${audioStatus}`} aria-hidden="true" />
+                {audioReady ? "AUDIO ON" : audioStatus === "starting" ? "STARTING…" : "START AUDIO"}
+              </button>
+              <button className="header-project-button" type="button" onClick={() => changeMainView("project")}>PROJECT</button>
+            </div>
             <TransportBar
               bpm={bpm}
               swing={swing}
@@ -678,38 +681,9 @@ export function App({ audioEngine }: AppProps) {
               onPlay={startPlayback}
               onStop={stopPlayback}
             />
-            <div className="header-secondary-row">
-              <button className="header-project-button" type="button" onClick={() => changeMainView("project")}>PROJECT</button>
-              {audioStatusButton}
-            </div>
           </div>
           <MainNavigation view={mainView} onViewChange={changeMainView} />
-          <div className="audio-controls">{audioStatusButton}</div>
         </header>
-        <div className="standalone-transport-slot">
-          <TransportBar
-            bpm={bpm}
-            swing={swing}
-            isPlaying={isPlaying}
-            mode={transportMode}
-            loopSong={loopSong}
-            metronomeEnabled={metronomeEnabled}
-            settingsOpen={transportSettingsOpen}
-            onSettingsOpenChange={setTransportSettingsOpen}
-            groups={patternGroups}
-            selectedGroupId={selectedPatternGroupId}
-            selectedVariant={selectedPatternVariant}
-            onBpmChange={setBpm}
-            onSwingChange={setSwing}
-            onModeChange={setTransportMode}
-            onLoopSongChange={setLoopSong}
-            onMetronomeEnabledChange={setMetronomeEnabled}
-            onGroupChange={selectPatternGroup}
-            onVariantChange={setSelectedPatternVariant}
-            onPlay={startPlayback}
-            onStop={stopPlayback}
-          />
-        </div>
         {(projectMessage || errorMessage) && (
           <div className="station-notices">
             {projectMessage && (

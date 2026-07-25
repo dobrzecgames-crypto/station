@@ -386,3 +386,126 @@ input[type="text"], input[type="number"], select, textarea {
   background: linear-gradient(180deg, var(--station-bg), color-mix(in srgb, var(--station-bg) 100%, #fff 3%));
   box-shadow: inset 0 2px 4px rgb(0 0 0 / 40%);
 }
+
+/* ---------- 14. Pattern admin (parked in PROJECT) ----------------------- */
+
+/* Holding spot for the four pattern-group actions cut from the SEQ header.
+   Sits in its own well so it reads as a separate concern from SAVE/OPEN
+   rather than a third row of the same block. */
+.pattern-admin {
+  margin-top: 18px;
+  padding: 12px;
+  border: 1px solid var(--station-line);
+  border-radius: 4px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--station-card) 100%, #fff 4%), var(--station-card) 30%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%);
+}
+.pattern-admin-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 10px;
+}
+.pattern-admin-row .transport-button,
+.pattern-admin-row .mixer-toggle,
+.pattern-admin-row .clear-button { flex: 1 1 auto; min-width: 0; min-height: 32px; padding: 0 10px; font-size: .6rem; }
+.pattern-admin-row .sequence-target {
+  flex: 0 0 100%;
+  margin: 0;
+  color: var(--station-text-muted);
+  font-size: .58rem;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+/* ---------- 15. SONG arrangement ---------------------------------------- */
+
+/* This was a spreadsheet: every slot a bordered cell, a "PATTERN / SLOT"
+   corner header, uniform grid lines in both directions. An arranger reads the
+   other way round - the lane is continuous and only the bar lines interrupt it,
+   so the eye follows time horizontally instead of counting cells. */
+
+.arrangement-scroll { overflow-x: auto; margin-top: 4px; padding-bottom: 6px; }
+.arrangement { min-width: max-content; }
+
+.arrangement-ruler, .arrangement-lane {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 8px;
+}
+.arrangement-lane { margin-top: 4px; }
+
+.arrangement-track { display: grid; }
+
+/* Bar numbers only every fourth slot. Numbering all sixteen is what made the
+   old header read as a column index rather than a timeline. */
+.arrangement-tick {
+  padding-bottom: 4px;
+  color: var(--station-text-disabled);
+  font-family: var(--station-mono-font);
+  font-size: .56rem;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+.arrangement-tick-bar { color: var(--station-text-muted); box-shadow: inset 1px 0 0 var(--station-line); padding-left: 4px; }
+.arrangement-tick-playing { color: var(--station-accent); }
+
+.arrangement-lane-name {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  color: var(--station-text-muted);
+  font-family: var(--station-display-font);
+  font-size: .66rem;
+  font-weight: 600;
+  letter-spacing: .06em;
+  white-space: nowrap;
+}
+
+/* The lane holding the pattern selected in SEQ, so the workspace shows what it
+   is about to place instead of stating it in a sentence. */
+.arrangement-lane-current .arrangement-lane-name { color: var(--station-accent); }
+
+/* One continuous strip per lane; the slots inside it carry no borders of their
+   own, only a bar line every four. */
+.arrangement-lane .arrangement-track {
+  border: 1px solid var(--station-line);
+  border-radius: 3px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--station-bg) 100%, #fff 4%), var(--station-bg));
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 35%);
+  overflow: hidden;
+}
+.arrangement-lane-current .arrangement-track { border-color: color-mix(in srgb, var(--station-accent) 45%, var(--station-line)); }
+
+.arrangement-slot {
+  min-height: 30px;
+  cursor: pointer;
+  /* Vertical page scrolling stays with the browser; horizontal drag is ours,
+     which is what makes painting across slots work with a finger. */
+  touch-action: pan-y;
+}
+.arrangement-slot-bar { box-shadow: inset 1px 0 0 var(--station-line); }
+.arrangement-slot:hover { background: rgb(var(--station-accent-rgb) / 8%); }
+
+/* A placed clip is a solid block sitting in the lane, inset a hair so
+   neighbouring slots read as one run rather than a fused rectangle. */
+.arrangement-slot-filled {
+  background: var(--station-accent);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 30%), 0 0 10px rgb(var(--station-accent-rgb) / 20%);
+}
+.arrangement-slot-filled:hover { background: color-mix(in srgb, var(--station-accent) 88%, #fff); }
+
+/* The playhead crosses every lane: each lane paints its own left edge, and
+   stacked they form one continuous line. */
+.arrangement-slot-playing { box-shadow: inset 2px 0 0 var(--station-accent); }
+.arrangement-slot-playing.arrangement-slot-filled { box-shadow: inset 2px 0 0 #fff, inset 0 0 0 1px rgb(0 0 0 / 30%); }
+
+/* Alternating bars, so a run of clips reads as bars rather than as a count of
+   identical cells. Filled slots keep their accent inside a dim bar - the
+   shading is structure, not state. */
+.arrangement-slot { min-height: 34px; }
+.arrangement-slot-bar-dim:not(.arrangement-slot-filled) { background: rgb(0 0 0 / 22%); }
+.arrangement-slot-bar-dim:not(.arrangement-slot-filled):hover { background: rgb(var(--station-accent-rgb) / 8%); }

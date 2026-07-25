@@ -31,6 +31,7 @@ import { findProjectScaleMapConflicts, mapPadBankToProjectScale } from './music/
 import { projectRepository } from './storage/ProjectRepository'
 import { defaultProjectId } from './storage/storageTypes'
 import { addPatternGroup, clearVariant, createInitialPatternGroups, duplicateVariant, getVariant, getVariantShifts, setVariantStepShift, setVariantStepVelocity, updateVariantStep } from './patterns/patternOperations'
+import { patternVariantNames } from './patterns/patternTypes'
 import type { PatternGroup, PatternVariantName } from './patterns/patternTypes'
 import { addPatternClip, getActiveClipsForSlot, getLastOccupiedSlot, removeClipsForGroup, removeClipsForVariant, removePatternClip } from './song/songOperations'
 import type { PatternClip, TransportMode } from './song/songTypes'
@@ -606,7 +607,8 @@ export function App({ audioEngine }: AppProps) {
     setSelectedPatternGroupId(next[0].id)
     setSelectedPatternVariant('A')
   }
-  const addPlaylistClip = (groupId: string, variant: PatternVariantName, startSlot: number) => setPlaylist((current) => addPatternClip(current, { id: createPatternClipId(), patternGroupId: groupId, variant, startSlot }))
+  // paintPlaylistSlot with shouldExist:true covers what the old addPlaylistClip
+  // did, and dedupes on top, so SONG has one placement path instead of two.
   const paintPlaylistSlot = (groupId: string, variant: PatternVariantName, startSlot: number, shouldExist: boolean) => setPlaylist((current) => {
     const existing = current.find((clip) => clip.patternGroupId === groupId && clip.variant === variant && clip.startSlot === startSlot)
     if (shouldExist) return existing ? current : addPatternClip(current, { id: createPatternClipId(), patternGroupId: groupId, variant, startSlot })
@@ -813,7 +815,6 @@ export function App({ audioEngine }: AppProps) {
               )}
               selectedPadId={selectedPad.id}
               group={selectedGroup}
-              canDeleteGroup={patternGroups.length > 1}
               selectedVariant={selectedPatternVariant}
               selectedPad={selectedPad}
               selectedPeaks={selectedPeaks}
@@ -824,10 +825,6 @@ export function App({ audioEngine }: AppProps) {
               }
               playingStep={playingStep}
               onSelectPad={triggerPad}
-              onNewGroup={createNewPatternGroup}
-              onDuplicateVariant={duplicateCurrentVariant}
-              onClearVariant={clearCurrentVariant}
-              onDeleteGroup={deleteCurrentPatternGroup}
               onToggleStep={toggleStep}
               onVelocityChange={setStepVelocity}
               onShiftChange={setStepShift}
@@ -842,7 +839,6 @@ export function App({ audioEngine }: AppProps) {
               activeSlot={
                 isPlaying && transportMode === "song" ? playingSongSlot : null
               }
-              onAddClip={addPlaylistClip}
               onPaintSlot={paintPlaylistSlot}
             />
           )}
@@ -990,6 +986,28 @@ export function App({ audioEngine }: AppProps) {
                 <button className="mixer-toggle" type="button" disabled={!audioReady || projectBusy} onClick={() => void openProject()}>OPEN PROJECT</button>
               </div>
               <ProjectKeyPanel projectKey={projectKey} disabled={projectBusy} onChange={setProjectKey} />
+              {/* Parked here after being cut from the SEQ header, where they ate
+                  two rows above the step matrix. This is a holding spot, not the
+                  intended home - these move once pattern management gets its own
+                  place. Kept wired rather than deleted because clearing a variant
+                  or deleting a group also has to remove the SONG clips that
+                  reference it, and that cascade is not trivial to rebuild. */}
+              <div className="pattern-admin" aria-label="Pattern groups">
+                <p className="eyebrow">PATTERN GROUPS</p>
+                <div className="pattern-admin-row">
+                  <button className="transport-button" type="button" onClick={createNewPatternGroup}>NEW GROUP</button>
+                  <button className="mixer-toggle" type="button" onClick={clearCurrentVariant}>CLEAR {selectedPatternVariant}</button>
+                  <button className="clear-button compact-danger" type="button" disabled={patternGroups.length <= 1} onClick={deleteCurrentPatternGroup}>DELETE GROUP</button>
+                </div>
+                <div className="pattern-admin-row">
+                  <span className="sequence-target">DUPLICATE {selectedPatternVariant} TO</span>
+                  {patternVariantNames.filter((variant) => variant !== selectedPatternVariant).map((variant) => (
+                    <button key={variant} className="mixer-toggle" type="button" onClick={() => duplicateCurrentVariant(variant)}>
+                      {variant}{selectedGroup.variants[variant] ? ' (REPLACE)' : ''}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </section>
           )}
         </div>

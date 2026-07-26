@@ -384,6 +384,113 @@ select, textarea {
   box-shadow: inset 0 0 0 1px var(--signal-blue), 0 0 8px rgb(131 190 210 / 18%);
 }
 
+/* CHOP is a sampling instrument, not a generic green oscilloscope. The canvas
+   reads its material and functional colours from Vinyl Dust; cut tabs have a
+   small ribbed grip so they look and feel like movable hardware markers. */
+.waveform {
+  --waveform-background: #0b0b11;
+  --waveform-outside-region: rgb(0 0 0 / 42%);
+  --waveform-active-slice: rgb(83 97 132 / 22%);
+  --waveform-wave: var(--action-accent);
+  --waveform-wave-light: #dfa080;
+  --waveform-grid: rgb(238 228 214 / 12%);
+  --waveform-region-handle: #596782;
+  --waveform-cut: #596782;
+  --waveform-active-cut: #8996b2;
+  --waveform-handle-edge: #090a10;
+  --waveform-handle-rib: rgb(255 239 220 / 56%);
+  --waveform-label: var(--station-text-muted);
+  --waveform-active-label: #b7c0d6;
+  --waveform-playhead: var(--signal-focus);
+  border-color: var(--station-line-strong);
+  background: linear-gradient(180deg, #14121a, var(--scene-recess));
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 6%), inset 0 0 18px rgb(0 0 0 / 34%);
+}
+
+.waveform-adding-slice {
+  border-color: var(--action-accent);
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 9%), inset 0 0 0 1px rgb(200 111 80 / 30%), inset 0 0 18px rgb(0 0 0 / 34%);
+}
+
+/* Auto-slice stays directly below the waveform in two compact instrument rows. */
+.chop-workspace .auto-chop-controls {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 8px;
+  border: 1px solid var(--station-line);
+  border-radius: 4px;
+  background: linear-gradient(180deg, rgb(255 239 220 / 3%), transparent 65%), var(--scene-card);
+}
+
+.chop-workspace .auto-chop-equal-row,
+.chop-workspace .auto-chop-smart-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+}
+
+.chop-workspace .auto-chop-equal-row .eyebrow {
+  min-width: 82px;
+  color: var(--workspace-accent);
+  font-size: .52rem;
+  letter-spacing: .08em;
+}
+
+.chop-workspace .auto-chop-equal-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 34px);
+  gap: 4px;
+}
+
+.chop-workspace .auto-chop-equal-buttons .mixer-toggle {
+  min-width: 0;
+  min-height: 26px;
+  padding: 0;
+  font-size: .56rem;
+}
+
+.chop-workspace .auto-chop-smart-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.chop-workspace .auto-chop-smart-slider {
+  display: grid;
+  grid-template-columns: auto auto minmax(44px, 1fr);
+  min-width: 0;
+  gap: 6px;
+  align-items: center;
+  color: var(--station-text-muted);
+  font-family: var(--station-mono-font);
+  font-size: .54rem;
+  letter-spacing: .06em;
+}
+
+.chop-workspace .auto-chop-smart-slider output {
+  color: var(--loaded-accent);
+}
+
+.chop-workspace .auto-chop-smart-slider input {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+
+.chop-workspace .auto-chop-smart-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.chop-workspace .auto-chop-smart-actions .mixer-toggle,
+.chop-workspace .auto-chop-smart-actions .transport-button {
+  min-width: 52px;
+  min-height: 26px;
+  padding: 0 6px;
+  font-size: .52rem;
+}
+
 /* Loaded material is gold; selection and primary actions stay terracotta. */
 .pad.sample-loaded {
   border-color: color-mix(in srgb, var(--loaded-accent) 72%, var(--scene-line));

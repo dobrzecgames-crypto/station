@@ -35,6 +35,10 @@ export interface PadState extends ChannelState {
   slices: SampleSlice[]
   chopSessionId: string | null
   pitchSemitones: number
+  /** Musical rise time for newly triggered pad voices. */
+  attackMs: number
+  /** End fade for newly triggered pad voices. Kept short for samples and slices. */
+  releaseMs: number
 }
 
 export interface PadDefinition {

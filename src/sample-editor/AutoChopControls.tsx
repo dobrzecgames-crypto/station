@@ -13,18 +13,17 @@ const equalPresets = [4, 8, 16]
 export function AutoChopControls({ maxSmartCount, smartCount, isPreviewing, onEqualChop, onSmartCountChange, onApplySmart, onCancelSmart }: AutoChopControlsProps) {
   return (
     <section className="auto-chop-controls" aria-label="Automatic slicing">
-      <p className="eyebrow">AUTO-SLICE</p>
-      <div className="auto-chop-row">
-        <span className="auto-chop-row-label">EQUAL</span>
+      <div className="auto-chop-equal-row">
+        <p className="eyebrow">AUTO / EQUAL</p>
         <div className="auto-chop-equal-buttons" role="group" aria-label="Slice into equal parts">
           {equalPresets.map((count) => (
             <button key={count} className="mixer-toggle" type="button" onClick={() => onEqualChop(count)}>{count}</button>
           ))}
         </div>
       </div>
-      <div className="auto-chop-row">
+      <div className="auto-chop-smart-row">
         <label className="auto-chop-smart-slider" htmlFor="auto-chop-smart-count">
-          SMART <output htmlFor="auto-chop-smart-count">{smartCount}</output>
+          <span>SMART</span><output htmlFor="auto-chop-smart-count">{smartCount}</output>
           <input
             id="auto-chop-smart-count"
             type="range"

@@ -8,7 +8,6 @@ import type { GroupPadReference } from './audio/channelIdentity'
 import { StepSequencer } from './audio/StepSequencer'
 import type { StepSequencerConfig, StepSequencerTrack } from './audio/StepSequencer'
 import { ChopWorkspace } from './chop/ChopWorkspace'
-import { LibraryWorkspace } from './library/LibraryWorkspace'
 import type { LibrarySample } from './library/builtInLibrary'
 import { Mixer } from './mixer/Mixer'
 import { GroupMixPanel } from './mixer/GroupMixPanel'
@@ -164,7 +163,7 @@ export function App({ audioEngine }: AppProps) {
     return () => window.cancelAnimationFrame(frameId)
   }, [audioEngine, isPlaying, waveformPlayback])
 
-  const sequenceConfigRef = useRef<StepSequencerConfig>({ bpm, swing, metronomeEnabled: false, mode: 'pattern', loopSong: false, cutOnStepTrigger: true, lastSongSlot: null, getTracksForSlot: () => [] })
+  const sequenceConfigRef = useRef<StepSequencerConfig>({ bpm, swing, metronomeEnabled: false, mode: 'pattern', loopSong: false, cutOnStepTrigger: false, lastSongSlot: null, getTracksForSlot: () => [] })
 
   sequenceConfigRef.current = {
     bpm,
@@ -172,13 +171,14 @@ export function App({ audioEngine }: AppProps) {
     metronomeEnabled,
     mode: transportMode,
     loopSong,
-    cutOnStepTrigger: cutOnPadTrigger,
+    // ONE PAD AT A TIME is a live-pad gesture; sequenced voices overlap.
+    cutOnStepTrigger: false,
     lastSongSlot: getLastOccupiedSlot(playlist),
     getTracksForSlot: (slot) => {
       const variants = transportMode === 'song'
         ? getActiveClipsForSlot(playlist, slot).map((clip) => ({ group: patternGroups.find((group) => group.id === clip.patternGroupId), steps: getVariant(patternGroups, clip.patternGroupId, clip.variant), shifts: getVariantShifts(patternGroups, clip.patternGroupId, clip.variant) })).filter((pattern): pattern is { group: PatternGroup; steps: NonNullable<typeof pattern.steps>; shifts: NonNullable<typeof pattern.shifts> } => Boolean(pattern.group && pattern.steps && pattern.shifts))
         : [{ group: selectedGroup, steps: getVariant(patternGroups, selectedPatternGroupId, selectedPatternVariant), shifts: getVariantShifts(patternGroups, selectedPatternGroupId, selectedPatternVariant) }].filter((pattern): pattern is { group: PatternGroup; steps: NonNullable<typeof pattern.steps>; shifts: NonNullable<typeof pattern.shifts> } => Boolean(pattern.steps && pattern.shifts))
-      return variants.flatMap((pattern) => pattern.group.bank.pads.filter((pad): pad is PadState & { assetId: SampleAssetId } => pad.assetId !== null && audioEngine.hasSampleAsset(pad.assetId)).map<StepSequencerTrack>((pad) => ({ groupId: pattern.group.id, channelId: createChannelId({ patternGroupId: pattern.group.id, padId: pad.id }), assetId: pad.assetId, steps: pattern.steps[pad.id], shifts: pattern.shifts[pad.id], options: { pitchSemitones: pad.pitchSemitones, startSeconds: pad.region.startSeconds, endSeconds: pad.region.endSeconds } })))
+      return variants.flatMap((pattern) => pattern.group.bank.pads.filter((pad): pad is PadState & { assetId: SampleAssetId } => pad.assetId !== null && audioEngine.hasSampleAsset(pad.assetId)).map<StepSequencerTrack>((pad) => ({ groupId: pattern.group.id, channelId: createChannelId({ patternGroupId: pattern.group.id, padId: pad.id }), assetId: pad.assetId, steps: pattern.steps[pad.id], shifts: pattern.shifts[pad.id], options: { pitchSemitones: pad.pitchSemitones, startSeconds: pad.region.startSeconds, endSeconds: pad.region.endSeconds, attackMs: pad.attackMs, releaseMs: pad.releaseMs } })))
     },
     onSongSlotChange: setPlayingSongSlot,
     onSongComplete: () => { setIsPlaying(false); setPlayingSongSlot(null); setSequencerPlayhead(null) },
@@ -209,7 +209,7 @@ export function App({ audioEngine }: AppProps) {
     if (!pad || !pad.assetId || !audioReady || !audioEngine.hasSampleAsset(pad.assetId)) return
     if (cutOnPadTrigger) audioEngine.stopManualVoices()
     const startedAt = audioEngine.getCurrentTime()
-    audioEngine.triggerSample(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), pad.assetId, { pitchSemitones: pad.pitchSemitones, startSeconds: pad.region.startSeconds, endSeconds: pad.region.endSeconds })
+    audioEngine.triggerSample(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), pad.assetId, { pitchSemitones: pad.pitchSemitones, startSeconds: pad.region.startSeconds, endSeconds: pad.region.endSeconds, attackMs: pad.attackMs, releaseMs: pad.releaseMs })
     showWaveformPlayback(pad.assetId, pad.region.startSeconds, pad.region.endSeconds, startedAt)
     setActivePadId(padId)
   }
@@ -350,9 +350,9 @@ export function App({ audioEngine }: AppProps) {
     setPatternGroups((groups) => groups.map((group) => group.id === selectedPatternGroupId ? { ...group, bank: clonePadBank(bank) } : group))
   }
 
-  const updateSelectedPad = (changes: Pick<PadState, 'volume' | 'pitchSemitones'>) => {
+  const updateSelectedPad = (changes: Pick<PadState, 'volume' | 'pitchSemitones' | 'attackMs' | 'releaseMs'>) => {
     replaceActiveBank({ ...selectedGroup.bank, pads: pads.map((pad) => pad.id === selectedPadId ? { ...pad, ...changes } : pad) })
-    audioEngine.setChannelVolume(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId: selectedPadId }), changes.volume)
+    if (changes.volume !== selectedPad.volume) audioEngine.setChannelVolume(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId: selectedPadId }), changes.volume)
   }
   const updateChannelVolume = (padId: PadState['id'], volume: number) => { replaceActiveBank({ ...selectedGroup.bank, pads: pads.map((pad) => pad.id === padId ? { ...pad, volume } : pad) }); audioEngine.setChannelVolume(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), volume) }
   const updateChannelMuted = (padId: PadState['id'], muted: boolean) => { replaceActiveBank({ ...selectedGroup.bank, pads: pads.map((pad) => pad.id === padId ? { ...pad, muted } : pad) }); audioEngine.setChannelMuted(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), muted) }
@@ -381,9 +381,9 @@ export function App({ audioEngine }: AppProps) {
     setWaveforms((current) => { const { [assetId]: _, ...remaining } = current; return remaining })
   }
 
-  const loadLibrarySample = async (sample: LibrarySample, targetPadNumber: number): Promise<boolean> => {
+  const loadLibrarySample = async (sample: LibrarySample, targetPadId: PadState['id']): Promise<boolean> => {
     if (!audioReady || projectBusy || loadingLibrarySampleId) return false
-    const targetPad = pads[targetPadNumber - 1]
+    const targetPad = pads.find((pad) => pad.id === targetPadId)
     if (!targetPad) return false
     setLoadingLibrarySampleId(sample.id)
     setErrorMessage(undefined)
@@ -414,15 +414,19 @@ export function App({ audioEngine }: AppProps) {
 
   const dropLibrarySampleOnPad = (padId: PadState['id']) => {
     const sample = selectedLibrarySample
-    const targetPadNumber = pads.findIndex((pad) => pad.id === padId) + 1
-    if (!sample || targetPadNumber === 0) return
-    void loadLibrarySample(sample, targetPadNumber).then((loaded) => {
+    if (!sample) return
+    void loadLibrarySample(sample, padId).then((loaded) => {
       if (loaded) setSelectedLibrarySample(null)
     })
   }
 
   const previewLibrarySample = async (sample: LibrarySample) => {
-    if (!audioReady || projectBusy || previewingLibrarySampleId || loadingLibrarySampleId) return
+    if (!audioReady || projectBusy || loadingLibrarySampleId) return
+    if (previewingLibrarySampleId === sample.id) {
+      audioEngine.stopPreview()
+      setPreviewingLibrarySampleId(null)
+      return
+    }
     audioEngine.stopPreview()
     setSourcePreviewing(false)
     setPreviewingLibrarySampleId(sample.id)
@@ -671,7 +675,6 @@ export function App({ audioEngine }: AppProps) {
     workspaceRef.current?.scrollTo({ top: 0 })
     setMainView(view)
     setActiveFxContext(null)
-    if (view !== 'pad') setSelectedLibrarySample(null)
     if (view !== 'pad') setSampleEditorOpen(false)
   }
   const activeFxRack = activeFxContext?.scope === 'group' ? selectedGroup.effects : activeFxContext?.scope === 'master' ? masterEffects : undefined
@@ -786,9 +789,15 @@ export function App({ audioEngine }: AppProps) {
             <>
               <PadDisplayLauncher
                 pad={selectedPad}
+                audioReady={audioReady}
                 projectBusy={projectBusy}
                 projectKeyLabel={formatProjectKey(projectKey)}
+                loadingLibrarySampleId={loadingLibrarySampleId}
+                previewingLibrarySampleId={previewingLibrarySampleId}
+                selectedLibrarySample={selectedLibrarySample}
                 onUpdate={updateSelectedPad}
+                onPreviewLibrarySample={previewLibrarySample}
+                onSelectedLibrarySampleChange={setSelectedLibrarySample}
                 onMapToProjectScale={mapSelectedPadToProjectScale}
                 onEditSample={() => setSampleEditorOpen(true)}
                 onClear={clearSelectedPad}
@@ -808,14 +817,6 @@ export function App({ audioEngine }: AppProps) {
                         current === padId ? null : current,
                       )
                     }
-                  />
-                  <LibraryWorkspace
-                    audioReady={audioReady}
-                    busySampleId={loadingLibrarySampleId}
-                    previewingSampleId={previewingLibrarySampleId}
-                    selectedSample={selectedLibrarySample}
-                    onPreview={(sample) => void previewLibrarySample(sample)}
-                    onSelectedSampleChange={setSelectedLibrarySample}
                   />
                 </div>
               </div>

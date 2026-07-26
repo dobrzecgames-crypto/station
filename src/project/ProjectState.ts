@@ -5,15 +5,16 @@ import type { GroupPadReference } from '../audio/channelIdentity'
 import { defaultProjectKey, isNoteName, isScaleId } from '../music/scales'
 import type { ProjectKey } from '../music/scales'
 import { createEmptyChopSession, createPadBankState } from '../pads/padBank'
-import type { ChopSessionState, SampleSlice } from '../pads/types'
+import type { ChopSessionState, PadState, SampleSlice } from '../pads/types'
 import { clonePatternGroup, createGroupBusState, createInitialPatternGroups, ensurePatternGroupShifts } from '../patterns/patternOperations'
 import { maximumPatternGroups, patternVariantNames } from '../patterns/patternTypes'
 import type { PatternGroup, PatternVariantName } from '../patterns/patternTypes'
 import { validatePatternClipReferences } from '../song/songOperations'
 import type { PatternClip, TransportMode } from '../song/songTypes'
 
-export const projectSchemaVersion = 7
-export const previousProjectSchemaVersion = 6
+export const projectSchemaVersion = 8
+export const previousProjectSchemaVersion = 7
+export const v6ProjectSchemaVersion = 6
 export const v5ProjectSchemaVersion = 5
 export const v4ProjectSchemaVersion = 4
 export const v3ProjectSchemaVersion = 3
@@ -85,7 +86,7 @@ export function createProjectState(state: ProjectState): ProjectState {
 export function normalizeProjectState(state: ProjectState): ProjectState {
   const padIds = state.patternGroups[0]?.bank?.pads.map((pad) => pad.id)
   if (!padIds) throw new Error('Project has no Pattern Group bank.')
-  return createProjectState({ ...state, master: state.master ? { ...state.master } : { volume: 1, muted: false }, masterEffects: normalizeEffectRackState(state.masterEffects, 'master', createDefaultMasterEffectRack()), patternGroups: ensurePatternGroupShifts(state.patternGroups, padIds).map((group) => ({ ...group, bus: group.bus ? { ...group.bus } : createGroupBusState(), effects: normalizeEffectRackState(group.effects, group.id) })) })
+  return createProjectState({ ...state, master: state.master ? { ...state.master } : { volume: 1, muted: false }, masterEffects: normalizeEffectRackState(state.masterEffects, 'master', createDefaultMasterEffectRack()), patternGroups: ensurePatternGroupShifts(state.patternGroups, padIds).map((group) => ({ ...group, bank: { ...group.bank, pads: group.bank.pads.map(normalizePadEnvelope) }, bus: group.bus ? { ...group.bus } : createGroupBusState(), effects: normalizeEffectRackState(group.effects, group.id) })) })
 }
 
 export function migrateLegacyProjectState(legacy: { pads: ReturnType<typeof createPadBankState>['pads']; patterns?: unknown; [key: string]: unknown }): ProjectState {
@@ -148,6 +149,11 @@ export function migrateV6ProjectState(previous: { [key: string]: unknown }): Pro
   return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
 }
 
+/** v7 predates the per-pad AR fields; defaults reproduce the prior edge fades. */
+export function migrateV7ProjectState(previous: { [key: string]: unknown }): ProjectState {
+  return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
+}
+
 export function collectReferencedAssetIds(project: ProjectState): Set<SampleAssetId> {
   const ids = new Set<SampleAssetId>()
   for (const group of project.patternGroups) {
@@ -198,6 +204,8 @@ export function validateProjectState(project: ProjectState): string[] {
   for (const group of project.patternGroups) {
     for (const pad of group.bank?.pads ?? []) {
       if (pad.assetId && !assets.has(pad.assetId)) errors.push(`${group.name} ${pad.id} references a missing asset.`)
+      if (!Number.isFinite(pad.attackMs) || pad.attackMs < 0 || pad.attackMs > 250) errors.push(`${group.name} ${pad.id} has an invalid attack.`)
+      if (!Number.isFinite(pad.releaseMs) || pad.releaseMs < 4 || pad.releaseMs > 120) errors.push(`${group.name} ${pad.id} has an invalid release.`)
       if (pad.assetId || pad.region.startSeconds !== 0 || pad.region.endSeconds !== 0) validateRegion(pad.region.startSeconds, pad.region.endSeconds, pad.assetId ? assets.get(pad.assetId)?.durationSeconds : undefined, `${group.name} ${pad.id} region`, errors)
       validateSlices(pad.slices, assets, `${group.name} ${pad.id} slices`, errors)
     }
@@ -238,6 +246,17 @@ function isChopSessionState(value: unknown): value is ChopSessionState {
 
 function cloneChopSession(session: ChopSessionState): ChopSessionState {
   return { ...session, slices: session.slices.map((slice) => ({ ...slice })) }
+}
+
+function normalizePadEnvelope(pad: PadState): PadState {
+  // Only an absent field is migrated. A present malformed value remains for
+  // validation to reject rather than being silently changed on project load.
+  const legacyPad = pad as PadState & { attackMs?: unknown; releaseMs?: unknown }
+  return {
+    ...pad,
+    attackMs: legacyPad.attackMs === undefined ? 0 : legacyPad.attackMs as number,
+    releaseMs: legacyPad.releaseMs === undefined ? 4 : legacyPad.releaseMs as number,
+  }
 }
 
 function validateRegion(start: number, end: number, duration: number | undefined, label: string, errors: string[]): void {

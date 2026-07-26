@@ -23,6 +23,8 @@ export interface TriggerSampleOptions {
   pitchSemitones?: number
   startSeconds?: number
   endSeconds?: number
+  attackMs?: number
+  releaseMs?: number
 }
 
 export type PumpCurve = 'snap' | 'smooth' | 'swell'
@@ -320,12 +322,8 @@ export class AudioEngine {
     const region = this.toPlaybackRegion(sampleBuffer.duration, options.startSeconds, options.endSeconds)
     const voiceGain = this.toGain(options.gain)
     const outputDuration = region.durationSeconds / playbackRate
-    const fadeDuration = Math.min(0.004, outputDuration / 2)
     source.buffer = sampleBuffer
-    gain.gain.setValueAtTime(0, scheduledWhen)
-    gain.gain.linearRampToValueAtTime(voiceGain, scheduledWhen + fadeDuration)
-    gain.gain.setValueAtTime(voiceGain, scheduledWhen + Math.max(fadeDuration, outputDuration - fadeDuration))
-    gain.gain.linearRampToValueAtTime(0, scheduledWhen + outputDuration)
+    this.applyPadEnvelope(gain.gain, voiceGain, scheduledWhen, outputDuration, options.attackMs, options.releaseMs)
     source.playbackRate.setValueAtTime(playbackRate, scheduledWhen)
     source.connect(gain)
     gain.connect(channel.gain)
@@ -549,6 +547,26 @@ export class AudioEngine {
     const end = Math.min(sampleDuration, Math.max(start + minimumDuration, requestedEnd))
 
     return { startSeconds: start, durationSeconds: end - start }
+  }
+
+  /**
+   * AR is defined per voice, never on the shared channel gain. That lets a
+   * pad setting affect future triggers without rewriting voices already heard.
+   * The four-millisecond floor preserves the existing anti-click edge fade.
+   */
+  private applyPadEnvelope(gain: AudioParam, voiceGain: number, when: number, outputDuration: number, attackMs: number | undefined, releaseMs: number | undefined): void {
+    const minimumEdgeFadeSeconds = 0.004
+    const requestedAttackSeconds = Math.max(minimumEdgeFadeSeconds, this.toBoundedNumber(attackMs ?? 0, 0, 250, 0) / 1000)
+    const requestedReleaseSeconds = this.toBoundedNumber(releaseMs ?? 4, 4, 120, 4) / 1000
+    const durationScale = Math.min(1, outputDuration / (requestedAttackSeconds + requestedReleaseSeconds))
+    const attackSeconds = requestedAttackSeconds * durationScale
+    const releaseSeconds = requestedReleaseSeconds * durationScale
+    const releaseStartsAt = when + Math.max(attackSeconds, outputDuration - releaseSeconds)
+
+    gain.setValueAtTime(0, when)
+    gain.linearRampToValueAtTime(voiceGain, when + attackSeconds)
+    gain.setValueAtTime(voiceGain, releaseStartsAt)
+    gain.linearRampToValueAtTime(0, when + outputDuration)
   }
 
   private applyAllChannelGains(immediately = false): void {

@@ -50,6 +50,10 @@ export function createPadBank(): PadState[] {
     muted: false,
     solo: false,
     pitchSemitones: 0,
+    attackMs: 0,
+    // Matches the existing per-voice edge fade, preserving the sound of a new
+    // pad bank and of projects written before the AR envelope existed.
+    releaseMs: 4,
   }))
 }
 

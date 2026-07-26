@@ -31,6 +31,8 @@ export function mapPadBankToProjectScale(pads: readonly PadState[], sourcePadId:
       chopSessionId: null,
       volume: sourcePad.volume,
       pitchSemitones: pitchOffsets[index - sourceIndex],
+      attackMs: sourcePad.attackMs,
+      releaseMs: sourcePad.releaseMs,
     }),
     mappedPadCount: pads.length - sourceIndex,
   }

@@ -16,13 +16,21 @@ interface PadGridProps {
 }
 
 export function PadGrid({ pads, selectedPadId, activePadId, audioReady, dropSample = null, onTrigger, onDropSample = () => undefined, onFeedbackEnd }: PadGridProps) {
+  // The instrument follows the physical pad convention: PAD 01 starts in the
+  // lower-left corner. This is display order only; pad IDs and key bindings
+  // stay in their original, stable order for audio and saved patterns.
+  const displayPads = Array.from(
+    { length: Math.ceil(pads.length / 4) },
+    (_, row) => pads.slice(row * 4, (row + 1) * 4),
+  ).reverse().flat()
+
   return (
     <div className="pad-grid" aria-label="16 pad bank">
-      {pads.map((pad, index) => (
+      {displayPads.map((pad) => (
         <Pad
           key={pad.id}
           pad={pad}
-          keyLabel={padDefinitions[index].keyLabel}
+          keyLabel={padDefinitions.find((definition) => definition.id === pad.id)?.keyLabel ?? ''}
           isSelected={pad.id === selectedPadId}
           isActive={pad.id === activePadId}
           audioReady={audioReady}

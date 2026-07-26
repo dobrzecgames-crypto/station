@@ -78,7 +78,10 @@ function clearPadAssignment(pad: PadState): PadState {
 export function App({ audioEngine }: AppProps) {
   const [audioStatus, setAudioStatus] = useState<AudioEngineStatus>(audioEngine.getStatus())
   const [powerVisualPhase, setPowerVisualPhase] = useState<'off' | 'display' | 'on'>(audioEngine.getStatus() === 'ready' ? 'display' : 'off')
-  const [mainView, setMainView] = useState<MainView>('chop')
+  // A powered-on Station should present its playable surface first. CHOP has
+  // no useful empty state until a source is loaded, while the pad deck still
+  // reads immediately as an instrument.
+  const [mainView, setMainView] = useState<MainView>('pad')
   const [selectedPadId, setSelectedPadId] = useState<PadState['id']>('pad-01')
   const [activePadId, setActivePadId] = useState<PadState['id'] | null>(null)
   const [selectedLibrarySample, setSelectedLibrarySample] = useState<LibrarySample | null>(null)

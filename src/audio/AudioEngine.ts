@@ -25,6 +25,8 @@ export interface TriggerSampleOptions {
   endSeconds?: number
   attackMs?: number
   releaseMs?: number
+  /** Runtime-only sequencer key used to choke previous CHOP slices. */
+  chokeGroupId?: string
 }
 
 export type PumpCurve = 'snap' | 'smooth' | 'swell'
@@ -50,6 +52,8 @@ interface ActiveVoice {
   origin: 'manual' | 'sequencer' | 'preview'
   isSample: boolean
   startsAt: number
+  /** CHOP slices share this key so their sequenced triggers can be monophonic. */
+  chokeGroupId?: string
   stopAt?: number
   onEnded?: () => void
 }
@@ -317,7 +321,7 @@ export class AudioEngine {
     const source = this.context.createBufferSource()
     const gain = this.context.createGain()
     const scheduledWhen = Math.max(this.context.currentTime, when)
-    const voice: ActiveVoice = { source, gain, cleanedUp: false, origin, isSample: true, startsAt: scheduledWhen }
+    const voice: ActiveVoice = { source, gain, cleanedUp: false, origin, isSample: true, startsAt: scheduledWhen, chokeGroupId: options.chokeGroupId }
     const playbackRate = this.toPlaybackRate(options.pitchSemitones)
     const region = this.toPlaybackRegion(sampleBuffer.duration, options.startSeconds, options.endSeconds)
     const voiceGain = this.toGain(options.gain)
@@ -379,16 +383,18 @@ export class AudioEngine {
     }
   }
 
-  stopSequencerVoicesAt(when: number): void {
+  stopSequencerChokeGroupAt(chokeGroupId: string, when: number): void {
     if (!this.context) return
     const stopAt = Math.max(this.context.currentTime, when)
     for (const voice of this.activeVoices) {
-      if (voice.origin !== 'sequencer' || !voice.isSample || voice.startsAt > stopAt || (voice.stopAt !== undefined && voice.stopAt <= stopAt)) continue
+      // Voices scheduled for this exact timestamp are simultaneous events, not
+      // predecessors. Only an earlier slice in the same CHOP session is cut.
+      if (voice.origin !== 'sequencer' || !voice.isSample || voice.chokeGroupId !== chokeGroupId || voice.startsAt >= stopAt || (voice.stopAt !== undefined && voice.stopAt <= stopAt)) continue
       try {
         voice.source.stop(stopAt)
         voice.stopAt = stopAt
       } catch {
-        // A sequenced source may already have ended before the next step cuts it.
+        // A sequenced slice may already have ended before the next one starts.
       }
     }
   }

@@ -91,13 +91,14 @@ higher always wins.
 
 | Priority | Channel | Lifetime | Source today |
 | --- | --- | --- | --- |
-| 1 | **Error** | Until the next action succeeds | `errorMessage` |
+| 1 | **Error** | 2 s, then releases | `errorMessage` |
 | 2 | **Confirmation** | 4 s, then releases | `projectMessage` |
 | 3 | **Focus** *(proposed)* | While a control is held or focused | — |
 | 4 | **Readout** | Always, as the floor | `bpm` / `swing` |
 
-Errors outrank everything on purpose. A failure that a parameter readout can
-push off screen is a failure the user never learns about.
+Errors outrank everything on purpose while they are visible. They release after
+two seconds so a minor blocked action does not leave the instrument looking
+failed indefinitely.
 
 ## 4. Tone
 

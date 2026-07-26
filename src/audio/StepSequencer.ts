@@ -6,7 +6,6 @@ export interface StepSequencerConfig {
   metronomeEnabled: boolean
   mode: 'pattern' | 'song'
   loopSong: boolean
-  cutOnStepTrigger: boolean
   lastSongSlot: number | null
   getTracksForSlot: (slot: number) => readonly StepSequencerTrack[]
   onStepScheduled?: (stepIndex: number, scheduledTime: number, durationSeconds: number) => void
@@ -20,6 +19,8 @@ export interface StepSequencerTrack {
   assetId: SampleAssetId
   steps: readonly number[]
   shifts: readonly number[]
+  /** Slices from one CHOP session share a mono choke group. */
+  chokeGroupId?: string
   options: TriggerSampleOptions
 }
 
@@ -70,14 +71,11 @@ export class StepSequencer {
         const velocity = track.steps[this.nextStepIndex]
         if (velocity <= 0) return []
         const shift = track.shifts[this.nextStepIndex] ?? 0
-        return [{ track, velocity, shift }]
+        return [{ track, velocity, when: scheduledTime + shift * stepDuration }]
       })
-      if (config.cutOnStepTrigger && activeTracks.length > 0) {
-        const firstTriggerTime = Math.min(...activeTracks.map(({ shift }) => scheduledTime + shift * stepDuration))
-        this.audioEngine.stopSequencerVoicesAt(firstTriggerTime)
-      }
-      for (const { track, velocity, shift } of activeTracks) {
-        this.audioEngine.scheduleSample(track.groupId, track.channelId, track.assetId, scheduledTime + shift * stepDuration, { ...track.options, gain: (track.options.gain ?? 1) * velocity }, 'sequencer')
+      for (const { track, velocity, when } of activeTracks.sort((left, right) => left.when - right.when)) {
+        if (track.chokeGroupId) this.audioEngine.stopSequencerChokeGroupAt(track.chokeGroupId, when)
+        this.audioEngine.scheduleSample(track.groupId, track.channelId, track.assetId, when, { ...track.options, gain: (track.options.gain ?? 1) * velocity, chokeGroupId: track.chokeGroupId }, 'sequencer')
       }
       const wasLastStep = this.nextStepIndex === 15
       this.nextStepIndex = (this.nextStepIndex + 1) % 16

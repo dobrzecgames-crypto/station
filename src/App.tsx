@@ -141,15 +141,19 @@ export function App({ audioEngine }: AppProps) {
     ? sequencerPlayhead.stepIndex
     : null
 
-  // Confirmations clear themselves so the display falls back to the tempo
-  // readout; errors do not, because a message like "start audio first" has to
-  // wait to be read. Errors are cleared by the next action that succeeds - the
-  // handlers already call setErrorMessage(undefined) on the way in.
+  // Display messages are transient: the transport returns to its tempo
+  // readout without requiring a separate corrective action.
   useEffect(() => {
     if (!projectMessage) return
     const timer = window.setTimeout(() => setProjectMessage(undefined), 4000)
     return () => window.clearTimeout(timer)
   }, [projectMessage])
+
+  useEffect(() => {
+    if (!errorMessage) return
+    const timer = window.setTimeout(() => setErrorMessage(undefined), 2000)
+    return () => window.clearTimeout(timer)
+  }, [errorMessage])
 
   useEffect(() => {
     if (!transportNotice) return
@@ -185,7 +189,7 @@ export function App({ audioEngine }: AppProps) {
     return () => window.cancelAnimationFrame(frameId)
   }, [audioEngine, isPlaying, waveformPlayback])
 
-  const sequenceConfigRef = useRef<StepSequencerConfig>({ bpm, swing, metronomeEnabled: false, mode: 'pattern', loopSong: false, cutOnStepTrigger: false, lastSongSlot: null, getTracksForSlot: () => [] })
+  const sequenceConfigRef = useRef<StepSequencerConfig>({ bpm, swing, metronomeEnabled: false, mode: 'pattern', loopSong: false, lastSongSlot: null, getTracksForSlot: () => [] })
 
   sequenceConfigRef.current = {
     bpm,
@@ -193,14 +197,12 @@ export function App({ audioEngine }: AppProps) {
     metronomeEnabled,
     mode: transportMode,
     loopSong,
-    // ONE PAD AT A TIME is a live-pad gesture; sequenced voices overlap.
-    cutOnStepTrigger: false,
     lastSongSlot: getLastOccupiedSlot(playlist),
     getTracksForSlot: (slot) => {
       const variants = transportMode === 'song'
         ? getActiveClipsForSlot(playlist, slot).map((clip) => ({ group: patternGroups.find((group) => group.id === clip.patternGroupId), steps: getVariant(patternGroups, clip.patternGroupId, clip.variant), shifts: getVariantShifts(patternGroups, clip.patternGroupId, clip.variant) })).filter((pattern): pattern is { group: PatternGroup; steps: NonNullable<typeof pattern.steps>; shifts: NonNullable<typeof pattern.shifts> } => Boolean(pattern.group && pattern.steps && pattern.shifts))
         : [{ group: selectedGroup, steps: getVariant(patternGroups, selectedPatternGroupId, selectedPatternVariant), shifts: getVariantShifts(patternGroups, selectedPatternGroupId, selectedPatternVariant) }].filter((pattern): pattern is { group: PatternGroup; steps: NonNullable<typeof pattern.steps>; shifts: NonNullable<typeof pattern.shifts> } => Boolean(pattern.steps && pattern.shifts))
-      return variants.flatMap((pattern) => pattern.group.bank.pads.filter((pad): pad is PadState & { assetId: SampleAssetId } => pad.assetId !== null && audioEngine.hasSampleAsset(pad.assetId)).map<StepSequencerTrack>((pad) => ({ groupId: pattern.group.id, channelId: createChannelId({ patternGroupId: pattern.group.id, padId: pad.id }), assetId: pad.assetId, steps: pattern.steps[pad.id], shifts: pattern.shifts[pad.id], options: { pitchSemitones: pad.pitchSemitones, startSeconds: pad.region.startSeconds, endSeconds: pad.region.endSeconds, attackMs: pad.attackMs, releaseMs: pad.releaseMs } })))
+      return variants.flatMap((pattern) => pattern.group.bank.pads.filter((pad): pad is PadState & { assetId: SampleAssetId } => pad.assetId !== null && audioEngine.hasSampleAsset(pad.assetId)).map<StepSequencerTrack>((pad) => ({ groupId: pattern.group.id, channelId: createChannelId({ patternGroupId: pattern.group.id, padId: pad.id }), assetId: pad.assetId, steps: pattern.steps[pad.id], shifts: pattern.shifts[pad.id], chokeGroupId: pad.chopSessionId ?? undefined, options: { pitchSemitones: pad.pitchSemitones, startSeconds: pad.region.startSeconds, endSeconds: pad.region.endSeconds, attackMs: pad.attackMs, releaseMs: pad.releaseMs } })))
     },
     onSongSlotChange: setPlayingSongSlot,
     onSongComplete: () => { setIsPlaying(false); setPlayingSongSlot(null); setSequencerPlayhead(null) },

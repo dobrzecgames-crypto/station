@@ -50,6 +50,8 @@ interface FxContext { scope: 'group' | 'master'; slotIndex: 0 | 1 }
 interface WaveformPlayback { assetId: SampleAssetId; startedAt: number; startSeconds: number; endSeconds: number }
 interface SequencerPlayhead { stepIndex: number; startsAt: number; durationSeconds: number }
 
+const emptySongPlaylistNotice = 'Add at least one Pattern Clip before playing SONG.'
+
 function createRuntimeId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
 
@@ -75,6 +77,7 @@ function clearPadAssignment(pad: PadState): PadState {
 
 export function App({ audioEngine }: AppProps) {
   const [audioStatus, setAudioStatus] = useState<AudioEngineStatus>(audioEngine.getStatus())
+  const [powerVisualPhase, setPowerVisualPhase] = useState<'off' | 'display' | 'on'>(audioEngine.getStatus() === 'ready' ? 'display' : 'off')
   const [mainView, setMainView] = useState<MainView>('chop')
   const [selectedPadId, setSelectedPadId] = useState<PadState['id']>('pad-01')
   const [activePadId, setActivePadId] = useState<PadState['id'] | null>(null)
@@ -111,6 +114,7 @@ export function App({ audioEngine }: AppProps) {
   const [cutOnPadTrigger, setCutOnPadTrigger] = useState(true)
   const [loadingChopTestId, setLoadingChopTestId] = useState<string | null>(null)
   const [projectMessage, setProjectMessage] = useState<string>()
+  const [transportNotice, setTransportNotice] = useState<string>()
   const [projectBusy, setProjectBusy] = useState(false)
   const [projectKey, setProjectKey] = useState<ProjectKey>(defaultProjectKey)
   const [loadingLibrarySampleId, setLoadingLibrarySampleId] = useState<string | null>(null)
@@ -125,6 +129,7 @@ export function App({ audioEngine }: AppProps) {
   const chopSession = selectedGroup.bank.chopSession
   const selectedPad = pads.find((pad) => pad.id === selectedPadId)!
   const audioReady = audioStatus === 'ready'
+  const controlsAwake = audioReady && powerVisualPhase === 'on'
   const selectedPeaks = selectedPad.assetId ? waveforms[selectedPad.assetId] ?? [] : []
   const waveformPlayheadSeconds = waveformPlayback && visualAudioTime >= waveformPlayback.startedAt && visualAudioTime <= waveformPlayback.startedAt + waveformPlayback.endSeconds - waveformPlayback.startSeconds
     ? waveformPlayback.startSeconds + visualAudioTime - waveformPlayback.startedAt
@@ -142,6 +147,20 @@ export function App({ audioEngine }: AppProps) {
     const timer = window.setTimeout(() => setProjectMessage(undefined), 4000)
     return () => window.clearTimeout(timer)
   }, [projectMessage])
+
+  useEffect(() => {
+    if (!transportNotice) return
+    const timer = window.setTimeout(() => setTransportNotice(undefined), 2000)
+    return () => window.clearTimeout(timer)
+  }, [transportNotice])
+
+  // This is only the console's visual power-up sequence. Web Audio is ready
+  // before the phase changes, and neither playback nor scheduling reads it.
+  useEffect(() => {
+    if (!audioReady) { setPowerVisualPhase('off'); return }
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setPowerVisualPhase('on'); return }
+    setPowerVisualPhase('display')
+  }, [audioReady])
 
   useEffect(() => {
     if (!chopSession.assetId) return
@@ -655,7 +674,7 @@ export function App({ audioEngine }: AppProps) {
   const startPlayback = () => {
     if (isPlaying) return
     if (!audioReady) { setErrorMessage('Start audio before playing the sequencer.'); return }
-    if (transportMode === 'song' && playlist.length === 0) { setErrorMessage('Add at least one Pattern Clip before playing SONG.'); return }
+    if (transportMode === 'song' && playlist.length === 0) { setTransportNotice(emptySongPlaylistNotice); return }
     if (sequenceConfigRef.current.getTracksForSlot(transportMode === 'song' ? 1 : 1).length === 0 && !pads.some((pad) => pad.assetId && audioEngine.hasSampleAsset(pad.assetId)) && !metronomeEnabled) { setErrorMessage('Load a sample onto a pad or enable METRONOME first.'); return }
     sequencerRef.current.start(() => sequenceConfigRef.current)
     setIsPlaying(true)
@@ -684,7 +703,15 @@ export function App({ audioEngine }: AppProps) {
   }
   return (
     <SystemDisplayProvider api={displayApi}>
-    <main className="station-shell" data-view={mainView} data-powered={audioReady ? 'on' : 'off'}>
+    <main
+      className="station-shell"
+      data-view={mainView}
+      data-powered={audioReady ? 'on' : 'off'}
+      data-power-phase={powerVisualPhase}
+      onAnimationEnd={(event) => {
+        if (event.animationName === 'system-display-power-on' && audioReady) setPowerVisualPhase('on')
+      }}
+    >
       <section className="station-panel" aria-labelledby="station-title">
         <header className="station-header">
           <div className="station-branding">
@@ -706,11 +733,12 @@ export function App({ audioEngine }: AppProps) {
               loopSong={loopSong}
               metronomeEnabled={metronomeEnabled}
               settingsOpen={transportSettingsOpen}
-              statusMessage={projectMessage}
+              statusMessage={transportNotice ?? projectMessage}
               errorMessage={errorMessage}
               displayOwner={displayOwner}
               audioStatus={audioStatus}
               audioDisabled={audioStatus === 'starting' || projectBusy}
+              controlsAwake={controlsAwake}
               onStartAudio={() => void startAudio()}
               onSettingsOpenChange={setTransportSettingsOpen}
               groups={patternGroups}
@@ -744,7 +772,7 @@ export function App({ audioEngine }: AppProps) {
               pads={pads}
               selectedPadId={selectedPadId}
               activePadId={activePadId}
-              audioReady={audioReady}
+              audioReady={controlsAwake}
               sourceFileName={chopSession.fileName}
               sourceDurationSeconds={chopSession.durationSeconds}
               peaks={

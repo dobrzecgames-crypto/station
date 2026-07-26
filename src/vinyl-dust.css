@@ -160,6 +160,8 @@ select, textarea {
 
 /* The display is a smoke-blue LCD glass: blue-violet, never turquoise. */
 .system-display {
+  isolation: isolate;
+  overflow: hidden;
   --display-light: 167 167 209;
   --display-bloom: 12%;
   border-color: #434b68;
@@ -404,15 +406,143 @@ select, textarea {
 output { color: var(--station-text); }
 .eyebrow, .group-selector strong { color: var(--workspace-accent); }
 
-/* The unpowered machine is visibly dormant, but still made from the same
-   materials; it should not snap back to the previous green-grey skin. */
-.station-shell[data-powered='off'] .system-power-switch {
-  border-color: #786257;
-  background: linear-gradient(180deg, #4a3f3f 0%, #30292c 48%, #18161c 100%);
-  box-shadow: inset 0 1px 0 rgb(255 239 220 / 12%), inset 0 -2px 4px rgb(0 0 0 / 58%), 0 2px 0 #07080c;
+/* Power is a real AudioContext lifecycle state, not an animation state. Before
+   it is ready the instrument is deliberately colourless; when it becomes ready,
+   the display comes up first and the rest of the machine follows. CSS only
+   renders that state change and never participates in audio timing. */
+.station-shell[data-power-phase='off'],
+.station-shell[data-power-phase='display'] {
+  background:
+    radial-gradient(110% 62% at 50% -12%, rgb(145 145 145 / 9%), transparent 64%),
+    linear-gradient(160deg, #111214 0%, #090a0c 58%, #070809 100%);
 }
-.station-shell[data-powered='off'] .system-display {
-  border-color: #2b414a;
+.station-shell[data-power-phase='off'] .station-panel,
+.station-shell[data-power-phase='display'] .station-panel {
+  border-color: #454649;
+  background:
+    radial-gradient(120% 50% at 52% -8%, rgb(255 255 255 / 3%), transparent 62%),
+    linear-gradient(180deg, #1a1b1d 0%, #111214 42%, #0b0c0d 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 7%),
+    inset 0 -1px 0 rgb(0 0 0 / 66%),
+    0 3px 0 #06070b,
+    0 18px 36px rgb(0 0 0 / 46%);
+}
+.station-shell[data-power-phase='off'] .station-branding,
+.station-shell[data-power-phase='off'] .main-navigation,
+.station-shell[data-power-phase='off'] .music-context,
+.station-shell[data-power-phase='off'] .station-workspace,
+.station-shell[data-power-phase='off'] .transport-controls > :not(.system-display),
+.station-shell[data-power-phase='display'] .station-branding,
+.station-shell[data-power-phase='display'] .main-navigation,
+.station-shell[data-power-phase='display'] .music-context,
+.station-shell[data-power-phase='display'] .station-workspace,
+.station-shell[data-power-phase='display'] .transport-controls > :not(.system-display) {
+  filter: grayscale(1) saturate(0) brightness(.56);
+  opacity: .36;
+}
+.station-shell[data-power-phase='off'] .transport-icon-button,
+.station-shell[data-power-phase='off'] .transport-modes,
+.station-shell[data-power-phase='off'] .variant-selector,
+.station-shell[data-power-phase='display'] .transport-icon-button,
+.station-shell[data-power-phase='display'] .transport-modes,
+.station-shell[data-power-phase='display'] .variant-selector {
+  filter: grayscale(1) saturate(0) brightness(.56);
+  opacity: .36;
+}
+.station-shell[data-power-phase='off'] .system-display {
+  filter: grayscale(1) saturate(0) brightness(.54);
+}
+.station-shell[data-power-phase='off'] .transport-controls > .system-power-switch:has(.status-error),
+.station-shell[data-power-phase='display'] .transport-controls > .system-power-switch:has(.status-error) {
+  filter: none;
+}
+
+/* The display has its own contained wake-up. It never casts a staged effect
+   onto neighbouring transport controls. */
+@keyframes system-display-power-on {
+  from { filter: grayscale(1) saturate(0) brightness(.54); }
+  to { filter: none; }
+}
+@keyframes station-controls-power-on {
+  from { filter: grayscale(1) saturate(0) brightness(.56); opacity: .36; }
+  to { filter: none; opacity: 1; }
+}
+@keyframes station-shell-power-on {
+  from {
+    background:
+      radial-gradient(110% 62% at 50% -12%, rgb(145 145 145 / 9%), transparent 64%),
+      linear-gradient(160deg, #111214 0%, #090a0c 58%, #070809 100%);
+  }
+  to {
+    background:
+      radial-gradient(110% 62% at 50% -12%, rgb(55 47 73 / 34%), transparent 64%),
+      linear-gradient(160deg, #10101a 0%, #090a11 58%, #08090e 100%);
+  }
+}
+@keyframes station-panel-power-on {
+  from {
+    border-color: #454649;
+    background:
+      radial-gradient(120% 50% at 52% -8%, rgb(255 255 255 / 3%), transparent 62%),
+      linear-gradient(180deg, #1a1b1d 0%, #111214 42%, #0b0c0d 100%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 7%),
+      inset 0 -1px 0 rgb(0 0 0 / 66%),
+      0 3px 0 #06070b,
+      0 18px 36px rgb(0 0 0 / 46%);
+  }
+  to {
+    border-color: #4a4553;
+    background:
+      radial-gradient(120% 50% at 52% -8%, rgb(173 169 210 / 5%), transparent 62%),
+      linear-gradient(180deg, #181722 0%, var(--scene-chassis) 42%, #0b0c13 100%);
+    box-shadow:
+      inset 0 1px 0 rgb(221 217 255 / 9%),
+      inset 0 -1px 0 rgb(0 0 0 / 66%),
+      0 3px 0 #06070b,
+      0 18px 36px rgb(0 0 0 / 46%);
+  }
+}
+
+/* The display finishes first. Only then does one common, faster wake-up bring
+   back the rest of the chassis and its controls. */
+.station-shell[data-power-phase='display'] .system-display {
+  animation: system-display-power-on 1500ms cubic-bezier(.18, .78, .2, 1) both;
+}
+.station-shell[data-power-phase='on'] {
+  animation: station-shell-power-on 640ms cubic-bezier(.18, .78, .2, 1) both;
+}
+.station-shell[data-power-phase='on'] .station-panel {
+  animation: station-panel-power-on 640ms cubic-bezier(.18, .78, .2, 1) both;
+}
+.station-shell[data-power-phase='on'] .transport-controls > :not(.system-display),
+.station-shell[data-power-phase='on'] .station-branding,
+.station-shell[data-power-phase='on'] .main-navigation,
+.station-shell[data-power-phase='on'] .music-context,
+.station-shell[data-power-phase='on'] .station-workspace,
+.station-shell[data-power-phase='on'] .transport-icon-button,
+.station-shell[data-power-phase='on'] .transport-modes,
+.station-shell[data-power-phase='on'] .variant-selector {
+  animation: station-controls-power-on 640ms cubic-bezier(.18, .78, .2, 1) both;
+}
+
+/* Starting stays physically unlit. Errors retain their fixed status colour,
+   because a real failure must remain legible. */
+.station-shell[data-power-phase='off'] .system-power-switch .status-starting,
+.station-shell[data-power-phase='display'] .system-power-switch .status-starting {
+  background: #626262;
+  box-shadow: inset 0 1px 1px rgb(255 255 255 / 10%), 0 0 0 1px rgb(0 0 0 / 45%);
+}
+.station-shell[data-power-phase='off'] .system-power-switch,
+.station-shell[data-power-phase='display'] .system-power-switch {
+  border-color: #55575a;
+  background: linear-gradient(180deg, #45474a 0%, #2c2e30 48%, #17181a 100%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 10%), inset 0 -2px 4px rgb(0 0 0 / 58%), 0 2px 0 #07080c;
+}
+.station-shell[data-power-phase='off'] .system-display,
+.station-shell[data-power-phase='display'] .system-display {
+  border-color: #34373a;
   background-color: var(--station-recess);
 }
 
@@ -423,6 +553,16 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mixer-toggle, .main-nav-button, .group-strip-button, .transport-button,
-  .effect-slot-button, .effect-slot-card, .pad, .step { transition: none; }
+  .station-shell[data-power-phase='display'] .system-display,
+  .station-shell[data-power-phase='on'], .station-shell[data-power-phase='on'] .station-panel,
+  .station-shell[data-power-phase='on'] .station-branding,
+  .station-shell[data-power-phase='on'] .main-navigation,
+  .station-shell[data-power-phase='on'] .music-context,
+  .station-shell[data-power-phase='on'] .station-workspace,
+  .station-shell[data-power-phase='on'] .transport-icon-button,
+  .station-shell[data-power-phase='on'] .transport-modes,
+  .station-shell[data-power-phase='on'] .variant-selector,
+  .station-shell[data-power-phase='on'] .transport-controls > :not(.system-display) {
+    animation: none;
+  }
 }

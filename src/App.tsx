@@ -76,6 +76,7 @@ function clearPadAssignment(pad: PadState): PadState {
 
 export function App({ audioEngine }: AppProps) {
   const [audioStatus, setAudioStatus] = useState<AudioEngineStatus>(audioEngine.getStatus())
+  const [powerVisualPhase, setPowerVisualPhase] = useState<'off' | 'display' | 'on'>(audioEngine.getStatus() === 'ready' ? 'display' : 'off')
   const [mainView, setMainView] = useState<MainView>('chop')
   const [selectedPadId, setSelectedPadId] = useState<PadState['id']>('pad-01')
   const [activePadId, setActivePadId] = useState<PadState['id'] | null>(null)
@@ -126,6 +127,12 @@ export function App({ audioEngine }: AppProps) {
   const chopSession = selectedGroup.bank.chopSession
   const selectedPad = pads.find((pad) => pad.id === selectedPadId)!
   const audioReady = audioStatus === 'ready'
+  const controlsAwake = audioReady && powerVisualPhase === 'on'
+  useEffect(() => {
+    if (!audioReady) { setPowerVisualPhase('off'); return }
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setPowerVisualPhase('on'); return }
+    setPowerVisualPhase('display')
+  }, [audioReady])
   const selectedPeaks = selectedPad.assetId ? waveforms[selectedPad.assetId] ?? [] : []
   const waveformPlayheadSeconds = waveformPlayback && visualAudioTime >= waveformPlayback.startedAt && visualAudioTime <= waveformPlayback.startedAt + waveformPlayback.endSeconds - waveformPlayback.startSeconds
     ? waveformPlayback.startSeconds + visualAudioTime - waveformPlayback.startedAt
@@ -681,7 +688,15 @@ export function App({ audioEngine }: AppProps) {
   }
   return (
     <SystemDisplayProvider api={displayApi}>
-    <main className="station-shell" data-view={mainView} data-powered={audioReady ? 'on' : 'off'}>
+    <main
+      className="station-shell"
+      data-view={mainView}
+      data-powered={audioReady ? 'on' : 'off'}
+      data-power-phase={powerVisualPhase}
+      onAnimationEnd={(event) => {
+        if (event.animationName === 'system-display-power-on' && audioReady) setPowerVisualPhase('on')
+      }}
+    >
       <section className="station-panel" aria-labelledby="station-title">
         <header className="station-header">
           <div className="station-branding">
@@ -690,9 +705,9 @@ export function App({ audioEngine }: AppProps) {
           </div>
           <div className="header-transport-slot">
             <div className="header-secondary-row" hidden>
-              <button className="header-audio-button" type="button" onClick={() => void startAudio()} disabled={audioStatus === "starting" || projectBusy}>
+              <button className="header-audio-button" type="button" onClick={() => void startAudio()} disabled={audioStatus === "starting" || projectBusy} aria-busy={audioStatus === "starting"}>
                 <span className={`status-dot status-${audioStatus}`} aria-hidden="true" />
-                {audioReady ? "AUDIO ON" : audioStatus === "starting" ? "STARTING…" : "START AUDIO"}
+                {audioReady ? "AUDIO ON" : "START AUDIO"}
               </button>
             </div>
             <TransportBar
@@ -708,6 +723,7 @@ export function App({ audioEngine }: AppProps) {
               displayOwner={displayOwner}
               audioStatus={audioStatus}
               audioDisabled={audioStatus === 'starting' || projectBusy}
+              controlsAwake={controlsAwake}
               onStartAudio={() => void startAudio()}
               onSettingsOpenChange={setTransportSettingsOpen}
               groups={patternGroups}
@@ -741,7 +757,7 @@ export function App({ audioEngine }: AppProps) {
               pads={pads}
               selectedPadId={selectedPadId}
               activePadId={activePadId}
-              audioReady={audioReady}
+              audioReady={controlsAwake}
               sourceFileName={chopSession.fileName}
               sourceDurationSeconds={chopSession.durationSeconds}
               peaks={

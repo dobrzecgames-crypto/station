@@ -25,6 +25,8 @@ interface TransportBarProps {
   displayOwner: DisplayTenant | null
   audioStatus: AudioEngineStatus
   audioDisabled: boolean
+  /** Audio may already be ready while the display finishes the visual wake-up. */
+  controlsAwake: boolean
   onStartAudio: () => void
   onSettingsOpenChange: (open: boolean) => void
   groups: readonly PatternGroup[]
@@ -47,7 +49,7 @@ interface TransportBarProps {
   onStop: () => void
 }
 
-export function TransportBar({ bpm, swing, isPlaying, mode, loopSong, metronomeEnabled, settingsOpen, onSettingsOpenChange, groups, selectedGroupId, selectedVariant, statusMessage, errorMessage, displayOwner, audioStatus, audioDisabled, onStartAudio, onBpmChange, onSwingChange, onModeChange, onLoopSongChange, onMetronomeEnabledChange, onGroupChange, onVariantChange, onGroupCreate, onVariantCreate, onVariantDuplicate, onVariantClear, onGroupDelete, onPlay, onStop }: TransportBarProps) {
+export function TransportBar({ bpm, swing, isPlaying, mode, loopSong, metronomeEnabled, settingsOpen, onSettingsOpenChange, groups, selectedGroupId, selectedVariant, statusMessage, errorMessage, displayOwner, audioStatus, audioDisabled, controlsAwake, onStartAudio, onBpmChange, onSwingChange, onModeChange, onLoopSongChange, onMetronomeEnabledChange, onGroupChange, onVariantChange, onGroupCreate, onVariantCreate, onVariantDuplicate, onVariantClear, onGroupDelete, onPlay, onStop }: TransportBarProps) {
   const groupIndex = groups.findIndex((group) => group.id === selectedGroupId)
   const selectedGroup = groups[groupIndex]
   const { claim, release, ownerId } = useSystemDisplay()
@@ -83,16 +85,17 @@ export function TransportBar({ bpm, swing, isPlaying, mode, loopSong, metronomeE
         className="system-power-switch"
         type="button"
         disabled={audioDisabled}
+        aria-busy={audioStatus === 'starting'}
         aria-label={audioStatus === 'ready' ? 'Audio on' : audioStatus === 'starting' ? 'Starting audio' : 'Start audio'}
         onClick={onStartAudio}
       >
         <span className={`status-dot status-${audioStatus}`} aria-hidden="true" />
-        <span className="system-power-label">{audioStatus === 'ready' ? 'ON' : audioStatus === 'starting' ? '...' : 'OFF'}</span>
+        <span className="system-power-label">{audioStatus === 'ready' ? 'ON' : 'OFF'}</span>
       </button>
-      <button className="transport-button transport-icon-button" type="button" disabled={isPlaying} aria-label="Play" onClick={onPlay}>▶</button>
+      <button className="transport-button transport-icon-button" type="button" disabled={!controlsAwake || isPlaying} aria-label="Play" onClick={onPlay}>▶</button>
       <button className="mixer-toggle transport-icon-button transport-stop-button" type="button" disabled={!isPlaying} aria-label="Stop" onClick={onStop} />
       <button className="mixer-toggle transport-icon-button transport-record-button" type="button" disabled aria-label="Record unavailable" title="Recording will be added in a future version" />
-      <div className="transport-modes" aria-label="Transport mode"><button className={mode === 'pattern' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" onClick={() => onModeChange('pattern')}>PATTERN</button><button className={mode === 'song' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" onClick={() => onModeChange('song')}>SONG</button></div>
+      <div className="transport-modes" aria-label="Transport mode"><button className={mode === 'pattern' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" disabled={!controlsAwake} onClick={() => onModeChange('pattern')}>PATTERN</button><button className={mode === 'song' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" disabled={!controlsAwake} onClick={() => onModeChange('song')}>SONG</button></div>
       {/* The system display. Every message in the app lands here rather than in
           whichever panel raised it, so there is one place to look. The panel is
           a slot, and tempo is only its floor: any context can claim it, and
@@ -143,6 +146,7 @@ export function TransportBar({ bpm, swing, isPlaying, mode, loopSong, metronomeE
             type="button"
             aria-pressed={selectedVariant === variant}
             aria-label={exists ? `Pattern ${variant}` : `Create pattern ${variant}`}
+            disabled={!controlsAwake}
             onClick={() => exists ? onVariantChange(variant) : onVariantCreate(variant)}
           >{variant}</button>
         })}

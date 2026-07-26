@@ -51,11 +51,25 @@ interface FxContext { scope: 'group' | 'master'; slotIndex: 0 | 1 }
 interface WaveformPlayback { assetId: SampleAssetId; startedAt: number; startSeconds: number; endSeconds: number }
 interface SequencerPlayhead { stepIndex: number; startsAt: number; durationSeconds: number }
 
-function createAssetId(scope: string): SampleAssetId { return `asset-${scope}-${crypto.randomUUID()}` }
-function createSliceId(scope: string): string { return `slice-${scope}-${crypto.randomUUID()}` }
-function createChopSessionId(): string { return `chop-session-${crypto.randomUUID()}` }
-function createPatternGroupId(): string { return `pattern-group-${crypto.randomUUID()}` }
-function createPatternClipId(): string { return `pattern-clip-${crypto.randomUUID()}` }
+function createRuntimeId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
+
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    const bytes = crypto.getRandomValues(new Uint8Array(16))
+    bytes[6] = (bytes[6] & 0x0f) | 0x40
+    bytes[8] = (bytes[8] & 0x3f) | 0x80
+    const hex = [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+  }
+
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+}
+
+function createAssetId(scope: string): SampleAssetId { return `asset-${scope}-${createRuntimeId()}` }
+function createSliceId(scope: string): string { return `slice-${scope}-${createRuntimeId()}` }
+function createChopSessionId(): string { return `chop-session-${createRuntimeId()}` }
+function createPatternGroupId(): string { return `pattern-group-${createRuntimeId()}` }
+function createPatternClipId(): string { return `pattern-clip-${createRuntimeId()}` }
 function clearPadAssignment(pad: PadState): PadState {
   return { ...pad, assetId: null, fileName: null, durationSeconds: null, region: { startSeconds: 0, endSeconds: 0 }, slices: [], chopSessionId: null }
 }
@@ -667,7 +681,7 @@ export function App({ audioEngine }: AppProps) {
   }
   return (
     <SystemDisplayProvider api={displayApi}>
-    <main className="station-shell" data-view={mainView}>
+    <main className="station-shell" data-view={mainView} data-powered={audioReady ? 'on' : 'off'}>
       <section className="station-panel" aria-labelledby="station-title">
         <header className="station-header">
           <div className="station-branding">
@@ -675,7 +689,7 @@ export function App({ audioEngine }: AppProps) {
             <h1 id="station-title">STATION</h1>
           </div>
           <div className="header-transport-slot">
-            <div className="header-secondary-row">
+            <div className="header-secondary-row" hidden>
               <button className="header-audio-button" type="button" onClick={() => void startAudio()} disabled={audioStatus === "starting" || projectBusy}>
                 <span className={`status-dot status-${audioStatus}`} aria-hidden="true" />
                 {audioReady ? "AUDIO ON" : audioStatus === "starting" ? "STARTING…" : "START AUDIO"}
@@ -692,6 +706,9 @@ export function App({ audioEngine }: AppProps) {
               statusMessage={projectMessage}
               errorMessage={errorMessage}
               displayOwner={displayOwner}
+              audioStatus={audioStatus}
+              audioDisabled={audioStatus === 'starting' || projectBusy}
+              onStartAudio={() => void startAudio()}
               onSettingsOpenChange={setTransportSettingsOpen}
               groups={patternGroups}
               selectedGroupId={selectedPatternGroupId}
@@ -855,6 +872,8 @@ export function App({ audioEngine }: AppProps) {
             <>
               <MixDisplayReadout />
               <Mixer
+                audioEngine={audioEngine}
+                patternGroupId={selectedPatternGroupId}
                 pads={pads}
                 pumpSourceId={selectedPumpSourceId}
                 pumpTargets={selectedPumpTargets}

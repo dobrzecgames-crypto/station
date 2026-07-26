@@ -53,18 +53,51 @@
 }
 
 :root {
-  color: #e8eae4;
-  background: #0d0e0e;
+  color: #eee4d6;
+  background: #0b0c14;
   font-family: "Inter", "Segoe UI Variable", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   --station-display-font: "Rajdhani", "Bahnschrift", "Arial Narrow", "Segoe UI", sans-serif;
   /* Anything that is a measurement is mono - it is what stops columns of numbers
      jittering as values change. */
   --station-mono-font: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
-  --station-panel: #17191a;
-  --station-surface: #202325;
-  --station-line: #4b5252;
-  --station-cyan: #c2c8c1;
-  --station-phosphor: #b5c776;
+  /* Vinyl Dust: cool, nocturnal chassis; warm musical controls; blue is a
+     strictly technical signal rather than a second accent system. */
+  --station-bg: #0b0c14;
+  --station-panel: #181720;
+  --station-card: #221e22;
+  --station-raised: #2b2527;
+  --station-recess: #090a10;
+  --station-surface: var(--station-raised);
+  --station-line: #443b3d;
+  --station-line-strong: #67554e;
+  --station-text: #eee4d6;
+  --station-text-muted: #c8bcae;
+  --station-text-disabled: #5d5657;
+  --accent-terracotta: #c86f50;
+  --accent-terracotta-pressed: #9f4937;
+  --accent-gold: #b99a62;
+  --accent-gold-light: #d3b77e;
+  --signal-blue: #83bed2;
+  --signal-blue-bright: #b5e0eb;
+  --signal-blue-dim: #426b7a;
+
+  /* Vinyl Dust Color Bible: semantic roles used by the final UI layer. */
+  --scene-void: var(--station-bg);
+  --scene-sky: #201b2b;
+  --scene-chassis: #101019;
+  --scene-panel: var(--station-panel);
+  --scene-card: var(--station-card);
+  --scene-control: var(--station-raised);
+  --scene-recess: var(--station-recess);
+  --scene-line: var(--station-line);
+  --scene-line-strong: var(--station-line-strong);
+  --action-accent: var(--accent-terracotta);
+  --action-pressed: var(--accent-terracotta-pressed);
+  --loaded-accent: var(--accent-gold);
+  --signal-accent: var(--signal-blue);
+  --signal-focus: var(--signal-blue-bright);
+  --station-cyan: var(--signal-blue);
+  --station-phosphor: var(--signal-blue);
 
   /* ---- Lab Interface palette (docs/DESIGN_SYSTEM.md) ----
      Two colour systems run side by side and must not be mixed: the module
@@ -74,23 +107,24 @@
 
   /* Module accents. Only ever read through --station-accent, which the shell
      switches on [data-view]; components must not reference these directly. */
-  --accent-library: #6fa8a3;
-  --accent-chop: #c69a62;
-  --accent-pads: #b6c879;
-  --accent-seq: #8f86b8;
-  --accent-song: #b77878;
-  --accent-mix: #6e91a6;
+  --accent-library: #b99a62;
+  --accent-chop: #a5769d;
+  --accent-pads: #c69b61;
+  --accent-seq: #9a88c3;
+  --accent-song: #b07085;
+  --accent-mix: #78a1b2;
   /* PROJECT is a settings surface, not a seventh instrument - desaturated so it
      reads as system chrome. */
-  --accent-project: #8a9490;
+  --accent-project: #9aa5af;
 
   /* Status. Fixed across every module. --station-amber is the old name for the
      warning slot and stays warm everywhere, which is why the audio lamp does not
      turn violet in SEQ. */
-  --status-active: #b5c776;
-  --status-inactive: #555e5d;
-  --status-warning: #c69a62;
-  --status-recording: #b77878;
+  --status-active: var(--signal-blue);
+  --status-inactive: #5b565b;
+  --status-warning: #d4a563;
+  --status-recording: #cf5450;
+  --status-error: #dd625c;
   --station-amber: var(--status-warning);
   /* Station renders its phone layout at every window size - this is the width
      the app is capped to, so a desktop window shows a centred phone column. */
@@ -106,7 +140,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
-  background: #0d0e0e;
+  background: var(--station-bg);
 }
 
 button,
@@ -120,6 +154,6 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 3px solid var(--station-accent);
+  outline: 2px solid var(--signal-blue-bright);
   outline-offset: 3px;
 }

@@ -1,8 +1,13 @@
 import { useState } from 'react'
+import type { AudioEngine } from '../audio/AudioEngine'
+import { createChannelId } from '../audio/channelIdentity'
 import type { PadState } from '../pads/types'
+import { ChannelMeter } from './ChannelMeter'
 import './mixer.css'
 
 interface MixerProps {
+  audioEngine: AudioEngine
+  patternGroupId: string
   pads: readonly PadState[]
   pumpSourceId: string | null
   pumpTargets: readonly string[]
@@ -11,7 +16,7 @@ interface MixerProps {
   onSoloChange: (padId: PadState['id'], solo: boolean) => void
 }
 
-export function Mixer({ pads, pumpSourceId, pumpTargets, onVolumeChange, onMutedChange, onSoloChange }: MixerProps) {
+export function Mixer({ audioEngine, patternGroupId, pads, pumpSourceId, pumpTargets, onVolumeChange, onMutedChange, onSoloChange }: MixerProps) {
   const channelsPerPage = 4
   const pageCount = Math.ceil(pads.length / channelsPerPage)
   const [pageIndex, setPageIndex] = useState(0)
@@ -41,6 +46,10 @@ export function Mixer({ pads, pumpSourceId, pumpTargets, onVolumeChange, onMuted
           })}
         </div>
       </div>
+      <div className="mixer-meter-legend" aria-hidden="true">
+        <span>LEVEL / dBFS</span>
+        <span>0 · −12 · −24 · −48</span>
+      </div>
       <div className="mixer-strips">
         {visiblePads.map((pad) => {
           const isPumpSource = pumpSourceId === pad.id
@@ -58,8 +67,15 @@ export function Mixer({ pads, pumpSourceId, pumpTargets, onVolumeChange, onMuted
                 aria-hidden={!isPumpSource && !isPumpTarget}
                 aria-label={isPumpSource ? 'Pump source' : isPumpTarget ? 'Pump target' : undefined}
               />
-              <div className="mixer-strip-fader">
-                <input aria-label={`${pad.label} volume`} type="range" min="0" max="1" step="0.01" value={pad.volume} onChange={(event) => onVolumeChange(pad.id, Number(event.target.value))} />
+              <div className="mixer-strip-level">
+                <ChannelMeter
+                  audioEngine={audioEngine}
+                  channelId={createChannelId({ patternGroupId, padId: pad.id })}
+                  label={pad.label}
+                />
+                <div className="mixer-strip-fader">
+                  <input aria-label={`${pad.label} volume`} type="range" min="0" max="1" step="0.01" value={pad.volume} onChange={(event) => onVolumeChange(pad.id, Number(event.target.value))} />
+                </div>
               </div>
               <output>{pad.volume.toFixed(2)}</output>
               <div className="mixer-strip-buttons">

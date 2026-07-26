@@ -1,0 +1,428 @@
+/* Vinyl Dust is the final visual layer. It intentionally has no structural or
+   behavioural rules: the instrument works exactly as before, with a more
+   deliberate hierarchy of material, light and colour. */
+
+.station-shell {
+  /* Functional colour is deliberately independent from the open workspace. */
+  --station-accent: var(--action-accent);
+  --station-accent-rgb: 200 111 80;
+  --workspace-accent: var(--accent-chop);
+  background:
+    radial-gradient(110% 62% at 50% -12%, rgb(55 47 73 / 34%), transparent 64%),
+    linear-gradient(160deg, #10101a 0%, #090a11 58%, #08090e 100%);
+}
+
+/* Workspace colour identifies location only; controls retain their function colour. */
+.station-shell[data-view] {
+  --station-accent: var(--action-accent);
+  --station-accent-rgb: 200 111 80;
+}
+.station-shell[data-view='library'] { --workspace-accent: var(--accent-library); }
+.station-shell[data-view='chop'] { --workspace-accent: var(--accent-chop); }
+.station-shell[data-view='pad'] { --workspace-accent: var(--accent-pads); }
+.station-shell[data-view='seq'] { --workspace-accent: var(--accent-seq); }
+.station-shell[data-view='song'] { --workspace-accent: var(--accent-song); }
+.station-shell[data-view='mix'] { --workspace-accent: var(--accent-mix); }
+.station-shell[data-view='project'] { --workspace-accent: var(--accent-project); }
+
+.station-panel {
+  border-color: #4a4553;
+  background:
+    radial-gradient(120% 50% at 52% -8%, rgb(173 169 210 / 5%), transparent 62%),
+    linear-gradient(180deg, #181722 0%, var(--scene-chassis) 42%, #0b0c13 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(221 217 255 / 9%),
+    inset 0 -1px 0 rgb(0 0 0 / 66%),
+    0 3px 0 #06070b,
+    0 18px 36px rgb(0 0 0 / 46%);
+}
+
+.mix-bus-card, .mixer-strip, .pad-editor, .context-panel, .step-parameter-editor,
+.sequencer, .mixer, .song-workspace, .chop-workspace, .library-workspace,
+.sample-editor, .project-workspace, .library-row, .effect-rack, .transport-bar {
+  border-color: var(--station-line);
+  background: linear-gradient(180deg, #2a2428 0%, var(--station-card) 48%, #1d1a20 100%);
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 5%), 0 1px 2px rgb(0 0 0 / 20%);
+}
+
+.mixer-toggle, .main-nav-button, .group-strip-button, .group-strip-master,
+.header-project-button, .clear-button, .effect-slot-button, .effect-slot-card,
+.pump-target-toggle, .mix-pump-entry, input[type="text"], input[type="number"],
+select, textarea {
+  border-color: var(--station-line);
+  color: var(--station-text);
+  background: linear-gradient(180deg, #383035 0%, var(--station-raised) 48%, #211d20 100%);
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 8%), inset 0 -1px 0 rgb(0 0 0 / 45%), 0 1px 2px rgb(0 0 0 / 24%);
+}
+
+.mixer-toggle:hover:not(:disabled), .main-nav-button:hover:not(:disabled),
+.group-strip-button:hover:not(:disabled), .header-project-button:hover:not(:disabled),
+.clear-button:hover:not(:disabled), .effect-slot-button:hover:not(:disabled),
+.effect-slot-card:hover:not(:disabled), .mix-pump-entry:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--station-accent) 72%, var(--station-line-strong));
+  color: var(--station-text);
+}
+
+/* Workspace keys form their own midnight rail. The upper plum-blue edge and
+   deep navy floor borrow the reference sky without competing with the warm
+   active module. */
+.main-navigation {
+  padding: 4px;
+  border: 1px solid #302b42;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #171827 0%, #10111d 100%);
+  box-shadow: inset 0 1px 0 rgb(153 161 207 / 7%), inset 0 -1px 0 rgb(0 0 0 / 48%);
+}
+.main-nav-button {
+  border-color: #4a4660;
+  color: #c8c5d3;
+  background:
+    linear-gradient(180deg, rgb(187 193 229 / 10%) 0%, transparent 34%),
+    linear-gradient(180deg, #34334d 0%, #24263d 42%, #151727 100%);
+  box-shadow: inset 0 1px 0 rgb(224 226 255 / 12%), inset 0 -2px 3px rgb(4 5 14 / 48%), 0 1px 2px rgb(0 0 0 / 28%);
+}
+.main-nav-button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--station-accent) 52%, #777599);
+  color: #f0e8df;
+  background:
+    linear-gradient(180deg, rgb(205 211 246 / 13%) 0%, transparent 36%),
+    linear-gradient(180deg, #3d3d5a 0%, #292b47 44%, #181a2d 100%);
+}
+.main-nav-button-active {
+  border-color: color-mix(in srgb, var(--station-accent) 76%, var(--accent-gold-light));
+  color: var(--station-bg);
+  background: linear-gradient(180deg, #e09a77 0%, var(--station-accent) 50%, var(--accent-terracotta-pressed) 100%);
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 25%), inset 0 -2px 3px rgb(54 17 14 / 34%), 0 1px 2px rgb(0 0 0 / 30%);
+}
+
+/* The tab is allowed to carry the module's colour. The workspace itself is
+   not: MIX and PROJECT keep the warmer control accent below, preventing their
+   light blue/stone tab colours from bleaching every active control inside. */
+.main-nav-button:nth-child(1).main-nav-button-active { --nav-active: #a5769d; }
+.main-nav-button:nth-child(2).main-nav-button-active { --nav-active: #c69b61; }
+.main-nav-button:nth-child(3).main-nav-button-active { --nav-active: #9a88c3; }
+.main-nav-button:nth-child(4).main-nav-button-active { --nav-active: #b07085; }
+.main-nav-button:nth-child(5).main-nav-button-active { --nav-active: #78a1b2; }
+.main-nav-button:nth-child(6).main-nav-button-active { --nav-active: #9aa5af; }
+.main-nav-button.main-nav-button-active {
+  border-color: color-mix(in srgb, var(--nav-active) 76%, var(--accent-gold-light));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--nav-active) 78%, #fff) 0%, var(--nav-active) 50%, color-mix(in srgb, var(--nav-active) 78%, #15111a) 100%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 22%), inset 0 -2px 3px rgb(0 0 0 / 28%), 0 1px 2px rgb(0 0 0 / 30%);
+}
+/* The inactive rail has gentle per-module night tones. These colours live on
+   the keys alone; they do not alter the workspace accent or its controls. */
+.main-nav-button[data-workspace='chop'] { background: linear-gradient(180deg, #493547 0%, #2e263a 45%, #191827 100%); }
+.main-nav-button[data-workspace='pad'] { background: linear-gradient(180deg, #334454 0%, #263444 45%, #171e2b 100%); }
+.main-nav-button[data-workspace='seq'] { background: linear-gradient(180deg, #3e3a62 0%, #2c2b4b 45%, #19182f 100%); }
+.main-nav-button[data-workspace='song'] { background: linear-gradient(180deg, #503549 0%, #36263c 45%, #201827 100%); }
+.main-nav-button[data-workspace='mix'] { background: linear-gradient(180deg, #2c4954 0%, #213744 45%, #14212c 100%); }
+.main-nav-button[data-workspace='project'] { background: linear-gradient(180deg, #3e4556 0%, #2d3444 45%, #1a202d 100%); }
+.mixer-toggle-active, .main-nav-button-active, .group-strip-selected,
+.pump-target-toggle.mixer-toggle-active, .transport-button {
+  border-color: color-mix(in srgb, var(--station-accent) 76%, var(--accent-gold-light));
+  color: var(--station-bg);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--station-accent) 86%, #fff) 0%, var(--station-accent) 54%, var(--accent-terracotta-pressed) 100%);
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 22%), inset 0 -2px 3px rgb(54 17 14 / 32%), 0 1px 2px rgb(0 0 0 / 28%);
+}
+
+.mixer-toggle:active:not(:disabled), .main-nav-button:active:not(:disabled),
+.group-strip-button:active:not(:disabled), .transport-button:active:not(:disabled),
+.effect-slot-button:active:not(:disabled), .effect-slot-card:active:not(:disabled),
+.pad:active:not(:disabled), .step:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / 46%), inset 0 -1px 0 rgb(255 239 220 / 5%);
+}
+
+/* The power key is the one deliberate heavy switch on the transport. */
+.system-power-switch {
+  border-color: #786257;
+  color: var(--station-text-muted);
+  background: linear-gradient(180deg, #4a3f3f 0%, #30292c 48%, #18161c 100%);
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 16%), inset 0 -2px 4px rgb(0 0 0 / 58%), 0 2px 0 #07080c, 0 3px 6px rgb(0 0 0 / 38%);
+}
+.system-power-switch .status-ready {
+  background: var(--signal-blue-bright);
+  box-shadow: 0 0 7px rgb(131 190 210 / 48%);
+}
+.system-power-switch .status-starting { background: var(--status-warning); box-shadow: 0 0 6px rgb(212 165 99 / 40%); }
+.system-power-switch .status-error { background: var(--status-error); box-shadow: 0 0 6px rgb(221 98 92 / 42%); }
+
+/* REC is the only red control. The disabled state remains visibly distinct. */
+.transport-record-button, .transport-record-button:disabled {
+  border-color: #784948;
+  background: linear-gradient(180deg, #39272a, #241a1d);
+  opacity: 1;
+}
+.transport-record-button::before {
+  background: var(--status-recording);
+  box-shadow: 0 0 5px rgb(207 84 80 / 38%);
+}
+
+/* The display is a smoke-blue LCD glass: blue-violet, never turquoise. */
+.system-display {
+  --display-light: 167 167 209;
+  --display-bloom: 12%;
+  border-color: #434b68;
+  background-color: var(--station-recess);
+  background-image:
+    radial-gradient(130% 120% at 50% 20%, rgb(var(--display-light) / 11%), rgb(var(--display-light) / 4%) 60%, rgb(var(--display-light) / 1%) 100%),
+    linear-gradient(180deg, #0d101b, #090a12);
+  box-shadow: inset 0 0 16px rgb(0 0 0 / 68%), inset 0 1px 0 rgb(167 167 209 / 8%);
+}
+.system-display-status { --display-light: 126 136 183; --display-bloom: 16%; }
+.system-display-status .system-display-text { color: #b5b9d9; }
+.system-display-error { --display-light: 221 98 92; --display-bloom: 22%; }
+.system-display-error .system-display-text { color: var(--status-error); }
+.system-display .display-action-active {
+  border-color: rgb(var(--display-light) / 52%);
+  background: rgb(var(--display-light) / 13%);
+  text-shadow: 0 0 5px rgb(var(--display-light) / var(--display-bloom));
+}
+
+/* Pads and step cells retain a tactile edge. A selected or playing cell also
+   gets a physical marker, so its state does not depend on hue alone. */
+.pad, .effect-slot-button, .effect-slot-card {
+  border-color: var(--station-line);
+  background: linear-gradient(180deg, #302a2e 0%, var(--station-card) 46%, #1c191e 100%);
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 6%), 0 1px 2px rgb(0 0 0 / 22%);
+}
+
+/* The PADS workspace is a playable deck, not a neutral card grid. Empty pads
+   use smoked clay and antique-metal details; gold remains reserved for loaded
+   material and terracotta for the selected pad. */
+.station-shell[data-view='pad'] .pad-grid {
+  padding: 8px;
+  border: 1px solid #39343b;
+  border-radius: 7px;
+  background:
+    linear-gradient(180deg, rgb(255 239 220 / 3%), transparent 20%),
+    linear-gradient(180deg, #121218, #0a0b10);
+  box-shadow: inset 0 1px 0 rgb(225 221 255 / 6%), inset 0 10px 18px rgb(0 0 0 / 28%);
+}
+.station-shell[data-view='pad'] .pad {
+  border-color: #5a4b43;
+  background:
+    radial-gradient(120% 46% at 50% 0%, rgb(213 162 118 / 13%), transparent 66%),
+    linear-gradient(180deg, #3a302e 0%, #282124 48%, #19171b 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 232 207 / 11%),
+    inset 0 -1px 0 rgb(0 0 0 / 56%),
+    0 2px 0 #0b0b0e,
+    0 4px 8px rgb(0 0 0 / 25%);
+}
+.station-shell[data-view='pad'] .pad:hover:not(:disabled) {
+  border-color: #927258;
+  background:
+    radial-gradient(120% 46% at 50% 0%, rgb(223 177 126 / 18%), transparent 66%),
+    linear-gradient(180deg, #433531 0%, #2c2325 48%, #19171b 100%);
+}
+.station-shell[data-view='pad'] .pad .pad-number {
+  color: #d0b895;
+}
+.station-shell[data-view='pad'] .pad .pad-file {
+  color: #e1d6c9;
+}
+.station-shell[data-view='pad'] .pad .pad-footer {
+  color: #b9a99a;
+}
+.station-shell[data-view='pad'] .pad kbd {
+  border-color: #826a54;
+  color: #f1e4d3;
+  background: linear-gradient(180deg, #2e2728, #17161a);
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 10%), 0 1px 0 rgb(0 0 0 / 48%);
+}
+.station-shell[data-view='pad'] .pad.pad-loaded {
+  border-color: color-mix(in srgb, var(--loaded-accent) 72%, #5a4b43);
+  box-shadow:
+    inset 3px 0 0 var(--loaded-accent),
+    inset 0 1px 0 rgb(255 239 220 / 10%),
+    inset 0 -1px 0 rgb(0 0 0 / 56%),
+    0 2px 0 #0b0b0e,
+    0 4px 8px rgb(0 0 0 / 25%);
+}
+.station-shell[data-view='pad'] .pad.pad-selected {
+  border-color: var(--action-accent);
+  box-shadow:
+    inset 3px 0 0 var(--action-accent),
+    inset 0 1px 0 rgb(255 239 220 / 13%),
+    inset 0 -1px 0 rgb(0 0 0 / 58%),
+    0 2px 0 #0b0b0e,
+    0 4px 8px rgb(0 0 0 / 28%);
+}
+
+/* Four built-in samples form a compact crate: one category, one row, no
+   nested scrolling list. Playback and selection keep their existing actions. */
+.station-shell[data-view='pad'] .pad-library {
+  padding: 12px;
+  border-color: #4a403d;
+  background:
+    linear-gradient(180deg, rgb(203 151 100 / 5%), transparent 28%),
+    linear-gradient(180deg, #211d20, #151419);
+}
+.station-shell[data-view='pad'] .pad-library .library-category-selector {
+  margin-top: 8px;
+  padding: 5px;
+  border: 1px solid #453c3b;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #151318, #0d0e13);
+  box-shadow: inset 0 1px 0 rgb(255 238 218 / 5%), inset 0 -1px 0 rgb(0 0 0 / 56%);
+}
+.station-shell[data-view='pad'] .pad-library .library-category-selector strong {
+  color: #d0b895;
+  font-family: var(--station-mono-font);
+  font-size: .66rem;
+  letter-spacing: .14em;
+}
+.station-shell[data-view='pad'] .pad-library .library-category-selector .mixer-toggle {
+  min-width: 42px;
+  min-height: 28px;
+  padding: 0 6px;
+  font-size: .5rem;
+}
+.station-shell[data-view='pad'] .pad-library .library-browser {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  max-height: none;
+  margin-top: 10px;
+  overflow: visible;
+}
+.station-shell[data-view='pad'] .pad-library .library-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 5px;
+  min-height: 82px;
+  padding: 5px;
+  border-color: #5a4a40;
+  border-radius: 5px;
+  background:
+    radial-gradient(110% 48% at 50% 0%, rgb(211 157 106 / 11%), transparent 70%),
+    linear-gradient(180deg, #332a29, #211c20 58%, #171519);
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 9%), 0 2px 0 #0a0a0d;
+}
+.station-shell[data-view='pad'] .pad-library .library-preview-button {
+  min-width: 0;
+  min-height: 0;
+  gap: 4px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 3px;
+}
+.station-shell[data-view='pad'] .pad-library .library-preview-button span {
+  color: #d0a06f;
+  font-family: var(--station-mono-font);
+  font-size: .5rem;
+  letter-spacing: .08em;
+}
+.station-shell[data-view='pad'] .pad-library .library-preview-button strong {
+  width: 100%;
+  color: var(--station-text);
+  font-size: .62rem;
+  letter-spacing: .01em;
+}
+.station-shell[data-view='pad'] .pad-library .library-row > .mixer-toggle {
+  width: 100%;
+  min-width: 0;
+  min-height: 23px;
+  padding: 0 2px;
+  font-size: .43rem;
+  letter-spacing: .025em;
+  white-space: nowrap;
+}
+
+@keyframes pad-flash {
+  from { background: #d78362; transform: translateY(2px); }
+  to { transform: translateY(0); }
+}
+.pad.sample-loaded {
+  border-color: color-mix(in srgb, var(--accent-gold) 56%, var(--station-line));
+  box-shadow: inset 3px 0 0 var(--accent-gold), inset 0 1px 0 rgb(255 239 220 / 6%);
+}
+.pad-selected, .mix-pump-entry-active {
+  border-color: var(--station-accent);
+  box-shadow: inset 3px 0 0 var(--station-accent), inset 0 1px 0 rgb(255 239 220 / 7%);
+}
+.step, .pattern-step {
+  border-color: var(--station-line);
+  background: linear-gradient(180deg, #342d31, #282226 100%);
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 6%);
+}
+.step-active, .step-full, .sample-loaded, .pattern-matrix-row > .pattern-step.step-active {
+  border-color: var(--station-accent);
+  color: var(--station-bg);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--station-accent) 86%, #fff), var(--station-accent) 62%, var(--accent-terracotta-pressed));
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 20%), inset 0 -1px 0 rgb(67 22 17 / 28%);
+}
+.pattern-matrix-row > .pattern-step.pattern-step-playing {
+  box-shadow: inset 3px 0 0 var(--signal-accent), inset 0 1px 0 rgb(255 239 220 / 10%);
+}
+.pattern-matrix-row > .pattern-step.pattern-step-selected {
+  outline: 2px solid var(--signal-blue);
+  outline-offset: -2px;
+}
+
+.effect-slot-button small, .effect-slot-card small {
+  color: var(--signal-blue-bright);
+  background: rgb(131 190 210 / 11%);
+  box-shadow: inset 0 0 0 1px rgb(131 190 210 / 24%);
+}
+.master-effect-bypassed small {
+  color: var(--status-warning);
+  background: rgb(212 165 99 / 11%);
+  box-shadow: inset 0 0 0 1px rgb(212 165 99 / 25%);
+}
+.effect-slot-empty {
+  border-color: color-mix(in srgb, var(--station-line) 72%, var(--station-recess));
+  background: linear-gradient(180deg, #111018, var(--station-recess));
+  box-shadow: inset 0 2px 5px rgb(0 0 0 / 50%);
+}
+
+.pad-drop-target {
+  border-color: var(--signal-blue-bright);
+  box-shadow: inset 0 0 0 1px var(--signal-blue), 0 0 8px rgb(131 190 210 / 18%);
+}
+
+/* Loaded material is gold; selection and primary actions stay terracotta. */
+.pad.sample-loaded {
+  border-color: color-mix(in srgb, var(--loaded-accent) 72%, var(--scene-line));
+  box-shadow:
+    inset 3px 0 0 var(--loaded-accent),
+    inset 0 1px 0 rgb(255 239 220 / 6%),
+    0 2px 0 rgb(0 0 0 / 34%);
+}
+.sample-badge.sample-loaded, .pad .sample-badge {
+  color: #18120c;
+  background: var(--loaded-accent);
+  border-color: color-mix(in srgb, var(--loaded-accent) 74%, #fff 26%);
+}
+
+/* Numeric values are neutral. Workspace colour is limited to scope labels. */
+.pad-number, .group-strip-master { color: var(--station-text-muted); }
+.pad-footer, .sample-info, .intro, .sample-details, .project-key-summary { color: var(--station-text-muted); }
+output { color: var(--station-text); }
+.eyebrow, .group-selector strong { color: var(--workspace-accent); }
+
+/* The unpowered machine is visibly dormant, but still made from the same
+   materials; it should not snap back to the previous green-grey skin. */
+.station-shell[data-powered='off'] .system-power-switch {
+  border-color: #786257;
+  background: linear-gradient(180deg, #4a3f3f 0%, #30292c 48%, #18161c 100%);
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 12%), inset 0 -2px 4px rgb(0 0 0 / 58%), 0 2px 0 #07080c;
+}
+.station-shell[data-powered='off'] .system-display {
+  border-color: #2b414a;
+  background-color: var(--station-recess);
+}
+
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible,
+.system-display:focus-visible, .display-action:focus-visible, .display-pad:focus-visible {
+  outline: 2px solid var(--signal-blue-bright);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mixer-toggle, .main-nav-button, .group-strip-button, .transport-button,
+  .effect-slot-button, .effect-slot-card, .pad, .step { transition: none; }
+}

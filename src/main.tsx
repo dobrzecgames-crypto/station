@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { AudioEngine } from './audio/AudioEngine'
 import './index.css'
+// Must load after the component tree: Vinyl Dust is the final visual layer.
+import './vinyl-dust.css'
 
 const audioEngine = new AudioEngine()
 

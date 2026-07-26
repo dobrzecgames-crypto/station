@@ -6,6 +6,7 @@ import type { DisplayTenant } from './SystemDisplay'
 import { tempoTenant } from './TempoPanel'
 import { bankTenant } from './BankPanel'
 import { useSystemDisplay } from './systemDisplayContext'
+import type { AudioEngineStatus } from '../audio/AudioEngine'
 
 interface TransportBarProps {
   bpm: number
@@ -22,6 +23,9 @@ interface TransportBarProps {
   /** Whoever has claimed the display, or null when nobody has and tempo holds
       the floor. */
   displayOwner: DisplayTenant | null
+  audioStatus: AudioEngineStatus
+  audioDisabled: boolean
+  onStartAudio: () => void
   onSettingsOpenChange: (open: boolean) => void
   groups: readonly PatternGroup[]
   selectedGroupId: string
@@ -43,7 +47,7 @@ interface TransportBarProps {
   onStop: () => void
 }
 
-export function TransportBar({ bpm, swing, isPlaying, mode, loopSong, metronomeEnabled, settingsOpen, onSettingsOpenChange, groups, selectedGroupId, selectedVariant, statusMessage, errorMessage, displayOwner, onBpmChange, onSwingChange, onModeChange, onLoopSongChange, onMetronomeEnabledChange, onGroupChange, onVariantChange, onGroupCreate, onVariantCreate, onVariantDuplicate, onVariantClear, onGroupDelete, onPlay, onStop }: TransportBarProps) {
+export function TransportBar({ bpm, swing, isPlaying, mode, loopSong, metronomeEnabled, settingsOpen, onSettingsOpenChange, groups, selectedGroupId, selectedVariant, statusMessage, errorMessage, displayOwner, audioStatus, audioDisabled, onStartAudio, onBpmChange, onSwingChange, onModeChange, onLoopSongChange, onMetronomeEnabledChange, onGroupChange, onVariantChange, onGroupCreate, onVariantCreate, onVariantDuplicate, onVariantClear, onGroupDelete, onPlay, onStop }: TransportBarProps) {
   const groupIndex = groups.findIndex((group) => group.id === selectedGroupId)
   const selectedGroup = groups[groupIndex]
   const { claim, release, ownerId } = useSystemDisplay()
@@ -75,8 +79,19 @@ export function TransportBar({ bpm, swing, isPlaying, mode, loopSong, metronomeE
 
   return <section className="transport-bar" aria-label="Transport">
     <div className="transport-controls">
-      <button className="transport-button" type="button" disabled={isPlaying} onClick={onPlay}>PLAY</button>
-      <button className="mixer-toggle" type="button" disabled={!isPlaying} onClick={onStop}>STOP</button>
+      <button
+        className="system-power-switch"
+        type="button"
+        disabled={audioDisabled}
+        aria-label={audioStatus === 'ready' ? 'Audio on' : audioStatus === 'starting' ? 'Starting audio' : 'Start audio'}
+        onClick={onStartAudio}
+      >
+        <span className={`status-dot status-${audioStatus}`} aria-hidden="true" />
+        <span className="system-power-label">{audioStatus === 'ready' ? 'ON' : audioStatus === 'starting' ? '...' : 'OFF'}</span>
+      </button>
+      <button className="transport-button transport-icon-button" type="button" disabled={isPlaying} aria-label="Play" onClick={onPlay}>▶</button>
+      <button className="mixer-toggle transport-icon-button transport-stop-button" type="button" disabled={!isPlaying} aria-label="Stop" onClick={onStop} />
+      <button className="mixer-toggle transport-icon-button transport-record-button" type="button" disabled aria-label="Record unavailable" title="Recording will be added in a future version" />
       <div className="transport-modes" aria-label="Transport mode"><button className={mode === 'pattern' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" onClick={() => onModeChange('pattern')}>PATTERN</button><button className={mode === 'song' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" onClick={() => onModeChange('song')}>SONG</button></div>
       {/* The system display. Every message in the app lands here rather than in
           whichever panel raised it, so there is one place to look. The panel is

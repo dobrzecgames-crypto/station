@@ -493,6 +493,30 @@ input[type="text"], input[type="number"], select, textarea {
    only the floor left the explicit width still overflowing the track. */
 .pattern-matrix-row > * { width: auto; min-width: 0; height: 44px; min-height: 44px; }/* ---------- 18. System display ------------------------------------------ */
 
+/* A full 16-step row becomes too narrow to play once all 16 pads are present.
+   The sequence remains a fixed 16 steps; this switch only chooses which
+   eight-step half is on the hardware-sized matrix. */
+.sequencer-step-pages {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin-bottom: 6px;
+}.sequencer-step-pages .mixer-toggle {
+  min-width: 0;
+  min-height: 30px;
+  padding: 0 6px;
+}.sequencer .pattern-matrix {
+  overflow-x: hidden;
+}.sequencer .pattern-matrix-row {
+  grid-template-columns: 72px repeat(8, minmax(0, 1fr));
+  min-width: 0;
+}.sequencer .pattern-matrix-row > * {
+  width: auto;
+  min-width: 0;
+  height: 40px;
+  min-height: 40px;
+}.sequencer .pattern-pad-label { padding: 4px 6px; }
+
 /* The one place messages appear, and the only thing on screen that emits rather
    than reflects. Everything else here is a lit surface; this is the light
    source, which is what makes it read as a screen instead of another rectangle.
@@ -539,6 +563,71 @@ input[type="text"], input[type="number"], select, textarea {
   box-shadow:
     inset 0 0 14px rgb(0 0 0 / 55%),
     inset 0 2px 5px rgb(0 0 0 / 45%);
+}
+.system-power-switch {
+  display: grid;
+  width: 48px;
+  min-width: 48px;
+  min-height: 38px;
+  place-items: center;
+  gap: 2px;
+  padding: 5px 7px;
+  border: 1px solid color-mix(in srgb, var(--station-line) 68%, white);
+  border-radius: 3px;
+  color: var(--station-text-muted);
+  background: linear-gradient(180deg, #3a403f 0%, #242827 46%, #171a19 100%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 16%), inset 0 -1px 0 rgb(0 0 0 / 68%), 0 2px 0 #090a0a;
+  font: inherit;
+  cursor: pointer;
+}.system-power-switch .status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--status-inactive);
+}.system-power-switch .status-ready {
+  background: var(--status-active);
+  box-shadow: 0 0 7px 1px rgb(181 199 118 / 60%);
+}.system-power-switch .status-starting {
+  background: var(--status-warning);
+  box-shadow: 0 0 7px 1px rgb(198 154 98 / 60%);
+}.system-power-switch .status-error {
+  background: var(--status-recording);
+  box-shadow: 0 0 7px 1px rgb(183 120 120 / 60%);
+}.system-power-switch:not(:disabled):active {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 5px rgb(0 0 0 / 50%);
+}.system-power-switch:disabled { cursor: default; opacity: .6; }
+.station-shell[data-powered='off'] .system-power-switch {
+  border-color: var(--station-line);
+  color: var(--station-text-muted);
+  background: linear-gradient(180deg, #3a403f 0%, #242827 46%, #171a19 100%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 12%), inset 0 -1px 0 rgb(0 0 0 / 68%), 0 2px 0 #090a0a;
+}
+.system-power-label {
+  font-family: var(--station-mono-font);
+  font-size: .46rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .08em;
+}.transport-icon-button {
+  width: 42px;
+  min-width: 42px;
+  padding: 0;
+  font-size: .75rem;
+  line-height: 1;
+}.transport-stop-button::before { content: '\25A0'; }
+.transport-record-button {
+  display: grid;
+  place-items: center;
+}.transport-record-button::before {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #b56560;
+  box-shadow: 0 0 5px rgb(181 101 96 / 42%);
+  content: '';
+}.transport-record-button:disabled {
+  border-color: #69484a;
+  opacity: .72;
 }.system-display-line {
   position: relative;
   display: grid;
@@ -698,4 +787,62 @@ input[type="text"], input[type="number"], select, textarea {
 }.system-display-error .system-display-text { color: var(--status-recording); }
 
 @media (prefers-reduced-motion: no-preference) {.system-display { transition: border-color 160ms ease, background 160ms ease; }.system-display-text { transition: color 160ms ease, text-shadow 160ms ease; }
+}
+
+/* Power is a state of the instrument, not another brightly labelled workspace.
+   Until Web Audio is live, the surface stays readable but unlit: selected tabs,
+   transport choices and the display use the same neutral hardware finish. */
+/* The transport is one physical control row: power, start, stop and mode.
+   The display stays directly underneath, instead of pushing PATTERN / SONG
+   into a second control row. */
+.station-shell .transport-controls {
+  display: grid;
+  grid-template-columns: 48px repeat(3, 42px) minmax(0, 1fr);
+  grid-template-areas:
+    'power play stop record modes'
+    'display display display display display';
+  align-items: center;
+  gap: 6px;
+}
+.station-shell .system-power-switch { grid-area: power; }
+.station-shell .transport-icon-button { grid-area: play; }
+.station-shell .transport-stop-button {
+  grid-area: stop;
+  min-width: 0;
+}
+.station-shell .transport-record-button { grid-area: record; }
+.station-shell .transport-controls .transport-modes {
+  grid-area: modes;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+.station-shell .transport-controls .transport-modes .mixer-toggle {
+  min-width: 0;
+  padding: 0 4px;
+  white-space: nowrap;
+}
+.station-shell .transport-controls .system-display { grid-area: display; }
+
+.header-secondary-row { display: none; }
+.station-shell[data-powered='off'] {
+  --station-accent: var(--station-text-disabled);
+  --station-accent-rgb: 85 94 93;
+}.station-shell[data-powered='off'] .main-nav-button-active,
+.station-shell[data-powered='off'] .mixer-toggle-active,
+.station-shell[data-powered='off'] .group-strip-selected,
+.station-shell[data-powered='off'] .transport-button {
+  border-color: var(--station-line);
+  color: var(--station-text-muted);
+  background: var(--station-raised);
+  box-shadow: none;
+}.station-shell[data-powered='off'] .system-display {
+  --display-light: 85 94 93;
+  --display-bloom: 0%;
+  background-image: none;
+  box-shadow: inset 0 0 14px rgb(0 0 0 / 65%);
+}.station-shell[data-powered='off'] .system-display-text {
+  color: var(--station-text-disabled);
+  text-shadow: none;
 }

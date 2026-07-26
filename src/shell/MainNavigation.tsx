@@ -18,6 +18,6 @@ export function MainNavigation({ view, onViewChange }: MainNavigationProps) {
   return <nav className="main-navigation" aria-label="Workspaces">{views.map((item) => {
     const isActive = view === item.id
     const className = ['main-nav-button', isActive ? 'main-nav-button-active' : ''].filter(Boolean).join(' ')
-    return <button className={className} type="button" key={item.id} onClick={() => onViewChange(item.id)}>{item.label}</button>
+    return <button className={className} data-workspace={item.id} type="button" key={item.id} onClick={() => onViewChange(item.id)}>{item.label}</button>
   })}</nav>
 }

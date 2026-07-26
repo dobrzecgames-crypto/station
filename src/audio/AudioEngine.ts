@@ -35,6 +35,12 @@ export interface PumpConfig {
   curve: PumpCurve
 }
 
+/** A presentation-only reading of one channel's post-fader signal. */
+export interface ChannelMeterReading {
+  /** Peak level in dBFS. `-Infinity` means that no measurable signal is present. */
+  dbfs: number
+}
+
 interface ActiveVoice {
   source: AudioScheduledSourceNode
   gain: GainNode
@@ -53,6 +59,8 @@ interface Channel {
   solo: boolean
   gain?: GainNode
   pumpGain?: GainNode
+  meter?: AnalyserNode
+  meterSamples?: Float32Array<ArrayBuffer>
 }
 
 interface GroupBus { volume: number; muted: boolean; solo: boolean; gain?: GainNode }
@@ -191,6 +199,21 @@ export class AudioEngine {
 
   getWaveformPeaks(assetId: SampleAssetId): number[] | undefined {
     return this.waveforms.get(assetId)?.slice()
+  }
+
+  /**
+   * Reads the real channel signal after its volume, mute/solo and Pump gain.
+   * This is deliberately a pull API: UI refresh cadence never participates in
+   * audio scheduling or transport timing.
+   */
+  getChannelMeterReading(channelId: ChannelId): ChannelMeterReading {
+    const channel = this.channels.get(channelId)
+    if (this.status !== 'ready' || !channel?.meter || !channel.meterSamples) return { dbfs: -Infinity }
+
+    channel.meter.getFloatTimeDomainData(channel.meterSamples)
+    let peak = 0
+    for (const sample of channel.meterSamples) peak = Math.max(peak, Math.abs(sample))
+    return { dbfs: peak > 0 ? 20 * Math.log10(peak) : -Infinity }
   }
 
   setChannelVolume(groupId: GroupId, channelId: ChannelId, volume: number): void {
@@ -400,8 +423,11 @@ export class AudioEngine {
     for (const channel of this.channels.values()) {
       channel.gain?.disconnect()
       channel.pumpGain?.disconnect()
+      channel.meter?.disconnect()
       channel.gain = undefined
       channel.pumpGain = undefined
+      channel.meter = undefined
+      channel.meterSamples = undefined
     }
     for (const bus of this.groupBuses.values()) bus.gain?.disconnect()
     this.groupBuses.clear()
@@ -445,11 +471,16 @@ export class AudioEngine {
   private createChannelNodes(): void {
     const context = this.context!
     for (const channel of this.channels.values()) {
-      if (channel.gain && channel.pumpGain) continue
+      if (channel.gain && channel.pumpGain && channel.meter) continue
       channel.gain = context.createGain()
       channel.pumpGain = context.createGain()
+      channel.meter = context.createAnalyser()
+      channel.meter.fftSize = 1024
+      channel.meter.smoothingTimeConstant = 0
+      channel.meterSamples = new Float32Array(channel.meter.fftSize)
       channel.gain.connect(channel.pumpGain)
-      channel.pumpGain.connect(this.ensureGroupBus(channel.groupId).gain!)
+      channel.pumpGain.connect(channel.meter)
+      channel.meter.connect(this.ensureGroupBus(channel.groupId).gain!)
       channel.pumpGain.gain.setValueAtTime(1, context.currentTime)
     }
     this.applyAllChannelGains(true)
@@ -476,8 +507,13 @@ export class AudioEngine {
       const bus = this.ensureGroupBus(groupId)
       channel.gain = this.context.createGain()
       channel.pumpGain = this.context.createGain()
+      channel.meter = this.context.createAnalyser()
+      channel.meter.fftSize = 1024
+      channel.meter.smoothingTimeConstant = 0
+      channel.meterSamples = new Float32Array(channel.meter.fftSize)
       channel.gain.connect(channel.pumpGain)
-      channel.pumpGain.connect(bus.gain!)
+      channel.pumpGain.connect(channel.meter)
+      channel.meter.connect(bus.gain!)
       channel.pumpGain.gain.setValueAtTime(1, this.context.currentTime)
       this.applyAllChannelGains(true)
     }

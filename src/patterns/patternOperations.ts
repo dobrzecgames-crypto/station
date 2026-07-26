@@ -65,7 +65,7 @@ export function updateVariantStep(groups: readonly PatternGroup[], groupId: stri
     if (!current) throw new Error(`Pattern ${group.name}${variant} does not exist.`)
     const steps = current[padId]
     if (!steps || stepIndex < 0 || stepIndex >= patternStepCount) throw new Error('Pattern step is invalid.')
-    const nextVelocity = steps[stepIndex] === 0 ? 0.6 : steps[stepIndex] === 0.6 ? 1 : 0
+    const nextVelocity = steps[stepIndex] === 0 ? 1 : 0
     return { ...clonePatternGroup(group), variants: { ...clonePatternGroup(group).variants, [variant]: { ...cloneStepPattern(current), [padId]: steps.map((velocity, index) => index === stepIndex ? nextVelocity : velocity) } } }
   })
 }

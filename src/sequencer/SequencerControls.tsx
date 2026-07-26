@@ -26,6 +26,7 @@ function isDimBeatGroup(stepIndex: number): boolean {
 
 export function SequencerControls({ pattern, shifts, pads, selectedPadId, group, selectedVariant, playingStep, onSelectPad, onToggleStep, onVelocityChange, onShiftChange }: SequencerControlsProps) {
   const [editedStep, setEditedStep] = useState({ padId: selectedPadId, stepIndex: 0 })
+  const [stepPage, setStepPage] = useState<0 | 1>(0)
   const { claim, release, ownerId } = useSystemDisplay()
   const [displayActive, setDisplayActive] = useState(true)
   const hasOwnedDisplayRef = useRef(false)
@@ -34,6 +35,8 @@ export function SequencerControls({ pattern, shifts, pads, selectedPadId, group,
   const shift = shifts[editedPad.id][editedStep.stepIndex]
   const tenant = useMemo<DisplayTenant>(() => stepTenant({ pad: editedPad, stepIndex: editedStep.stepIndex, velocity, shift, onVelocityChange, onShiftChange }), [editedPad, editedStep.stepIndex, velocity, shift, onVelocityChange, onShiftChange])
   const selectStep = (padId: PadState['id'], stepIndex: number) => { setDisplayActive(true); setEditedStep({ padId, stepIndex }); onToggleStep(padId, stepIndex) }
+  const pageStartStep = stepPage * 8
+  const pageSteps = Array.from({ length: 8 }, (_, offset) => pageStartStep + offset)
 
   useEffect(() => {
     if (displayActive) claim(tenant)
@@ -57,11 +60,18 @@ export function SequencerControls({ pattern, shifts, pads, selectedPadId, group,
   // SEQ is deliberately just the pattern matrix. The selected step owns the
   // system display, where its musical detail stays next to playback controls.
   return <section className="sequencer" aria-label={`Sequencer, ${group.name} ${selectedVariant}`}>
-    <div className="pattern-matrix" aria-label="16-step pattern matrix">
-      <div className="pattern-matrix-row pattern-matrix-header"><span>PAD</span>{Array.from({ length: 16 }, (_, index) => <span className={`${playingStep === index ? 'pattern-step-playing' : ''} ${isDimBeatGroup(index) ? 'pattern-step-beat-dim' : ''}`} key={index}>{index + 1}</span>)}</div>
+    <div className="sequencer-step-pages" role="tablist" aria-label="Step range">
+      <button className={stepPage === 0 ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" role="tab" aria-selected={stepPage === 0} onClick={() => setStepPage(0)}>01-08</button>
+      <button className={stepPage === 1 ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" role="tab" aria-selected={stepPage === 1} onClick={() => setStepPage(1)}>09-16</button>
+    </div>
+    <div className="pattern-matrix" aria-label={`Pattern steps ${pageStartStep + 1} through ${pageStartStep + 8}`}>
+      <div className="pattern-matrix-row pattern-matrix-header"><span>PAD</span>{pageSteps.map((stepIndex) => <span className={`${playingStep === stepIndex ? 'pattern-step-playing' : ''} ${isDimBeatGroup(stepIndex) ? 'pattern-step-beat-dim' : ''}`} key={stepIndex}>{stepIndex + 1}</span>)}</div>
       {pads.map((pad) => <div className="pattern-matrix-row" key={pad.id}>
         <button className={pad.id === selectedPadId ? 'pattern-pad-label pattern-pad-selected' : 'pattern-pad-label'} type="button" onClick={() => onSelectPad(pad.id)}>{pad.label}<small>{pad.fileName ?? 'EMPTY'}</small></button>
-        {pattern[pad.id].map((stepVelocity, stepIndex) => <button key={stepIndex} className={`step pattern-step ${stepVelocity ? 'step-active' : ''} ${stepVelocity === 1 ? 'step-full' : ''} ${editedStep.padId === pad.id && editedStep.stepIndex === stepIndex ? 'pattern-step-selected' : ''} ${playingStep === stepIndex ? 'pattern-step-playing' : ''} ${isDimBeatGroup(stepIndex) ? 'pattern-step-beat-dim' : ''}`} type="button" aria-label={`${pad.label}, step ${stepIndex + 1}`} aria-pressed={stepVelocity > 0} onClick={() => selectStep(pad.id, stepIndex)}><small>{stepVelocity ? `${Math.round(stepVelocity * 100)}%` : ''}</small></button>)}
+        {pageSteps.map((stepIndex) => {
+          const stepVelocity = pattern[pad.id][stepIndex]
+          return <button key={stepIndex} className={`step pattern-step ${stepVelocity ? 'step-active' : ''} ${stepVelocity === 1 ? 'step-full' : ''} ${editedStep.padId === pad.id && editedStep.stepIndex === stepIndex ? 'pattern-step-selected' : ''} ${playingStep === stepIndex ? 'pattern-step-playing' : ''} ${isDimBeatGroup(stepIndex) ? 'pattern-step-beat-dim' : ''}`} type="button" aria-label={`${pad.label}, step ${stepIndex + 1}`} aria-pressed={stepVelocity > 0} onClick={() => selectStep(pad.id, stepIndex)}><small>{stepVelocity ? `${Math.round(stepVelocity * 100)}%` : ''}</small></button>
+        })}
       </div>)}
     </div>
   </section>

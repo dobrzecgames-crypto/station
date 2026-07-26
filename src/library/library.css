@@ -5,9 +5,10 @@
 .library-browser { display: grid; grid-template-columns: 1fr; align-content: start; gap: 6px; flex: 1 1 auto; min-height: 0; margin-top: 14px; overflow-y: auto; }
 .library-row { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: center; padding: 8px 10px; border: 1px solid #4b5252; border-radius: 9px; background: #202325; }
 .library-preview-button { display: flex; width: 100%; min-height: 42px; gap: 9px; align-items: center; border: 0; color: #e3e5df; background: transparent; cursor: pointer; font: inherit; text-align: left; }.library-preview-button:hover, .library-preview-button:focus-visible { color: var(--station-accent); outline: none; }.library-preview-button:disabled { cursor: not-allowed; opacity: .45; }.library-preview-button span { color: var(--station-accent); font-size: .7rem; }.library-preview-button strong { overflow: hidden; font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
-.library-assign-panel { flex: 0 0 auto; min-width: 0; margin-top: 14px; padding: 10px; border: 1px solid rgb(194 200 193 / 30%); border-radius: 9px; background: #1c1f20; box-shadow: 0 -10px 18px rgb(0 0 0 / 35%); }.library-assign-panel .mixer-summary { margin: 4px 0 0; }
-.library-assign-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
-.library-assign-pad { min-height: 40px; border: 1px solid #606767; border-radius: 6px; color: #e3e5df; background: #202325; font-size: .74rem; font-weight: 800; cursor: pointer; }
-.library-assign-pad:hover:not(:disabled) { border-color: var(--station-accent); }
-.library-assign-pad-loaded { color: #121313; border-color: #8ea089; background: #3c5040; }
-.library-assign-pad:disabled { cursor: not-allowed; opacity: .45; }
+.pad-library { height: auto; min-height: 0; margin-top: 12px; }.library-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }.library-heading .eyebrow { margin: 0; }.library-heading span { color: var(--station-text-muted); font-family: var(--station-mono-font); font-size: .58rem; letter-spacing: .08em; }.pad-library .library-browser { max-height: 260px; }
+/* The assign panel that used to sit here is gone. It held a 16-pad grid open at
+   the bottom of the workspace whether or not a sample was selected, taking 42%
+   of the height to show sixteen disabled buttons and leaving the sample list to
+   scroll inside what was left. Picking a sample now claims the system display
+   and the pads appear in its panel, beside the transport. See
+   docs/SYSTEM_DISPLAY.md and .display-pad-grid in lab-interface.css. */

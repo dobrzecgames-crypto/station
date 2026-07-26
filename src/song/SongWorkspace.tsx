@@ -83,7 +83,12 @@ export function SongWorkspace({ groups, clips, selectedGroupId, selectedVariant,
         {rows.map(({ group, variant }) => {
           const isCurrent = group.id === selectedGroupId && variant === selectedVariant
           const rowClips = clips.filter((clip) => clip.patternGroupId === group.id && clip.variant === variant)
-          const shortLabel = `${group.name.replace('Pattern ', '')}${variant}`
+          /* Bank number from the position in the list, matching the transport.
+             This used to strip the prefix off the stored name, which meant the
+             label depended on a string in saved project data - and would have
+             printed the whole name for any group that was not called
+             "Pattern N". */
+          const shortLabel = `${groups.findIndex((item) => item.id === group.id) + 1}${variant}`
           return (
             <div className={`arrangement-lane${isCurrent ? ' arrangement-lane-current' : ''}`} key={`${group.id}-${variant}`}>
               {/* The lane for the pattern selected in SEQ is marked rather than

@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import type { PadState } from '../pads/types'
+import './mixer.css'
 
 interface MixerProps {
   pads: readonly PadState[]
@@ -10,17 +12,37 @@ interface MixerProps {
 }
 
 export function Mixer({ pads, pumpSourceId, pumpTargets, onVolumeChange, onMutedChange, onSoloChange }: MixerProps) {
+  const channelsPerPage = 4
+  const pageCount = Math.ceil(pads.length / channelsPerPage)
+  const [pageIndex, setPageIndex] = useState(0)
+  const firstChannel = pageIndex * channelsPerPage
+  const visiblePads = pads.slice(firstChannel, firstChannel + channelsPerPage)
+
   return (
-    <section className="mixer" aria-labelledby="mixer-title">
-      <div className="sequencer-heading">
-        <div>
-          <p className="eyebrow">MIX</p>
-          <h2 id="mixer-title">16 channel mixer</h2>
+    <section className="mixer mixer-channels" aria-labelledby="mixer-title">
+      <div className="mixer-channel-heading">
+        <p className="eyebrow" id="mixer-title">CHANNELS</p>
+        <div className="mixer-page-controls" role="group" aria-label="Channel pages">
+          {Array.from({ length: pageCount }, (_, index) => {
+            const start = index * channelsPerPage + 1
+            const end = Math.min(start + channelsPerPage - 1, pads.length)
+            return (
+              <button
+                className={index === pageIndex ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'}
+                key={start}
+                type="button"
+                aria-pressed={index === pageIndex}
+                aria-label={`Show channels ${start} through ${end}`}
+                onClick={() => setPageIndex(index)}
+              >
+                {start}–{end}
+              </button>
+            )
+          })}
         </div>
-        <p className="mixer-summary">MUTE overrides SOLO</p>
       </div>
       <div className="mixer-strips">
-        {pads.map((pad) => {
+        {visiblePads.map((pad) => {
           const isPumpSource = pumpSourceId === pad.id
           const isPumpTarget = pumpTargets.includes(pad.id)
           return (

@@ -1,0 +1,84 @@
+import type { ReactNode } from 'react'
+
+/** Whatever owns the display. One at a time.
+ *
+ *  Step 2 of docs/SYSTEM_DISPLAY.md turns this into something contexts claim
+ *  and release. Today the owner is handed in directly and tempo is the only
+ *  one there is, but the shape is already the contract, so what changes then
+ *  is where the tenant comes from - not what a tenant is. */
+export interface DisplayTenant {
+  /** Stable identity. Nothing arbitrates on it yet; the release-by-id guard
+      will, once contexts can claim. */
+  id: string
+  /** Pre-formatted, units included. The display never formats values itself -
+      it cannot know that 0.01 is 10 ms and not 1%. */
+  readout: string
+  /** Names the panel and its tap target, e.g. "Tempo and playback". */
+  label: string
+  /** Rendered into the panel while this tenant owns the display. null means a
+      line-only context such as the resting MIX readout. */
+  panel: ReactNode
+}
+
+interface SystemDisplayProps {
+  /** The current tenant: what the line falls back to, and what the panel holds. */
+  owner: DisplayTenant
+  /** Confirmation shown on the line; clears itself after a few seconds. */
+  statusMessage?: string
+  /** Failure or blocked action; holds the line until the next action. */
+  errorMessage?: string
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}
+
+/* The one place messages appear, and the only thing on screen that emits light
+   rather than reflecting it. A line plus a panel, both inside the same glass.
+
+   The line runs four channels in priority order - error, confirmation, focus
+   (not built yet), then the owner's readout as the floor. Higher always wins,
+   so a readout can never push a failure off the line.
+
+   The tappable surface is a sibling of the text, not its parent: a live region
+   nested inside a button is unreliable, because assistive tech may flatten a
+   button's contents to its label and never announce the change. */
+export function SystemDisplay({ owner, statusMessage, errorMessage, open, onOpenChange }: SystemDisplayProps) {
+  // An error outranks a confirmation: if both are pending, the failure is the
+  // one you need to see.
+  const message = errorMessage ?? statusMessage
+  const tone = errorMessage ? 'error' : statusMessage ? 'status' : 'idle'
+
+  return <div className={`system-display system-display-${tone}`}>
+    <div className="system-display-line">
+      {/* The tap target covers the line only. It used to span the whole
+          display, which was harmless while the display was one row - now it
+          would sit on top of the panel and swallow every slider drag. */}
+      <button
+        className="system-display-surface"
+        type="button"
+        aria-expanded={open}
+        aria-label={`${owner.label} settings`}
+        onClick={() => onOpenChange(!open)}
+      />
+      {/* Only the message channels are live. The readout channel carries
+          parameter values, and a value that moves as a slider is dragged must
+          not be announced - a screen reader would read out every intermediate
+          step of the drag. Keying on tone remounts the region so a message
+          that arrives while an old one is showing still gets read out. */}
+      <p
+        key={tone}
+        className="system-display-text"
+        role={tone === 'idle' ? undefined : tone === 'error' ? 'alert' : 'status'}
+        aria-live={tone === 'idle' ? 'off' : undefined}
+      >
+        {message ?? owner.readout}
+      </p>
+      <span className="system-display-chevron" aria-hidden="true">{open ? '▲' : '▾'}</span>
+    </div>
+    {open && owner.panel != null && (
+      /* The second strip, and the slot: the owner renders its own controls in
+         here. Inside the same glass, so opening the panel grows the screen
+         rather than spilling controls into the transport grid around it. */
+      <div className="system-display-panel" aria-label={owner.label}>{owner.panel}</div>
+    )}
+  </div>
+}

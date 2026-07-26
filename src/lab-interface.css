@@ -13,94 +13,108 @@
 
 /* ---------- 1. Surfaces ------------------------------------------------- */
 
-.station-shell { background: var(--station-bg); }
-
-.station-panel {
+.station-shell { background: var(--station-bg); }.station-panel {
   border: 1px solid var(--station-line);
   border-radius: 6px;
   background: var(--station-panel);
   box-shadow: none;
-}
-
-/* Cards and wells sit one step up from the panel they live in. */
-.mix-bus-card, .mixer-strip, .pad-editor, .context-panel, .step-parameter-editor,
-.sequencer, .mixer, .song-workspace, .chop-workspace, .library-workspace,
-.sample-editor, .project-workspace, .library-row, .effect-rack {
+}/* Cards and wells sit one step up from the panel they live in. */
+.mix-bus-card, .mixer-strip, .pad-editor, .context-panel, .step-parameter-editor, .sequencer, .mixer, .song-workspace, .chop-workspace, .library-workspace, .sample-editor, .project-workspace, .library-row, .effect-rack {
   border: 1px solid var(--station-line);
   border-radius: 4px;
   background: var(--station-card);
   box-shadow: none;
-}
-
-/* ---------- 2. Controls ------------------------------------------------- */
+}/* ---------- 2. Controls ------------------------------------------------- */
 
 /* One button rule for the whole app. Flat face, hairline edge, accent only
    when the control is actually doing something. */
-.mixer-toggle, .transport-button, .group-strip-button, .group-strip-master,
-.header-project-button, .clear-button {
+.mixer-toggle, .transport-button, .group-strip-button, .group-strip-master, .header-project-button, .clear-button {
   border: 1px solid var(--station-line);
   border-radius: 4px;
   color: var(--station-text);
   background: var(--station-raised);
   box-shadow: none;
   transition: border-color 90ms ease, color 90ms ease, background 90ms ease;
-}
-
-.mixer-toggle:hover, .transport-button:hover, .group-strip-button:hover,
-.header-project-button:hover, .clear-button:hover {
+}.mixer-toggle:hover, .transport-button:hover, .group-strip-button:hover, .header-project-button:hover, .clear-button:hover {
   border-color: var(--station-accent);
   color: var(--station-accent);
   background: var(--station-raised);
-}
-
-/* Active means filled. No gradient, no inset - the fill alone carries it. */
+}/* Active means filled. No gradient, no inset - the fill alone carries it. */
 .mixer-toggle-active, .group-strip-selected, .transport-button {
   border-color: var(--station-accent);
   color: var(--station-bg);
   background: var(--station-accent);
   box-shadow: none;
-}
-.mixer-toggle-active:hover, .group-strip-selected:hover, .transport-button:hover {
+}.mixer-toggle-active:hover, .group-strip-selected:hover, .transport-button:hover {
   color: var(--station-bg);
   background: var(--station-accent);
-}
-
-.mixer-toggle:active, .transport-button:active, .group-strip-button:active,
-.main-nav-button:active, .step:active, .clear-button:active,
-.effect-slot-card:active, .effect-slot-button:active { transform: none; }
-
-.mixer-toggle:disabled, .transport-button:disabled {
+}.mixer-toggle:active, .transport-button:active, .group-strip-button:active, .main-nav-button:active, .step:active, .clear-button:active, .effect-slot-card:active, .effect-slot-button:active { transform: none; }.mixer-toggle:disabled, .transport-button:disabled {
   color: var(--station-text-disabled);
   border-color: var(--station-line);
   background: var(--station-raised);
   opacity: 1;
-}
+}/* ---------- 3. Navigation ----------------------------------------------- */
 
-/* ---------- 3. Navigation ----------------------------------------------- */
+/* Keys, not tabs. These were underlined text sharing one rail, which made the
+   navigation the only place in the app where a control did not look like a
+   control: no edge to say where one target stopped and the next began, and
+   nothing about pressing one that felt like throwing a switch. They take the
+   same hairline rectangle as every other control now, and the same 9.28px
+   Rajdhani - they were at 7.36px, the smallest type in the app, for no reason
+   other than that flat text can get away with it.
 
-/* Tabs are underlined, not filled - a filled tab competes with every filled
-   button underneath it, and then nothing reads as primary. */
-.main-navigation { gap: 0; border-bottom: 1px solid var(--station-line); }
+   What survives from the underlined pass is its reason. The active key is
+   outlined and lit rather than filled, because CHOP alone already puts PLAY,
+   PATTERN and CHOOSE WAV FILE on screen as solid accent blocks and a fourth
+   would leave nothing reading as primary. Filling it is a one-line change if
+   that judgement turns out wrong. */
+.main-navigation { gap: 4px; border-bottom: 0; }.main-nav-button {
+  min-height: 34px;
+  padding: 0 4px;
+  border: 1px solid var(--station-line);
+  border-radius: 4px;
+  /* Fallbacks because the palette does not define these - see the note on the
+     display's backlight. Without one the colour silently falls back to
+     inherited, and every key would sit at full brightness. */
+  color: var(--station-text-muted, #a8b0ae);
+  /* Section 13's face, written out on --station-surface because the variable it
+     uses there does not exist and takes the whole declaration down with it. The
+     top edge catches the light, the face falls a few percent to the bottom, and
+     a hairline underneath puts the key on the panel rather than cut into it -
+     large flat areas are what make an interface look printed rather than lit. */
+  background: linear-gradient(180deg, color-mix(in srgb, var(--station-surface) 100%, #fff 6%), var(--station-surface) 45%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 7%), 0 1px 0 rgb(0 0 0 / 45%);
+  font-size: .58rem;
+  letter-spacing: .07em;
+  transition: color 90ms ease, border-color 90ms ease, background 90ms ease;
+}.main-nav-button:hover { color: var(--station-text, #e8eae4); border-color: color-mix(in srgb, var(--station-line) 100%, #fff 22%); }/* Pressed is a flat change of edge, not a shove downwards - section 8 of the
+   design system took the bevels out and they are not coming back in through a
+   transform. */
+.main-nav-button:active {
+  border-color: var(--station-accent);
+  /* Held down, the light inverts: the top edge stops catching and the shadow
+     moves inside. Same move the empty effect bay makes for the same reason, and
+     it reads as pressed without a transform shoving the key down the page. */
+  background: linear-gradient(180deg, var(--station-surface), color-mix(in srgb, var(--station-surface) 100%, #fff 4%));
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / 40%);
+}/* Filled, like every other thing in the app that is switched on. An outlined
+   and tinted key was tried first, to keep a fourth solid accent block off a
+   screen that already has PLAY, PATTERN and the workspace's own primary - the
+   objection the underlined pass was built on. It was not enough: the point of
+   the key is that pressing it feels like throwing a switch, and in this app
+   switched on means filled.
 
-.main-nav-button {
-  border: 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  color: var(--station-text-muted);
-  background: transparent;
-  box-shadow: none;
-  transition: color 90ms ease, border-color 90ms ease;
-}
-.main-nav-button:hover { color: var(--station-text); background: transparent; }
-.main-nav-button-active,
-.main-nav-button-active:hover {
-  color: var(--station-accent);
-  border-bottom-color: var(--station-accent);
-  background: transparent;
-  box-shadow: none;
-}
-
-/* ---------- 4. Audio switch --------------------------------------------- */
+   Flat accent with a bloom, per section 13: filled states are the light source,
+   not a lit surface, so the face does not catch the light from above - it emits.
+   The dark text is --station-panel rather than --station-bg, which the rest of
+   the app uses here and which is not defined, leaving every other filled control
+   with pale text on a mid-tone accent until the palette is fixed. */
+.main-nav-button-active, .main-nav-button-active:hover {
+  color: var(--station-panel);
+  border-color: var(--station-accent);
+  background: var(--station-accent);
+  box-shadow: 0 0 12px rgb(var(--station-accent-rgb) / 22%), 0 1px 0 rgb(0 0 0 / 45%);
+}/* ---------- 4. Audio switch --------------------------------------------- */
 
 /* Flattened to match the sheet, but the lamp keeps its glow: this is still the
    one control without which nothing makes a sound. */
@@ -110,42 +124,69 @@
   color: var(--station-text);
   background: var(--station-raised);
   box-shadow: none;
-}
-.header-audio-button:has(.status-ready) {
+}.header-audio-button:has(.status-ready) {
   border-color: var(--station-line);
   color: var(--station-text);
   background: var(--station-raised);
-}
-.header-audio-button:not(:disabled):active { transform: none; box-shadow: none; }
-
-.header-audio-button .status-dot {
+}.header-audio-button:not(:disabled):active { transform: none; box-shadow: none; }.header-audio-button .status-dot {
   width: 9px; height: 9px;
   background: var(--status-inactive);
   box-shadow: none;
-}
-.header-audio-button .status-ready {
+}.header-audio-button .status-ready {
   background: var(--status-active);
   box-shadow: 0 0 7px 1px rgb(181 199 118 / 60%);
-}
-.header-audio-button .status-starting {
+}.header-audio-button .status-starting {
   background: var(--status-warning);
   box-shadow: 0 0 7px 1px rgb(198 154 98 / 60%);
-}
-.header-audio-button .status-error {
+}.header-audio-button .status-error {
   background: var(--status-recording);
   box-shadow: 0 0 7px 1px rgb(183 120 120 / 60%);
-}
-
-/* ---------- 5. Transport ------------------------------------------------ */
+}/* ---------- 5. Transport ------------------------------------------------ */
 
 .transport-bar {
   border: 1px solid var(--station-line);
   border-radius: 4px;
   background: var(--station-card);
   box-shadow: none;
-}
+}/* Each row says what it selects. "Pattern" was naming both of them - the
+   container and the thing inside it - so neither word meant anything. A
+   caption, not a control: small, dim, and never a tap target. */
+.context-label {
+  flex: 0 0 auto;
+  color: var(--station-text-muted, #7f8886);
+  font-family: var(--station-display-font);
+  font-size: .5rem;
+  font-weight: 700;
+  letter-spacing: .14em;
+}/* The bank number is a button now - it is the way in to copy, clear and delete.
+   Kept looking like the reading it replaces rather than like a key, so the
+   selector does not become three competing buttons in a row. */
+.bank-name {
+  min-width: 28px;
+  min-height: 30px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--station-accent);
+  background: transparent;
+  font-family: var(--station-display-font);
+  font-size: .74rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}.bank-name:hover, .bank-name:focus-visible { border-color: var(--station-accent); outline: none; }/* An empty pattern slot: wired, unlit, and tappable. Dashed rather than solid,
+   so it reads as a space to fill and not as a control that is switched off -
+   which is what it used to be, with nothing anywhere to switch it on.
 
-/* ---------- 6. Sliders -------------------------------------------------- */
+   Scoped through the parent on purpose: section 13 sets a box-shadow on plain
+   .mixer-toggle and sits lower in the file, so a single class would lose. */
+.variant-selector .variant-empty {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--station-line) 100%, #fff 10%);
+  color: var(--station-text-muted, #7f8886);
+  background: transparent;
+  box-shadow: none;
+}.variant-selector .variant-empty:hover { border-color: var(--station-accent); color: var(--station-accent); }/* ---------- 6. Sliders -------------------------------------------------- */
 
 /* A thin cut with a plain cap. The printed scale stays - it is the one piece of
    the console read that survives flattening, because it carries information. */
@@ -161,9 +202,7 @@ input[type="range"] {
   background-size: 100% 2px, 100% 4px;
   background-position: 0 5px, 0 100%;
   box-shadow: none;
-}
-
-input[type="range"]::-webkit-slider-thumb {
+}input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none;
   width: 10px; height: 18px;
   margin-top: -8px;
@@ -172,74 +211,57 @@ input[type="range"]::-webkit-slider-thumb {
   background: var(--station-accent);
   box-shadow: none;
   cursor: pointer;
-}
-input[type="range"]::-moz-range-thumb {
+}input[type="range"]::-moz-range-thumb {
   width: 10px; height: 18px;
   border: 0;
   border-radius: 2px;
   background: var(--station-accent);
   box-shadow: none;
   cursor: pointer;
-}
-input[type="range"]:disabled::-webkit-slider-thumb { background: var(--status-inactive); }
-input[type="range"]:disabled::-moz-range-thumb { background: var(--status-inactive); }
-
-/* ---------- 7. Sequencer steps ------------------------------------------ */
+}input[type="range"]:disabled::-webkit-slider-thumb { background: var(--status-inactive); }input[type="range"]:disabled::-moz-range-thumb { background: var(--status-inactive); }/* ---------- 7. Sequencer steps ------------------------------------------ */
 
 .step, .pattern-step {
   border: 1px solid var(--station-line);
   border-radius: 2px;
   background: var(--station-raised);
   box-shadow: none;
-}
-.step-active, .step-full, .sample-loaded {
+}.step-active, .step-full, .sample-loaded {
   border-color: var(--station-accent);
   background: var(--station-accent);
   color: var(--station-bg);
   box-shadow: none;
-}
-.pattern-step.pattern-step-beat-dim:not(.step-active) { background: var(--station-card); }
-
-/* ---------- 8. Pads ----------------------------------------------------- */
+}.pattern-step.pattern-step-beat-dim:not(.step-active) { background: var(--station-card); }/* ---------- 8. Pads ----------------------------------------------------- */
 
 .pad {
   border: 1px solid var(--station-line);
   border-radius: 4px;
   background: var(--station-card);
   box-shadow: none;
-}
-.pad.sample-loaded {
+}.pad.sample-loaded {
   border-color: var(--station-accent);
   background: var(--station-card);
   color: var(--station-text);
-}
-
-/* ---------- 9. FX slots ------------------------------------------------- */
+}/* ---------- 9. FX slots ------------------------------------------------- */
 
 .effect-slot-button, .effect-slot-card {
   border: 1px solid var(--station-line);
   border-radius: 4px;
   background: var(--station-raised);
   box-shadow: none;
-}
-.effect-slot-empty {
+}.effect-slot-empty {
   border-style: dashed;
   border-color: var(--station-line);
   background: var(--station-card);
   box-shadow: none;
-}
-.effect-slot-button small, .effect-slot-card small {
+}.effect-slot-button small, .effect-slot-card small {
   color: var(--status-active);
   background: rgb(181 199 118 / 12%);
   box-shadow: inset 0 0 0 1px rgb(181 199 118 / 24%);
-}
-.master-effect-bypassed small {
+}.master-effect-bypassed small {
   color: var(--status-warning);
   background: rgb(198 154 98 / 12%);
   box-shadow: inset 0 0 0 1px rgb(198 154 98 / 24%);
-}
-
-/* ---------- 10. Type ---------------------------------------------------- */
+}/* ---------- 10. Type ---------------------------------------------------- */
 
 .eyebrow {
   color: var(--station-accent);
@@ -247,27 +269,16 @@ input[type="range"]:disabled::-moz-range-thumb { background: var(--status-inacti
   font-weight: 800;
   letter-spacing: .16em;
   text-transform: uppercase;
-}
-
-/* Small uppercase label, value carried underneath it - the sheet's data cell. */
-.transport-control, .mixer-strip-label, .pad-footer, .sample-info {
+}/* Small uppercase label, .mixer-strip-label, .pad-footer, .sample-info {
   color: var(--station-text-muted);
-}
-
-h1, h2, h3, .station-header h1 { font-family: var(--station-display-font); }
-h2 { color: var(--station-text); }
-
-/* Every measurement in the app renders into an <output>, so one selector puts
+}h1, h2, h3, .station-header h1 { font-family: var(--station-display-font); }h2 { color: var(--station-text); }/* Every measurement in the app renders into an <output>, so one selector puts
    the whole numeric layer on the mono face. tabular-nums is the point: without
    it a fader reading 1.00 and 0.87 are different widths and the column twitches
    on every drag. */
 output, kbd, .transport-settings-toggle {
   font-family: var(--station-mono-font);
   font-variant-numeric: tabular-nums;
-}
-output { color: var(--station-accent); }
-
-/* ---------- 11. Inputs -------------------------------------------------- */
+}output { color: var(--station-accent); }/* ---------- 11. Inputs -------------------------------------------------- */
 
 input[type="text"], input[type="number"], select, textarea {
   border: 1px solid var(--station-line);
@@ -275,9 +286,7 @@ input[type="text"], input[type="number"], select, textarea {
   color: var(--station-text);
   background: var(--station-raised);
   box-shadow: none;
-}
-
-/* ---------- 12. Panel corner marks -------------------------------------- */
+}/* ---------- 12. Panel corner marks -------------------------------------- */
 
 /* The reference sheet marks each module's corners. Decorative, but it is what
    makes a panel read as a discrete unit rather than a div with a border. */
@@ -297,9 +306,7 @@ input[type="text"], input[type="number"], select, textarea {
     linear-gradient(var(--station-line) 0 0) 100% 100% / 7px 1px,
     linear-gradient(var(--station-line) 0 0) 100% 100% / 1px 7px;
   background-repeat: no-repeat;
-}
-
-/* ============================================================================
+}/* ============================================================================
    13. LIGHT
    The old look put a 115deg hatch on the panel and on every workspace inside
    it, each with inset:0, so the texture stacked and ran unbroken across the
@@ -313,17 +320,9 @@ input[type="text"], input[type="number"], select, textarea {
    and falloff, which is what keeps it from tiling into wallpaper again.
    ========================================================================= */
 
-.station-panel::before, .sequencer::before, .mixer::before, .song-workspace::before,
-.chop-workspace::before, .library-workspace::before, .sample-editor::before,
-.pad-editor::before, .context-panel::before, .project-workspace::before { content: none; }
-
-/* The rivet dots stay on the outer panel only, as corner marks. Repeating them
+.station-panel::before, .sequencer::before, .mixer::before, .song-workspace::before, .chop-workspace::before, .library-workspace::before, .sample-editor::before, .pad-editor::before, .context-panel::before, .project-workspace::before { content: none; }/* The rivet dots stay on the outer panel only, as corner marks. Repeating them
    on every nested card was the same mistake as the hatch at a smaller scale. */
-.sequencer::after, .mixer::after, .song-workspace::after, .chop-workspace::after,
-.library-workspace::after, .sample-editor::after, .pad-editor::after,
-.context-panel::after { content: none; }
-
-/* Ambient fill behind the rack: brightest just above the panel and falling off
+.sequencer::after, .mixer::after, .song-workspace::after, .chop-workspace::after, .library-workspace::after, .sample-editor::after, .pad-editor::after, .context-panel::after { content: none; }/* Ambient fill behind the rack: brightest just above the panel and falling off
    fast, so the screen has a top and a bottom instead of being a flat void. The
    accent tint is deliberately near-invisible - it should register as the room
    being lit by whichever module is open, not as a coloured background. */
@@ -333,10 +332,7 @@ input[type="text"], input[type="number"], select, textarea {
     radial-gradient(120% 60% at 50% -10%, rgb(var(--station-accent-rgb) / 7%), transparent 70%),
     radial-gradient(90% 50% at 50% 0%, rgb(255 255 255 / 4%), transparent 75%);
   mask-image: none;
-}
-.station-panel { position: relative; z-index: 1; }
-
-/* Each surface lit from above: a hairline catch on the top edge, and a fall of
+}.station-panel { position: relative; z-index: 1; }/* Each surface lit from above: a hairline catch on the top edge, and a fall of
    two or three percent from top to bottom across the face. Large flat areas are
    what make an interface look printed rather than lit. */
 /* The source itself: a pool of light landing on the top of the rack and falling
@@ -350,44 +346,39 @@ input[type="text"], input[type="number"], select, textarea {
     radial-gradient(115% 38% at 50% -4%, rgb(var(--station-accent-rgb) / 9%), transparent 66%),
     linear-gradient(180deg, color-mix(in srgb, var(--station-panel) 100%, #fff 4%), var(--station-panel) 34%);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 9%), 0 1px 0 rgb(0 0 0 / 50%);
-}
-
-.mix-bus-card, .mixer-strip, .pad-editor, .context-panel, .step-parameter-editor,
-.sequencer, .mixer, .song-workspace, .chop-workspace, .library-workspace,
-.sample-editor, .project-workspace, .library-row, .effect-rack, .transport-bar {
+}.mix-bus-card, .mixer-strip, .pad-editor, .context-panel, .step-parameter-editor, .sequencer, .mixer, .song-workspace, .chop-workspace, .library-workspace, .sample-editor, .project-workspace, .library-row, .effect-rack, .transport-bar {
   background: linear-gradient(180deg, color-mix(in srgb, var(--station-card) 100%, #fff 4%), var(--station-card) 30%);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%);
-}
-
-.pad, .effect-slot-button, .effect-slot-card {
+}.pad, .effect-slot-button, .effect-slot-card {
   background: linear-gradient(180deg, color-mix(in srgb, var(--station-card) 100%, #fff 5%), var(--station-card) 40%);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%);
-}
+}/* Controls sit closest to the light, so they catch the most on the top edge -
+   this is the only cue left that says "this one you can press".
 
-/* Controls sit closest to the light, so they catch the most on the top edge -
-   this is the only cue left that says "this one you can press". */
-.mixer-toggle, .group-strip-button, .group-strip-master, .header-project-button,
-.header-audio-button, .clear-button, .step, .pattern-step,
-input[type="text"], input[type="number"], select, textarea {
+   The face here is built on --station-raised, which is not defined anywhere, so
+   this declaration is invalid and every control on screen is missing its fall
+   from top to bottom and keeping only the hairline. That is why the interface
+   reads as printed rather than lit.
+
+   .main-nav-button belongs in this list - it is a control now - but adding it
+   before the palette is fixed makes things worse, not better: this rule sits
+   below section 3, so its dead `background` wins and blanks the working face
+   the nav carries there. An invalid declaration does not fall back to an
+   earlier one, it unsets the property. Add the selector here and delete the
+   nav's local face in the same commit that defines --station-raised. */
+.mixer-toggle, .group-strip-button, .group-strip-master, .header-project-button, .header-audio-button, .clear-button, .step, .pattern-step, input[type="text"], input[type="number"], select, textarea {
   background: linear-gradient(180deg, color-mix(in srgb, var(--station-raised) 100%, #fff 6%), var(--station-raised) 45%);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 7%);
-}
-
-/* Filled states are the light source, not a lit surface - flat accent, and a
+}/* Filled states are the light source, not a lit surface - flat accent, and a
    soft bloom so the colour reads as emitted. */
-.mixer-toggle-active, .group-strip-selected, .transport-button,
-.step-active, .step-full, .sample-loaded {
+.mixer-toggle-active, .group-strip-selected, .transport-button, .step-active, .step-full, .sample-loaded {
   background: var(--station-accent);
   box-shadow: 0 0 12px rgb(var(--station-accent-rgb) / 22%);
-}
-
-/* An empty bay is the one thing below its parent, so its light inverts. */
+}/* An empty bay is the one thing below its parent, so its light inverts. */
 .effect-slot-empty {
   background: linear-gradient(180deg, var(--station-bg), color-mix(in srgb, var(--station-bg) 100%, #fff 3%));
   box-shadow: inset 0 2px 4px rgb(0 0 0 / 40%);
-}
-
-/* ---------- 14. Pattern admin (parked in PROJECT) ----------------------- */
+}/* ---------- 14. Pattern admin (parked in PROJECT) ----------------------- */
 
 /* Holding spot for the four pattern-group actions cut from the SEQ header.
    Sits in its own well so it reads as a separate concern from SAVE/OPEN
@@ -399,18 +390,13 @@ input[type="text"], input[type="number"], select, textarea {
   border-radius: 4px;
   background: linear-gradient(180deg, color-mix(in srgb, var(--station-card) 100%, #fff 4%), var(--station-card) 30%);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%);
-}
-.pattern-admin-row {
+}.pattern-admin-row {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
   margin-top: 10px;
-}
-.pattern-admin-row .transport-button,
-.pattern-admin-row .mixer-toggle,
-.pattern-admin-row .clear-button { flex: 1 1 auto; min-width: 0; min-height: 32px; padding: 0 10px; font-size: .6rem; }
-.pattern-admin-row .sequence-target {
+}.pattern-admin-row .transport-button, .pattern-admin-row .mixer-toggle, .pattern-admin-row .clear-button { flex: 1 1 auto; min-width: 0; min-height: 32px; padding: 0 10px; font-size: .6rem; }.pattern-admin-row .sequence-target {
   flex: 0 0 100%;
   margin: 0;
   color: var(--station-text-muted);
@@ -418,29 +404,18 @@ input[type="text"], input[type="number"], select, textarea {
   font-weight: 800;
   letter-spacing: .1em;
   text-transform: uppercase;
-}
-
-/* ---------- 15. SONG arrangement ---------------------------------------- */
+}/* ---------- 15. SONG arrangement ---------------------------------------- */
 
 /* This was a spreadsheet: every slot a bordered cell, a "PATTERN / SLOT"
    corner header, uniform grid lines in both directions. An arranger reads the
-   other way round - the lane is continuous and only the bar lines interrupt it,
-   so the eye follows time horizontally instead of counting cells. */
+   other way round - the lane is continuous and only the bar lines interrupt it, so the eye follows time horizontally instead of counting cells. */
 
-.arrangement-scroll { overflow-x: auto; margin-top: 4px; padding-bottom: 6px; }
-.arrangement { min-width: max-content; }
-
-.arrangement-ruler, .arrangement-lane {
+.arrangement-scroll { overflow-x: auto; margin-top: 4px; padding-bottom: 6px; }.arrangement { min-width: max-content; }.arrangement-ruler, .arrangement-lane {
   display: grid;
   grid-template-columns: 58px minmax(0, 1fr);
   align-items: stretch;
   gap: 8px;
-}
-.arrangement-lane { margin-top: 4px; }
-
-.arrangement-track { display: grid; }
-
-/* Bar numbers only every fourth slot. Numbering all sixteen is what made the
+}.arrangement-lane { margin-top: 4px; }.arrangement-track { display: grid; }/* Bar numbers only every fourth slot. Numbering all sixteen is what made the
    old header read as a column index rather than a timeline. */
 .arrangement-tick {
   padding-bottom: 4px;
@@ -449,11 +424,7 @@ input[type="text"], input[type="number"], select, textarea {
   font-size: .56rem;
   font-variant-numeric: tabular-nums;
   text-align: left;
-}
-.arrangement-tick-bar { color: var(--station-text-muted); box-shadow: inset 1px 0 0 var(--station-line); padding-left: 4px; }
-.arrangement-tick-playing { color: var(--station-accent); }
-
-.arrangement-lane-name {
+}.arrangement-tick-bar { color: var(--station-text-muted); box-shadow: inset 1px 0 0 var(--station-line); padding-left: 4px; }.arrangement-tick-playing { color: var(--station-accent); }.arrangement-lane-name {
   display: flex;
   align-items: center;
   overflow: hidden;
@@ -463,13 +434,9 @@ input[type="text"], input[type="number"], select, textarea {
   font-weight: 600;
   letter-spacing: .06em;
   white-space: nowrap;
-}
-
-/* The lane holding the pattern selected in SEQ, so the workspace shows what it
+}/* The lane holding the pattern selected in SEQ, so the workspace shows what it
    is about to place instead of stating it in a sentence. */
-.arrangement-lane-current .arrangement-lane-name { color: var(--station-accent); }
-
-/* One continuous strip per lane; the slots inside it carry no borders of their
+.arrangement-lane-current .arrangement-lane-name { color: var(--station-accent); }/* One continuous strip per lane; the slots inside it carry no borders of their
    own, only a bar line every four. */
 .arrangement-lane .arrangement-track {
   border: 1px solid var(--station-line);
@@ -477,50 +444,30 @@ input[type="text"], input[type="number"], select, textarea {
   background: linear-gradient(180deg, color-mix(in srgb, var(--station-bg) 100%, #fff 4%), var(--station-bg));
   box-shadow: inset 0 1px 2px rgb(0 0 0 / 35%);
   overflow: hidden;
-}
-.arrangement-lane-current .arrangement-track { border-color: color-mix(in srgb, var(--station-accent) 45%, var(--station-line)); }
-
-.arrangement-slot {
+}.arrangement-lane-current .arrangement-track { border-color: color-mix(in srgb, var(--station-accent) 45%, var(--station-line)); }.arrangement-slot {
   min-height: 30px;
   cursor: pointer;
   /* Vertical page scrolling stays with the browser; horizontal drag is ours,
      which is what makes painting across slots work with a finger. */
   touch-action: pan-y;
-}
-.arrangement-slot-bar { box-shadow: inset 1px 0 0 var(--station-line); }
-.arrangement-slot:hover { background: rgb(var(--station-accent-rgb) / 8%); }
-
-/* A placed clip is a solid block sitting in the lane, inset a hair so
+}.arrangement-slot-bar { box-shadow: inset 1px 0 0 var(--station-line); }.arrangement-slot:hover { background: rgb(var(--station-accent-rgb) / 8%); }/* A placed clip is a solid block sitting in the lane, inset a hair so
    neighbouring slots read as one run rather than a fused rectangle. */
 .arrangement-slot-filled {
   background: var(--station-accent);
   box-shadow: inset 0 0 0 1px rgb(0 0 0 / 30%), 0 0 10px rgb(var(--station-accent-rgb) / 20%);
-}
-.arrangement-slot-filled:hover { background: color-mix(in srgb, var(--station-accent) 88%, #fff); }
-
-/* The playhead crosses every lane: each lane paints its own left edge, and
+}.arrangement-slot-filled:hover { background: color-mix(in srgb, var(--station-accent) 88%, #fff); }/* The playhead crosses every lane: each lane paints its own left edge, and
    stacked they form one continuous line. */
-.arrangement-slot-playing { box-shadow: inset 2px 0 0 var(--station-accent); }
-.arrangement-slot-playing.arrangement-slot-filled { box-shadow: inset 2px 0 0 #fff, inset 0 0 0 1px rgb(0 0 0 / 30%); }
-
-/* Alternating bars, so a run of clips reads as bars rather than as a count of
+.arrangement-slot-playing { box-shadow: inset 2px 0 0 var(--station-accent); }.arrangement-slot-playing.arrangement-slot-filled { box-shadow: inset 2px 0 0 #fff, inset 0 0 0 1px rgb(0 0 0 / 30%); }/* Alternating bars, so a run of clips reads as bars rather than as a count of
    identical cells. Filled slots keep their accent inside a dim bar - the
    shading is structure, not state. */
-.arrangement-slot { min-height: 34px; }
-.arrangement-slot-bar-dim:not(.arrangement-slot-filled) { background: rgb(0 0 0 / 22%); }
-.arrangement-slot-bar-dim:not(.arrangement-slot-filled):hover { background: rgb(var(--station-accent-rgb) / 8%); }
-
-/* ---------- 16. Auto-chop smart slider ---------------------------------- */
+.arrangement-slot { min-height: 34px; }.arrangement-slot-bar-dim:not(.arrangement-slot-filled) { background: rgb(0 0 0 / 22%); }.arrangement-slot-bar-dim:not(.arrangement-slot-filled):hover { background: rgb(var(--station-accent-rgb) / 8%); }/* ---------- 16. Auto-chop smart slider ---------------------------------- */
 
 /* flex: 1 1 220px was written for a row, where the basis is a width and means
    "give this slider at least 220px across". The mobile layout turns the row
    into a column, and in a column the basis is a height - so the same rule
    demanded a 220px tall slider and ate a quarter of the screen. Size to
    content instead; the width is already handled by align-items: stretch. */
-.auto-chop-smart-slider { flex: 0 0 auto; }
-.auto-chop-smart-slider input { margin-top: 2px; }
-
-/* ---------- 17. Step matrix ---------------------------------------------- */
+.auto-chop-smart-slider { flex: 0 0 auto; }.auto-chop-smart-slider input { margin-top: 2px; }/* ---------- 17. Step matrix ---------------------------------------------- */
 
 /* A table's cells share edges, so each line must be drawn exactly once. The
    global button rule boxed every step on all four sides and rounded it, while
@@ -534,25 +481,221 @@ input[type="text"], input[type="number"], select, textarea {
   border-bottom: 1px solid var(--station-line);
   border-radius: 0;
   box-shadow: none;
-}
-.pattern-matrix-row > *:last-child { border-right: 0; }
-.pattern-matrix-row:last-child > * { border-bottom: 0; }
-.pattern-matrix { border-radius: 4px; }
-
-/* State is carried by fill alone - a border would put the doubling back. */
-.pattern-matrix-row > .pattern-step.step-active { background: var(--station-accent); }
-.pattern-matrix-row > .pattern-step.pattern-step-beat-dim:not(.step-active) { background: rgb(0 0 0 / 22%); }
-.pattern-matrix-row > .pattern-step.pattern-step-playing { box-shadow: inset 2px 0 0 var(--station-accent); }
-.pattern-matrix-row > .pattern-step.pattern-step-selected { outline: 1px solid var(--station-accent); outline-offset: -1px; }
-
-/* The step buttons carried min-width: 46px while the row's track was 40px, so
+}.pattern-matrix-row > *:last-child { border-right: 0; }.pattern-matrix-row:last-child > * { border-bottom: 0; }.pattern-matrix { border-radius: 4px; }/* State is carried by fill alone - a border would put the doubling back. */
+.pattern-matrix-row > .pattern-step.step-active { background: var(--station-accent); }.pattern-matrix-row > .pattern-step.pattern-step-beat-dim:not(.step-active) { background: rgb(0 0 0 / 22%); }.pattern-matrix-row > .pattern-step.pattern-step-playing { box-shadow: inset 2px 0 0 var(--station-accent); }.pattern-matrix-row > .pattern-step.pattern-step-selected { outline: 1px solid var(--station-accent); outline-offset: -1px; }/* The step buttons carried min-width: 46px while the row's track was 40px, so
    every step overflowed its column by six pixels and pushed its right edge into
    the next one. The header spans set no min-width, so they stayed on the true
    column lines - which is why the two rows drifted apart the further right you
    looked. The track is the single source of truth now and cells may not set a
    floor of their own. 44px because that is the smallest comfortable touch
    target, and this grid is tapped rather than clicked. */
-.pattern-matrix-row { grid-template-columns: 100px repeat(16, 44px); min-width: 804px; }
-/* width as well as min-width: .pattern-step pins both to 46px, and resetting
+.pattern-matrix-row { grid-template-columns: 100px repeat(16, 44px); min-width: 804px; }/* width as well as min-width: .pattern-step pins both to 46px, and resetting
    only the floor left the explicit width still overflowing the track. */
-.pattern-matrix-row > * { width: auto; min-width: 0; height: 44px; min-height: 44px; }
+.pattern-matrix-row > * { width: auto; min-width: 0; height: 44px; min-height: 44px; }/* ---------- 18. System display ------------------------------------------ */
+
+/* The one place messages appear, and the only thing on screen that emits rather
+   than reflects. Everything else here is a lit surface; this is the light
+   source, which is what makes it read as a screen instead of another rectangle.
+   Three things do that together: a backlight strongest behind the text and gone
+   by the edges, a vignette so the glass sits in a bezel, and a bloom on the
+   characters themselves. No texture - it stays consistent with the rest of the
+   app, and the glow alone is enough to separate it.
+
+   --display-light is the colour of the light, so tone moves the backlight, the
+   character bloom and the text from one value.
+
+   The backlight is sized and placed as a share of the whole element, so it
+   grows with the display instead of staying on the first line. It ends on a lit
+   floor rather than on transparent: a single stop fading to nothing was tuned
+   for a 38px strip, and over a screen five times that tall it ran out well
+   before the last row, which left the display looking like one lit line with
+   dark rows hanging off it. Three stops - a hot spot near the readout, a middle,
+   and a floor that never reaches zero - keep the whole glass lit.
+
+   The display is one screen that grows lines, not a screen with a panel under
+   it - see the second strip below. Everything lives inside the same glass, so
+   opening it makes the screen taller rather than spilling controls into the
+   transport grid around it. See docs/SYSTEM_DISPLAY.md. */
+.system-display {
+  --display-light: 226 232 220;
+  --display-bloom: 20%;
+
+  grid-column: 1 / -1;
+  overflow: hidden;
+  border: 1px solid var(--station-line);
+  border-radius: 3px;
+  /* Split, not the `background` shorthand. --station-bg is not defined anywhere
+     in the app, and one undefined variable invalidates the whole declaration it
+     sits in - which threw away the backlight with it, so the display has been
+     rendering with no glow at all and only the character bloom on the line to
+     suggest one. Apart they are independent: the colour drops out on its own
+     and the light still paints. */
+  background-color: var(--station-bg);
+  background-image:
+    radial-gradient(140% 115% at 50% 26%,
+      rgb(var(--display-light) / 16%),
+      rgb(var(--display-light) / 7%) 58%,
+      rgb(var(--display-light) / 3%) 100%);
+  box-shadow:
+    inset 0 0 14px rgb(0 0 0 / 55%),
+    inset 0 2px 5px rgb(0 0 0 / 45%);
+}.system-display-line {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 38px;
+  /* Symmetric, so the chevron cannot pull the centred text off axis. */
+  padding: 7px 26px;
+}/* Covers the line only - see the note in SystemDisplay. Sits under the text so
+   the live region stays outside the button and taps still land. */
+.system-display-surface {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}.system-display-text {
+  position: relative;
+  width: 100%;
+  margin: 0;
+  color: var(--station-text-muted);
+  font-family: var(--station-mono-font);
+  font-size: .58rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .05em;
+  line-height: 1.5;
+  text-align: center;
+  text-shadow: 0 0 7px rgb(var(--display-light) / var(--display-bloom));
+  pointer-events: none;
+}/* Parked on the edge rather than in the flow, so the text centres on the whole
+   line and not on what is left over beside it. */
+.system-display-chevron {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  color: var(--station-text-disabled);
+  font-size: .6rem;
+  pointer-events: none;
+}/* ---- The lines below the first ----------------------------------------- */
+
+/* No fill and no seam. This used to be a darker slab behind a black divider,
+   which is what made it read as a tray stuck under a screen instead of more of
+   the screen: two surfaces, and the backlight reaching only the top one. Now it
+   paints nothing at all - the rows sit on the same glass, under the same light,
+   and the only thing between them is a hairline in the display's own colour. A
+   scanline, not an edge. */
+.system-display-panel { display: grid; padding-bottom: 6px; }/* One row for everything in here, so a toggle and a parameter read as two lines
+   of one readout: name on the left, value on the right, and the control - where
+   there is one - across the full width beneath them. It survives long labels and
+   it stacks, which is what a compressor's five parameters will need. */
+.display-param, .display-toggle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 10px;
+  align-items: baseline;
+  width: 100%;
+  padding: 8px 12px 10px;
+  border: 0;
+  border-top: 1px solid rgb(var(--display-light) / 8%);
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+}/* Mono, at the line's own tracking: these are characters on a screen, not
+   labels on a panel. Everything in here is the display's own light at a
+   different strength - a name is a dim segment, a value is a lit one - rather
+   than a grey from the app palette. That keeps the hierarchy correct when the
+   tone changes: on an error the whole readout goes red together. */
+.display-param-label {
+  color: rgb(var(--display-light) / 55%);
+  font-family: var(--station-mono-font);
+  font-size: .58rem;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}.display-param output, .display-toggle-value {
+  color: rgb(var(--display-light));
+  font-family: var(--station-mono-font);
+  font-size: .6rem;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 6px rgb(var(--display-light) / var(--display-bloom));
+}.display-param input[type="range"] { grid-column: 1 / -1; width: 100%; }/* A context can put more than parameter rows in the panel. The pad grid keeps
+   the row's edges and hairline so it still reads as part of the screen, and it
+   is lit by --display-light rather than the module accent - this is one
+   instrument's display, not six coloured ones. */
+.display-pad-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  padding: 8px 12px 10px;
+  border-top: 1px solid rgb(var(--display-light) / 8%);
+}.display-pad {
+  min-height: 34px;
+  border: 1px solid rgb(var(--display-light) / 22%);
+  border-radius: 3px;
+  color: rgb(var(--display-light) / 70%);
+  background: rgb(var(--display-light) / 4%);
+  font-family: var(--station-mono-font);
+  font-size: .58rem;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}.display-pad:hover:not(:disabled), .display-pad:focus-visible { border-color: rgb(var(--display-light) / 55%); color: rgb(var(--display-light)); outline: none; }/* A pad holding a sample is lit; an empty one is wired but dark. */
+.display-pad-loaded {
+  color: rgb(var(--display-light));
+  border-color: rgb(var(--display-light) / 45%);
+  background: rgb(var(--display-light) / 12%);
+  text-shadow: 0 0 6px rgb(var(--display-light) / var(--display-bloom));
+}.display-pad:disabled { cursor: default; opacity: .4; }/* Actions in a parameter row: the label says what they act on, the buttons sit
+   where a value would. Same light as everything else in the glass. */
+.display-actions { display: flex; gap: 4px; }.display-action {
+  min-height: 26px;
+  padding: 0 8px;
+  border: 1px solid rgb(var(--display-light) / 25%);
+  border-radius: 3px;
+  color: rgb(var(--display-light) / 80%);
+  background: rgb(var(--display-light) / 5%);
+  font-family: var(--station-mono-font);
+  font-size: .55rem;
+  letter-spacing: .06em;
+  cursor: pointer;
+}.display-action:hover:not(:disabled), .display-action:focus-visible { border-color: rgb(var(--display-light) / 60%); color: rgb(var(--display-light)); outline: none; }.display-action:disabled { cursor: default; opacity: .35; }/* Destructive, so it takes the error tone from the status palette instead of
+   the display's own light. The one thing in here allowed to differ, for the
+   same reason a failure looks the same in every module. */
+.display-action-danger { border-color: color-mix(in srgb, var(--status-recording) 55%, transparent); color: var(--status-recording); }.display-action-danger:hover:not(:disabled) { border-color: var(--status-recording); }/* The whole row is the switch, so there is no box to draw and nothing to hide.
+   No fill and no border of its own either - a lit face in here would be a
+   button sitting on the screen, and it would carry the module accent with it. */
+.display-toggle { cursor: pointer; font: inherit; }.display-toggle:focus-visible { outline: 1px solid rgb(var(--display-light) / 55%); outline-offset: -3px; }/* Unavailable, not absent: the row stays where it is and drops to a quarter of
+   the light, the way a segment that is wired but unlit does. */
+.display-toggle:disabled { cursor: default; }.display-toggle:disabled .display-param-label { color: rgb(var(--display-light) / 25%); }.display-toggle:disabled .display-toggle-value {
+  color: rgb(var(--display-light) / 25%);
+  text-shadow: none;
+}/* Inside the display a slider is screen furniture, not a console control: the
+   printed scale comes off and the cap lights up instead of taking the module
+   accent. Geometry is left to the app rule above so the drag target does not
+   move - only the paint changes. */
+.system-display input[type="range"] {
+  background: linear-gradient(rgb(var(--display-light) / 22%) 0 0);
+  background-repeat: no-repeat;
+  background-size: 100% 1px;
+  background-position: 0 6px;
+}.system-display input[type="range"]::-webkit-slider-thumb {
+  border-radius: 1px;
+  background: rgb(var(--display-light));
+  box-shadow: 0 0 6px rgb(var(--display-light) / var(--display-bloom));
+}.system-display input[type="range"]::-moz-range-thumb {
+  border-radius: 1px;
+  background: rgb(var(--display-light));
+  box-shadow: 0 0 6px rgb(var(--display-light) / var(--display-bloom));
+}.system-display input[type="range"]:disabled::-webkit-slider-thumb { background: var(--status-inactive); box-shadow: none; }.system-display input[type="range"]:disabled::-moz-range-thumb { background: var(--status-inactive); box-shadow: none; }/* Tone comes from the fixed status palette, never the module accent - a failure
+   has to look the same in SEQ as it does in MIX. */
+.system-display-status {
+  --display-light: 181 199 118;
+  --display-bloom: 38%;
+  border-color: color-mix(in srgb, var(--status-active) 40%, var(--station-line));
+}.system-display-status .system-display-text { color: var(--status-active); }.system-display-error {
+  --display-light: 183 120 120;
+  --display-bloom: 38%;
+  border-color: color-mix(in srgb, var(--status-recording) 55%, var(--station-line));
+}.system-display-error .system-display-text { color: var(--status-recording); }
+
+@media (prefers-reduced-motion: no-preference) {.system-display { transition: border-color 160ms ease, background 160ms ease; }.system-display-text { transition: color 160ms ease, text-shadow 160ms ease; }
+}

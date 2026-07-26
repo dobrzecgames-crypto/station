@@ -1,0 +1,3 @@
+.pad-workspace { flex: 1; min-width: 0; }
+.pad-drop-target { border-color: var(--station-cyan); box-shadow: inset 0 0 0 1px var(--station-cyan), 0 0 14px rgb(126 188 209 / 16%); }
+.pad-drop-target .pad-footer span { color: var(--station-cyan); }

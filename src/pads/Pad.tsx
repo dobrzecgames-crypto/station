@@ -6,7 +6,9 @@ interface PadProps {
   isSelected: boolean
   isActive: boolean
   audioReady: boolean
+  dropSampleName: string | null
   onTrigger: (padId: PadState['id']) => void
+  onDropSample: (padId: PadState['id']) => void
   onFeedbackEnd: (padId: PadState['id']) => void
 }
 
@@ -16,7 +18,9 @@ export function Pad({
   isSelected,
   isActive,
   audioReady,
+  dropSampleName,
   onTrigger,
+  onDropSample,
   onFeedbackEnd,
 }: PadProps) {
   const isLoaded = pad.fileName !== null
@@ -24,13 +28,14 @@ export function Pad({
   return (
     <button
       type="button"
-      className={`pad ${isLoaded ? 'pad-loaded' : 'pad-empty'} ${isSelected ? 'pad-selected' : ''} ${isActive ? 'pad-active' : ''}`}
+      className={`pad ${isLoaded ? 'pad-loaded' : 'pad-empty'} ${isSelected ? 'pad-selected' : ''} ${isActive ? 'pad-active' : ''} ${dropSampleName ? 'pad-drop-target' : ''}`}
       aria-pressed={isSelected}
-      aria-label={`${pad.label}, ${isLoaded ? `loaded: ${pad.fileName}` : 'empty'}, key ${keyLabel}`}
+      aria-label={dropSampleName ? `Drop ${dropSampleName} to ${pad.label}` : `${pad.label}, ${isLoaded ? `loaded: ${pad.fileName}` : 'empty'}, key ${keyLabel}`}
       onAnimationEnd={() => onFeedbackEnd(pad.id)}
       onPointerDown={(event) => {
         event.preventDefault()
-        onTrigger(pad.id)
+        if (dropSampleName) onDropSample(pad.id)
+        else onTrigger(pad.id)
       }}
     >
       <span className="pad-number">{pad.label}</span>
@@ -39,7 +44,7 @@ export function Pad({
       </span>
       <span className="pad-footer">
         <kbd>{keyLabel}</kbd>
-        <span>{audioReady && isLoaded ? 'READY' : isLoaded ? 'LOCKED' : 'EMPTY'}</span>
+        <span>{dropSampleName ? 'DROP' : audioReady && isLoaded ? 'READY' : isLoaded ? 'LOCKED' : 'EMPTY'}</span>
       </span>
     </button>
   )

@@ -111,16 +111,29 @@ Bahnschrift). Adopting these three requires self-hosting the web fonts.
 - **Density:** tight. Labels are small, uppercase, letter-spaced; values are
   large and mono. Label above, value below.
 
-## 8. Open question: depth
+## 8. Depth — settled
 
-The reference sheet is **flat**. Controls are hairline rectangles that fill with
-the accent when active; sliders are thin tracks with a small handle; there are no
-gradients, bevels or drop shadows.
+The reference sheet is flat, and that is the direction taken. Controls are
+hairline rectangles that fill with the accent when active; sliders are thin
+tracks with a small handle. The earlier skeuomorphic pass — a raised power
+switch with a carved bezel, gradient key faces, console faders with grooved caps
+— was removed.
 
-The app currently carries a skeuomorphic hardware treatment in the other
-direction — a raised power switch with a carved bezel, gradient key faces, and
-console faders with grooved caps riding a printed scale. Adopting the reference
-sheet wholesale means removing that work.
+The reason is worth keeping, because it is easy to re-litigate: what read as
+cheap was never the absence of depth, it was **three treatments stacked on top of
+each other** over successive passes — flat fills, then bevelled hardware, then
+partial reflattening. Inconsistent depth looks cheap. One language, applied
+everywhere, does not.
 
-This is a real fork in the road and is deliberately left undecided here. See the
-implementation notes in `DECISIONS.md` once it is settled.
+Depth still exists, but as a light model rather than as bevels: one source above,
+every surface stepping a rung up the grey ramp from its parent and catching a
+hairline on its top edge. See `src/lab-interface.css`, section 13.
+
+One deliberate exception: the system display is **recessed**, not raised, and it
+is the only element that emits light instead of reflecting it. That is what
+separates a screen from a control. See `SYSTEM_DISPLAY.md`.
+
+## 9. Related
+
+- `SYSTEM_DISPLAY.md` — the transport display: channels, priority, and the
+  proposed contract for letting any context own it.

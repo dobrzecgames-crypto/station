@@ -1,5 +1,11 @@
-import { patternVariantNames } from '../patterns/patternTypes'
+import { useEffect, useState } from 'react'
+import { patternVariantNames, maximumPatternGroups } from '../patterns/patternTypes'
 import type { PatternGroup, PatternVariantName } from '../patterns/patternTypes'
+import { SystemDisplay } from './SystemDisplay'
+import type { DisplayTenant } from './SystemDisplay'
+import { tempoTenant } from './TempoPanel'
+import { bankTenant } from './BankPanel'
+import { useSystemDisplay } from './systemDisplayContext'
 
 interface TransportBarProps {
   bpm: number
@@ -9,6 +15,13 @@ interface TransportBarProps {
   loopSong: boolean
   metronomeEnabled: boolean
   settingsOpen: boolean
+  /** Confirmation shown on the display; clears itself after a few seconds. */
+  statusMessage?: string
+  /** Failure or blocked action; holds the display until the next action. */
+  errorMessage?: string
+  /** Whoever has claimed the display, or null when nobody has and tempo holds
+      the floor. */
+  displayOwner: DisplayTenant | null
   onSettingsOpenChange: (open: boolean) => void
   groups: readonly PatternGroup[]
   selectedGroupId: string
@@ -20,30 +33,105 @@ interface TransportBarProps {
   onMetronomeEnabledChange: (enabled: boolean) => void
   onGroupChange: (groupId: string) => void
   onVariantChange: (variant: PatternVariantName) => void
+  onGroupCreate: () => void
+  /** Fills an empty slot in the pattern row and switches to it. */
+  onVariantCreate: (variant: PatternVariantName) => void
+  onVariantDuplicate: (target: PatternVariantName) => void
+  onVariantClear: () => void
+  onGroupDelete: () => void
   onPlay: () => void
   onStop: () => void
 }
 
-export function TransportBar({ bpm, swing, isPlaying, mode, loopSong, metronomeEnabled, settingsOpen, onSettingsOpenChange, groups, selectedGroupId, selectedVariant, onBpmChange, onSwingChange, onModeChange, onLoopSongChange, onMetronomeEnabledChange, onGroupChange, onVariantChange, onPlay, onStop }: TransportBarProps) {
+export function TransportBar({ bpm, swing, isPlaying, mode, loopSong, metronomeEnabled, settingsOpen, onSettingsOpenChange, groups, selectedGroupId, selectedVariant, statusMessage, errorMessage, displayOwner, onBpmChange, onSwingChange, onModeChange, onLoopSongChange, onMetronomeEnabledChange, onGroupChange, onVariantChange, onGroupCreate, onVariantCreate, onVariantDuplicate, onVariantClear, onGroupDelete, onPlay, onStop }: TransportBarProps) {
   const groupIndex = groups.findIndex((group) => group.id === selectedGroupId)
   const selectedGroup = groups[groupIndex]
+  const { claim, release, ownerId } = useSystemDisplay()
+  const [managingBank, setManagingBank] = useState(false)
+
+  /* The panel is kept current rather than claimed once as a snapshot. Changing
+     bank or pattern while it is open - tapping + or an arrow - would otherwise
+     leave the heading naming BANK 1 while the buttons acted on whatever is
+     selected now, because the handlers read the selection when they fire. */
+  useEffect(() => {
+    if (!managingBank) return
+    claim(bankTenant({
+      bankNumber: groupIndex + 1,
+      group: selectedGroup,
+      variant: selectedVariant,
+      canDelete: groups.length > 1,
+      onDuplicate: onVariantDuplicate,
+      onClear: onVariantClear,
+      onDelete: onGroupDelete,
+    }))
+    return () => release('bank-manage')
+  }, [managingBank, groupIndex, selectedGroup, selectedVariant, groups.length, claim, release, onVariantDuplicate, onVariantClear, onGroupDelete])
+
+  /* Somebody else took the display - stop refreshing a panel that is no longer
+     on screen, or the next data change would snatch it back from them. */
+  useEffect(() => {
+    if (managingBank && ownerId !== null && ownerId !== 'bank-manage') setManagingBank(false)
+  }, [managingBank, ownerId])
 
   return <section className="transport-bar" aria-label="Transport">
     <div className="transport-controls">
       <button className="transport-button" type="button" disabled={isPlaying} onClick={onPlay}>PLAY</button>
       <button className="mixer-toggle" type="button" disabled={!isPlaying} onClick={onStop}>STOP</button>
       <div className="transport-modes" aria-label="Transport mode"><button className={mode === 'pattern' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" onClick={() => onModeChange('pattern')}>PATTERN</button><button className={mode === 'song' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" onClick={() => onModeChange('song')}>SONG</button></div>
-      <button className="transport-settings-toggle" type="button" aria-expanded={settingsOpen} aria-label="Tempo and playback settings" onClick={() => onSettingsOpenChange(!settingsOpen)}>{bpm} BPM · {Math.round(swing * 100)}% SWING {settingsOpen ? '▲' : '▾'}</button>
-      <div className={settingsOpen ? 'transport-settings transport-settings-open' : 'transport-settings'}>
-        <label className="loop-song-toggle"><input type="checkbox" checked={loopSong} disabled={mode !== 'song'} onChange={(event) => onLoopSongChange(event.target.checked)} /> LOOP SONG</label>
-        <label className="loop-song-toggle"><input type="checkbox" checked={metronomeEnabled} onChange={(event) => onMetronomeEnabledChange(event.target.checked)} /> METRONOME</label>
-        <label className="transport-control" htmlFor="bpm">BPM <output>{bpm}</output><input id="bpm" type="range" min="60" max="200" value={bpm} onChange={(event) => onBpmChange(Number(event.target.value))} /></label>
-        <label className="transport-control" htmlFor="swing">SWING <output>{Math.round(swing * 100)}%</output><input id="swing" type="range" min="0" max="0.5" step="0.01" value={swing} onChange={(event) => onSwingChange(Number(event.target.value))} /></label>
-      </div>
+      {/* The system display. Every message in the app lands here rather than in
+          whichever panel raised it, so there is one place to look. The panel is
+          a slot, and tempo is only its floor: any context can claim it, and
+          when one does its readout and its controls take the screen. Tempo
+          comes back the moment it releases. See docs/SYSTEM_DISPLAY.md. */}
+      <SystemDisplay
+        owner={displayOwner ?? tempoTenant({ bpm, swing, mode, loopSong, metronomeEnabled, onBpmChange, onSwingChange, onLoopSongChange, onMetronomeEnabledChange })}
+        statusMessage={statusMessage}
+        errorMessage={errorMessage}
+        open={settingsOpen}
+        onOpenChange={onSettingsOpenChange}
+      />
     </div>
+    {/* "Pattern" used to name both of these rows at once: the container was
+        called Pattern 1 and the things holding the actual steps were called
+        variants. The steps are the pattern; what holds them, along with the
+        pads, the bus and the effects, is a bank. The number comes from the
+        position in the list rather than the stored name, which still says
+        "Pattern 1" inside saved projects. SONG has always labelled its clips
+        1A and 2B - now the transport says the same thing. */}
     <div className="music-context" aria-label="Current music context">
-      <div className="group-selector"><button className="mixer-toggle" type="button" aria-label="Previous pattern group" disabled={groupIndex <= 0} onClick={() => onGroupChange(groups[groupIndex - 1].id)}>‹</button><strong>{selectedGroup.name}</strong><button className="mixer-toggle" type="button" aria-label="Next pattern group" disabled={groupIndex >= groups.length - 1} onClick={() => onGroupChange(groups[groupIndex + 1].id)}>›</button></div>
-      <div className="variant-selector" aria-label="Pattern variant">{patternVariantNames.map((variant) => <button className={selectedVariant === variant ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} key={variant} type="button" disabled={!selectedGroup.variants[variant]} aria-pressed={selectedVariant === variant} onClick={() => onVariantChange(variant)}>{variant}</button>)}</div>
+      <div className="group-selector">
+        <span className="context-label">BANK</span>
+        <button className="mixer-toggle" type="button" aria-label="Previous bank" disabled={groupIndex <= 0} onClick={() => onGroupChange(groups[groupIndex - 1].id)}>‹</button>
+        {/* The name is the way in to everything else you can do to a bank. */}
+        <button
+          className="bank-name"
+          type="button"
+          aria-expanded={managingBank}
+          aria-label={`Bank ${groupIndex + 1} actions`}
+          onClick={() => setManagingBank((open) => !open)}
+        >{groupIndex + 1}</button>
+        <button className="mixer-toggle" type="button" aria-label="Next bank" disabled={groupIndex >= groups.length - 1} onClick={() => onGroupChange(groups[groupIndex + 1].id)}>›</button>
+        <button className="mixer-toggle" type="button" aria-label="New bank" disabled={groups.length >= maximumPatternGroups} onClick={onGroupCreate}>+</button>
+      </div>
+      {/* An empty slot is something you can make, not something that is broken.
+          It used to be disabled, which meant the obvious move - tap B to get a
+          second pattern - did nothing, and the only way through was a DUPLICATE
+          row parked in the PROJECT tab. */}
+      <div className="variant-selector" aria-label="Pattern">
+        <span className="context-label">PATTERN</span>
+        {patternVariantNames.map((variant) => {
+          const exists = Boolean(selectedGroup.variants[variant])
+          const className = selectedVariant === variant ? 'mixer-toggle mixer-toggle-active' : exists ? 'mixer-toggle' : 'mixer-toggle variant-empty'
+          return <button
+            className={className}
+            key={variant}
+            type="button"
+            aria-pressed={selectedVariant === variant}
+            aria-label={exists ? `Pattern ${variant}` : `Create pattern ${variant}`}
+            onClick={() => exists ? onVariantChange(variant) : onVariantCreate(variant)}
+          >{variant}</button>
+        })}
+      </div>
     </div>
   </section>
 }

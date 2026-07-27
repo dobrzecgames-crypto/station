@@ -1,4 +1,3 @@
-.sample-browser-page-nav,
 .sample-browser-folder,
 .sample-browser-row {
   display: grid;
@@ -17,25 +16,6 @@
   letter-spacing: .05em;
 }
 
-.sample-browser-page-nav {
-  position: relative;
-  grid-template-columns: 28px minmax(0, 1fr) 28px;
-  min-height: 32px;
-  padding: 4px 12px;
-  gap: 6px;
-  color: rgb(var(--display-light));
-  font-size: .58rem;
-  letter-spacing: .06em;
-}
-
-.sample-browser-page-nav output {
-  position: absolute;
-  right: 12px;
-  color: rgb(var(--display-light) / 52%);
-  font-size: .54rem;
-}
-
-.sample-browser-page-nav > span,
 .sample-browser-folder > span {
   justify-self: center;
   text-align: center;
@@ -91,6 +71,24 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* The sample this pad is actually playing. It is the only row that opens into
+   controls, so it carries a lit edge - the cue the browser used to lack when
+   the sound controls were a page you had to know about. */
+.sample-browser-row-loaded {
+  box-shadow: inset 2px 0 0 rgb(var(--display-light) / 65%);
+  background: rgb(var(--display-light) / 6%);
+}
+
+/* Stands in for PLAY on a pad holding something the library cannot preview -
+   a chopped slice or a file opened from disk. */
+.sample-browser-origin {
+  justify-self: center;
+  color: rgb(var(--display-light) / 45%);
+  font-size: .5rem;
+  letter-spacing: .06em;
+}
+
 
 .sound-control,
 .sound-tools-row {

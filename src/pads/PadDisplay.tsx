@@ -24,15 +24,29 @@ interface PadDisplayLauncherProps {
 
 const displayId = 'pad-controls'
 
+/** The library sample currently sitting on a pad, matched on the filename the
+    loader copies across. Null for anything the built-in library did not put
+    there - a chopped slice or a file the user opened. */
+function loadedLibrarySample(pad: PadState): LibrarySample | null {
+  if (!pad.fileName) return null
+  return builtInLibrary.find((sample) => sample.filename === pad.fileName) ?? null
+}
+
 /** Keeps per-pad sound settings in the shared display instead of under the pad grid. */
 export function PadDisplayLauncher(props: PadDisplayLauncherProps) {
   const { claim, release, ownerId } = useSystemDisplay()
   const [displayActive, setDisplayActive] = useState(true)
-  const [displayPage, setDisplayPage] = useState<'browser' | 'sound'>('browser')
+  /* The sound controls used to be a second display page reached through a
+     `‹ 1 / 2 ›` pager. That pager was a whole row of chrome whose only job was
+     to say a second page existed, and nothing on the first page hinted at what
+     was on it. Now the controls hang off the row of the sample that is actually
+     on this pad, so the way in is the thing being edited. */
+  const [soundOpen, setSoundOpen] = useState(false)
   const [categoryIndex, setCategoryIndex] = useState(0)
   const hasOwnedDisplayRef = useRef(false)
   const category = libraryCategories[categoryIndex]
   const categorySamples = builtInLibrary.filter((sample) => sample.category === category)
+  const padSample = loadedLibrarySample(props.pad)
   const selectLibrarySample = (sample: LibrarySample) => props.onSelectedLibrarySampleChange(
     props.selectedLibrarySample?.id === sample.id ? null : sample,
   )
@@ -40,12 +54,12 @@ export function PadDisplayLauncher(props: PadDisplayLauncherProps) {
   // props object would therefore re-claim the display after the claim itself
   // updates App, creating a render loop. These are the values rendered here.
   const tenant = useMemo<DisplayTenant>(() => padTenant(props, {
-    displayPage,
     category,
     categoryIndex,
     categorySamples,
-    onOpenSampleBrowser: () => setDisplayPage('browser'),
-    onOpenSoundControls: () => setDisplayPage('sound'),
+    padSample,
+    soundOpen,
+    onToggleSound: () => setSoundOpen((open) => !open),
     onPreviousCategory: () => setCategoryIndex((index) => Math.max(0, index - 1)),
     onNextCategory: () => setCategoryIndex((index) => Math.min(libraryCategories.length - 1, index + 1)),
     onSelectLibrarySample: selectLibrarySample,
@@ -64,15 +78,30 @@ export function PadDisplayLauncher(props: PadDisplayLauncherProps) {
     props.loadingLibrarySampleId,
     props.previewingLibrarySampleId,
     props.selectedLibrarySample?.id,
-    displayPage,
+    soundOpen,
     category,
     categoryIndex,
+    padSample,
   ])
 
+  /* Switching pads lands you in the folder the pad's own sound came from, so
+     the row carrying EDIT is on screen instead of three folders away. A pad
+     holding a chop or an opened file has no folder to follow - that one keeps
+     whichever folder was already open and reaches its controls through the
+     pinned row below the list. */
   useEffect(() => {
     setDisplayActive(true)
-    setDisplayPage('browser')
+    setSoundOpen(false)
+    const sample = loadedLibrarySample(props.pad)
+    if (sample) setCategoryIndex(libraryCategories.indexOf(sample.category))
   }, [props.pad.id])
+
+  /* CLEAR empties the pad from the sound screen itself, which leaves that
+     screen describing a sound that is gone. Fall back to the browser instead of
+     stranding it. */
+  useEffect(() => {
+    if (!props.pad.fileName) setSoundOpen(false)
+  }, [props.pad.fileName])
 
   useEffect(() => {
     if (displayActive) claim(tenant)
@@ -97,18 +126,19 @@ export function PadDisplayLauncher(props: PadDisplayLauncherProps) {
 }
 
 interface DisplayPageState {
-  displayPage: 'browser' | 'sound'
   category: string
   categoryIndex: number
   categorySamples: LibrarySample[]
-  onOpenSampleBrowser: () => void
-  onOpenSoundControls: () => void
+  /** The library sample on this pad, or null when nothing from the library is. */
+  padSample: LibrarySample | null
+  soundOpen: boolean
+  onToggleSound: () => void
   onPreviousCategory: () => void
   onNextCategory: () => void
   onSelectLibrarySample: (sample: LibrarySample) => void
 }
 
-function padTenant(props: PadDisplayLauncherProps, sampleBrowser: DisplayPageState): DisplayTenant {
+function padTenant(props: PadDisplayLauncherProps, browser: DisplayPageState): DisplayTenant {
   const { pad } = props
   const update = (changes: Partial<Pick<PadState, 'volume' | 'pitchSemitones' | 'attackMs' | 'releaseMs'>>) => props.onUpdate({
     volume: changes.volume ?? pad.volume,
@@ -117,42 +147,24 @@ function padTenant(props: PadDisplayLauncherProps, sampleBrowser: DisplayPageSta
     releaseMs: changes.releaseMs ?? pad.releaseMs,
   })
 
-  if (sampleBrowser.displayPage === 'browser') return {
-    id: displayId,
-    label: `${pad.label} sample browser`,
-    readout: 'BROWSE SAMPLES',
-    panel: <>
-      <div className="sample-browser-page-nav">
-        <button className="sample-browser-folder-step" type="button" aria-label="Previous display page" disabled>‹</button>
-        <span>BROWSE SAMPLES</span>
-        <button className="sample-browser-folder-step" type="button" aria-label="Open sound controls" onClick={sampleBrowser.onOpenSoundControls}>›</button>
-        <output>1 / 2</output>
-      </div>
-      <div className="sample-browser-folder">
-        <button className="sample-browser-folder-step" type="button" aria-label="Previous folder" disabled={sampleBrowser.categoryIndex <= 0} onClick={sampleBrowser.onPreviousCategory}>‹</button>
-        <span>FOLDER / {sampleBrowser.category}</span>
-        <button className="sample-browser-folder-step" type="button" aria-label="Next folder" disabled={sampleBrowser.categoryIndex >= libraryCategories.length - 1} onClick={sampleBrowser.onNextCategory}>›</button>
-      </div>
-      <div className="sample-browser-list">
-        {sampleBrowser.categorySamples.map((sample) => <div className="sample-browser-row" key={sample.id}>
-          <span>{sample.filename.replace('.wav', '')}</span>
-          <button className="sample-browser-action" type="button" disabled={!props.audioReady || props.projectBusy || props.loadingLibrarySampleId !== null} onClick={() => void props.onPreviewLibrarySample(sample)}>{props.previewingLibrarySampleId === sample.id ? 'STOP' : 'PLAY'}</button>
-          <button className="sample-browser-action" type="button" disabled={!props.audioReady || props.projectBusy || props.loadingLibrarySampleId !== null} aria-pressed={props.selectedLibrarySample?.id === sample.id} onClick={() => sampleBrowser.onSelectLibrarySample(sample)}>SELECT</button>
-        </div>)}
-      </div>
-    </>,
-  }
-
-  return {
+  /* The sound screen. Still a second screen rather than rows unfolded into the
+     list: shaping an envelope is its own job, and doing it with the browser
+     still under your thumb leaves neither enough room. What went away is the
+     `‹ 1 / 2 ›` pager that used to sit above both screens - a row of chrome
+     whose only content was the news that a second screen existed. EDIT is the
+     way in now, and it appears only on a sample that is really on the pad,
+     because that is the only sound there is anything to shape. */
+  if (browser.soundOpen && pad.fileName) return {
     id: displayId,
     label: `${pad.label} sound controls`,
-    readout: 'SOUND',
+    readout: `SOUND / ${trimExtension(pad.fileName)}`,
     panel: <>
-      <div className="sample-browser-page-nav">
-        <button className="sample-browser-folder-step" type="button" aria-label="Open sample browser" onClick={sampleBrowser.onOpenSampleBrowser}>‹</button>
-        <span>SOUND</span>
-        <button className="sample-browser-folder-step" type="button" aria-label="Next display page" disabled>›</button>
-        <output>2 / 2</output>
+      {/* Takes the folder row's place rather than stacking on top of it, so
+          both screens carry exactly one row of chrome. */}
+      <div className="sample-browser-folder">
+        <button className="sample-browser-folder-step" type="button" aria-label="Back to sample browser" onClick={browser.onToggleSound}>‹</button>
+        <span>{pad.label} / {trimExtension(pad.fileName)}</span>
+        <span aria-hidden="true" />
       </div>
       <SoundControl id="pad-display-volume" label="VOLUME" value={pad.volume.toFixed(2)} min="0" max="1" step="0.01" current={pad.volume} onChange={(value) => update({ volume: value })} />
       <SoundControl id="pad-display-pitch" label="PITCH" value={formatPitch(pad.pitchSemitones)} min="-12" max="36" step="1" current={pad.pitchSemitones} onChange={(value) => update({ pitchSemitones: value })} />
@@ -162,9 +174,61 @@ function padTenant(props: PadDisplayLauncherProps, sampleBrowser: DisplayPageSta
         <span>SCALE / {props.projectKeyLabel}</span>
         <div>
           <button type="button" disabled={!pad.assetId || props.projectBusy} aria-label="Map pads to project scale" onClick={props.onMapToProjectScale}>MAP</button>
-          <button type="button" disabled={!pad.assetId} aria-label="Edit sample" onClick={props.onEditSample}>EDIT</button>
+          {/* Was also called EDIT, which left two of them one tap apart once
+              EDIT became the way onto this screen. This one opens the start/end
+              region, so it says what it does. */}
+          <button type="button" disabled={!pad.assetId} aria-label="Trim sample region" onClick={props.onEditSample}>TRIM</button>
           <button type="button" disabled={!pad.fileName} aria-label="Clear pad" onClick={props.onClear}>CLEAR</button>
         </div>
+      </div>
+    </>,
+  }
+
+  const editButton = <button
+    className="sample-browser-action"
+    type="button"
+    aria-label={`Sound controls for ${pad.label}`}
+    onClick={browser.onToggleSound}
+  >EDIT</button>
+
+  /* The pad's own sound has to stay reachable whatever the list is showing.
+     Two ways it drops out of the list: the pad holds something the library
+     never had - a chopped slice, a file opened from disk - or it holds a
+     library sample from a folder you have since browsed away from. Either way
+     it gets a row under the list, and only then. Without this, stepping from
+     KICK to SNARE took the open envelope off screen while the line still read
+     SOUND / Kick 02. */
+  const padSampleInList = browser.padSample != null && browser.categorySamples.some((sample) => sample.id === browser.padSample!.id)
+  const showsPinnedRow = pad.fileName != null && !padSampleInList
+
+  return {
+    id: displayId,
+    label: `${pad.label} sample browser`,
+    readout: 'BROWSE SAMPLES',
+    panel: <>
+      <div className="sample-browser-folder">
+        <button className="sample-browser-folder-step" type="button" aria-label="Previous folder" disabled={browser.categoryIndex <= 0} onClick={browser.onPreviousCategory}>‹</button>
+        <span>FOLDER / {browser.category}</span>
+        <button className="sample-browser-folder-step" type="button" aria-label="Next folder" disabled={browser.categoryIndex >= libraryCategories.length - 1} onClick={browser.onNextCategory}>›</button>
+      </div>
+      <div className="sample-browser-list">
+        {browser.categorySamples.map((sample) => {
+          const isOnPad = browser.padSample?.id === sample.id
+          return <div className={isOnPad ? 'sample-browser-row sample-browser-row-loaded' : 'sample-browser-row'} key={sample.id}>
+            <span>{trimExtension(sample.filename)}</span>
+            <button className="sample-browser-action" type="button" disabled={!props.audioReady || props.projectBusy || props.loadingLibrarySampleId !== null} onClick={() => void props.onPreviewLibrarySample(sample)}>{props.previewingLibrarySampleId === sample.id ? 'STOP' : 'PLAY'}</button>
+            {/* The sample already on this pad has nothing to arm - the useful
+                move on it is shaping what you hear, so its second button is the
+                way onto the sound screen rather than a SELECT that changes
+                nothing. */}
+            {isOnPad ? editButton : <button className="sample-browser-action" type="button" disabled={!props.audioReady || props.projectBusy || props.loadingLibrarySampleId !== null} aria-pressed={props.selectedLibrarySample?.id === sample.id} onClick={() => browser.onSelectLibrarySample(sample)}>SELECT</button>}
+          </div>
+        })}
+        {showsPinnedRow && <div className="sample-browser-row sample-browser-row-loaded">
+          <span>{trimExtension(pad.fileName!)}</span>
+          <span className="sample-browser-origin">ON PAD</span>
+          {editButton}
+        </div>}
       </div>
     </>,
   }
@@ -176,6 +240,10 @@ function SoundControl(props: { id: string; label: string; value: string; min: st
     <input id={props.id} type="range" min={props.min} max={props.max} step={props.step} value={props.current} onChange={(event) => props.onChange(Number(event.target.value))} />
     <output htmlFor={props.id}>{props.value}</output>
   </label>
+}
+
+function trimExtension(filename: string): string {
+  return filename.replace(/\.wav$/i, '')
 }
 
 function formatPitch(pitchSemitones: number): string {

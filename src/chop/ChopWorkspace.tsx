@@ -86,7 +86,13 @@ export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, so
     ) : <>
       <div className="sequencer-heading">
         <p className="sample-editor-file">{sourceFileName} - {sourceDurationSeconds.toFixed(3)} s</p>
-        <div className="source-preview-controls"><button className="transport-button" type="button" disabled={!audioReady || sourcePreviewing} onClick={onPreviewSource}>PREVIEW</button><button className="mixer-toggle" type="button" disabled={!sourcePreviewing} onClick={onStopPreviewSource}>STOP PREVIEW</button></div>
+        {/* Icon-only like the transport's PLAY/STOP, but smaller and in CHOP's
+            own plum rather than the module accent, so a source preview never
+            reads as the transport's own play/stop repeated. */}
+        <div className="source-preview-controls">
+          <button className="chop-preview-button chop-preview-play" type="button" disabled={!audioReady || sourcePreviewing} aria-label="Preview source" onClick={onPreviewSource} />
+          <button className="chop-preview-button chop-preview-stop" type="button" disabled={!sourcePreviewing} aria-label="Stop preview" onClick={onStopPreviewSource} />
+        </div>
       </div>
       <Waveform peaks={peaks} durationSeconds={sourceDurationSeconds} region={{ startSeconds: 0, endSeconds: sourceDurationSeconds }} slices={previewSlices ?? slices} activeSliceId={isPreviewing ? null : activeSliceId} addingSlice={addingSlice} playheadSeconds={playheadSeconds} readOnly={isPreviewing} onRegionChange={() => undefined} onAddSlice={onAddSlice} onMoveCut={onMoveCut} onSelectSlice={onSelectSlice} sliceMarkersDraggable />
       <AutoChopControls

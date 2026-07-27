@@ -24,6 +24,9 @@ export interface ChopSessionState {
   durationSeconds: number | null
   slices: SampleSlice[]
   activeSliceId: string | null
+  /** The source's base pitch. Applied to every pad newly mapped from this
+      session; a pad already on the session keeps whatever pitch it has. */
+  pitchSemitones: number
 }
 
 export interface PadState extends ChannelState {

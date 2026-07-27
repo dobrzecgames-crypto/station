@@ -22,8 +22,6 @@ interface ChopWorkspaceProps {
   activeSliceId: string | null
   addingSlice: boolean
   onLoadSource: (event: ChangeEvent<HTMLInputElement>) => void
-  cutOnPadTrigger: boolean
-  onCutOnPadTriggerChange: (enabled: boolean) => void
   testSamples: readonly ChopTestSample[]
   loadingTestId: string | null
   onLoadTestSample: (sample: ChopTestSample) => void
@@ -42,7 +40,7 @@ interface ChopWorkspaceProps {
   onApplyAutoChop: (regions: readonly SliceRegion[]) => boolean
 }
 
-export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, sourceFileName, sourceDurationSeconds, peaks, playheadSeconds, slices, activeSliceId, addingSlice, onLoadSource, cutOnPadTrigger, onCutOnPadTriggerChange, testSamples, loadingTestId, onLoadTestSample, sourcePreviewing, onPreviewSource, onStopPreviewSource, onTriggerPad, onFeedbackEnd, onAddSlice, onMoveCut, onSelectSlice, onPreviewSlice, onToggleAdding, onRemoveActiveCut, onClearSlices, onApplyAutoChop }: ChopWorkspaceProps) {
+export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, sourceFileName, sourceDurationSeconds, peaks, playheadSeconds, slices, activeSliceId, addingSlice, onLoadSource, testSamples, loadingTestId, onLoadTestSample, sourcePreviewing, onPreviewSource, onStopPreviewSource, onTriggerPad, onFeedbackEnd, onAddSlice, onMoveCut, onSelectSlice, onPreviewSlice, onToggleAdding, onRemoveActiveCut, onClearSlices, onApplyAutoChop }: ChopWorkspaceProps) {
   const hasSource = sourceFileName !== null && sourceDurationSeconds !== null
   const [previewCount, setPreviewCount] = useState<number | null>(null)
 
@@ -52,7 +50,9 @@ export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, so
   )
   const maxSmartCount = maxSmartSliceCount(candidates.length)
   const isPreviewing = previewCount !== null
-  const smartCount = previewCount ?? maxSmartCount
+  // Starts at the low end rather than defaulting to every detected transient,
+  // so the slider reads as untouched instead of looking already dragged to max.
+  const smartCount = previewCount ?? 1
   const previewRegions = isPreviewing && hasSource ? smartSliceRegions(candidates, smartCount, sourceDurationSeconds) : null
   const previewSlices = previewRegions?.map((region, index) => ({ id: `preview-${index}`, ...region }))
 
@@ -88,7 +88,6 @@ export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, so
         <p className="sample-editor-file">{sourceFileName} - {sourceDurationSeconds.toFixed(3)} s</p>
         <div className="source-preview-controls"><button className="transport-button" type="button" disabled={!audioReady || sourcePreviewing} onClick={onPreviewSource}>PREVIEW</button><button className="mixer-toggle" type="button" disabled={!sourcePreviewing} onClick={onStopPreviewSource}>STOP PREVIEW</button></div>
       </div>
-      <label className="chop-cut-toggle"><input type="checkbox" checked={cutOnPadTrigger} onChange={(event) => onCutOnPadTriggerChange(event.target.checked)} /><strong>ONE PAD AT A TIME</strong></label>
       <Waveform peaks={peaks} durationSeconds={sourceDurationSeconds} region={{ startSeconds: 0, endSeconds: sourceDurationSeconds }} slices={previewSlices ?? slices} activeSliceId={isPreviewing ? null : activeSliceId} addingSlice={addingSlice} playheadSeconds={playheadSeconds} readOnly={isPreviewing} onRegionChange={() => undefined} onAddSlice={onAddSlice} onMoveCut={onMoveCut} onSelectSlice={onSelectSlice} sliceMarkersDraggable />
       <AutoChopControls
         maxSmartCount={maxSmartCount}

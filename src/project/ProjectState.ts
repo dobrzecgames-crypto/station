@@ -245,7 +245,13 @@ function isChopSessionState(value: unknown): value is ChopSessionState {
 }
 
 function cloneChopSession(session: ChopSessionState): ChopSessionState {
-  return { ...session, slices: session.slices.map((slice) => ({ ...slice })) }
+  // Only an absent field is migrated, matching normalizePadEnvelope below.
+  const legacySession = session as ChopSessionState & { pitchSemitones?: unknown }
+  return {
+    ...session,
+    pitchSemitones: legacySession.pitchSemitones === undefined ? 0 : legacySession.pitchSemitones as number,
+    slices: session.slices.map((slice) => ({ ...slice })),
+  }
 }
 
 function normalizePadEnvelope(pad: PadState): PadState {

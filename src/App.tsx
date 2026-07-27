@@ -8,6 +8,7 @@ import type { GroupPadReference } from './audio/channelIdentity'
 import { StepSequencer } from './audio/StepSequencer'
 import type { StepSequencerConfig } from './audio/StepSequencer'
 import { encodeWav } from './audio/wavEncoder'
+import { ChopDisplayLauncher } from './chop/ChopDisplay'
 import { ChopWorkspace } from './chop/ChopWorkspace'
 import type { LibrarySample } from './library/builtInLibrary'
 import { Mixer } from './mixer/Mixer'
@@ -554,7 +555,10 @@ export function App({ audioEngine }: AppProps) {
     if (conflicts.length > 0 && !window.confirm(`Replace ${conflicts.length} occupied pad${conflicts.length === 1 ? '' : 's'} with live Chop slices?`)) return false
     const bank = { pads: pads.map((pad, index) => {
       const slice = nextSlices[index]
-      if (slice) return { ...pad, assetId: chopSession.assetId!, fileName: chopSession.fileName, durationSeconds: chopSession.durationSeconds, region: { startSeconds: slice.startSeconds, endSeconds: slice.endSeconds }, slices: [], chopSessionId: chopSession.id }
+      // A pad already on this session keeps whatever pitch it has - re-slicing
+      // must not undo a pad the user has since tuned by hand. A pad newly
+      // joining starts from the session's current official pitch instead of 0.
+      if (slice) return { ...pad, assetId: chopSession.assetId!, fileName: chopSession.fileName, durationSeconds: chopSession.durationSeconds, region: { startSeconds: slice.startSeconds, endSeconds: slice.endSeconds }, slices: [], chopSessionId: chopSession.id, pitchSemitones: pad.chopSessionId === chopSession.id ? pad.pitchSemitones : chopSession.pitchSemitones }
       return pad.chopSessionId === chopSession.id ? clearPadAssignment(pad) : pad
     }), chopSession: nextSession }
     replaceActiveBank(bank)
@@ -571,6 +575,23 @@ export function App({ audioEngine }: AppProps) {
     return applyChopMapping(nextSlices, { ...chopSession, slices: nextSlices, activeSliceId: nextSlices[0]?.id ?? null })
   }
 
+  /* The "official" pitch for this source: setting it here pushes to every pad
+     already cut from this session, so a dozen pads do not need retuning by
+     hand one at a time. It stays a starting point, not a leash - a pad can
+     still be pitched further on its own afterward, and that later, individual
+     choice is what applyChopMapping preserves on the next re-slice. */
+  const setSourcePitch = (pitchSemitones: number) => {
+    // A pad still sitting at the session's old pitch is following along and
+    // moves with it. A pad already pulled away to its own value has made a
+    // deliberate choice, and nudging the session control again must not
+    // quietly overwrite it.
+    const previousPitch = chopSession.pitchSemitones
+    replaceActiveBank({
+      pads: pads.map((pad) => pad.chopSessionId === chopSession.id && pad.pitchSemitones === previousPitch ? { ...pad, pitchSemitones } : pad),
+      chopSession: { ...chopSession, pitchSemitones },
+    })
+  }
+
   const loadChopSourceBlob = async (blob: Blob, filename: string) => {
     setErrorMessage(undefined)
     audioEngine.stopPreview()
@@ -580,7 +601,7 @@ export function App({ audioEngine }: AppProps) {
       const loaded = await audioEngine.loadSampleBlob(assetId, blob, filename)
       const waveform = audioEngine.getWaveformPeaks(assetId) ?? []
       const oldAssetId = chopSession.assetId
-      const bank = { pads: pads.map((pad) => pad.chopSessionId === chopSession.id ? { ...pad, chopSessionId: null } : pad), chopSession: { id: createChopSessionId(), assetId, fileName: loaded.filename, durationSeconds: loaded.durationSeconds, slices: [], activeSliceId: null } }
+      const bank = { pads: pads.map((pad) => pad.chopSessionId === chopSession.id ? { ...pad, chopSessionId: null } : pad), chopSession: { id: createChopSessionId(), assetId, fileName: loaded.filename, durationSeconds: loaded.durationSeconds, slices: [], activeSliceId: null, pitchSemitones: 0 } }
       const groups = groupsWithActiveBank(bank)
       setPatternGroups(groups)
       setWaveforms((current) => ({ ...current, [assetId]: waveform }))
@@ -832,50 +853,57 @@ export function App({ audioEngine }: AppProps) {
             same place. See TransportBar. */}
         <div ref={workspaceRef} className="station-workspace">
           {mainView === "chop" && (
-            <ChopWorkspace
-              pads={pads}
-              selectedPadId={selectedPadId}
-              activePadId={activePadId}
-              audioReady={controlsAwake}
-              sourceFileName={chopSession.fileName}
-              sourceDurationSeconds={chopSession.durationSeconds}
-              peaks={
-                chopSession.assetId
-                  ? (waveforms[chopSession.assetId] ?? [])
-                  : []
-              }
-              playheadSeconds={
-                waveformPlayback?.assetId === chopSession.assetId
-                  ? waveformPlayheadSeconds
-                  : null
-              }
-              slices={chopSession.slices}
-              activeSliceId={chopSession.activeSliceId}
-              addingSlice={chopAddingSlice}
-              onLoadSource={loadChopSource}
-              cutOnPadTrigger={cutOnPadTrigger}
-              onCutOnPadTriggerChange={setCutOnPadTrigger}
-              testSamples={chopTestSamples}
-              loadingTestId={loadingChopTestId}
-              onLoadTestSample={(sample) => void loadChopTestSample(sample)}
-              sourcePreviewing={sourcePreviewing}
-              onPreviewSource={previewChopSource}
-              onStopPreviewSource={stopChopSourcePreview}
-              onTriggerPad={triggerPad}
-              onFeedbackEnd={(padId) =>
-                setActivePadId((current) =>
-                  current === padId ? null : current,
-                )
-              }
-              onAddSlice={addChopSlice}
-              onMoveCut={moveChopCut}
-              onSelectSlice={selectChopSlice}
-              onPreviewSlice={previewChopSlice}
-              onToggleAdding={() => setChopAddingSlice((current) => !current)}
-              onRemoveActiveCut={removeActiveChopCut}
-              onClearSlices={clearChopSlices}
-              onApplyAutoChop={applyAutoChopRegions}
-            />
+            <>
+              <ChopDisplayLauncher
+                hasSource={chopSession.assetId !== null}
+                cutOnPadTrigger={cutOnPadTrigger}
+                onCutOnPadTriggerChange={setCutOnPadTrigger}
+                sourcePitchSemitones={chopSession.pitchSemitones}
+                onSourcePitchChange={setSourcePitch}
+              />
+              <ChopWorkspace
+                pads={pads}
+                selectedPadId={selectedPadId}
+                activePadId={activePadId}
+                audioReady={controlsAwake}
+                sourceFileName={chopSession.fileName}
+                sourceDurationSeconds={chopSession.durationSeconds}
+                peaks={
+                  chopSession.assetId
+                    ? (waveforms[chopSession.assetId] ?? [])
+                    : []
+                }
+                playheadSeconds={
+                  waveformPlayback?.assetId === chopSession.assetId
+                    ? waveformPlayheadSeconds
+                    : null
+                }
+                slices={chopSession.slices}
+                activeSliceId={chopSession.activeSliceId}
+                addingSlice={chopAddingSlice}
+                onLoadSource={loadChopSource}
+                testSamples={chopTestSamples}
+                loadingTestId={loadingChopTestId}
+                onLoadTestSample={(sample) => void loadChopTestSample(sample)}
+                sourcePreviewing={sourcePreviewing}
+                onPreviewSource={previewChopSource}
+                onStopPreviewSource={stopChopSourcePreview}
+                onTriggerPad={triggerPad}
+                onFeedbackEnd={(padId) =>
+                  setActivePadId((current) =>
+                    current === padId ? null : current,
+                  )
+                }
+                onAddSlice={addChopSlice}
+                onMoveCut={moveChopCut}
+                onSelectSlice={selectChopSlice}
+                onPreviewSlice={previewChopSlice}
+                onToggleAdding={() => setChopAddingSlice((current) => !current)}
+                onRemoveActiveCut={removeActiveChopCut}
+                onClearSlices={clearChopSlices}
+                onApplyAutoChop={applyAutoChopRegions}
+              />
+            </>
           )}
           {mainView === "pad" && (
             <>

@@ -58,7 +58,7 @@ export function createPadBank(): PadState[] {
 }
 
 export function createEmptyChopSession(): ChopSessionState {
-  return { id: '', assetId: null, fileName: null, durationSeconds: null, slices: [], activeSliceId: null }
+  return { id: '', assetId: null, fileName: null, durationSeconds: null, slices: [], activeSliceId: null, pitchSemitones: 0 }
 }
 
 export function createPadBankState(): PadBankState {
@@ -66,9 +66,16 @@ export function createPadBankState(): PadBankState {
 }
 
 export function clonePadBank(bank: PadBankState): PadBankState {
+  // Only an absent field is migrated - a project saved before the CHOP source
+  // pitch existed has no pitchSemitones on its chopSession at all.
+  const legacySession = bank.chopSession as ChopSessionState & { pitchSemitones?: unknown }
   return {
     pads: bank.pads.map((pad) => ({ ...pad, region: { ...pad.region }, slices: pad.slices.map((slice) => ({ ...slice })) })),
-    chopSession: { ...bank.chopSession, slices: bank.chopSession.slices.map((slice) => ({ ...slice })) },
+    chopSession: {
+      ...bank.chopSession,
+      pitchSemitones: legacySession.pitchSemitones === undefined ? 0 : legacySession.pitchSemitones as number,
+      slices: bank.chopSession.slices.map((slice) => ({ ...slice })),
+    },
   }
 }
 

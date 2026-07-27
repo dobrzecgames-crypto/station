@@ -3,3 +3,5 @@ dist/
 *.local
 .vercel
 .claude/settings.local.json
+# Git bundles are history exports, never sources. One of them is 18 MB.
+*.bundle

@@ -959,3 +959,25 @@ input[type="text"], input[type="number"], select, textarea {
   letter-spacing: .05em;
 }
 .render-result .project-workspace-actions { margin-top: 8px; }
+
+/* PROJECT actions are a grid, not a wrapping flex row: equal widths and a
+   predictable break on a phone, the same two-column shape .project-controls
+   already uses. The height is held at the old row height so unifying the type
+   does not quietly shrink the touch targets. */
+.project-workspace-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 16px;
+}
+.project-workspace-actions .mixer-toggle { min-height: 42px; }
+.project-action-wide { grid-column: 1 / -1; }
+
+/* Every tab lines up with the navigation above it. The scroll container used to
+   reserve a fifteen-pixel scrollbar gutter plus two pixels of left padding, so
+   each workspace sat seventeen pixels narrow and two pixels off-centre. The
+   gutter is gone and the bar is hidden, which is what Android already did with
+   its overlay scrollbars; the negative margin lets the two-pixel gutter that
+   keeps focus rings from being clipped sit outside the content width instead of
+   eating into it. */
+.station-workspace::-webkit-scrollbar { width: 0; height: 0; }

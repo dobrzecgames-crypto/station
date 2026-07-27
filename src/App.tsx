@@ -1038,10 +1038,15 @@ export function App({ audioEngine }: AppProps) {
             </>
           )}
           {mainView === "project" && (
-            <section className="project-workspace" aria-labelledby="project-title">
-              <div className="sequencer-heading"><div><p className="eyebrow">PROJECT</p><h2 id="project-title">SAVE &amp; LOAD</h2></div></div>
+            <section className="project-workspace" aria-label="Project key and files">
+              <ProjectKeyPanel projectKey={projectKey} disabled={projectBusy} onChange={setProjectKey} />
+              {/* One button face for the whole tab. Size no longer carries
+                  meaning here; the accent is left for controls that are
+                  actually doing something, which is the rule the rest of the
+                  interface already follows. RENDER SONG takes the full width
+                  until a render is running and CANCEL needs the other half. */}
               <div className="project-workspace-actions">
-                <button className="transport-button" type="button" disabled={projectBusy} onClick={() => void saveProject()}>SAVE PROJECT</button>
+                <button className="mixer-toggle" type="button" disabled={projectBusy} onClick={() => void saveProject()}>SAVE PROJECT</button>
                 <button className="mixer-toggle" type="button" disabled={!audioReady || projectBusy} onClick={() => void openProject()}>OPEN PROJECT</button>
                 <button className={renderBusy ? 'mixer-toggle' : 'mixer-toggle project-action-wide'} type="button" disabled={!audioReady || projectBusy || renderBusy} onClick={() => void renderSong()}>{renderBusy ? 'RENDERING…' : 'RENDER SONG'}</button>
                 {renderBusy && <button className="mixer-toggle" type="button" onClick={() => renderAbortRef.current?.abort()}>CANCEL</button>}
@@ -1062,7 +1067,6 @@ export function App({ audioEngine }: AppProps) {
                   </div>
                 </div>
               )}
-              <ProjectKeyPanel projectKey={projectKey} disabled={projectBusy} onChange={setProjectKey} />
               {/* The pattern-group actions that were parked here have moved to
                   the transport, which is where the bank and pattern they act on
                   are named. Creating is on the selector itself; copy, clear and

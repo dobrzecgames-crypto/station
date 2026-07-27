@@ -2,7 +2,6 @@ import type { PadState } from './types'
 
 interface PadProps {
   pad: PadState
-  keyLabel: string
   isSelected: boolean
   isActive: boolean
   audioReady: boolean
@@ -14,7 +13,6 @@ interface PadProps {
 
 export function Pad({
   pad,
-  keyLabel,
   isSelected,
   isActive,
   audioReady,
@@ -24,13 +22,14 @@ export function Pad({
   onFeedbackEnd,
 }: PadProps) {
   const isLoaded = pad.fileName !== null
+  const statusLabel = dropSampleName ? 'DROP' : isLoaded ? (audioReady ? 'READY' : 'LOCKED') : 'EMPTY'
 
   return (
     <button
       type="button"
       className={`pad ${isLoaded ? 'pad-loaded' : 'pad-empty'} ${isSelected ? 'pad-selected' : ''} ${isActive ? 'pad-active' : ''} ${dropSampleName ? 'pad-drop-target' : ''}`}
       aria-pressed={isSelected}
-      aria-label={dropSampleName ? `Drop ${dropSampleName} to ${pad.label}` : `${pad.label}, ${isLoaded ? `loaded: ${pad.fileName}` : 'empty'}, key ${keyLabel}`}
+      aria-label={dropSampleName ? `Drop ${dropSampleName} to ${pad.label}` : `${pad.label}, ${isLoaded ? `loaded: ${pad.fileName}` : 'empty'}`}
       onAnimationEnd={() => onFeedbackEnd(pad.id)}
       onPointerDown={(event) => {
         event.preventDefault()
@@ -39,13 +38,10 @@ export function Pad({
       }}
     >
       <span className="pad-number">{pad.label}</span>
-      <span className="pad-file" title={pad.fileName ?? undefined}>
-        {isLoaded ? pad.fileName : 'EMPTY'}
-      </span>
-      <span className="pad-footer">
-        <kbd>{keyLabel}</kbd>
-        <span>{dropSampleName ? 'DROP' : audioReady && isLoaded ? 'READY' : isLoaded ? 'LOCKED' : 'EMPTY'}</span>
-      </span>
+      {isLoaded && (
+        <span className="pad-file" title={pad.fileName ?? undefined}>{pad.fileName}</span>
+      )}
+      <span className="pad-footer">{statusLabel}</span>
     </button>
   )
 }

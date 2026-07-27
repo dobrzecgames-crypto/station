@@ -205,7 +205,10 @@ input[type="range"] {
 }input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none;
   width: 10px; height: 18px;
-  margin-top: -8px;
+  /* Centres the 18px thumb on the 14px track: (14 - 18) / 2. The rotated
+     mixer fader turns any imbalance here into the cap visibly sitting off to
+     one side instead of straddling the rail evenly. */
+  margin-top: -2px;
   border: 0;
   border-radius: 2px;
   background: var(--station-accent);

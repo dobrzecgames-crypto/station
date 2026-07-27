@@ -111,7 +111,10 @@
   appearance: none;
   width: 24px;
   height: 9px;
-  margin: 0 -4px;
+  /* vertical-rl + rtl centres the thumb about 1.5px right of the rail's
+     middle rather than dead centre; splitting the overhang unevenly the other
+     way corrects it without changing how much of the cap you can grab. */
+  margin: 0 -3px 0 -5px;
   border: 1px solid rgb(0 0 0 / 55%);
   border-radius: 2px;
   background: linear-gradient(180deg, #dedc9f, #8f8f5a);

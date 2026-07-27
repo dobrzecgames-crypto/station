@@ -63,7 +63,14 @@ export function ChannelMeter({ audioEngine, channelId, label }: ChannelMeterProp
           meter.setAttribute('aria-valuetext', active ? `${roundedDbfs} dBFS` : 'Silence')
         }
         if (fillRef.current) fillRef.current.style.height = toPercent(displayedDbfs)
-        if (peakRef.current) peakRef.current.style.bottom = toPercent(peakDbfs)
+        if (peakRef.current) {
+          peakRef.current.style.bottom = toPercent(peakDbfs)
+          /* A peak marker resting on the floor is not a reading, it is a bright
+             line drawn across a silent channel - and with sixteen of them it
+             read as damage to the rail rather than as a scale. It appears when
+             there is something to mark. */
+          peakRef.current.style.opacity = peakDbfs > minimumDbfs ? '1' : '0'
+        }
       }
       animationFrame = window.requestAnimationFrame(paint)
     }
@@ -86,9 +93,14 @@ export function ChannelMeter({ audioEngine, channelId, label }: ChannelMeterProp
       <span className="channel-meter-track" aria-hidden="true">
         <span ref={fillRef} className="channel-meter-fill" />
         <span ref={peakRef} className="channel-meter-peak" />
+        {/* Every 12 dB, so the marks are evenly spaced down the rail and the
+            bottom edge is the −60 dB floor. The scale used to skip −36, which
+            left one gap twice as wide as the others and read as a slipped
+            ruler rather than a scale. */}
         <span className="channel-meter-tick channel-meter-tick-zero" />
         <span className="channel-meter-tick channel-meter-tick-minus-12" />
         <span className="channel-meter-tick channel-meter-tick-minus-24" />
+        <span className="channel-meter-tick channel-meter-tick-minus-36" />
         <span className="channel-meter-tick channel-meter-tick-minus-48" />
       </span>
     </div>

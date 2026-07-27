@@ -43,29 +43,80 @@
   letter-spacing: .04em;
 }
 
+/* One rail, not two. The meter used to sit beside the fader as a separate
+   bordered recess, and the fader's length came from a hardcoded width on a
+   rotated input - 120px against the meter's 140px box, so the two rails started
+   and ended ten pixels apart and read as crooked. Now the level fills the same
+   groove the cap rides in: there is one object, so there is nothing left to
+   misalign, and the strip is narrow enough to leave room for its labels. */
 .mixer-strip-level {
-  display: flex;
-  width: 100%;
+  position: relative;
+  width: 18px;
   height: 140px;
-  align-items: stretch;
-  gap: 5px;
+  margin: 0 auto;
 }
 
+.mixer-strip-level .channel-meter,
 .mixer-strip-level .mixer-strip-fader {
-  flex: 1;
+  position: absolute;
+  inset: 0;
   width: auto;
-  height: 100%;
+  height: auto;
+  flex: none;
 }
 
 .channel-meter {
   display: flex;
-  width: 12px;
-  flex: 0 0 12px;
   padding: 1px;
   border: 1px solid var(--scene-line);
   border-radius: 2px;
   background: var(--scene-recess);
   box-shadow: inset 0 1px 2px rgb(0 0 0 / 56%), inset 0 0 0 1px rgb(255 239 220 / 3%);
+}
+
+/* The input keeps the rail's geometry instead of dictating it: a native
+   vertical range fills its box, so length is the box's height and never a
+   number written down twice in two files. The groove it would draw is dropped -
+   the meter under it is the groove. */
+.mixer-strip-fader input[type="range"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  writing-mode: vertical-rl;
+  direction: rtl;
+  /* The old rotate hack still applies from App.css otherwise, and rotating an
+     already-vertical input lays it back down across the strip. */
+  transform: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  cursor: ns-resize;
+}
+
+.mixer-strip-fader input[type="range"]::-webkit-slider-runnable-track {
+  width: 100%;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* A cap across the groove rather than a knob beside it. It overhangs the rail
+   on both sides so the thing you grab is wider than the 18px it rides in, which
+   matters more on a touchscreen than it looks. */
+.mixer-strip-fader input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 9px;
+  margin: 0 -4px;
+  border: 1px solid rgb(0 0 0 / 55%);
+  border-radius: 2px;
+  background: linear-gradient(180deg, #dedc9f, #8f8f5a);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 60%), inset 0 1px 0 rgb(255 255 255 / 45%), inset 0 -1px 0 rgb(0 0 0 / 30%);
+  cursor: ns-resize;
 }
 
 .channel-meter-track {
@@ -94,17 +145,28 @@
   background: var(--signal-accent);
 }
 
+/* A stub on each rail edge rather than one on the right only, which read as a
+   ragged seam down one side instead of a scale. The middle stays clear so the
+   marks never cut across the level fill. */
 .channel-meter-tick {
   position: absolute;
   right: 0;
-  width: 4px;
+  left: 0;
   height: 1px;
-  background: rgb(238 228 214 / 34%);
+  background: linear-gradient(
+    90deg,
+    rgb(238 228 214 / 34%) 0 4px,
+    transparent 4px calc(100% - 4px),
+    rgb(238 228 214 / 34%) calc(100% - 4px) 100%
+  );
 }
 
+/* One mark every 12 dB over a −60 dB rail: 0, 20, 40, 60, 80 percent, evenly
+   spaced, with the rail's own bottom edge standing in for −60. */
 .channel-meter-tick-zero { top: 0; }
 .channel-meter-tick-minus-12 { top: 20%; }
 .channel-meter-tick-minus-24 { top: 40%; }
+.channel-meter-tick-minus-36 { top: 60%; }
 .channel-meter-tick-minus-48 { top: 80%; }
 
 .mixer-channels .mixer-strip {

@@ -48,7 +48,7 @@ export function Mixer({ audioEngine, patternGroupId, pads, pumpSourceId, pumpTar
       </div>
       <div className="mixer-meter-legend" aria-hidden="true">
         <span>LEVEL / dBFS</span>
-        <span>0 · −12 · −24 · −48</span>
+        <span>0 · −12 · −24 · −36 · −48</span>
       </div>
       <div className="mixer-strips">
         {visiblePads.map((pad) => {

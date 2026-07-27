@@ -92,7 +92,7 @@ export function TransportBar({ bpm, swing, isPlaying, mode, loopSong, metronomeE
         <span className={`status-dot status-${audioStatus}`} aria-hidden="true" />
         <span className="system-power-label">{audioStatus === 'ready' ? 'ON' : 'OFF'}</span>
       </button>
-      <button className="transport-button transport-icon-button" type="button" disabled={!controlsAwake || isPlaying} aria-label="Play" onClick={onPlay}>▶</button>
+      <button className="transport-button transport-icon-button transport-play-button" type="button" disabled={!controlsAwake || isPlaying} aria-label="Play" onClick={onPlay} />
       <button className="mixer-toggle transport-icon-button transport-stop-button" type="button" disabled={!isPlaying} aria-label="Stop" onClick={onStop} />
       <button className="mixer-toggle transport-icon-button transport-record-button" type="button" disabled aria-label="Record unavailable" title="Recording will be added in a future version" />
       <div className="transport-modes" aria-label="Transport mode"><button className={mode === 'pattern' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" disabled={!controlsAwake} onClick={() => onModeChange('pattern')}>PATTERN</button><button className={mode === 'song' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" disabled={!controlsAwake} onClick={() => onModeChange('song')}>SONG</button></div>

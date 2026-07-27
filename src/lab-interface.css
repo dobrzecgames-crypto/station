@@ -676,7 +676,25 @@ input[type="text"], input[type="number"], select, textarea {
   padding: 0;
   font-size: .75rem;
   line-height: 1;
-}.transport-stop-button::before { content: '\25A0'; }
+}
+/* A literal "▶" character is drawn by each platform's font. Android's emoji
+   font gives it a filled colour badge of its own, so the button reads as a
+   button-inside-a-button. Drawn with borders instead, it is never a glyph
+   that a font can restyle. */
+.transport-play-button {
+  display: grid;
+  place-items: center;
+}
+.transport-play-button::before {
+  width: 0;
+  height: 0;
+  margin-left: 2px;
+  border-style: solid;
+  border-width: 7px 0 7px 11px;
+  border-color: transparent transparent transparent currentColor;
+  content: '';
+}
+.transport-stop-button::before { content: '\25A0'; }
 .transport-record-button {
   display: grid;
   place-items: center;

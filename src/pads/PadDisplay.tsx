@@ -47,13 +47,30 @@ export function PadDisplayLauncher(props: PadDisplayLauncherProps) {
   const category = libraryCategories[categoryIndex]
   const categorySamples = builtInLibrary.filter((sample) => sample.category === category)
   const padSample = loadedLibrarySample(props.pad)
-  const selectLibrarySample = (sample: LibrarySample) => props.onSelectedLibrarySampleChange(
-    props.selectedLibrarySample?.id === sample.id ? null : sample,
+  /* App recreates its event handlers on each render. Depending on the whole
+     props object would therefore re-claim the display after the claim itself
+     updates App, creating a render loop, so the dependency list below carries
+     only the values rendered here. Leaving the handlers out of it is not enough
+     on its own: the tenant would keep calling whichever copy existed when it
+     was last built. onClear and onMapToProjectScale close over the whole
+     pattern group list, and MAP rewrites the other pads without touching any of
+     those dependencies - a CLEAR afterwards would put the bank back as it stood
+     before the mapping. Calling through a ref keeps them current. Same shape as
+     EffectDisplay and BusDisplay. */
+  const latestPropsRef = useRef(props)
+  latestPropsRef.current = props
+  const handlers = useMemo(() => ({
+    onUpdate: (changes: Pick<PadState, 'volume' | 'pitchSemitones' | 'attackMs' | 'releaseMs'>) => latestPropsRef.current.onUpdate(changes),
+    onPreviewLibrarySample: (sample: LibrarySample) => latestPropsRef.current.onPreviewLibrarySample(sample),
+    onSelectedLibrarySampleChange: (sample: LibrarySample | null) => latestPropsRef.current.onSelectedLibrarySampleChange(sample),
+    onMapToProjectScale: () => latestPropsRef.current.onMapToProjectScale(),
+    onEditSample: () => latestPropsRef.current.onEditSample(),
+    onClear: () => latestPropsRef.current.onClear(),
+  }), [])
+  const selectLibrarySample = (sample: LibrarySample) => handlers.onSelectedLibrarySampleChange(
+    latestPropsRef.current.selectedLibrarySample?.id === sample.id ? null : sample,
   )
-  // App recreates its event handlers on each render. Depending on the whole
-  // props object would therefore re-claim the display after the claim itself
-  // updates App, creating a render loop. These are the values rendered here.
-  const tenant = useMemo<DisplayTenant>(() => padTenant(props, {
+  const tenant = useMemo<DisplayTenant>(() => padTenant({ ...props, ...handlers }, {
     category,
     categoryIndex,
     categorySamples,
@@ -82,6 +99,7 @@ export function PadDisplayLauncher(props: PadDisplayLauncherProps) {
     category,
     categoryIndex,
     padSample,
+    handlers,
   ])
 
   /* Switching pads lands you in the folder the pad's own sound came from, so

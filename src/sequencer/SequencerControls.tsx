@@ -33,7 +33,27 @@ export function SequencerControls({ pattern, shifts, pads, selectedPadId, group,
   const editedPad = pads.find((pad) => pad.id === editedStep.padId) ?? pads[0]
   const velocity = pattern[editedPad.id][editedStep.stepIndex]
   const shift = shifts[editedPad.id][editedStep.stepIndex]
-  const tenant = useMemo<DisplayTenant>(() => stepTenant({ pad: editedPad, stepIndex: editedStep.stepIndex, velocity, shift, onVelocityChange, onShiftChange }), [editedPad, editedStep.stepIndex, velocity, shift, onVelocityChange, onShiftChange])
+  /* App rebuilds its step handlers on every render, and claiming re-renders
+     App. A tenant depending on them directly therefore got a new identity each
+     time the claim effect ran, re-claimed, and spun - entering SEQ produced a
+     burst of "Maximum update depth exceeded" every time. The handlers are read
+     through refs instead, which keeps them out of the dependency list without
+     the stale closure that simply dropping them would leave: a step edited
+     after a bank or variant change would otherwise be written to whichever
+     pattern was selected when the tenant was last built. Same shape as
+     EffectDisplay and BusDisplay. */
+  const onVelocityChangeRef = useRef(onVelocityChange)
+  const onShiftChangeRef = useRef(onShiftChange)
+  onVelocityChangeRef.current = onVelocityChange
+  onShiftChangeRef.current = onShiftChange
+  const tenant = useMemo<DisplayTenant>(() => stepTenant({
+    pad: editedPad,
+    stepIndex: editedStep.stepIndex,
+    velocity,
+    shift,
+    onVelocityChange: (padId, stepIndex, nextVelocity) => onVelocityChangeRef.current(padId, stepIndex, nextVelocity),
+    onShiftChange: (padId, stepIndex, nextShift) => onShiftChangeRef.current(padId, stepIndex, nextShift),
+  }), [editedPad, editedStep.stepIndex, velocity, shift])
   const selectStep = (padId: PadState['id'], stepIndex: number) => { setDisplayActive(true); setEditedStep({ padId, stepIndex }); onToggleStep(padId, stepIndex) }
   const pageStartStep = stepPage * 8
   const pageSteps = Array.from({ length: 8 }, (_, offset) => pageStartStep + offset)

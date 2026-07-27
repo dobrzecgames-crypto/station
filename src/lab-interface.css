@@ -919,3 +919,43 @@ input[type="text"], input[type="number"], select, textarea {
   color: var(--station-text-disabled);
   text-shadow: none;
 }
+/* ---------- Render ------------------------------------------------------ */
+
+/* The render is the one action in the app that runs for seconds at a time, so
+   it gets a readout rather than a spinner. Progress comes from the render
+   clock itself, not from a timer guessing at it. */
+.render-progress {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 10px;
+}
+.render-progress-track {
+  overflow: hidden;
+  flex: 1;
+  height: 6px;
+  border: 1px solid var(--station-line);
+  border-radius: 3px;
+  background: var(--station-recess);
+}
+.render-progress-fill {
+  height: 100%;
+  background: var(--station-text-muted);
+  transition: width 120ms linear;
+}
+.render-progress-value {
+  min-width: 3.5ch;
+  color: var(--station-text-muted);
+  font-family: var(--station-mono-font);
+  font-size: .68rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.render-warning {
+  margin: 10px 0 0;
+  color: var(--station-amber);
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .05em;
+}
+.render-result .project-workspace-actions { margin-top: 8px; }

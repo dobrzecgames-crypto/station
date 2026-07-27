@@ -92,7 +92,13 @@ interface RuntimeEffectRack {
 }
 
 export class AudioEngine {
-  private context: AudioContext | undefined
+  /**
+   * The graph is built against `BaseAudioContext` so one engine class covers
+   * both live playback and an offline render. Only the live path owns a
+   * context it can resume, suspend or close, and that one is `liveContext`.
+   */
+  private context: BaseAudioContext | undefined
+  private liveContext: AudioContext | undefined
   private masterEffects: RuntimeEffectRack | undefined
   private masterGain: GainNode | undefined
   private readonly channels = new Map<ChannelId, Channel>()
@@ -129,7 +135,7 @@ export class AudioEngine {
   }
 
   async initialize(): Promise<void> {
-    if (this.context?.state === 'running') {
+    if (this.liveContext?.state === 'running') {
       this.setStatus('ready')
       return
     }
@@ -138,13 +144,14 @@ export class AudioEngine {
 
     try {
       const AudioContextConstructor = window.AudioContext
-      this.context ??= new AudioContextConstructor()
-      this.context.onstatechange = () => this.syncContextStatus()
-      this.createMasterOutput(this.context)
+      this.liveContext ??= new AudioContextConstructor()
+      this.context = this.liveContext
+      this.liveContext.onstatechange = () => this.syncContextStatus()
+      this.createMasterOutput(this.liveContext)
       this.createChannelNodes()
-      await this.context.resume()
+      await this.liveContext.resume()
 
-      if (this.context.state !== 'running') {
+      if (this.liveContext.state !== 'running') {
         throw new Error('Audio is still suspended. Try START AUDIO again.')
       }
 
@@ -153,6 +160,47 @@ export class AudioEngine {
       this.setStatus('error')
       throw this.toError(error, 'Unable to start Web Audio.')
     }
+  }
+
+  /**
+   * Binds this engine to a render context instead of a live output. The graph,
+   * the scheduling entry points and the mixer setters are the ones live
+   * playback uses, so a render cannot quietly grow its own audio behaviour.
+   */
+  initializeForRender(context: OfflineAudioContext): void {
+    this.context = context
+    this.createMasterOutput(context)
+    this.createChannelNodes()
+    this.setStatus('ready')
+  }
+
+  getSampleRate(): number {
+    return this.context?.sampleRate ?? 0
+  }
+
+  getDecodedSampleAsset(assetId: SampleAssetId): AudioBuffer | undefined {
+    return this.samples.get(assetId)
+  }
+
+  /**
+   * Hands an already decoded buffer to a render engine. An `AudioBuffer` is not
+   * owned by the context that decoded it, so a render at the live sample rate
+   * reuses the exact material that was played, with no second decode.
+   */
+  setDecodedSampleAsset(assetId: SampleAssetId, buffer: AudioBuffer): void {
+    this.samples.set(assetId, buffer)
+  }
+
+  /**
+   * Drops the ten-millisecond smoothing ramps the setters use, so a render
+   * starts at the mixer state instead of sliding into it over its first step.
+   */
+  applyMixerStateImmediately(): void {
+    this.applyAllChannelGains(true)
+    this.applyAllGroupGains(true)
+    this.applyMasterGain(true)
+    this.applyRuntimeEffectRack(this.masterEffects, this.masterEffectState, true)
+    for (const [groupId, state] of this.groupEffectStates) this.applyRuntimeEffectRack(this.groupEffects.get(groupId), state, true)
   }
 
   async loadSample(assetId: SampleAssetId, file: File): Promise<LoadedSampleInfo> {
@@ -441,20 +489,21 @@ export class AudioEngine {
     this.disposeRuntimeEffectRack(this.masterEffects)
     this.masterGain?.disconnect()
 
-    if (this.context && this.context.state !== 'closed') {
-      void this.context.close()
+    if (this.liveContext && this.liveContext.state !== 'closed') {
+      void this.liveContext.close()
     }
 
     this.context = undefined
+    this.liveContext = undefined
     this.masterEffects = undefined
     this.masterGain = undefined
     this.setStatus('inactive')
   }
 
   private syncContextStatus(): void {
-    if (this.context?.state === 'running') this.setStatus('ready')
-    else if (this.context?.state === 'suspended') this.setStatus('suspended')
-    else if (this.context?.state === 'closed') this.setStatus('inactive')
+    if (this.liveContext?.state === 'running') this.setStatus('ready')
+    else if (this.liveContext?.state === 'suspended') this.setStatus('suspended')
+    else if (this.liveContext?.state === 'closed') this.setStatus('inactive')
   }
 
   private setStatus(status: AudioEngineStatus): void {
@@ -463,7 +512,7 @@ export class AudioEngine {
     for (const listener of this.statusListeners) listener(status)
   }
 
-  private createMasterOutput(context: AudioContext): void {
+  private createMasterOutput(context: BaseAudioContext): void {
     if (this.masterEffects || this.masterGain) return
     this.masterEffects = this.createRuntimeEffectRack(this.masterEffectState)
     this.masterGain = context.createGain()
@@ -781,8 +830,10 @@ export class AudioEngine {
 
   private applyEffectParameter(parameter: AudioParam, target: number, immediately: boolean, durationSeconds: number): void {
     if (!this.context) return
-    if (immediately) parameter.setValueAtTime(target, this.context.currentTime)
-    else this.rampAudioParam(parameter, target, durationSeconds)
+    if (immediately) {
+      parameter.cancelScheduledValues(this.context.currentTime)
+      parameter.setValueAtTime(target, this.context.currentTime)
+    } else this.rampAudioParam(parameter, target, durationSeconds)
   }
 
   private rampAudioParam(parameter: AudioParam, target: number, durationSeconds = 0.02): void {

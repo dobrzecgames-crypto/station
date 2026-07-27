@@ -6,7 +6,8 @@ import type { EffectRackState } from './audio/effects'
 import { createChannelId } from './audio/channelIdentity'
 import type { GroupPadReference } from './audio/channelIdentity'
 import { StepSequencer } from './audio/StepSequencer'
-import type { StepSequencerConfig, StepSequencerTrack } from './audio/StepSequencer'
+import type { StepSequencerConfig } from './audio/StepSequencer'
+import { encodeWav } from './audio/wavEncoder'
 import { ChopWorkspace } from './chop/ChopWorkspace'
 import type { LibrarySample } from './library/builtInLibrary'
 import { Mixer } from './mixer/Mixer'
@@ -28,6 +29,8 @@ import { TransportBar } from './shell/TransportBar'
 import { SystemDisplayProvider, useSystemDisplayHost } from './shell/systemDisplayContext'
 import { collectReferencedAssetIds, createProjectState, projectSchemaVersion, validateProjectState } from './project/ProjectState'
 import { ProjectKeyPanel } from './project/ProjectKeyPanel'
+import { renderSongToBuffer } from './project/renderSong'
+import type { RenderSongResult } from './project/renderSong'
 import { defaultProjectKey, formatProjectKey } from './music/scales'
 import type { ProjectKey } from './music/scales'
 import { findProjectScaleMapConflicts, mapPadBankToProjectScale } from './music/scaleMapping'
@@ -35,8 +38,9 @@ import { projectRepository } from './storage/ProjectRepository'
 import { defaultProjectId } from './storage/storageTypes'
 import { addPatternGroup, clearVariant, createInitialPatternGroups, duplicateVariant, getVariant, getVariantShifts, setVariantStepShift, setVariantStepVelocity, updateVariantStep } from './patterns/patternOperations'
 import type { PatternGroup, PatternVariantName } from './patterns/patternTypes'
-import { addPatternClip, getActiveClipsForSlot, getLastOccupiedSlot, removeClipsForGroup, removeClipsForVariant, removePatternClip } from './song/songOperations'
+import { addPatternClip, getLastOccupiedSlot, removeClipsForGroup, removeClipsForVariant, removePatternClip } from './song/songOperations'
 import type { PatternClip, TransportMode } from './song/songTypes'
+import { getPatternTracks, getSongTracksForSlot } from './song/songTracks'
 import { SongWorkspace } from './song/SongWorkspace'
 import type { SliceRegion } from './chop/autoChopOperations'
 import { chopTestSamples } from './chop/chopTestSamples'
@@ -122,6 +126,8 @@ export function App({ audioEngine }: AppProps) {
   const [projectMessage, setProjectMessage] = useState<string>()
   const [transportNotice, setTransportNotice] = useState<string>()
   const [projectBusy, setProjectBusy] = useState(false)
+  const [renderProgress, setRenderProgress] = useState<number | null>(null)
+  const [hotRender, setHotRender] = useState<{ result: RenderSongResult; filename: string } | null>(null)
   const [projectKey, setProjectKey] = useState<ProjectKey>(defaultProjectKey)
   const [loadingLibrarySampleId, setLoadingLibrarySampleId] = useState<string | null>(null)
   const [previewingLibrarySampleId, setPreviewingLibrarySampleId] = useState<string | null>(null)
@@ -129,6 +135,11 @@ export function App({ audioEngine }: AppProps) {
   const [sequencerPlayhead, setSequencerPlayhead] = useState<SequencerPlayhead | null>(null)
   const [visualAudioTime, setVisualAudioTime] = useState(0)
   const sequencerRef = useRef(new StepSequencer(audioEngine))
+  const renderAbortRef = useRef<AbortController | null>(null)
+  const renderBusy = renderProgress !== null
+  /* SOLO is honoured by the render, so a render started with one latched
+     silently drops every other channel. The panel says so before it happens. */
+  const soloActive = patternGroups.some((group) => group.bus?.solo || group.bank.pads.some((pad) => pad.solo))
   const workspaceRef = useRef<HTMLDivElement>(null)
   const selectedGroup = patternGroups.find((group) => group.id === selectedPatternGroupId)!
   const pads = selectedGroup.bank.pads
@@ -192,6 +203,8 @@ export function App({ audioEngine }: AppProps) {
     return () => window.cancelAnimationFrame(frameId)
   }, [audioEngine, isPlaying, waveformPlayback])
 
+  const hasSampleAsset = (assetId: SampleAssetId) => audioEngine.hasSampleAsset(assetId)
+
   const sequenceConfigRef = useRef<StepSequencerConfig>({ bpm, swing, metronomeEnabled: false, mode: 'pattern', loopSong: false, lastSongSlot: null, getTracksForSlot: () => [] })
 
   sequenceConfigRef.current = {
@@ -201,12 +214,9 @@ export function App({ audioEngine }: AppProps) {
     mode: transportMode,
     loopSong,
     lastSongSlot: getLastOccupiedSlot(playlist),
-    getTracksForSlot: (slot) => {
-      const variants = transportMode === 'song'
-        ? getActiveClipsForSlot(playlist, slot).map((clip) => ({ group: patternGroups.find((group) => group.id === clip.patternGroupId), steps: getVariant(patternGroups, clip.patternGroupId, clip.variant), shifts: getVariantShifts(patternGroups, clip.patternGroupId, clip.variant) })).filter((pattern): pattern is { group: PatternGroup; steps: NonNullable<typeof pattern.steps>; shifts: NonNullable<typeof pattern.shifts> } => Boolean(pattern.group && pattern.steps && pattern.shifts))
-        : [{ group: selectedGroup, steps: getVariant(patternGroups, selectedPatternGroupId, selectedPatternVariant), shifts: getVariantShifts(patternGroups, selectedPatternGroupId, selectedPatternVariant) }].filter((pattern): pattern is { group: PatternGroup; steps: NonNullable<typeof pattern.steps>; shifts: NonNullable<typeof pattern.shifts> } => Boolean(pattern.steps && pattern.shifts))
-      return variants.flatMap((pattern) => pattern.group.bank.pads.filter((pad): pad is PadState & { assetId: SampleAssetId } => pad.assetId !== null && audioEngine.hasSampleAsset(pad.assetId)).map<StepSequencerTrack>((pad) => ({ groupId: pattern.group.id, channelId: createChannelId({ patternGroupId: pattern.group.id, padId: pad.id }), assetId: pad.assetId, steps: pattern.steps[pad.id], shifts: pattern.shifts[pad.id], chokeGroupId: pad.chopSessionId ?? undefined, options: { pitchSemitones: pad.pitchSemitones, startSeconds: pad.region.startSeconds, endSeconds: pad.region.endSeconds, attackMs: pad.attackMs, releaseMs: pad.releaseMs } })))
-    },
+    getTracksForSlot: (slot) => transportMode === 'song'
+      ? getSongTracksForSlot(patternGroups, playlist, slot, hasSampleAsset)
+      : getPatternTracks(patternGroups, selectedPatternGroupId, selectedPatternVariant, hasSampleAsset),
     onSongSlotChange: setPlayingSongSlot,
     onSongComplete: () => { setIsPlaying(false); setPlayingSongSlot(null); setSequencerPlayhead(null) },
     onStepScheduled: (stepIndex, scheduledTime, durationSeconds) => setSequencerPlayhead({ stepIndex, startsAt: scheduledTime, durationSeconds }),
@@ -305,6 +315,45 @@ export function App({ audioEngine }: AppProps) {
     } finally {
       setProjectBusy(false)
     }
+  }
+
+  /* Renders the SONG playlist offline and hands the user a WAV. The transport
+     mode does not matter: a render is always the song, from slot one to the
+     last occupied one, in a single pass. */
+  const renderSong = async () => {
+    if (renderBusy || projectBusy) return
+    if (!audioReady) { setErrorMessage('Start audio before rendering.'); return }
+    if (playlist.length === 0) { setTransportNotice(emptySongPlaylistNotice); return }
+    if (isPlaying) { setErrorMessage('Stop the sequencer before rendering.'); return }
+    const controller = new AbortController()
+    renderAbortRef.current = controller
+    setHotRender(null)
+    setProjectMessage(undefined)
+    setRenderProgress(0)
+    try {
+      const result = await renderSongToBuffer({ state: createCurrentProjectState(), liveEngine: audioEngine, signal: controller.signal, onProgress: setRenderProgress })
+      const filename = createRenderFilename(bpm)
+      // A render that passed full scale is not downloaded behind the user's
+      // back: they choose between the mix as monitored and a trimmed copy.
+      if (result.peak > 1) { setHotRender({ result, filename }); return }
+      downloadBlob(encodeWav(result.buffer, { startFrame: result.startFrame }), filename)
+      setProjectMessage(`Rendered ${formatRenderDuration(renderedSeconds(result))}, peak ${formatDbfs(result.peak)}.`)
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') setProjectMessage('Render cancelled.')
+      else setErrorMessage(toMessage(error))
+    } finally {
+      renderAbortRef.current = null
+      setRenderProgress(null)
+    }
+  }
+
+  const downloadRender = (trimmed: boolean) => {
+    if (!hotRender) return
+    const { result, filename } = hotRender
+    const gain = trimmed ? trimGainFor(result.peak) : 1
+    downloadBlob(encodeWav(result.buffer, { startFrame: result.startFrame, gain }), filename)
+    setHotRender(null)
+    setProjectMessage(trimmed ? `Rendered with a ${formatDb(gain)} trim.` : `Rendered 1:1, ${result.clippedSampleCount.toLocaleString()} samples clipped.`)
   }
 
   const openProject = async () => {
@@ -994,7 +1043,25 @@ export function App({ audioEngine }: AppProps) {
               <div className="project-workspace-actions">
                 <button className="transport-button" type="button" disabled={projectBusy} onClick={() => void saveProject()}>SAVE PROJECT</button>
                 <button className="mixer-toggle" type="button" disabled={!audioReady || projectBusy} onClick={() => void openProject()}>OPEN PROJECT</button>
+                <button className={renderBusy ? 'mixer-toggle' : 'mixer-toggle project-action-wide'} type="button" disabled={!audioReady || projectBusy || renderBusy} onClick={() => void renderSong()}>{renderBusy ? 'RENDERING…' : 'RENDER SONG'}</button>
+                {renderBusy && <button className="mixer-toggle" type="button" onClick={() => renderAbortRef.current?.abort()}>CANCEL</button>}
               </div>
+              {renderBusy && (
+                <div className="render-progress" role="status" aria-live="polite">
+                  <div className="render-progress-track"><div className="render-progress-fill" style={{ width: `${Math.round((renderProgress ?? 0) * 100)}%` }} /></div>
+                  <span className="render-progress-value">{Math.round((renderProgress ?? 0) * 100)}%</span>
+                </div>
+              )}
+              {soloActive && !renderBusy && <p className="render-warning">SOLO IS LATCHED — a render contains only the soloed channels.</p>}
+              {hotRender && (
+                <div className="render-result">
+                  <p className="render-warning">PEAK {formatDbfs(hotRender.result.peak)} — {hotRender.result.clippedSampleCount.toLocaleString()} samples clip at 16 bit.</p>
+                  <div className="project-workspace-actions">
+                    <button className="mixer-toggle" type="button" onClick={() => downloadRender(true)}>TRIM {formatDb(trimGainFor(hotRender.result.peak))} &amp; DOWNLOAD</button>
+                    <button className="mixer-toggle" type="button" onClick={() => downloadRender(false)}>DOWNLOAD 1:1</button>
+                  </div>
+                </div>
+              )}
               <ProjectKeyPanel projectKey={projectKey} disabled={projectBusy} onChange={setProjectKey} />
               {/* The pattern-group actions that were parked here have moved to
                   the transport, which is where the bank and pattern they act on
@@ -1010,6 +1077,45 @@ export function App({ audioEngine }: AppProps) {
 }
 
 function isTypingTarget(target: EventTarget | null): boolean { return target instanceof HTMLElement && (target.isContentEditable || target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) }
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.append(link)
+  link.click()
+  link.remove()
+  // Chrome on Android needs the URL to outlive the click, so it is released on
+  // the next task rather than immediately.
+  window.setTimeout(() => URL.revokeObjectURL(url), 0)
+}
+function createRenderFilename(bpm: number): string {
+  const now = new Date()
+  const stamp = [now.getFullYear(), now.getMonth() + 1, now.getDate()].map((part, index) => String(part).padStart(index === 0 ? 4 : 2, '0')).join('')
+  const time = [now.getHours(), now.getMinutes()].map((part) => String(part).padStart(2, '0')).join('')
+  return `station-${stamp}-${time}-${Math.round(bpm)}bpm.wav`
+}
+function formatRenderDuration(seconds: number): string {
+  const whole = Math.round(seconds)
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`
+}
+function renderedSeconds(result: RenderSongResult): number {
+  return (result.buffer.length - result.startFrame) / result.buffer.sampleRate
+}
+function formatDbfs(peak: number): string {
+  if (peak <= 0) return '-∞ dBFS'
+  const db = 20 * Math.log10(peak)
+  return `${db >= 0 ? '+' : ''}${db.toFixed(1)} dBFS`
+}
+function formatDb(gain: number): string {
+  return `${(20 * Math.log10(gain)).toFixed(1)} dB`
+}
+/* Brings an over-hot render to -0.3 dBFS with one multiplication. It is a level
+   change and nothing else - no dynamics, so nothing about the mix moves
+   relative to itself. */
+function trimGainFor(peak: number): number {
+  return 10 ** (-0.3 / 20) / peak
+}
 function toMessage(error: unknown): string { return error instanceof Error ? error.message : 'An unexpected audio error occurred.' }
 function assetIsReferencedByGroups(groups: readonly PatternGroup[], assetId: SampleAssetId): boolean {
   return groups.some((group) => group.bank.pads.some((pad) => pad.assetId === assetId) || group.bank.chopSession.assetId === assetId)

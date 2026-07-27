@@ -285,3 +285,23 @@ Consequences:
 - detection precision is bounded by the peaks cache resolution (128 buckets/second up to 4 seconds, capped at 512 buckets total for longer sources), so very fast/close hits on long sources may merge into one candidate,
 - SMART previews locally before commit and disables manual slice editing while a preview is pending, so a rejected or cancelled preview never touches committed Chop Session data,
 - both modes produce ordinary SampleSlice arrays and commit through the existing live slice-to-pad mapping; re-running either mode within the same Chop Session re-maps pads without an occupied-pad confirmation, matching existing manual re-slicing behavior, while pads outside the current session still trigger it.
+
+## DEC-021 — WAV export renders the song offline through the live audio path
+
+**Status:** Accepted
+
+RENDER SONG in the PROJECT tab writes the SONG playlist to a 16-bit stereo WAV file. The render is a second `AudioEngine` built over an `OfflineAudioContext` and driven by the same `StepSequencer` that drives live playback: the sequencer's wake-up is injected, so live playback wakes on a timer and a render wakes on the render clock through `OfflineAudioContext.suspend()`. Real-time capture through `MediaRecorder` was rejected because Chrome offers no WAV container, so every export would pass through Opus, and because a render taking as long as the song cannot survive a phone locking its screen.
+
+Consequences:
+
+- the render is faster than real time, deterministic and sample-accurate, and live playback keeps its own context and engine instance untouched,
+- swing, per-step SHIFT, CHOP choke groups, Pump and both effect racks keep their live behaviour because the context clock genuinely advances between scheduling passes, rather than the whole song being stamped out against a frozen clock,
+- the transport and the render both read `getSongTracksForSlot`, so a file cannot drift from what the sequencer plays,
+- a render is always one pass of the playlist from slot 1 to the last occupied slot; LOOP SONG is a monitoring preference and PATTERN mode is not exported, since bouncing a loop belongs to M10 resampling, which returns to a pad instead of leaving as a file,
+- the render length is computed rather than guessed: the longest sample that actually plays, a delay's decay to -60 dB capped at twelve seconds, and a safety margin, with a ten-minute ceiling that fails with a message instead of exhausting a phone's memory,
+- mute and solo are honoured exactly as monitored and the panel warns when SOLO is latched, the metronome is structurally absent because `ProjectState` does not carry it,
+- there is no limiter and no normalisation. A limiter present only in the render would make the file quieter and denser than the monitor, and one present in both paths is a master-bus decision rather than an export feature. Instead the peak is measured and an over-hot render offers a single scalar trim to -0.3 dBFS, which changes level and nothing else,
+- 16-bit is not a character choice. Sampler character comes from 12-bit machines and lower rates, and it belongs in an effect where it can be heard while playing, not in a file header,
+- the sample rate follows the live context, so decoded buffers are reused with no resampling and no second decode,
+- the file drops the leading bit-exact silence that the master rack's compressor lookahead produces, so a render lands on the grid without hard-coding any browser's latency,
+- `renderSongToBuffer` returns an audio buffer and the WAV encoder is separate, so M10 resampling can reuse both without an export path in the way.

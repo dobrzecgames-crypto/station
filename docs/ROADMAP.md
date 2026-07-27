@@ -7,6 +7,7 @@
 - M7 Basic Pump implementation is present; listening and hardening are pending.
 - The approved M9 Chop foundation was implemented early; equal and transient-detection auto-chop are now implemented too, with listening/UX acceptance pending.
 - The current approved task is Pattern Groups A–D + Pattern Playlist / Song Mode. It is implemented locally; acceptance, listening and Chrome/Edge validation remain pending.
+- WAV export of the SONG playlist was approved and implemented outside the milestone sequence (see `DECISIONS.md` DEC-021). Listening acceptance and Android/Chrome/Edge validation are pending.
 
 ## M0 — Project Definition
 
@@ -212,6 +213,7 @@ Exit criteria:
 - create a new SampleAsset,
 - assign result to a pad or send to Chop,
 - preserve a clear resample history.
+- The offline render machinery already exists (see `DECISIONS.md` DEC-021): `renderSongToBuffer` returns an audio buffer and `encodeWav` turns one into a WAV blob, which is the format `loadSampleBlob` accepts. Resampling reuses both and differs only in where the result goes — back to a pad instead of out to a file.
 
 ### M11 — Further pattern performance and scenes
 

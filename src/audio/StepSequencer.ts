@@ -24,16 +24,48 @@ export interface StepSequencerTrack {
   options: TriggerSampleOptions
 }
 
-export class StepSequencer {
-  private readonly lookAheadSeconds = 0.1
-  private readonly wakeIntervalMilliseconds = 25
+/**
+ * Decides when the next scheduling pass happens. Live playback wakes on a
+ * timer; an offline render wakes on the render clock itself. Neither is a
+ * source of musical time — every event is still stamped against the audio
+ * context, and the pass only decides how far ahead the stamps are written.
+ */
+export interface SequencerTicker {
+  wake(callback: () => void): void
+  /** No further passes. A render driver uses this to let the tail play out. */
+  cancel(): void
+}
+
+class TimeoutTicker implements SequencerTicker {
   private timer: number | undefined
+
+  constructor(private readonly intervalMilliseconds: number) {}
+
+  wake(callback: () => void): void {
+    this.timer = window.setTimeout(callback, this.intervalMilliseconds)
+  }
+
+  cancel(): void {
+    if (this.timer !== undefined) window.clearTimeout(this.timer)
+    this.timer = undefined
+  }
+}
+
+export function createTimeoutTicker(intervalMilliseconds = 25): SequencerTicker {
+  return new TimeoutTicker(intervalMilliseconds)
+}
+
+export class StepSequencer {
   private nextStepTime = 0
   private nextStepIndex = 0
   private currentSongSlot = 1
   private running = false
 
-  constructor(private readonly audioEngine: AudioEngine) {}
+  constructor(
+    private readonly audioEngine: AudioEngine,
+    private readonly ticker: SequencerTicker = createTimeoutTicker(),
+    private readonly lookAheadSeconds = 0.1,
+  ) {}
 
   start(getConfig: () => StepSequencerConfig): void {
     if (this.running) return
@@ -46,8 +78,7 @@ export class StepSequencer {
 
   stop(): void {
     this.running = false
-    if (this.timer !== undefined) window.clearTimeout(this.timer)
-    this.timer = undefined
+    this.ticker.cancel()
   }
 
   isRunning(): boolean { return this.running }
@@ -85,13 +116,13 @@ export class StepSequencer {
           if (config.loopSong && config.lastSongSlot !== null) this.currentSongSlot = 1
           else {
             this.running = false
-            this.timer = undefined
+            this.ticker.cancel()
             config.onSongComplete?.()
             return
           }
         } else this.currentSongSlot += 1
       }
     }
-    this.timer = window.setTimeout(() => this.schedule(getConfig), this.wakeIntervalMilliseconds)
+    this.ticker.wake(() => this.schedule(getConfig))
   }
 }

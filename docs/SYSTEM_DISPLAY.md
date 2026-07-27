@@ -10,11 +10,27 @@ through `SystemDisplayApi`, and the first adopter is live. The focus channel
 (priority 3) is the one part of section 3 still unbuilt: today a context claims
 on a discrete selection rather than while a control is held.
 
-There are two adopters: the library's assign step and the transport's bank
-actions (copy, clear, delete). `SystemDisplayApi` also exposes `ownerId`, which
-the bank panel needs — a context that re-claims whenever its data changes has to
-know when it has been taken over, or it steals the display back from whoever
-replaced it on the next change.
+There are three adopters: the library's assign step, the transport's bank
+actions (copy, clear, delete), and the pad's sample browser with its sound
+controls. `SystemDisplayApi` also exposes `ownerId`, which the bank panel needs
+— a context that re-claims whenever its data changes has to know when it has
+been taken over, or it steals the display back from whoever replaced it on the
+next change.
+
+The pad browser is where a tenant first needed two screens, and it settled how
+that works. It shipped with a `‹ 1 / 2 ›` pager above both — a row of chrome
+whose only content was the news that a second screen existed, with no cue on
+screen one about what screen two held. **A tenant navigates by its content, not
+by a pager.** The way onto the sound screen is now the EDIT button on the row of
+the sample actually loaded on the pad, and the way back is the `‹` that takes
+the folder row's place, so each screen carries exactly one row of chrome.
+
+EDIT appears only once a sample is on the pad. Volume, pitch, attack and release
+belong to the pad, not to the library entry, so there is nothing to shape until
+something is really in the project. When the loaded sample is not in the folder
+being browsed — a different folder, or a chopped slice the library never had —
+it gets a row under the list marked `ON PAD`, so its screen is never more than
+one tap away.
 
 The first adopter is **the library's assign step, not the FX slot** that
 motivated the design. A deliberate swap: the library was the case actually
@@ -44,12 +60,28 @@ tempo settings that drop out of it are the panel.
 | Half | Height | Holds |
 | --- | --- | --- |
 | Line | one or two rows of mono text | The current message, readout, or focused value |
-| Panel | expands under the line | The full control set for whatever owns the display |
+| Panel | one fixed height, whoever owns it | The full control set for whatever owns the display |
 
 The line is always present. The panel opens on tap and is where the actual
 editing happens. Both live inside the same glass, so opening the panel **grows
 the screen** rather than spilling controls into the transport grid around it —
 which is what the settings used to do, via `display: contents`.
+
+**The panel is one size for every tenant**, set by `--display-panel-height` on
+`.system-display`. It used to take its height from its content, so the same tap
+in SEQ, PAD and MIX moved the workspace by three different amounts and the
+display stopped reading as a fixed part of the machine. A screen does not resize
+itself to fit what is on it: tenants with more rows than fit scroll inside the
+glass, and tenants with fewer leave it unlit. Two rows of a step editor and six
+of a compressor now open to the same rectangle.
+
+A tenant whose `panel` is `null` — the resting MIX readout, the library's drop
+prompt — renders **no chevron and no tap target while the panel is shut**. Both
+used to render for it anyway, so tapping the display in MIX toggled state that
+produced nothing: an affordance promising a screen that never arrived. While the
+panel is open they render for any tenant, because an open panel must always have
+a way shut, and because a line-only tenant taking over must not collapse the
+display. It holds the height and shows dark glass.
 
 The panel is a slot, and tempo is the tenant in it: LOOP SONG, METRONOME, BPM,
 SWING. A tenant supplies the readout for the line and the controls for the
@@ -208,9 +240,15 @@ disproven, and the answer changes what step 4 should be.
 
 - Does a focused parameter replace the readout on the line, or sit beside it?
 - ~~Does the panel stay open when focus moves between contexts, or re-collapse?~~
-  **Settled: it follows the owner.** A claim opens the panel and a release
-  closes it, because a context whose controls nobody can see has not really
-  taken the display. The cost is that a claim closes a panel the user had opened
-  by hand for tempo, and does not put it back on release.
+  **Settled: it stays open. Open is the user's state and nothing else writes
+  it.** The first answer was that the panel follows the owner, and the code that
+  came out of it forced the panel shut on every change of owner — justified as
+  keeping a context from moving the workspace under the pointer. That reasoning
+  was half right: shutting the panel moves the workspace exactly as far as
+  opening it would, and it fires on something the user did not ask for. Changing
+  tabs with the panel open now leaves the display exactly as tall as it was, so
+  the navigation under a thumb does not slide out from under it. `claim` and
+  `release` no longer touch the open state at all, which is also why they hold a
+  stable identity across renders.
 - Should the display be reachable by keyboard as a landmark, so the parameter
   set can be operated without hunting for the control?

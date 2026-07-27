@@ -598,6 +598,13 @@ input[type="text"], input[type="number"], select, textarea {
 .system-display {
   --display-light: 226 232 220;
   --display-bloom: 20%;
+  /* One screen, one size. Every tenant used to size the panel from its own
+     content, so opening it under SEQ, MIX and PAD gave three different heights
+     and the whole workspace jumped by a different amount each time. A screen
+     does not resize itself to fit what is on it - it scrolls, and the tenants
+     that need less simply leave glass unlit. Capped against the viewport so a
+     short phone screen is not swallowed whole. */
+  --display-panel-height: min(220px, 34vh);
 
   grid-column: 1 / -1;
   overflow: hidden;
@@ -729,7 +736,18 @@ input[type="text"], input[type="number"], select, textarea {
    paints nothing at all - the rows sit on the same glass, under the same light,
    and the only thing between them is a hairline in the display's own colour. A
    scanline, not an edge. */
-.system-display-panel { display: grid; padding-bottom: 6px; }/* One row for everything in here, so a toggle and a parameter read as two lines
+.system-display-panel {
+  display: grid;
+  /* Rows keep their own height instead of stretching to share a fixed box -
+     four tempo rows must not become taller because there is room for six. */
+  align-content: start;
+  height: var(--display-panel-height);
+  padding-bottom: 6px;
+  overflow-y: auto;
+  /* The panel scrolls inside the glass; the workspace behind it does not move
+     when that scroll runs out. */
+  overscroll-behavior: contain;
+}/* One row for everything in here, so a toggle and a parameter read as two lines
    of one readout: name on the left, value on the right, and the control - where
    there is one - across the full width beneath them. It survives long labels and
    it stacks, which is what a compressor's five parameters will need. */

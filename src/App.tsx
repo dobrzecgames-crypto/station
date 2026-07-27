@@ -10,9 +10,10 @@ import type { StepSequencerConfig, StepSequencerTrack } from './audio/StepSequen
 import { ChopWorkspace } from './chop/ChopWorkspace'
 import type { LibrarySample } from './library/builtInLibrary'
 import { Mixer } from './mixer/Mixer'
-import { GroupMixPanel } from './mixer/GroupMixPanel'
+import { BusDisplayLauncher } from './mixer/BusDisplay'
+import { MixTargetSelector } from './mixer/GroupMixPanel'
+import type { MixScope } from './mixer/GroupMixPanel'
 import { EffectDisplayLauncher } from './mixer/EffectDisplay'
-import { MixDisplayReadout } from './mixer/MixDisplayReadout'
 import { PumpDisplayLauncher } from './mixer/PumpDisplay'
 import { clonePadBank, createPadBank, padIdByKeyCode } from './pads/padBank'
 import type { PadBankState } from './pads/padBank'
@@ -92,10 +93,12 @@ export function App({ audioEngine }: AppProps) {
   // The display's ownership lives here because the display is in the transport
   // and the contexts that claim it are all over the workspace. setState is
   // stable, so claiming does not rebuild the api on every render.
-  const { owner: displayOwner, api: displayApi } = useSystemDisplayHost(setTransportSettingsOpen)
+  const { owner: displayOwner, api: displayApi } = useSystemDisplayHost()
   const [master, setMaster] = useState({ volume: 1, muted: false })
   const [masterEffects, setMasterEffects] = useState<EffectRackState>(() => createDefaultMasterEffectRack())
   const [activeFxContext, setActiveFxContext] = useState<FxContext | null>(null)
+  const [mixScope, setMixScope] = useState<MixScope>('group')
+  const [mixClaimNonce, setMixClaimNonce] = useState(0)
   const [sampleEditorOpen, setSampleEditorOpen] = useState(false)
   const [patternGroups, setPatternGroups] = useState<PatternGroup[]>(() => createInitialPatternGroups(createPadBank().map((pad) => pad.id)))
   const [selectedPatternGroupId, setSelectedPatternGroupId] = useState('pattern-group-1')
@@ -706,6 +709,13 @@ export function App({ audioEngine }: AppProps) {
     if (activeFxContext?.scope === 'group') updateGroupEffects(selectedPatternGroupId, effects)
     if (activeFxContext?.scope === 'master') setMasterEffects(effects)
   }
+  /* Which bus MIX is looking at. It used to be local state inside the BUS & FX
+     disclosure; the display and the FX slots both need it now, so it lives
+     here. */
+  const mixBus = mixScope === 'master'
+    ? { volume: master.volume, muted: master.muted }
+    : { volume: selectedGroup.bus!.volume, muted: selectedGroup.bus!.muted, solo: selectedGroup.bus!.solo }
+  const mixBusLabel = mixScope === 'master' ? 'MASTER' : `G${patternGroups.findIndex((group) => group.id === selectedPatternGroupId) + 1}`
   return (
     <SystemDisplayProvider api={displayApi}>
     <main
@@ -904,7 +914,6 @@ export function App({ audioEngine }: AppProps) {
           )}
           {mainView === "mix" && (
             <>
-              <MixDisplayReadout />
               <Mixer
                 audioEngine={audioEngine}
                 patternGroupId={selectedPatternGroupId}
@@ -915,19 +924,43 @@ export function App({ audioEngine }: AppProps) {
                 onMutedChange={updateChannelMuted}
                 onSoloChange={updateChannelSolo}
               />
-              <GroupMixPanel
+              <MixTargetSelector
                 groups={patternGroups}
                 selectedGroup={selectedGroup}
-                master={master}
-                masterEffects={masterEffects}
+                scope={mixScope}
                 onSelectGroup={selectPatternGroup}
-                onGroupBusChange={updateGroupBus}
-                onMasterChange={updateMaster}
-                onOpenGroupSlot={(slotIndex) =>
-                  setActiveFxContext({ scope: "group", slotIndex })
+                onScopeChange={(scope) => {
+                  setMixScope(scope)
+                  setActiveFxContext(null)
+                  setMixClaimNonce((nonce) => nonce + 1)
+                }}
+              />
+              {/* Replaces the MIX readout that only ever held the line. The bus
+                  stands down while an FX slot is open, so opening a slot from
+                  here is not immediately undone by its own parent. */}
+              <BusDisplayLauncher
+                scopeLabel={mixBusLabel}
+                bus={mixBus}
+                rack={mixScope === "master" ? masterEffects : selectedGroup.effects}
+                suspended={activeFxContext !== null}
+                claimNonce={mixClaimNonce}
+                onVolumeChange={(volume) =>
+                  mixScope === "master"
+                    ? updateMaster({ volume })
+                    : updateGroupBus(selectedPatternGroupId, { volume })
                 }
-                onOpenMasterSlot={(slotIndex) =>
-                  setActiveFxContext({ scope: "master", slotIndex })
+                onMutedChange={(muted) =>
+                  mixScope === "master"
+                    ? updateMaster({ muted })
+                    : updateGroupBus(selectedPatternGroupId, { muted })
+                }
+                onSoloChange={
+                  mixScope === "master"
+                    ? undefined
+                    : (solo) => updateGroupBus(selectedPatternGroupId, { solo })
+                }
+                onOpenSlot={(slotIndex) =>
+                  setActiveFxContext({ scope: mixScope, slotIndex })
                 }
               />
               <PumpDisplayLauncher
@@ -947,7 +980,7 @@ export function App({ audioEngine }: AppProps) {
               />
               <EffectDisplayLauncher
                 context={activeFxContext}
-                scopeLabel={activeFxContext ? activeFxContext.scope === "group" ? "GROUP" : "MASTER" : undefined}
+                scopeLabel={activeFxContext ? mixBusLabel : undefined}
                 rack={activeFxRack}
                 bpm={bpm}
                 onChange={updateActiveFxRack}

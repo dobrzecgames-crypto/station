@@ -46,19 +46,30 @@ export function SystemDisplay({ owner, statusMessage, errorMessage, open, onOpen
   // one you need to see.
   const message = errorMessage ?? statusMessage
   const tone = errorMessage ? 'error' : statusMessage ? 'status' : 'idle'
+  /* A line-only tenant - the resting MIX readout, the library's drop prompt -
+     has nothing behind the line. The chevron and the tap target used to render
+     for it anyway, so tapping the display in MIX toggled state that produced no
+     panel: an affordance promising a screen that never arrives.
+
+     While the panel is open they render regardless of the tenant, for two
+     reasons: an open panel must always have a way shut, and a line-only tenant
+     taking over must not collapse the display and drag the whole workspace up
+     with it. It holds the height and shows unlit glass instead. */
+  const expandable = owner.panel != null
+  const showsControls = expandable || open
 
   return <div className={`system-display system-display-${tone}`}>
     <div className="system-display-line">
       {/* The tap target covers the line only. It used to span the whole
           display, which was harmless while the display was one row - now it
           would sit on top of the panel and swallow every slider drag. */}
-      <button
+      {showsControls && <button
         className="system-display-surface"
         type="button"
         aria-expanded={open}
         aria-label={`${owner.label} settings`}
         onClick={() => onOpenChange(!open)}
-      />
+      />}
       {/* Only the message channels are live. The readout channel carries
           parameter values, and a value that moves as a slider is dragged must
           not be announced - a screen reader would read out every intermediate
@@ -72,12 +83,14 @@ export function SystemDisplay({ owner, statusMessage, errorMessage, open, onOpen
       >
         {message ?? owner.readout}
       </p>
-      <span className="system-display-chevron" aria-hidden="true">{open ? '▲' : '▾'}</span>
+      {showsControls && <span className="system-display-chevron" aria-hidden="true">{open ? '▲' : '▾'}</span>}
     </div>
-    {open && owner.panel != null && (
+    {open && (
       /* The second strip, and the slot: the owner renders its own controls in
          here. Inside the same glass, so opening the panel grows the screen
-         rather than spilling controls into the transport grid around it. */
+         rather than spilling controls into the transport grid around it. A
+         line-only owner renders nothing into it and the glass stays dark at
+         full height, which is what keeps the tabs below from moving. */
       <div className="system-display-panel" aria-label={owner.label}>{owner.panel}</div>
     )}
   </div>

@@ -33,30 +33,30 @@ export function useSystemDisplay(): SystemDisplayApi {
 /** Held by App, which owns the display's state and hands the winner to the
     transport. Returns the current owner - null when nothing has claimed, which
     is when the transport falls back to tempo so the floor is never empty. */
-export function useSystemDisplayHost(onClaimedChange: (claimed: boolean) => void) {
+export function useSystemDisplayHost() {
   const [owner, setOwner] = useState<DisplayTenant | null>(null)
   /* The guard reads a ref rather than the state it mirrors. Two releases in one
-     tick both see the same stale state value, and putting the check inside the
-     updater would mean firing onClaimedChange from there - an effect in a
-     function React is free to call twice. */
+     tick both see the same stale state value, and the check cannot live inside
+     the updater - React is free to call that twice. */
   const ownerIdRef = useRef<string | null>(null)
 
+  /* Neither claim nor release touches whether the panel is open. They used to
+     force it shut on every change of owner, on the reasoning that a context
+     must not move the workspace under the pointer - but shutting it moves the
+     workspace just as far as opening it would, and it fires on something the
+     user did not ask for. Changing tabs with the panel open now leaves the
+     display exactly as tall as it was, so the navigation under your thumb does
+     not slide. Open is the user's state and nothing else writes it. */
   const claim = useCallback((tenant: DisplayTenant) => {
-    const isNewOwner = ownerIdRef.current !== tenant.id
     ownerIdRef.current = tenant.id
     setOwner(tenant)
-    // Context changes must never move the workspace under the pointer. A claim
-    // updates the display line only; opening its panel is always the user's
-    // explicit tap on the display.
-    if (isNewOwner) onClaimedChange(false)
-  }, [onClaimedChange])
+  }, [])
 
   const release = useCallback((id: string) => {
     if (ownerIdRef.current !== id) return
     ownerIdRef.current = null
     setOwner(null)
-    onClaimedChange(false)
-  }, [onClaimedChange])
+  }, [])
 
   const api = useMemo<SystemDisplayApi>(() => ({ claim, release, ownerId: owner?.id ?? null }), [claim, release, owner])
   return { owner, api }

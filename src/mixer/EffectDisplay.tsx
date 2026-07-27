@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { availableEffects, getDelayTimeSeconds } from '../audio/effects'
 import type { EffectRackState, EffectSlotState, EffectType } from '../audio/effects'
+import { DisplayRange } from '../shell/displayControls'
 import type { DisplayTenant } from '../shell/SystemDisplay'
 import { useSystemDisplay } from '../shell/systemDisplayContext'
 
@@ -144,10 +145,10 @@ function EffectDisplayPanel({ scopeLabel, slotIndex, rack, bpm, onChange, onClos
     </div>}
 
     {!showChooser && slot.type === 'compressor' && <>
-      <DisplayRange label="THRESHOLD" value={`${slot.compressor.thresholdDb.toFixed(0)} dB`} min="-60" max="0" step="1" current={slot.compressor.thresholdDb} onChange={(value) => updateCompressor({ thresholdDb: value })} />
-      <DisplayRange label="RATIO" value={`${slot.compressor.ratio.toFixed(1)}:1`} min="1" max="12" step="0.1" current={slot.compressor.ratio} onChange={(value) => updateCompressor({ ratio: value })} />
-      <DisplayRange label="ATTACK" value={`${Math.round(slot.compressor.attackSeconds * 1000)} ms`} min="0.003" max="0.1" step="0.001" current={slot.compressor.attackSeconds} onChange={(value) => updateCompressor({ attackSeconds: value })} />
-      <DisplayRange label="RELEASE" value={`${Math.round(slot.compressor.releaseSeconds * 1000)} ms`} min="0.05" max="1" step="0.01" current={slot.compressor.releaseSeconds} onChange={(value) => updateCompressor({ releaseSeconds: value })} />
+      <DisplayRange idPrefix="fx-display" label="THRESHOLD" value={`${slot.compressor.thresholdDb.toFixed(0)} dB`} min="-60" max="0" step="1" current={slot.compressor.thresholdDb} onChange={(value) => updateCompressor({ thresholdDb: value })} />
+      <DisplayRange idPrefix="fx-display" label="RATIO" value={`${slot.compressor.ratio.toFixed(1)}:1`} min="1" max="12" step="0.1" current={slot.compressor.ratio} onChange={(value) => updateCompressor({ ratio: value })} />
+      <DisplayRange idPrefix="fx-display" label="ATTACK" value={`${Math.round(slot.compressor.attackSeconds * 1000)} ms`} min="0.003" max="0.1" step="0.001" current={slot.compressor.attackSeconds} onChange={(value) => updateCompressor({ attackSeconds: value })} />
+      <DisplayRange idPrefix="fx-display" label="RELEASE" value={`${Math.round(slot.compressor.releaseSeconds * 1000)} ms`} min="0.05" max="1" step="0.01" current={slot.compressor.releaseSeconds} onChange={(value) => updateCompressor({ releaseSeconds: value })} />
     </>}
 
     {!showChooser && slot.type === 'delay' && <>
@@ -161,19 +162,19 @@ function EffectDisplayPanel({ scopeLabel, slotIndex, rack, bpm, onChange, onClos
           {(['1/2', '1/4', '1/8', '1/16'] as const).map((division) => <button className={slot.delay.division === division ? 'display-action display-action-active' : 'display-action'} key={division} type="button" disabled={!slot.delay.sync} aria-pressed={slot.delay.division === division} onClick={() => updateDelay({ division })}>{division}</button>)}
         </div>
       </div>
-      <DisplayRange label="TIME" value={`${Math.round(getDelayTimeSeconds(slot.delay, bpm) * 1000)} ms`} min="0.02" max={slot.delay.sync ? '2' : '1'} step="0.01" disabled={slot.delay.sync} current={slot.delay.sync ? getDelayTimeSeconds(slot.delay, bpm) : slot.delay.timeSeconds} onChange={(value) => updateDelay({ timeSeconds: value })} />
-      <DisplayRange label="FEEDBACK" value={`${Math.round(slot.delay.feedback * 100)}%`} min="0" max="0.85" step="0.01" current={slot.delay.feedback} onChange={(value) => updateDelay({ feedback: value })} />
-      <DisplayRange label="MIX" value={`${Math.round(slot.delay.mix * 100)}%`} min="0" max="0.5" step="0.01" current={slot.delay.mix} onChange={(value) => updateDelay({ mix: value })} />
+      <DisplayRange idPrefix="fx-display" label="TIME" value={`${Math.round(getDelayTimeSeconds(slot.delay, bpm) * 1000)} ms`} min="0.02" max={slot.delay.sync ? '2' : '1'} step="0.01" disabled={slot.delay.sync} current={slot.delay.sync ? getDelayTimeSeconds(slot.delay, bpm) : slot.delay.timeSeconds} onChange={(value) => updateDelay({ timeSeconds: value })} />
+      <DisplayRange idPrefix="fx-display" label="FEEDBACK" value={`${Math.round(slot.delay.feedback * 100)}%`} min="0" max="0.85" step="0.01" current={slot.delay.feedback} onChange={(value) => updateDelay({ feedback: value })} />
+      <DisplayRange idPrefix="fx-display" label="MIX" value={`${Math.round(slot.delay.mix * 100)}%`} min="0" max="0.5" step="0.01" current={slot.delay.mix} onChange={(value) => updateDelay({ mix: value })} />
     </>}
 
     {!showChooser && slot.type === 'eq' && <>
-      <DisplayRange label="LOW FREQ" value={`${Math.round(slot.eq.lowShelfFreqHz)} Hz`} min="40" max="500" step="1" current={slot.eq.lowShelfFreqHz} onChange={(value) => updateEQ({ lowShelfFreqHz: value })} />
-      <DisplayRange label="LOW GAIN" value={formatEqGain(slot.eq.lowShelfGainDb)} min="-15" max="15" step="0.1" current={slot.eq.lowShelfGainDb} onChange={(value) => updateEQ({ lowShelfGainDb: value })} />
-      <DisplayRange label="MID FREQ" value={`${Math.round(slot.eq.midFreqHz)} Hz`} min="200" max="6000" step="1" current={slot.eq.midFreqHz} onChange={(value) => updateEQ({ midFreqHz: value })} />
-      <DisplayRange label="MID GAIN" value={formatEqGain(slot.eq.midGainDb)} min="-15" max="15" step="0.1" current={slot.eq.midGainDb} onChange={(value) => updateEQ({ midGainDb: value })} />
-      <DisplayRange label="MID Q" value={slot.eq.midQ.toFixed(2)} min="0.4" max="4" step="0.1" current={slot.eq.midQ} onChange={(value) => updateEQ({ midQ: value })} />
-      <DisplayRange label="HIGH FREQ" value={`${Math.round(slot.eq.highShelfFreqHz)} Hz`} min="2000" max="12000" step="1" current={slot.eq.highShelfFreqHz} onChange={(value) => updateEQ({ highShelfFreqHz: value })} />
-      <DisplayRange label="HIGH GAIN" value={formatEqGain(slot.eq.highShelfGainDb)} min="-15" max="15" step="0.1" current={slot.eq.highShelfGainDb} onChange={(value) => updateEQ({ highShelfGainDb: value })} />
+      <DisplayRange idPrefix="fx-display" label="LOW FREQ" value={`${Math.round(slot.eq.lowShelfFreqHz)} Hz`} min="40" max="500" step="1" current={slot.eq.lowShelfFreqHz} onChange={(value) => updateEQ({ lowShelfFreqHz: value })} />
+      <DisplayRange idPrefix="fx-display" label="LOW GAIN" value={formatEqGain(slot.eq.lowShelfGainDb)} min="-15" max="15" step="0.1" current={slot.eq.lowShelfGainDb} onChange={(value) => updateEQ({ lowShelfGainDb: value })} />
+      <DisplayRange idPrefix="fx-display" label="MID FREQ" value={`${Math.round(slot.eq.midFreqHz)} Hz`} min="200" max="6000" step="1" current={slot.eq.midFreqHz} onChange={(value) => updateEQ({ midFreqHz: value })} />
+      <DisplayRange idPrefix="fx-display" label="MID GAIN" value={formatEqGain(slot.eq.midGainDb)} min="-15" max="15" step="0.1" current={slot.eq.midGainDb} onChange={(value) => updateEQ({ midGainDb: value })} />
+      <DisplayRange idPrefix="fx-display" label="MID Q" value={slot.eq.midQ.toFixed(2)} min="0.4" max="4" step="0.1" current={slot.eq.midQ} onChange={(value) => updateEQ({ midQ: value })} />
+      <DisplayRange idPrefix="fx-display" label="HIGH FREQ" value={`${Math.round(slot.eq.highShelfFreqHz)} Hz`} min="2000" max="12000" step="1" current={slot.eq.highShelfFreqHz} onChange={(value) => updateEQ({ highShelfFreqHz: value })} />
+      <DisplayRange idPrefix="fx-display" label="HIGH GAIN" value={formatEqGain(slot.eq.highShelfGainDb)} min="-15" max="15" step="0.1" current={slot.eq.highShelfGainDb} onChange={(value) => updateEQ({ highShelfGainDb: value })} />
     </>}
 
     {!isEmpty && !showChooser && <div className="display-param">
@@ -185,26 +186,6 @@ function EffectDisplayPanel({ scopeLabel, slotIndex, rack, bpm, onChange, onClos
       </div>
     </div>}
   </>
-}
-
-interface DisplayRangeProps {
-  label: string
-  value: string
-  min: string
-  max: string
-  step: string
-  current: number
-  disabled?: boolean
-  onChange: (value: number) => void
-}
-
-function DisplayRange({ label, value, min, max, step, current, disabled, onChange }: DisplayRangeProps) {
-  const id = `fx-display-${label.toLowerCase().replaceAll(' ', '-')}`
-  return <label className="display-param" htmlFor={id}>
-    <span className="display-param-label">{label}</span>
-    <output htmlFor={id}>{value}</output>
-    <input id={id} type="range" min={min} max={max} step={step} disabled={disabled} value={current} onChange={(event) => onChange(Number(event.target.value))} />
-  </label>
 }
 
 function formatEqGain(gainDb: number): string {

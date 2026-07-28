@@ -25,6 +25,7 @@ import { SampleEditor } from './sample-editor/SampleEditor'
 import { SequencerControls } from './sequencer/SequencerControls'
 import { MainNavigation } from './shell/MainNavigation'
 import type { MainView } from './shell/MainNavigation'
+import { StationConfirm } from './shell/StationConfirm'
 import { TransportBar } from './shell/TransportBar'
 import { SystemDisplayProvider, useSystemDisplayHost } from './shell/systemDisplayContext'
 import { collectReferencedAssetIds, createProjectState, projectSchemaVersion, validateProjectState } from './project/ProjectState'
@@ -56,6 +57,7 @@ import './lab-interface.css'
 
 interface AppProps { audioEngine: AudioEngine }
 interface FxContext { scope: 'group' | 'master'; slotIndex: 0 | 1 }
+interface PendingConfirmation { message: string; confirmLabel: string; onConfirm: () => void }
 interface WaveformPlayback { assetId: SampleAssetId; startedAt: number; startSeconds: number; endSeconds: number }
 interface SequencerPlayhead { stepIndex: number; startsAt: number; durationSeconds: number }
 
@@ -97,6 +99,7 @@ export function App({ audioEngine }: AppProps) {
   const [activePadId, setActivePadId] = useState<PadState['id'] | null>(null)
   const [selectedLibrarySample, setSelectedLibrarySample] = useState<LibrarySample | null>(null)
   const [errorMessage, setErrorMessage] = useState<string>()
+  const [pendingConfirmation, setPendingConfirmation] = useState<PendingConfirmation>()
   const [bpm, setBpm] = useState(120)
   const [swing, setSwing] = useState(0)
   const [transportSettingsOpen, setTransportSettingsOpen] = useState(false)
@@ -151,6 +154,7 @@ export function App({ audioEngine }: AppProps) {
   const selectedSynthUsageCount = selectedSynthPatch ? pads.filter((pad) => pad.synthPatchId === selectedSynthPatch.id).length : 0
   const selectedSynthBaseRange = selectedSynthPatch ? getSharedPatchBaseMidiRange(selectedGroup, selectedSynthPatch.id) : [minimumSynthMidiNote, maximumSynthMidiNote] as const
   const audioReady = audioStatus === 'ready'
+  const audioRecovering = audioStatus === 'suspended' || audioStatus === 'interrupted'
   const controlsAwake = audioReady && powerVisualPhase === 'on'
   const selectedPeaks = selectedPad.assetId ? waveforms[selectedPad.assetId] ?? [] : []
   const waveformPlayheadSeconds = waveformPlayback && visualAudioTime >= waveformPlayback.startedAt && visualAudioTime <= waveformPlayback.startedAt + waveformPlayback.endSeconds - waveformPlayback.startSeconds
@@ -180,13 +184,19 @@ export function App({ audioEngine }: AppProps) {
     return () => window.clearTimeout(timer)
   }, [transportNotice])
 
-  // This is only the console's visual power-up sequence. Web Audio is ready
-  // before the phase changes, and neither playback nor scheduling reads it.
+  // This is only the console's visual power-up sequence. Once the machine has
+  // completed it, a transient browser interruption keeps the panel lit while
+  // audio controls wait for the real context to return to `running`.
   useEffect(() => {
-    if (!audioReady) { setPowerVisualPhase('off'); return }
+    if (!audioReady) {
+      if (powerVisualPhase === 'on' && (audioRecovering || audioStatus === 'starting')) return
+      setPowerVisualPhase('off')
+      return
+    }
+    if (powerVisualPhase === 'on') return
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setPowerVisualPhase('on'); return }
     setPowerVisualPhase('display')
-  }, [audioReady])
+  }, [audioReady, audioRecovering, audioStatus, powerVisualPhase])
 
   useEffect(() => {
     if (!chopSession.assetId) return
@@ -238,7 +248,7 @@ export function App({ audioEngine }: AppProps) {
   useEffect(() => { for (const group of patternGroups) audioEngine.setGroupEffects(group.id, group.effects) }, [audioEngine, patternGroups])
   useEffect(() => audioEngine.subscribeToStatus((status) => {
     setAudioStatus(status)
-    if (status === 'suspended' && sequencerRef.current.isRunning()) {
+    if ((status === 'suspended' || status === 'interrupted') && sequencerRef.current.isRunning()) {
       sequencerRef.current.stop()
       audioEngine.stopSequencerVoices()
       setIsPlaying(false)
@@ -455,23 +465,30 @@ export function App({ audioEngine }: AppProps) {
     replaceActiveBank({ ...selectedGroup.bank, pads: pads.map((pad) => pad.id === selectedPadId ? { ...pad, ...changes } : pad) })
     if (changes.volume !== selectedPad.volume) audioEngine.setChannelVolume(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId: selectedPadId }), changes.volume)
   }
-  const createSynthForSelectedPad = () => {
-    if (selectedPad.assetId && !window.confirm(`Replace the sample on ${selectedPad.label} with a MONO-3 patch?`)) return
+  const createSynthForSelectedPad = (confirmed = false, onCreated?: () => void) => {
+    if (selectedPad.assetId && !confirmed) {
+      requestConfirmation(`Replace the sample on ${selectedPad.label} with a MONOPOLY patch?`, 'REPLACE', () => createSynthForSelectedPad(true, onCreated))
+      return
+    }
     const patch = createDefaultSynthPatch(createSynthPatchId())
     const bank = { ...selectedGroup.bank, pads: pads.map((pad) => pad.id === selectedPadId ? assignSynthSource(pad, patch.id) : pad) }
     const groups = patternGroups.map((group) => group.id === selectedPatternGroupId ? removeUnreferencedSynthPatches({ ...group, bank, synthPatches: [...group.synthPatches, patch] }) : group)
     const previousAssetId = selectedPad.assetId
     setPatternGroups(groups)
     removeAssetIfUnused(previousAssetId, groups)
-    setProjectMessage(`MONO-3 created on ${selectedPad.label}.`)
+    setProjectMessage(`MONOPOLY created on ${selectedPad.label}.`)
+    onCreated?.()
   }
   const updateSelectedSynthPatch = (patch: SynthPatch) => {
     setPatternGroups((groups) => groups.map((group) => group.id === selectedPatternGroupId ? { ...group, synthPatches: group.synthPatches.map((candidate) => candidate.id === patch.id ? patch : candidate) } : group))
   }
-  const changeSelectedSynthMode = (mode: SynthVoiceMode) => {
+  const changeSelectedSynthMode = (mode: SynthVoiceMode, confirmed = false) => {
     if (!selectedSynthPatch || selectedSynthPatch.mode === mode) return
     const chordPads = pads.filter((pad) => pad.synthPatchId === selectedSynthPatch.id && pad.chordIntervals.length > 1)
-    if (mode === 'mono' && chordPads.length > 0 && !window.confirm(`Switch this shared patch to MONO and reduce chords on ${chordPads.length} pad${chordPads.length === 1 ? '' : 's'} to their base notes?`)) return
+    if (mode === 'mono' && chordPads.length > 0 && !confirmed) {
+      requestConfirmation(`Switch this shared patch to MONO and reduce chords on ${chordPads.length} pad${chordPads.length === 1 ? '' : 's'} to their base notes?`, 'REDUCE', () => changeSelectedSynthMode(mode, true))
+      return
+    }
     setPatternGroups((groups) => groups.map((group) => {
       if (group.id !== selectedPatternGroupId) return group
       return {
@@ -516,11 +533,18 @@ export function App({ audioEngine }: AppProps) {
     setWaveforms((current) => { const { [assetId]: _, ...remaining } = current; return remaining })
   }
 
-  const loadLibrarySample = async (sample: LibrarySample, targetPadId: PadState['id']): Promise<boolean> => {
+  const loadLibrarySample = async (sample: LibrarySample, targetPadId: PadState['id'], confirmed = false): Promise<boolean> => {
     if (!audioReady || projectBusy || loadingLibrarySampleId) return false
     const targetPad = pads.find((pad) => pad.id === targetPadId)
     if (!targetPad) return false
-    if (targetPad.synthPatchId && !window.confirm(`Replace the MONO-3 source on ${targetPad.label} with ${sample.filename}?`)) return false
+    if (targetPad.synthPatchId && !confirmed) {
+      requestConfirmation(`Replace the MONOPOLY source on ${targetPad.label} with ${sample.filename}?`, 'REPLACE', () => {
+        void loadLibrarySample(sample, targetPadId, true).then((loaded) => {
+          if (loaded) setSelectedLibrarySample(null)
+        })
+      })
+      return false
+    }
     setLoadingLibrarySampleId(sample.id)
     setErrorMessage(undefined)
     try {
@@ -591,13 +615,16 @@ export function App({ audioEngine }: AppProps) {
     setActivePadId((current) => current === selectedPadId ? null : current)
   }
 
-  const mapSelectedPadToProjectScale = () => {
+  const mapSelectedPadToProjectScale = (confirmed = false) => {
     if (projectBusy || (!selectedPad.assetId && !selectedPad.synthPatchId)) return
     const conflicts = findProjectScaleMapConflicts(pads, selectedPad.id)
-    if (conflicts.length > 0 && !window.confirm(`Replace ${conflicts.length} occupied pad${conflicts.length === 1 ? '' : 's'} with the Project Scale map?`)) return
+    if (conflicts.length > 0 && !confirmed) {
+      requestConfirmation(`Replace ${conflicts.length} occupied pad${conflicts.length === 1 ? '' : 's'} with the Project Scale map?`, 'REPLACE', () => mapSelectedPadToProjectScale(true))
+      return
+    }
     const result = mapPadBankToProjectScale(pads, selectedPad.id, projectKey)
     if (selectedSynthPatch && result.pads.some((pad) => pad.synthPatchId === selectedSynthPatch.id && resolveSynthPadMidiNotes(selectedSynthPatch, pad).some((note) => note < minimumSynthMidiNote || note > maximumSynthMidiNote))) {
-      setErrorMessage('This Project Scale map would place MONO-3 notes outside C0-C8.')
+      setErrorMessage('This Project Scale map would place MONOPOLY notes outside C0-C8.')
       return
     }
     replaceActiveBank({ ...selectedGroup.bank, pads: result.pads })
@@ -614,10 +641,15 @@ export function App({ audioEngine }: AppProps) {
   }
   const resetSelectedRegion = () => { if (selectedPad.durationSeconds) updateSelectedRegion({ startSeconds: 0, endSeconds: selectedPad.durationSeconds }) }
 
-  const applyChopMapping = (nextSlices: SampleSlice[], nextSession: ChopSessionState): boolean => {
+  const applyChopMapping = (nextSlices: SampleSlice[], nextSession: ChopSessionState, confirmed = false, onApplied?: () => void): boolean => {
     if (!chopSession.assetId || !chopSession.durationSeconds) return false
     const conflicts = pads.slice(0, nextSlices.length).filter((pad) => (pad.assetId || pad.synthPatchId) && pad.chopSessionId !== chopSession.id)
-    if (conflicts.length > 0 && !window.confirm(`Replace ${conflicts.length} occupied pad${conflicts.length === 1 ? '' : 's'} with live Chop slices?`)) return false
+    if (conflicts.length > 0 && !confirmed) {
+      requestConfirmation(`Replace ${conflicts.length} occupied pad${conflicts.length === 1 ? '' : 's'} with live Chop slices?`, 'REPLACE', () => {
+        applyChopMapping(nextSlices, nextSession, true, onApplied)
+      })
+      return false
+    }
     const bank = { pads: pads.map((pad, index) => {
       const slice = nextSlices[index]
       // A pad already on this session keeps whatever pitch it has - re-slicing
@@ -627,17 +659,18 @@ export function App({ audioEngine }: AppProps) {
       return pad.chopSessionId === chopSession.id ? clearPadAssignment(pad) : pad
     }), chopSession: nextSession }
     setPatternGroups((groups) => groups.map((group) => group.id === selectedPatternGroupId ? removeUnreferencedSynthPatches({ ...group, bank }) : group))
+    onApplied?.()
     return true
   }
 
-  const applyAutoChopRegions = (regions: readonly SliceRegion[]): boolean => {
+  const applyAutoChopRegions = (regions: readonly SliceRegion[], onApplied?: () => void): boolean => {
     const nextSlices: SampleSlice[] = regions.map((region) => ({
       id: createSliceId(chopSession.id),
       sourceAssetId: chopSession.assetId!,
       startSeconds: region.startSeconds,
       endSeconds: region.endSeconds,
     }))
-    return applyChopMapping(nextSlices, { ...chopSession, slices: nextSlices, activeSliceId: nextSlices[0]?.id ?? null })
+    return applyChopMapping(nextSlices, { ...chopSession, slices: nextSlices, activeSliceId: nextSlices[0]?.id ?? null }, false, onApplied)
   }
 
   /* The "official" pitch for this source: setting it here pushes to every pad
@@ -777,27 +810,36 @@ export function App({ audioEngine }: AppProps) {
     setPatternGroups((current) => clearVariant(current, selectedPatternGroupId, variant, pads.map((pad) => pad.id)))
     setSelectedPatternVariant(variant)
   }
-  const duplicateCurrentVariant = (target: PatternVariantName) => {
+  const duplicateCurrentVariant = (target: PatternVariantName, confirmed = false) => {
     const group = patternGroups.find((item) => item.id === selectedPatternGroupId)!
     const exists = Boolean(group.variants[target])
-    if (exists && !window.confirm(`Overwrite BANK ${bankNumber(group.id)} PATTERN ${target} with PATTERN ${selectedPatternVariant}? Its pattern data will be replaced.`)) return
+    if (exists && !confirmed) {
+      requestConfirmation(`Overwrite BANK ${bankNumber(group.id)} PATTERN ${target} with PATTERN ${selectedPatternVariant}? Its pattern data will be replaced.`, 'OVERWRITE', () => duplicateCurrentVariant(target, true))
+      return
+    }
     try { setPatternGroups((current) => duplicateVariant(current, selectedPatternGroupId, selectedPatternVariant, target, exists)); setSelectedPatternVariant(target) } catch (error) { setErrorMessage(toMessage(error)) }
   }
-  const clearCurrentVariant = () => {
+  const clearCurrentVariant = (confirmed = false) => {
     const group = patternGroups.find((item) => item.id === selectedPatternGroupId)!
     const references = playlist.filter((clip) => clip.patternGroupId === group.id && clip.variant === selectedPatternVariant)
     const label = `BANK ${bankNumber(group.id)} PATTERN ${selectedPatternVariant}`
     const warning = references.length > 0 ? `Clear ${label}? This also removes ${references.length} Playlist clip${references.length === 1 ? '' : 's'} that reference it.` : `Clear ${label}?`
-    if (!window.confirm(warning)) return
+    if (!confirmed) {
+      requestConfirmation(warning, 'CLEAR', () => clearCurrentVariant(true))
+      return
+    }
     setPatternGroups((current) => clearVariant(current, selectedPatternGroupId, selectedPatternVariant, pads.map((pad) => pad.id)))
     if (references.length > 0) setPlaylist((current) => removeClipsForVariant(current, group.id, selectedPatternVariant))
   }
-  const deleteCurrentPatternGroup = () => {
+  const deleteCurrentPatternGroup = (confirmed = false) => {
     if (patternGroups.length <= 1) return
     const group = patternGroups.find((item) => item.id === selectedPatternGroupId)!
     const references = playlist.filter((clip) => clip.patternGroupId === group.id)
     const warning = references.length > 0 ? `Delete BANK ${bankNumber(group.id)}? This also removes ${references.length} Playlist clip${references.length === 1 ? '' : 's'} that reference it.` : `Delete BANK ${bankNumber(group.id)}?`
-    if (!window.confirm(warning)) return
+    if (!confirmed) {
+      requestConfirmation(warning, 'DELETE', () => deleteCurrentPatternGroup(true))
+      return
+    }
     const next = patternGroups.filter((item) => item.id !== group.id)
     setPatternGroups(next)
     setPlaylist((current) => removeClipsForGroup(current, group.id))
@@ -817,11 +859,19 @@ export function App({ audioEngine }: AppProps) {
     if (isPlaying) return
     if (!audioReady) { setErrorMessage('Start audio before playing the sequencer.'); return }
     if (transportMode === 'song' && playlist.length === 0) { setTransportNotice(emptySongPlaylistNotice); return }
-    if (sequenceConfigRef.current.getTracksForSlot(1).length === 0 && !pads.some((pad) => (pad.assetId && audioEngine.hasSampleAsset(pad.assetId)) || pad.synthPatchId) && !metronomeEnabled) { setErrorMessage('Load a sample or create a MONO-3 patch first.'); return }
+    if (sequenceConfigRef.current.getTracksForSlot(1).length === 0 && !pads.some((pad) => (pad.assetId && audioEngine.hasSampleAsset(pad.assetId)) || pad.synthPatchId) && !metronomeEnabled) { setErrorMessage('Load a sample or create a MONOPOLY patch first.'); return }
     sequencerRef.current.start(() => sequenceConfigRef.current)
     setIsPlaying(true)
   }
   const stopPlayback = () => { sequencerRef.current.stop(); audioEngine.stopSequencerVoices(); setIsPlaying(false); setPlayingSongSlot(null); setSequencerPlayhead(null) }
+  const requestConfirmation = (message: string, confirmLabel: string, onConfirm: () => void) => {
+    setPendingConfirmation({ message, confirmLabel, onConfirm })
+  }
+  const acceptConfirmation = () => {
+    const action = pendingConfirmation?.onConfirm
+    setPendingConfirmation(undefined)
+    action?.()
+  }
   const selectedPumpSourcePadIds = pumpRoutes.filter((route) => route.source.patternGroupId === selectedPatternGroupId).map((route) => route.source.padId)
   const selectPatternGroup = (groupId: string) => {
     if (groupId === selectedPatternGroupId) return
@@ -832,11 +882,21 @@ export function App({ audioEngine }: AppProps) {
     setSelectedPatternGroupId(groupId)
     setSelectedPatternVariant('A')
   }
-  const changeMainView = (view: MainView) => {
+  const enterMainView = (view: MainView) => {
     workspaceRef.current?.scrollTo({ top: 0 })
     setMainView(view)
     setActiveFxContext(null)
     if (view !== 'pad') setSampleEditorOpen(false)
+  }
+  const changeMainView = (view: MainView) => {
+    if (view === 'synth' && !selectedSynthPatch) {
+      if (selectedPad.assetId) {
+        createSynthForSelectedPad(false, () => enterMainView('synth'))
+        return
+      }
+      createSynthForSelectedPad()
+    }
+    enterMainView(view)
   }
   const activeFxRack = activeFxContext?.scope === 'group' ? selectedGroup.effects : activeFxContext?.scope === 'master' ? masterEffects : undefined
   const updateActiveFxRack = (effects: EffectRackState) => {
@@ -855,7 +915,7 @@ export function App({ audioEngine }: AppProps) {
     <main
       className="station-shell"
       data-view={mainView}
-      data-powered={audioReady ? 'on' : 'off'}
+      data-powered={powerVisualPhase === 'off' ? 'off' : 'on'}
       data-power-phase={powerVisualPhase}
       onAnimationEnd={(event) => {
         if (event.animationName === 'system-display-power-on' && audioReady) setPowerVisualPhase('on')
@@ -871,7 +931,7 @@ export function App({ audioEngine }: AppProps) {
             <div className="header-secondary-row" hidden>
               <button className="header-audio-button" type="button" onClick={() => void startAudio()} disabled={audioStatus === "starting" || projectBusy}>
                 <span className={`status-dot status-${audioStatus}`} aria-hidden="true" />
-                {audioReady ? "AUDIO ON" : audioStatus === "starting" ? "STARTING…" : "START AUDIO"}
+                {audioReady ? "AUDIO ON" : audioRecovering ? "AUDIO PAUSED" : audioStatus === "starting" ? "STARTING…" : "START AUDIO"}
               </button>
             </div>
             <TransportBar
@@ -1048,7 +1108,6 @@ export function App({ audioEngine }: AppProps) {
               audioReady={audioReady}
               projectBusy={projectBusy}
               projectKeyLabel={formatProjectKey(projectKey)}
-              onCreate={createSynthForSelectedPad}
               onPatchChange={updateSelectedSynthPatch}
               onModeChange={changeSelectedSynthMode}
               onChordChange={updateSelectedChord}
@@ -1164,6 +1223,14 @@ export function App({ audioEngine }: AppProps) {
           )}
         </div>
       </section>
+      {pendingConfirmation && (
+        <StationConfirm
+          message={pendingConfirmation.message}
+          confirmLabel={pendingConfirmation.confirmLabel}
+          onConfirm={acceptConfirmation}
+          onCancel={() => setPendingConfirmation(undefined)}
+        />
+      )}
     </main>
     </SystemDisplayProvider>
   );

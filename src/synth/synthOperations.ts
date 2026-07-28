@@ -8,14 +8,14 @@ export const minimumChordInterval = -24
 export const maximumChordInterval = 24
 export const maximumSynthVoices = 5
 
-export function createDefaultSynthPatch(id: SynthPatchId, name = 'MONO-3'): SynthPatch {
+export function createDefaultSynthPatch(id: SynthPatchId, name = 'MONOPOLY'): SynthPatch {
   return {
     id,
     name,
     mode: 'mono',
     baseMidiNote: 36,
-    oscillator1: { waveform: 'sawtooth', octave: 0, detuneCents: -4, level: 0.62 },
-    oscillator2: { waveform: 'triangle', octave: 0, detuneCents: 4, level: 0.38 },
+    oscillator1: { waveform: 'sawtooth', octave: 0, detuneCents: 0, level: 0.62 },
+    oscillator2: { waveform: 'triangle', octave: 0, detuneCents: 0, level: 0.38 },
     sub: { waveform: 'sine', octave: -1, level: 0.28 },
     ampEnvelope: { attackSeconds: 0.008, decaySeconds: 0.22, sustain: 0.72, releaseSeconds: 0.18 },
     filter: {
@@ -100,4 +100,3 @@ export function lfoDivisionBeats(division: SynthLfoDivision): number {
 export function lfoFrequencyHz(division: SynthLfoDivision, bpm: number): number {
   return 1 / (60 / bpm * lfoDivisionBeats(division))
 }
-

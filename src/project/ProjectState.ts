@@ -215,11 +215,11 @@ export function validateProjectState(project: ProjectState): string[] {
     if (!group.bus || !Number.isFinite(group.bus.volume) || group.bus.volume < 0 || group.bus.volume > 1 || typeof group.bus.muted !== 'boolean' || typeof group.bus.solo !== 'boolean') errors.push(`${group.name} has an invalid Group Bus.`)
     if (!isEffectRackState(group.effects, group.id)) errors.push(`${group.name} has invalid effects.`)
     if (!group.bank || group.bank.pads.length !== padCount) errors.push(`${group.name} must contain exactly ${padCount} bank pads.`)
-    if (!Array.isArray(group.synthPatches)) errors.push(`${group.name} has an invalid MONO-3 patch collection.`)
+    if (!Array.isArray(group.synthPatches)) errors.push(`${group.name} has an invalid MONOPOLY patch collection.`)
     for (const patch of group.synthPatches ?? []) {
-      if (synthPatchIds.has(patch.id)) errors.push('MONO-3 patch IDs must be unique.')
+      if (synthPatchIds.has(patch.id)) errors.push('MONOPOLY patch IDs must be unique.')
       synthPatchIds.add(patch.id)
-      validateSynthPatch(patch, `${group.name} MONO-3 patch`, errors)
+      validateSynthPatch(patch, `${group.name} MONOPOLY patch`, errors)
     }
     const bankPadIds = new Set(group.bank?.pads.map((pad) => pad.id))
     if (bankPadIds.size !== group.bank?.pads.length) errors.push(`${group.name} bank pad IDs must be unique.`)
@@ -244,14 +244,14 @@ export function validateProjectState(project: ProjectState): string[] {
   for (const group of project.patternGroups) {
     for (const pad of group.bank?.pads ?? []) {
       if (pad.assetId && !assets.has(pad.assetId)) errors.push(`${group.name} ${pad.id} references a missing asset.`)
-      if (pad.assetId && pad.synthPatchId) errors.push(`${group.name} ${pad.id} cannot use a sample and MONO-3 at the same time.`)
+      if (pad.assetId && pad.synthPatchId) errors.push(`${group.name} ${pad.id} cannot use a sample and MONOPOLY at the same time.`)
       const patch = pad.synthPatchId ? group.synthPatches.find((candidate) => candidate.id === pad.synthPatchId) : undefined
-      if (pad.synthPatchId && !patch) errors.push(`${group.name} ${pad.id} references a missing MONO-3 patch.`)
+      if (pad.synthPatchId && !patch) errors.push(`${group.name} ${pad.id} references a missing MONOPOLY patch.`)
       validateChordIntervals(pad.chordIntervals, `${group.name} ${pad.id}`, errors)
-      if (!pad.synthPatchId && (pad.chordIntervals.length !== 1 || pad.chordIntervals[0] !== 0)) errors.push(`${group.name} ${pad.id} has chord data without a MONO-3 source.`)
+      if (!pad.synthPatchId && (pad.chordIntervals.length !== 1 || pad.chordIntervals[0] !== 0)) errors.push(`${group.name} ${pad.id} has chord data without a MONOPOLY source.`)
       if (patch?.mode === 'mono' && (pad.chordIntervals.length !== 1 || pad.chordIntervals[0] !== 0)) errors.push(`${group.name} ${pad.id} cannot use a chord in MONO mode.`)
       if (patch) for (const note of resolveSynthPadMidiNotes(patch, pad)) {
-        if (!Number.isInteger(note) || note < minimumSynthMidiNote || note > maximumSynthMidiNote) errors.push(`${group.name} ${pad.id} produces a MONO-3 note outside C0-C8.`)
+        if (!Number.isInteger(note) || note < minimumSynthMidiNote || note > maximumSynthMidiNote) errors.push(`${group.name} ${pad.id} produces a MONOPOLY note outside C0-C8.`)
       }
       if (!Number.isFinite(pad.attackMs) || pad.attackMs < 0 || pad.attackMs > 250) errors.push(`${group.name} ${pad.id} has an invalid attack.`)
       if (!Number.isFinite(pad.releaseMs) || pad.releaseMs < 4 || pad.releaseMs > 120) errors.push(`${group.name} ${pad.id} has an invalid release.`)

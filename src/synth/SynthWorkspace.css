@@ -6,27 +6,6 @@
   background: var(--station-panel);
 }
 
-.synth-empty {
-  display: grid;
-  min-height: 210px;
-  place-items: center;
-  align-content: center;
-  gap: 9px;
-  text-align: center;
-}
-
-.synth-empty h2,
-.synth-empty p {
-  margin: 0;
-}
-
-.synth-empty p:not(.eyebrow) {
-  max-width: 460px;
-  color: var(--station-text-muted);
-  font-size: .7rem;
-  line-height: 1.45;
-}
-
 .synth-heading {
   display: flex;
   align-items: center;
@@ -84,14 +63,14 @@
 
 .synth-oscillator-controls {
   display: grid;
-  grid-template-columns: minmax(78px, 1.15fr) 50px minmax(72px, 1fr) minmax(72px, 1fr);
+  grid-template-columns: minmax(0, 1.15fr) 50px minmax(0, 1fr) minmax(0, 1fr);
   gap: 8px;
   align-items: end;
   min-width: 0;
 }
 
 .synth-oscillator-row-sub .synth-oscillator-controls {
-  grid-template-columns: minmax(78px, 1.15fr) 50px minmax(72px, 1fr);
+  grid-template-columns: minmax(0, 1.15fr) 50px minmax(0, 1fr);
 }
 
 .synth-inline-control {
@@ -125,6 +104,8 @@
 .synth-inline-range {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 3px 6px;
+  width: 100%;
+  min-width: 0;
 }
 
 .synth-inline-range output {
@@ -137,8 +118,11 @@
 .synth-inline-range input {
   box-sizing: border-box;
   grid-column: 1 / -1;
-  width: 100%;
-  margin-inline: 0;
+  display: block;
+  width: calc(100% - 4px);
+  min-width: 0;
+  max-width: calc(100% - 4px);
+  margin-inline: 2px;
 }
 
 .synth-display-hint {

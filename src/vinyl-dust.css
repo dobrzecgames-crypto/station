@@ -149,6 +149,8 @@ select, textarea {
   box-shadow: 0 0 7px rgb(207 84 80 / 52%);
 }
 .system-power-switch .status-starting { background: var(--status-warning); box-shadow: 0 0 6px rgb(212 165 99 / 40%); }
+.system-power-switch .status-suspended,
+.system-power-switch .status-interrupted { background: var(--status-warning); box-shadow: 0 0 6px rgb(212 165 99 / 40%); }
 .system-power-switch .status-error { background: var(--status-error); box-shadow: 0 0 6px rgb(221 98 92 / 42%); }
 
 /* REC is the only red control. The disabled state remains visibly distinct. */

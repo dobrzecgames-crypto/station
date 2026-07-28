@@ -13,7 +13,6 @@ interface SynthWorkspaceProps {
   audioReady: boolean
   projectBusy: boolean
   projectKeyLabel: string
-  onCreate: () => void
   onPatchChange: (patch: SynthPatch) => void
   onModeChange: (mode: SynthVoiceMode) => void
   onChordChange: (intervals: number[]) => void
@@ -27,15 +26,9 @@ interface SynthWorkspaceProps {
 export function SynthWorkspace(props: SynthWorkspaceProps) {
   const { pad, patch } = props
 
-  if (!patch) {
-    return <section className="synth-workspace synth-empty" aria-label="MONO-3 synthesizer">
-      <p className="eyebrow">MONO-3</p>
-      <h2>{pad.assetId ? 'REPLACE SAMPLE WITH SYNTH' : 'CREATE A SYNTH SOURCE'}</h2>
-      <p>Create the starter patch, then shape it from the machine display and play it from this pad.</p>
-      <button className="transport-button" type="button" disabled={props.projectBusy} onClick={props.onCreate}>CREATE SYNTH</button>
-    </section>
-  }
+  if (!patch) return null
 
+  const patchName = patch.name === 'MONO-3' ? 'MONOPOLY' : patch.name
   const change = (changes: Partial<SynthPatch>) => props.onPatchChange({ ...patch, ...changes })
   const changeOscillator = (key: 'oscillator1' | 'oscillator2', changes: Partial<SynthPatch['oscillator1']>) => {
     change({ [key]: { ...patch[key], ...changes } })
@@ -56,11 +49,11 @@ export function SynthWorkspace(props: SynthWorkspaceProps) {
       onClear={props.onClear}
     />
 
-    <section className="synth-workspace" aria-label={`MONO-3 editor for ${pad.label}`}>
+    <section className="synth-workspace" aria-label={`MONOPOLY editor for ${pad.label}`}>
       <header className="synth-heading">
         <div>
-          <p className="eyebrow">MONO-3 / {pad.label}</p>
-          <h2>{patch.name}</h2>
+          <p className="eyebrow">MONOPOLY / {pad.label}</p>
+          <h2>{patchName}</h2>
           <p>{props.usageCount} PAD{props.usageCount === 1 ? '' : 'S'} SHARE PATCH</p>
         </div>
         <button
@@ -107,7 +100,7 @@ export function SynthWorkspace(props: SynthWorkspaceProps) {
   </>
 }
 
-const octaves = ['-2', '-1', '0', '1', '2'] as const
+const octaves = ['2', '1', '0', '-1', '-2'] as const
 const octaveLabels: Partial<Record<typeof octaves[number], string>> = {
   '-2': '-2',
   '-1': '-1',

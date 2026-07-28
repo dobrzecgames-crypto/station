@@ -25,7 +25,7 @@ export function Pad({
 }: PadProps) {
   const isSynth = pad.synthPatchId !== null
   const isLoaded = pad.fileName !== null || isSynth
-  const sourceLabel = isSynth ? 'MONO-3' : pad.fileName
+  const sourceLabel = isSynth ? 'MONOPOLY' : pad.fileName
   const statusLabel = dropSampleName ? 'DROP' : isSynth ? (audioReady ? 'SYNTH' : 'LOCKED') : isLoaded ? (audioReady ? 'READY' : 'LOCKED') : 'EMPTY'
 
   return (

@@ -38,7 +38,7 @@ interface ChopWorkspaceProps {
   onToggleAdding: () => void
   onRemoveActiveCut: () => void
   onClearSlices: () => void
-  onApplyAutoChop: (regions: readonly SliceRegion[]) => boolean
+  onApplyAutoChop: (regions: readonly SliceRegion[], onApplied?: () => void) => boolean
 }
 
 export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, sourceFileName, sourceDurationSeconds, peaks, playheadSeconds, slices, activeSliceId, addingSlice, onLoadSource, testSamples, loadingTestId, onLoadTestSample, sourcePreviewing, onPreviewSource, onStopPreviewSource, onTriggerPad, onReleasePad, onFeedbackEnd, onAddSlice, onMoveCut, onSelectSlice, onPreviewSlice, onToggleAdding, onRemoveActiveCut, onClearSlices, onApplyAutoChop }: ChopWorkspaceProps) {
@@ -64,7 +64,7 @@ export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, so
   }
   const handleApplySmart = () => {
     if (!previewRegions) return
-    if (onApplyAutoChop(previewRegions)) setPreviewCount(null)
+    if (onApplyAutoChop(previewRegions, () => setPreviewCount(null))) setPreviewCount(null)
   }
 
   return <section className="chop-workspace" aria-label="Chop">

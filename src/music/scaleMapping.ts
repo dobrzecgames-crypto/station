@@ -16,7 +16,7 @@ export function mapPadBankToProjectScale(pads: readonly PadState[], sourcePadId:
   const sourceIndex = pads.findIndex((pad) => pad.id === sourcePadId)
   const sourcePad = pads[sourceIndex]
   if (sourceIndex < 0 || !sourcePad || (!sourcePad.assetId && !sourcePad.synthPatchId)) {
-    throw new Error('Choose a pad with a sample or MONO-3 patch before mapping it to the project scale.')
+    throw new Error('Choose a pad with a sample or MONOPOLY patch before mapping it to the project scale.')
   }
   if (sourcePad.assetId && (!sourcePad.fileName || sourcePad.durationSeconds === null)) {
     throw new Error('The selected sample is missing its playback metadata.')

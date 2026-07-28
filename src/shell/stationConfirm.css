@@ -1,0 +1,86 @@
+.station-confirm-dialog {
+  width: min(calc(100vw - 32px), 360px);
+  max-width: none;
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #575269;
+  border-radius: 5px;
+  color: var(--station-text);
+  background:
+    radial-gradient(120% 80% at 50% -20%, rgb(var(--station-accent-rgb) / 13%), transparent 58%),
+    linear-gradient(180deg, #201d25, #121217 72%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 10%),
+    0 3px 0 #07070a,
+    0 20px 54px rgb(0 0 0 / 70%);
+  font-family: var(--station-mono-font);
+}
+
+.station-confirm-dialog::backdrop {
+  background: rgb(4 4 7 / 76%);
+  backdrop-filter: blur(2px);
+}
+
+.station-confirm-frame {
+  padding: 20px;
+  border-top: 3px solid var(--station-accent);
+}
+
+.station-confirm-kicker {
+  margin: 0 0 10px;
+  color: var(--station-accent);
+  font-size: .52rem;
+  letter-spacing: .16em;
+}
+
+.station-confirm-dialog h2 {
+  margin: 0;
+  color: var(--station-text);
+  font-size: .82rem;
+  letter-spacing: .08em;
+  line-height: 1.35;
+}
+
+.station-confirm-message {
+  margin: 14px 0 20px;
+  color: var(--station-text-muted);
+  font-size: .62rem;
+  letter-spacing: .035em;
+  line-height: 1.55;
+}
+
+.station-confirm-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.station-confirm-button {
+  min-height: 38px;
+  border: 1px solid var(--station-line);
+  border-radius: 3px;
+  color: var(--station-text);
+  background: linear-gradient(180deg, #39343f, #211e27);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 9%), 0 2px 0 #09090c;
+  font: inherit;
+  font-size: .56rem;
+  letter-spacing: .1em;
+  cursor: pointer;
+}
+
+.station-confirm-button-primary {
+  border-color: color-mix(in srgb, var(--station-accent) 72%, #fff 8%);
+  color: #17131d;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--station-accent) 84%, #fff), var(--station-accent));
+}
+
+.station-confirm-button:active {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / 35%);
+}
+
+.station-confirm-button:focus-visible {
+  outline: 2px solid var(--signal-blue-bright);
+  outline-offset: 2px;
+}

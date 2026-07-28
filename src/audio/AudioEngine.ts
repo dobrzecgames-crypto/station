@@ -8,7 +8,7 @@ export type SampleAssetId = string
 export type ChannelId = string
 export type GroupId = string
 
-export type AudioEngineStatus = 'inactive' | 'starting' | 'ready' | 'suspended' | 'error'
+export type AudioEngineStatus = 'inactive' | 'starting' | 'ready' | 'suspended' | 'interrupted' | 'error'
 
 export interface LoadedSampleInfo {
   filename: string
@@ -174,6 +174,13 @@ export class AudioEngine {
   private synthVoiceSerial = 0
   private status: AudioEngineStatus = 'inactive'
   private readonly statusListeners = new Set<(status: AudioEngineStatus) => void>()
+  private lifecycleRecoveryInstalled = false
+  private readonly handleVisibilityChange = () => {
+    if (document.visibilityState === 'visible') this.requestLiveContextResume()
+  }
+  private readonly handleResumeGesture = () => {
+    if (document.visibilityState === 'visible') this.requestLiveContextResume()
+  }
 
   constructor(channelIds: readonly ChannelId[] = []) {
     this.masterEffectState = createDefaultMasterEffectRack()
@@ -204,6 +211,7 @@ export class AudioEngine {
       this.liveContext ??= new AudioContextConstructor()
       this.context = this.liveContext
       this.liveContext.onstatechange = () => this.syncContextStatus()
+      this.installLifecycleRecovery()
       this.createMasterOutput(this.liveContext)
       this.createChannelNodes()
       this.ensureAllSynthRuntimes()
@@ -629,6 +637,7 @@ export class AudioEngine {
       void this.liveContext.close()
     }
 
+    this.removeLifecycleRecovery()
     this.context = undefined
     this.liveContext = undefined
     this.masterEffects = undefined
@@ -639,7 +648,37 @@ export class AudioEngine {
   private syncContextStatus(): void {
     if (this.liveContext?.state === 'running') this.setStatus('ready')
     else if (this.liveContext?.state === 'suspended') this.setStatus('suspended')
+    else if ((this.liveContext?.state as string | undefined) === 'interrupted') this.setStatus('interrupted')
     else if (this.liveContext?.state === 'closed') this.setStatus('inactive')
+  }
+
+  /**
+   * Browsers may pause Web Audio when the page leaves the foreground. Resume
+   * once when the page becomes visible, then retry from the next trusted input
+   * because Safari can require a fresh gesture after an interruption.
+   */
+  private installLifecycleRecovery(): void {
+    if (this.lifecycleRecoveryInstalled) return
+    document.addEventListener('visibilitychange', this.handleVisibilityChange)
+    document.addEventListener('pointerdown', this.handleResumeGesture, true)
+    document.addEventListener('keydown', this.handleResumeGesture, true)
+    this.lifecycleRecoveryInstalled = true
+  }
+
+  private removeLifecycleRecovery(): void {
+    if (!this.lifecycleRecoveryInstalled) return
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange)
+    document.removeEventListener('pointerdown', this.handleResumeGesture, true)
+    document.removeEventListener('keydown', this.handleResumeGesture, true)
+    this.lifecycleRecoveryInstalled = false
+  }
+
+  private requestLiveContextResume(): void {
+    const context = this.liveContext
+    if (!context || context.state === 'running' || context.state === 'closed') return
+    void context.resume()
+      .then(() => this.syncContextStatus())
+      .catch(() => this.syncContextStatus())
   }
 
   private setStatus(status: AudioEngineStatus): void {

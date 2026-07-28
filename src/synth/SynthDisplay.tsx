@@ -108,10 +108,10 @@ function synthTenant(props: SynthTenantProps): DisplayTenant {
 
   return {
     id: displayId,
-    label: `${pad.label} MONO-3 controls`,
+    label: `${pad.label} MONOPOLY controls`,
     readout: synthReadout(page, patch, pad),
     panel: <>
-      <nav className="synth-display-pages" aria-label="MONO-3 control pages">
+      <nav className="synth-display-pages" aria-label="MONOPOLY control pages">
         {pages.map((candidate) => (
           <button
             type="button"

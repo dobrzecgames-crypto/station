@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { patternVariantNames, maximumPatternGroups } from '../patterns/patternTypes'
 import type { PatternGroup, PatternVariantName } from '../patterns/patternTypes'
@@ -56,8 +56,16 @@ interface TransportBarProps {
 export function TransportBar({ bpm, swing, isPlaying, mode, loopSong, metronomeEnabled, settingsOpen, onSettingsOpenChange, groups, selectedGroupId, selectedVariant, statusMessage, errorMessage, displayOwner, audioStatus, audioDisabled, controlsAwake, onStartAudio, onBpmChange, onSwingChange, onModeChange, onLoopSongChange, onMetronomeEnabledChange, onGroupChange, onVariantChange, onGroupCreate, onVariantCreate, onVariantDuplicate, onVariantClear, onGroupDelete, projectControl, onPlay, onStop }: TransportBarProps) {
   const groupIndex = groups.findIndex((group) => group.id === selectedGroupId)
   const selectedGroup = groups[groupIndex]
+  const audioRecovering = audioStatus === 'suspended' || audioStatus === 'interrupted'
   const { claim, release, ownerId } = useSystemDisplay()
   const [managingBank, setManagingBank] = useState(false)
+  const latestBankActionsRef = useRef({ onVariantDuplicate, onVariantClear, onGroupDelete })
+  latestBankActionsRef.current = { onVariantDuplicate, onVariantClear, onGroupDelete }
+  const bankActions = useMemo(() => ({
+    onDuplicate: (target: PatternVariantName) => latestBankActionsRef.current.onVariantDuplicate(target),
+    onClear: () => latestBankActionsRef.current.onVariantClear(),
+    onDelete: () => latestBankActionsRef.current.onGroupDelete(),
+  }), [])
 
   /* The panel is kept current rather than claimed once as a snapshot. Changing
      bank or pattern while it is open - tapping + or an arrow - would otherwise
@@ -70,12 +78,10 @@ export function TransportBar({ bpm, swing, isPlaying, mode, loopSong, metronomeE
       group: selectedGroup,
       variant: selectedVariant,
       canDelete: groups.length > 1,
-      onDuplicate: onVariantDuplicate,
-      onClear: onVariantClear,
-      onDelete: onGroupDelete,
+      ...bankActions,
     }))
     return () => release('bank-manage')
-  }, [managingBank, groupIndex, selectedGroup, selectedVariant, groups.length, claim, release, onVariantDuplicate, onVariantClear, onGroupDelete])
+  }, [managingBank, groupIndex, selectedGroup, selectedVariant, groups.length, claim, release, bankActions])
 
   /* Somebody else took the display - stop refreshing a panel that is no longer
      on screen, or the next data change would snatch it back from them. */
@@ -90,11 +96,11 @@ export function TransportBar({ bpm, swing, isPlaying, mode, loopSong, metronomeE
         type="button"
         disabled={audioDisabled}
         aria-busy={audioStatus === 'starting'}
-        aria-label={audioStatus === 'ready' ? 'Audio on' : audioStatus === 'starting' ? 'Starting audio' : 'Start audio'}
+        aria-label={audioStatus === 'ready' ? 'Audio on' : audioRecovering ? 'Audio interrupted, tap to resume' : audioStatus === 'starting' ? 'Starting audio' : 'Start audio'}
         onClick={onStartAudio}
       >
         <span className={`status-dot status-${audioStatus}`} aria-hidden="true" />
-        <span className="system-power-label">{audioStatus === 'ready' ? 'ON' : 'OFF'}</span>
+        <span className="system-power-label">{audioStatus === 'ready' ? 'ON' : audioRecovering ? 'WAIT' : 'OFF'}</span>
       </button>
       <button className="transport-button transport-icon-button transport-play-button" type="button" disabled={!controlsAwake || isPlaying} aria-label="Play" onClick={onPlay} />
       <button className="mixer-toggle transport-icon-button transport-stop-button" type="button" disabled={!isPlaying} aria-label="Stop" onClick={onStop} />
@@ -141,7 +147,7 @@ export function TransportBar({ bpm, swing, isPlaying, mode, loopSong, metronomeE
           second pattern - did nothing, and the only way through was a DUPLICATE
           row parked in the PROJECT tab. */}
       <div className="variant-selector" aria-label="Pattern">
-        <span className="context-label">PATTERN</span>
+        <span className="context-label">PAT</span>
         {patternVariantNames.map((variant) => {
           const exists = Boolean(selectedGroup.variants[variant])
           const className = selectedVariant === variant ? 'mixer-toggle mixer-toggle-active' : exists ? 'mixer-toggle' : 'mixer-toggle variant-empty'

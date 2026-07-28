@@ -130,7 +130,7 @@ Docelowa struktura:
 ```text
 ┌─────────────────────────────────────────────────────────────┐
 │ GLOBAL HEADER                                               │
-│ STATION | CHOP PADS SEQ SONG MIX | AUDIO | PROJECT         │
+│ STATION | CHOP PADS SYNTH SEQ SONG MIX | SYSTEM DISPLAY   │
 ├─────────────────────────────────────────────────────────────┤
 │ MUSIC CONTEXT BAR                                           │
 │ PLAY STOP | BPM | MODE | GROUP | VARIANT                   │

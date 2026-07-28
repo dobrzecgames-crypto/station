@@ -94,6 +94,14 @@ There are 16 channels per Pattern Group bank, keyed by a stable group-and-pad id
 
 The MVP should leave sensible headroom. Avoid adding saturation, soft clipping or machine-character processing until the clean engine is stable and measured.
 
+## MONO-3 synthesis
+
+MONO-3 voices are created and cleaned up inside AudioEngine. A voice contains OSC 1, OSC 2, SUB, two cascaded low-pass biquads, a soft-drive waveshaper and an amp envelope before the normal pad channel. Synth sound therefore follows the same channel, Group Bus, Pump, Group FX, Master FX and master output as a sample.
+
+Each Pattern Group registers serializable patches with the engine. A patch owns a tempo-synced filter LFO whose phase is shared by its voices; `setBpm` updates its frequency without restarting transport. MONO uses last-note priority and pitch glide. POLY 5 limits each patch to five voices and steals the oldest voice deterministically with a short release. Manual note-off releases only the matching held pad token. Transport STOP releases/stops sequencer-created synth voices and leaves independent manual voices alone.
+
+The sequencer supplies resolved MIDI notes, velocity, SHIFT-adjusted note-on time and `patch.gate * stepDuration` note-off time. Offline rendering registers the same patches and schedules the same events through the same engine class. Render length includes synth GATE and amp release in addition to sample and delay tails.
+
 ## Sequencer timing
 
 The scheduler must:

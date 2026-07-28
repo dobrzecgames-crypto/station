@@ -96,7 +96,7 @@ This is a direction, not permission to scaffold files before the implementation 
 
 ## Current UI shell and Chop Workspace
 
-Station renders one main workspace at a time: CHOP, PAD, SEQ, SONG, SAMPLE or MIX. The transport remains outside those views, so changing views does not recreate audio, Pattern Groups, Playlist, mixer settings, the active pad or the current Chop Session.
+Station renders one main workspace at a time: CHOP, PAD, SYNTH, SEQ, SONG, SAMPLE or MIX. The transport remains outside those views, so changing views does not recreate audio, Pattern Groups, Playlist, mixer settings, the active pad, synth patches or the current Chop Session.
 
 CHOP owns a source-asset reference and serializable slice boundaries; pads own their playback and musical state. A live map applies slice 1–16 to pad 1–16 without placing an AudioBuffer in React. The workspace tracks the pads it currently manages so that shrinking the slice set clears only its own surplus assignments.
 
@@ -123,6 +123,12 @@ The initial sequencer should use a look-ahead scheduling approach:
 - background throttling and resumed contexts must be handled explicitly.
 
 No implementation should assume that a visually smooth playhead proves stable audio timing.
+
+## MONO-3 source boundary
+
+MONO-3 is a second mutually exclusive pad source, not a second sequencer. Serializable `SynthPatch` objects belong to Pattern Groups and pads reference them by ID; per-pad chord intervals and pitch stay on the pad. Oscillators, filters, LFOs, envelopes, voice allocation and cleanup remain AudioEngine-owned.
+
+Live PATTERN/SONG playback and offline WAV rendering both resolve a pad to sample or synth events through `songTracks`, then use the same `StepSequencer` and `AudioEngine`. Synth timing, GATE and SHIFT are stamped against AudioContext time. React sends manual note-on/note-off commands and edits patches but never owns a voice or musical clock.
 
 Pattern Mode asks the scheduler for the selected Pattern Group variant on every scheduling window. Song Mode asks it for every clip active in the current 16-step slot, so all referenced patterns are scheduled independently and may trigger the same pad at the same timestamp. Slot changes occur only after the sixteenth scheduled step. The UI receives a display-only current-slot projection; it never controls the scheduler clock.
 

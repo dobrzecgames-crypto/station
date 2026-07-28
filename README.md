@@ -4,7 +4,7 @@ Station is a desktop-browser sampler groovebox for turning audio samples into pl
 
 ## Current status
 
-The repository contains a playable 16-track sequencer with Pattern Groups A–D and a Pattern Playlist / Song Mode, Basic Pump and mixer foundations, non-destructive sample regions, the Unified Chop Workspace, Persistence v2 (with v1 migration), and Project Key + Scale Map v1. Browser audio lifecycle and listening acceptance still require testing in current Chrome and Edge on Windows.
+The repository contains a playable 16-track sequencer with Pattern Groups A–D and a Pattern Playlist / Song Mode, Basic Pump and mixer foundations, non-destructive sample regions, the Unified Chop Workspace, MONO-3 pad synthesis, local persistence, offline SONG rendering, and Project Key + Scale Map. Browser audio lifecycle and listening acceptance still require testing in current Chrome and Edge on Windows.
 
 ## Product principles
 
@@ -84,14 +84,16 @@ The fixed shell provides **CHOP**, **PAD**, **SEQ**, **SONG**, **SAMPLE** and **
 
 In **SEQ**, each active step has a manual **VELOCITY** value (0–100%) and a per-step **SHIFT** from −50% to +50% of a 16th-note duration. SHIFT moves only that scheduled trigger; the AudioContext clock, BPM and slot boundaries remain unchanged.
 
+**SYNTH** sits between PADS and SEQ. Select a pad, create a MONO-3 source, then shape its two oscillators, sub oscillator, 24 dB low-pass filter, amp/filter envelopes, tempo-synced filter LFO, drive, glide and sequencer gate. MONO uses last-note priority and glide; POLY 5 plays a per-pad chord of up to five notes. Scale Map shares one Pattern Group patch across later pads while keeping their mixer, pattern, Pump and FX state independent. Pointer and computer-keyboard releases send note-off for synth pads; sample pads remain one-shots.
+
 **PROJECT KEY** sets a global root and scale for future mappings. In PAD view, select a loaded pad and use **MAP TO PROJECT SCALE** to fill that pad through PAD 16 with the same asset and playback region at consecutive scale degrees. The selected pad is degree zero; map targets retain their own patterns, mute/solo state and Pump settings. Mapping never wraps to PAD 01, does not retune earlier mappings after a key change, and asks once before replacing occupied target pads.
 
 ### Local project persistence
 
-**SAVE PROJECT** stores one local project in IndexedDB: its schema-v7 manifest and each referenced source WAV under a stable asset ID. **OPEN PROJECT** restores the last saved project after **START AUDIO**; it re-decodes WAV data, regenerates waveform caches, restores all Pattern Group banks, Playlist, mixer, Pump, FX racks and Project Key settings, and leaves transport stopped. Schema-v1 through v6 projects migrate safely: their global pad bank and CHOP source become Pattern Group 1 where applicable, while existing later Pattern Groups receive empty banks rather than guessed copies. Projects saved before the FX Rack preserve the prior master delay → compressor order in master slots.
+**SAVE PROJECT** stores one local project in IndexedDB: its schema-v10 manifest and each referenced source WAV under a stable asset ID. **OPEN PROJECT** restores the last saved project after **START AUDIO**; it re-decodes WAV data, regenerates waveform caches, restores samples, MONO-3 patches and chord assignments, all Pattern Group banks, Playlist, mixer, Pump, FX racks and Project Key settings, and leaves transport stopped. Schema-v1 through v9 projects migrate safely with empty synth collections and neutral synth fields; their existing sample sound is unchanged.
 
 There is no autosave, project browser, rename, duplicate, delete or export/import. IndexedDB quota is browser-managed, so saving large WAV projects can fail when local storage is full.
 
 ### Current limitations
 
-Only one local project is available and it must be opened explicitly after each page reload. Each Pattern Group and the master have two serial insert FX slots, supporting NONE, compressor, BPM-synced delay and a three-band EQ (low shelf, mid peak, high shelf). Audio must be explicitly started after each page reload; switching tabs may cause a browser to suspend audio, in which case use **START AUDIO** again.
+Only one local project is available and it must be opened explicitly after each page reload. Each Pattern Group and the master have two serial insert FX slots, supporting NONE, compressor, BPM-synced delay and a three-band EQ (low shelf, mid peak, high shelf). MONO-3 is intentionally limited to one shared patch source per assigned pad, one filter LFO and five voices per patch; it has no Piano Roll, MIDI, modulation matrix, presets or wavetable import. Audio must be explicitly started after each page reload; switching tabs may cause a browser to suspend audio, in which case use **START AUDIO** again.

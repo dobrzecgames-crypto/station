@@ -10,12 +10,24 @@ through `SystemDisplayApi`, and the first adopter is live. The focus channel
 (priority 3) is the one part of section 3 still unbuilt: today a context claims
 on a discrete selection rather than while a control is held.
 
-There are three adopters: the library's assign step, the transport's bank
-actions (copy, clear, delete), and the pad's sample browser with its sound
-controls. `SystemDisplayApi` also exposes `ownerId`, which the bank panel needs
-— a context that re-claims whenever its data changes has to know when it has
-been taken over, or it steals the display back from whoever replaced it on the
-next change.
+Current adopters include the library's assign step, the transport's bank
+actions (copy, clear, delete), the pad's sample browser with its sound controls,
+MONO-3, and PROJECT. `SystemDisplayApi` also exposes `ownerId`, which a
+persistent tenant needs — a context that re-claims whenever its data changes
+has to know when it has been taken over, or it steals the display back from
+whoever replaced it on the next change.
+
+PROJECT is a global display tenant rather than a seventh workspace. Its compact
+button sits beside the current BANK and PATTERN context; the panel contains the
+project key, save/open actions, offline song render, progress and hot-render
+download choices. The main workspace navigation therefore remains one row of
+six equal destinations.
+
+MONO-3 keeps its three oscillator strips in the SYNTH workspace and puts sound
+shaping in named display screens: `FILTER`, `AMP`, `LFO`, `VOICE`, and `PAD`.
+These are content names rather than a numeric pager. The split keeps waveform,
+octave, detune and level immediately playable while envelopes, modulation and
+pad-local chord tools use the machine's existing recessed screen.
 
 The pad browser is where a tenant first needed two screens, and it settled how
 that works. It shipped with a `‹ 1 / 2 ›` pager above both — a row of chrome

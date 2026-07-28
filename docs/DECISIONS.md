@@ -290,7 +290,7 @@ Consequences:
 
 **Status:** Accepted
 
-RENDER SONG in the PROJECT tab writes the SONG playlist to a 16-bit stereo WAV file. The render is a second `AudioEngine` built over an `OfflineAudioContext` and driven by the same `StepSequencer` that drives live playback: the sequencer's wake-up is injected, so live playback wakes on a timer and a render wakes on the render clock through `OfflineAudioContext.suspend()`. Real-time capture through `MediaRecorder` was rejected because Chrome offers no WAV container, so every export would pass through Opus, and because a render taking as long as the song cannot survive a phone locking its screen.
+RENDER in the PROJECT System Display panel writes the SONG playlist to a 16-bit stereo WAV file. The render is a second `AudioEngine` built over an `OfflineAudioContext` and driven by the same `StepSequencer` that drives live playback: the sequencer's wake-up is injected, so live playback wakes on a timer and a render wakes on the render clock through `OfflineAudioContext.suspend()`. Real-time capture through `MediaRecorder` was rejected because Chrome offers no WAV container, so every export would pass through Opus, and because a render taking as long as the song cannot survive a phone locking its screen.
 
 Consequences:
 
@@ -305,3 +305,19 @@ Consequences:
 - the sample rate follows the live context, so decoded buffers are reused with no resampling and no second decode,
 - the file drops the leading bit-exact silence that the master rack's compressor lookahead produces, so a render lands on the grid without hard-coding any browser's latency,
 - `renderSongToBuffer` returns an audio buffer and the WAV encoder is separate, so M10 resampling can reuse both without an export path in the way.
+
+## DEC-022 — MONO-3 is a constrained pad source
+
+**Status:** Accepted
+
+MONO-3 is an explicitly approved oscillator-synth exception. A Pattern Group owns serializable patches and its pads may reference one instead of a sample. It uses the existing pads, 16-step patterns, A–D variants, Playlist, Pump and FX routing; it does not introduce a Piano Roll or another sequencer.
+
+Consequences:
+
+- sample and synth sources are mutually exclusive on a pad and cross-type replacement requires confirmation,
+- Scale Map shares one patch ID while keeping pitch and chord voicing on each pad,
+- MONO provides last-note priority and glide; POLY 5 is capped at five voices per patch with deterministic oldest-voice stealing,
+- oscillators, filters, shared-phase tempo LFO, envelopes, drive and voice cleanup remain inside AudioEngine,
+- PATTERN, SONG and offline WAV use the same pad resolver, scheduler and engine path,
+- schema v10 stores patches, pad references and chord intervals; v1–v9 migrate with neutral synth defaults,
+- MIDI, Piano Roll, note lengths per step, automation, mod matrix, wavetable, presets, resampling and unbounded polyphony remain out of scope.

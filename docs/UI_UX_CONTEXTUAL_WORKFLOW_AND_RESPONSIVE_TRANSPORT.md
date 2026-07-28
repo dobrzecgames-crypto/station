@@ -51,7 +51,7 @@ Use two compact top rows.
 #### Global header
 
 ```text
-STATION | LIBRARY CHOP PADS SEQ SONG MIX | AUDIO | PROJECT
+STATION | CHOP PADS SYNTH SEQ SONG MIX | SYSTEM DISPLAY
 ```
 
 Recommended height: `48–52 px`.
@@ -61,7 +61,8 @@ Contains:
 - application identity;
 - main workspace navigation;
 - compact audio status;
-- Project menu.
+- compact PROJECT trigger beside the BANK/PATTERN context; its controls use the
+  System Display.
 
 #### Music context bar
 

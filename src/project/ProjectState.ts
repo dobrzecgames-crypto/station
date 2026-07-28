@@ -12,8 +12,9 @@ import type { PatternGroup, PatternVariantName } from '../patterns/patternTypes'
 import { validatePatternClipReferences } from '../song/songOperations'
 import type { PatternClip, TransportMode } from '../song/songTypes'
 
-export const projectSchemaVersion = 8
-export const previousProjectSchemaVersion = 7
+export const projectSchemaVersion = 9
+export const previousProjectSchemaVersion = 8
+export const v7ProjectSchemaVersion = 7
 export const v6ProjectSchemaVersion = 6
 export const v5ProjectSchemaVersion = 5
 export const v4ProjectSchemaVersion = 4
@@ -33,6 +34,20 @@ export interface MasterMixerState { volume: number; muted: boolean }
 
 export type PersistedChopSession = ChopSessionState
 
+/**
+ * One independent sidechain link: `source` is a single pad trigger, `target`
+ * is a whole Pattern Group - there is no per-pad target. Several routes can
+ * coexist (e.g. kick ducking one bank, snare ducking another).
+ */
+export interface PumpRoute {
+  id: string
+  source: GroupPadReference
+  targetGroupId: string
+  depth: number
+  lengthBeats: number
+  curve: PumpCurve
+}
+
 export interface ProjectState {
   schemaVersion: typeof projectSchemaVersion
   projectKey: ProjectKey
@@ -47,7 +62,7 @@ export interface ProjectState {
   swing: number
   master: MasterMixerState
   masterEffects: EffectRackState
-  pump: { source: GroupPadReference | null; targets: GroupPadReference[]; depth: number; lengthBeats: number; curve: PumpCurve }
+  pumpRoutes: PumpRoute[]
 }
 
 export function createEmptyProjectState(): ProjectState {
@@ -66,7 +81,7 @@ export function createEmptyProjectState(): ProjectState {
     swing: 0,
     master: { volume: 1, muted: false },
     masterEffects: createDefaultMasterEffectRack(),
-    pump: { source: null, targets: [], depth: 0.5, lengthBeats: 0.5, curve: 'smooth' },
+    pumpRoutes: [],
   }
 }
 
@@ -79,7 +94,7 @@ export function createProjectState(state: ProjectState): ProjectState {
     playlist: state.playlist.map((clip) => ({ ...clip })),
     master: { ...state.master },
     masterEffects: cloneEffectRackState(state.masterEffects),
-    pump: { ...state.pump, source: state.pump.source ? { ...state.pump.source } : null, targets: state.pump.targets.map((target) => ({ ...target })) },
+    pumpRoutes: state.pumpRoutes.map((route) => ({ ...route, source: { ...route.source } })),
   }
 }
 
@@ -92,7 +107,7 @@ export function normalizeProjectState(state: ProjectState): ProjectState {
 export function migrateLegacyProjectState(legacy: { pads: ReturnType<typeof createPadBankState>['pads']; patterns?: unknown; [key: string]: unknown }): ProjectState {
   const group = createInitialPatternGroups(legacy.pads.map((pad) => pad.id))[0]
   const legacyPatterns = typeof legacy.patterns === 'object' && legacy.patterns !== null ? legacy.patterns as Record<string, unknown> : {}
-  const { patterns: _legacyPatterns, pads, chopSession, schemaVersion: _schemaVersion, ...legacyState } = legacy
+  const { patterns: _legacyPatterns, pads, chopSession, pump, schemaVersion: _schemaVersion, ...legacyState } = legacy
   group.bank = { pads: pads.map((pad) => ({ ...pad, region: { ...pad.region }, slices: pad.slices.map((slice) => ({ ...slice })) })), chopSession: isChopSessionState(chopSession) ? cloneChopSession(chopSession) : createEmptyChopSession() }
   group.variants.A = Object.fromEntries(legacy.pads.map((pad) => [pad.id, Array.isArray(legacyPatterns[pad.id]) ? [...legacyPatterns[pad.id] as number[]] : []]))
   return {
@@ -105,7 +120,7 @@ export function migrateLegacyProjectState(legacy: { pads: ReturnType<typeof crea
     transportMode: 'pattern',
     loopSong: false,
     masterEffects: createDefaultMasterEffectRack(),
-    pump: { source: typeof legacy.pump === 'object' && legacy.pump !== null && typeof (legacy.pump as { sourcePadId?: unknown }).sourcePadId === 'string' ? { patternGroupId: group.id, padId: (legacy.pump as { sourcePadId: string }).sourcePadId } : null, targets: typeof legacy.pump === 'object' && legacy.pump !== null && Array.isArray((legacy.pump as { targetPadIds?: unknown }).targetPadIds) ? (legacy.pump as { targetPadIds: string[] }).targetPadIds.map((padId) => ({ patternGroupId: group.id, padId })) : [], depth: (legacy.pump as { depth: number }).depth, lengthBeats: (legacy.pump as { lengthBeats: number }).lengthBeats, curve: (legacy.pump as { curve: PumpCurve }).curve },
+    pumpRoutes: migratePumpRoutes(pump, group.id),
   } as unknown as ProjectState
 }
 
@@ -125,33 +140,42 @@ export function migrateV2ProjectState(previous: { pads: ReturnType<typeof create
     schemaVersion: projectSchemaVersion,
     patternGroups: withGroupEffectRacks(groups),
     masterEffects: createDefaultMasterEffectRack(),
-    pump: { source: pump.sourcePadId ? { patternGroupId: firstGroup.id, padId: pump.sourcePadId } : null, targets: pump.targetPadIds.map((padId) => ({ patternGroupId: firstGroup.id, padId })), depth: pump.depth, lengthBeats: pump.lengthBeats, curve: pump.curve },
+    pumpRoutes: migratePumpRoutes(pump, firstGroup.id),
   } as ProjectState
 }
 
 export function migrateV3ProjectState(previous: { [key: string]: unknown }): ProjectState {
-  return { ...previous, schemaVersion: projectSchemaVersion, patternGroups: withGroupEffectRacks(previous.patternGroups as PatternGroup[]), masterEffects: createDefaultMasterEffectRack() } as ProjectState
+  const { pump, ...rest } = previous
+  return { ...rest, schemaVersion: projectSchemaVersion, patternGroups: withGroupEffectRacks(rest.patternGroups as PatternGroup[]), masterEffects: createDefaultMasterEffectRack(), pumpRoutes: migratePumpRoutes(pump) } as ProjectState
 }
 
 export function migrateV4ProjectState(previous: { [key: string]: unknown }): ProjectState {
-  const { masterCompressor, ...state } = previous
-  return { ...state, schemaVersion: projectSchemaVersion, patternGroups: withGroupEffectRacks(state.patternGroups as PatternGroup[]), masterEffects: createMigratedMasterEffectRack(undefined, masterCompressor) } as ProjectState
+  const { masterCompressor, pump, ...state } = previous
+  return { ...state, schemaVersion: projectSchemaVersion, patternGroups: withGroupEffectRacks(state.patternGroups as PatternGroup[]), masterEffects: createMigratedMasterEffectRack(undefined, masterCompressor), pumpRoutes: migratePumpRoutes(pump) } as ProjectState
 }
 
 export function migrateV5ProjectState(previous: { [key: string]: unknown }): ProjectState {
-  const { masterDelay, masterCompressor, ...state } = previous
-  return { ...state, schemaVersion: projectSchemaVersion, patternGroups: withGroupEffectRacks(state.patternGroups as PatternGroup[]), masterEffects: createMigratedMasterEffectRack(masterDelay, masterCompressor) } as ProjectState
+  const { masterDelay, masterCompressor, pump, ...state } = previous
+  return { ...state, schemaVersion: projectSchemaVersion, patternGroups: withGroupEffectRacks(state.patternGroups as PatternGroup[]), masterEffects: createMigratedMasterEffectRack(masterDelay, masterCompressor), pumpRoutes: migratePumpRoutes(pump) } as ProjectState
 }
 
 export function migrateV6ProjectState(previous: { [key: string]: unknown }): ProjectState {
   // Schema v6 FX slots predate the EQ effect type; normalizeProjectState already
   // backfills a default (bypassed) EQConfig onto every slot that is missing one.
-  return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
+  const { pump, ...rest } = previous
+  return normalizeProjectState({ ...rest, schemaVersion: projectSchemaVersion, pumpRoutes: migratePumpRoutes(pump) } as ProjectState)
 }
 
 /** v7 predates the per-pad AR fields; defaults reproduce the prior edge fades. */
 export function migrateV7ProjectState(previous: { [key: string]: unknown }): ProjectState {
-  return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
+  const { pump, ...rest } = previous
+  return normalizeProjectState({ ...rest, schemaVersion: projectSchemaVersion, pumpRoutes: migratePumpRoutes(pump) } as ProjectState)
+}
+
+/** v8 predates multi-route Pump; its single source/targets pair becomes one route per distinct target group. */
+export function migrateV8ProjectState(previous: { [key: string]: unknown }): ProjectState {
+  const { pump, ...rest } = previous
+  return normalizeProjectState({ ...rest, schemaVersion: projectSchemaVersion, pumpRoutes: migratePumpRoutes(pump) } as ProjectState)
 }
 
 export function collectReferencedAssetIds(project: ProjectState): Set<SampleAssetId> {
@@ -225,10 +249,15 @@ export function validateProjectState(project: ProjectState): string[] {
   if (!Number.isFinite(project.swing) || project.swing < 0 || project.swing > 0.5) errors.push('Swing must be between 0 and 0.5.')
   if (!Number.isFinite(project.master?.volume) || project.master.volume < 0 || project.master.volume > 1 || typeof project.master.muted !== 'boolean') errors.push('Master mixer state is invalid.')
   if (!isEffectRackState(project.masterEffects, 'master')) errors.push('Master effects are invalid.')
-  if (!Number.isFinite(project.pump.depth) || project.pump.depth < 0 || project.pump.depth > 1) errors.push('Pump depth must be between 0 and 1.')
-  if (!Number.isFinite(project.pump.lengthBeats) || project.pump.lengthBeats <= 0) errors.push('Pump length must be positive.')
-  if (project.pump.source && !hasPumpPadReference(project.pump.source, project.patternGroups)) errors.push('Pump source references a missing group pad.')
-  for (const target of project.pump.targets) if (!hasPumpPadReference(target, project.patternGroups)) errors.push('Pump target references a missing group pad.')
+  const pumpRouteIds = new Set<string>()
+  for (const route of project.pumpRoutes) {
+    if (pumpRouteIds.has(route.id)) errors.push('Pump route IDs must be unique.')
+    pumpRouteIds.add(route.id)
+    if (!Number.isFinite(route.depth) || route.depth < 0 || route.depth > 1) errors.push('Pump depth must be between 0 and 1.')
+    if (!Number.isFinite(route.lengthBeats) || route.lengthBeats <= 0) errors.push('Pump length must be positive.')
+    if (!hasPumpPadReference(route.source, project.patternGroups)) errors.push('Pump route source references a missing group pad.')
+    if (!hasPatternGroup(route.targetGroupId, project.patternGroups)) errors.push('Pump route target references a missing Pattern Group.')
+  }
   return errors
 }
 
@@ -238,6 +267,49 @@ function withGroupEffectRacks(groups: readonly PatternGroup[]): PatternGroup[] {
 
 function hasPumpPadReference(reference: GroupPadReference, groups: readonly PatternGroup[]): boolean {
   return groups.some((group) => group.id === reference.patternGroupId && group.bank.pads.some((pad) => pad.id === reference.padId))
+}
+
+function hasPatternGroup(groupId: string, groups: readonly PatternGroup[]): boolean {
+  return groups.some((group) => group.id === groupId)
+}
+
+function isGroupPadReference(value: unknown): value is GroupPadReference {
+  return typeof value === 'object' && value !== null && typeof (value as GroupPadReference).patternGroupId === 'string' && typeof (value as GroupPadReference).padId === 'string'
+}
+
+/**
+ * Every schema before v9 stored Pump as one global source/targets pair. This
+ * spreads it into one route per distinct target group, so an old project's
+ * behaviour carries over to independent per-group routes as closely as
+ * possible. `legacyGroupId` supplies the group for pre-v2 saves, which
+ * addressed pads by a bare id with no group of their own.
+ */
+function migratePumpRoutes(pump: unknown, legacyGroupId?: string): PumpRoute[] {
+  if (typeof pump !== 'object' || pump === null) return []
+  const candidate = pump as { source?: unknown; sourcePadId?: unknown; targets?: unknown; targetPadIds?: unknown; depth?: unknown; lengthBeats?: unknown; curve?: unknown }
+  const source = isGroupPadReference(candidate.source)
+    ? candidate.source
+    : typeof candidate.sourcePadId === 'string' && legacyGroupId
+      ? { patternGroupId: legacyGroupId, padId: candidate.sourcePadId }
+      : null
+  const targets = Array.isArray(candidate.targets) && candidate.targets.every(isGroupPadReference)
+    ? candidate.targets as GroupPadReference[]
+    : Array.isArray(candidate.targetPadIds) && legacyGroupId
+      ? (candidate.targetPadIds as string[]).map((padId) => ({ patternGroupId: legacyGroupId, padId }))
+      : []
+  if (!source || targets.length === 0) return []
+  const depth = typeof candidate.depth === 'number' ? candidate.depth : 0.5
+  const lengthBeats = typeof candidate.lengthBeats === 'number' ? candidate.lengthBeats : 0.5
+  const curve = candidate.curve === 'snap' || candidate.curve === 'smooth' || candidate.curve === 'swell' ? candidate.curve : 'smooth'
+  const targetGroupIds = [...new Set(targets.map((target) => target.patternGroupId))]
+  return targetGroupIds.map((targetGroupId) => ({
+    id: `pump-route-${source.patternGroupId}-${source.padId}-${targetGroupId}`,
+    source: { ...source },
+    targetGroupId,
+    depth,
+    lengthBeats,
+    curve,
+  }))
 }
 
 function isChopSessionState(value: unknown): value is ChopSessionState {

@@ -31,9 +31,18 @@ export interface TriggerSampleOptions {
 
 export type PumpCurve = 'snap' | 'smooth' | 'swell'
 
-export interface PumpConfig {
-  sourceChannelId: ChannelId | null
-  targetChannelIds: readonly ChannelId[]
+/**
+ * One independent sidechain link: a single pad trigger ducks one whole
+ * Pattern Group bus. Several routes can be active together, each with its own
+ * depth/length/shape, so a kick and a snare can each pump a different group.
+ * If a route's source pad happens to live inside its own target group, that
+ * pad also gets ducked - the target's bus gain sums every pad in the group
+ * before Pump is applied, so a single pad cannot be excluded from it.
+ */
+export interface PumpRoute {
+  id: string
+  sourceChannelId: ChannelId
+  targetGroupId: GroupId
   depth: number
   lengthSeconds: number
   curve: PumpCurve
@@ -64,12 +73,12 @@ interface Channel {
   muted: boolean
   solo: boolean
   gain?: GainNode
-  pumpGain?: GainNode
   meter?: AnalyserNode
   meterSamples?: Float32Array<ArrayBuffer>
 }
 
-interface GroupBus { volume: number; muted: boolean; solo: boolean; gain?: GainNode }
+/** `pumpGain` sits after `gain` so Pump ducking applies to the whole bus without disturbing the group's own volume/mute/solo automation. */
+interface GroupBus { volume: number; muted: boolean; solo: boolean; gain?: GainNode; pumpGain?: GainNode }
 
 interface RuntimeEffect {
   input: AudioNode
@@ -109,7 +118,7 @@ export class AudioEngine {
   private masterMuted = false
   private masterEffectState: EffectRackState
   private bpm = 120
-  private pumpConfig: PumpConfig = { sourceChannelId: null, targetChannelIds: [], depth: 0, lengthSeconds: 0.2, curve: 'smooth' }
+  private pumpRoutes: readonly PumpRoute[] = []
   private samples = new Map<SampleId, AudioBuffer>()
   private waveforms = new Map<SampleId, number[]>()
   private runtimeAssets = new Map<SampleAssetId, RuntimeSampleAsset>()
@@ -256,9 +265,10 @@ export class AudioEngine {
   }
 
   /**
-   * Reads the real channel signal after its volume, mute/solo and Pump gain.
-   * This is deliberately a pull API: UI refresh cadence never participates in
-   * audio scheduling or transport timing.
+   * Reads the real channel signal after its volume and mute/solo, but before
+   * its group bus - so this does not reflect Pump ducking, which is applied
+   * at the group bus stage. This is deliberately a pull API: UI refresh
+   * cadence never participates in audio scheduling or transport timing.
    */
   getChannelMeterReading(channelId: ChannelId): ChannelMeterReading {
     const channel = this.channels.get(channelId)
@@ -288,8 +298,8 @@ export class AudioEngine {
     this.applyAllChannelGains()
   }
 
-  setPumpConfig(config: PumpConfig): void {
-    this.pumpConfig = config
+  setPumpRoutes(routes: readonly PumpRoute[]): void {
+    this.pumpRoutes = routes
   }
 
   setGroupVolume(groupId: GroupId, volume: number): void { const bus = this.ensureGroupBus(groupId); bus.volume = this.toGain(volume); this.applyAllGroupGains() }
@@ -382,7 +392,7 @@ export class AudioEngine {
     source.addEventListener('ended', () => this.cleanUpVoice(voice), { once: true })
 
     this.activeVoices.add(voice)
-    if (channelId === this.pumpConfig.sourceChannelId) this.triggerPump(scheduledWhen)
+    for (const route of this.pumpRoutes) if (route.sourceChannelId === channelId) this.triggerPumpRoute(route, scheduledWhen)
     source.start(scheduledWhen, region.startSeconds, region.durationSeconds)
   }
 
@@ -474,14 +484,12 @@ export class AudioEngine {
     this.runtimeAssets.clear()
     for (const channel of this.channels.values()) {
       channel.gain?.disconnect()
-      channel.pumpGain?.disconnect()
       channel.meter?.disconnect()
       channel.gain = undefined
-      channel.pumpGain = undefined
       channel.meter = undefined
       channel.meterSamples = undefined
     }
-    for (const bus of this.groupBuses.values()) bus.gain?.disconnect()
+    for (const bus of this.groupBuses.values()) { bus.gain?.disconnect(); bus.pumpGain?.disconnect() }
     this.groupBuses.clear()
     for (const rack of this.groupEffects.values()) this.disposeRuntimeEffectRack(rack)
     this.groupEffects.clear()
@@ -524,17 +532,14 @@ export class AudioEngine {
   private createChannelNodes(): void {
     const context = this.context!
     for (const channel of this.channels.values()) {
-      if (channel.gain && channel.pumpGain && channel.meter) continue
+      if (channel.gain && channel.meter) continue
       channel.gain = context.createGain()
-      channel.pumpGain = context.createGain()
       channel.meter = context.createAnalyser()
       channel.meter.fftSize = 1024
       channel.meter.smoothingTimeConstant = 0
       channel.meterSamples = new Float32Array(channel.meter.fftSize)
-      channel.gain.connect(channel.pumpGain)
-      channel.pumpGain.connect(channel.meter)
+      channel.gain.connect(channel.meter)
       channel.meter.connect(this.ensureGroupBus(channel.groupId).gain!)
-      channel.pumpGain.gain.setValueAtTime(1, context.currentTime)
     }
     this.applyAllChannelGains(true)
   }
@@ -544,7 +549,10 @@ export class AudioEngine {
     if (!bus) { bus = { volume: 1, muted: false, solo: false }; this.groupBuses.set(groupId, bus) }
     if (this.context && this.masterEffects && !bus.gain) {
       bus.gain = this.context.createGain()
-      bus.gain.connect(this.ensureGroupEffects(groupId).input)
+      bus.pumpGain = this.context.createGain()
+      bus.gain.connect(bus.pumpGain)
+      bus.pumpGain.connect(this.ensureGroupEffects(groupId).input)
+      bus.pumpGain.gain.setValueAtTime(1, this.context.currentTime)
       this.applyAllGroupGains(true)
     }
     return bus
@@ -559,15 +567,12 @@ export class AudioEngine {
     if (this.context && this.masterEffects && !channel.gain) {
       const bus = this.ensureGroupBus(groupId)
       channel.gain = this.context.createGain()
-      channel.pumpGain = this.context.createGain()
       channel.meter = this.context.createAnalyser()
       channel.meter.fftSize = 1024
       channel.meter.smoothingTimeConstant = 0
       channel.meterSamples = new Float32Array(channel.meter.fftSize)
-      channel.gain.connect(channel.pumpGain)
-      channel.pumpGain.connect(channel.meter)
+      channel.gain.connect(channel.meter)
       channel.meter.connect(bus.gain!)
-      channel.pumpGain.gain.setValueAtTime(1, this.context.currentTime)
       this.applyAllChannelGains(true)
     }
     return channel
@@ -845,28 +850,24 @@ export class AudioEngine {
   }
 
 
-  private triggerPump(when: number): void {
-    const { depth, lengthSeconds, curve, targetChannelIds } = this.pumpConfig
-    const low = Math.max(0.0001, 1 - this.toGain(depth))
-    const recoveryTime = Math.max(0.01, lengthSeconds)
+  private triggerPumpRoute(route: PumpRoute, when: number): void {
+    const pumpGain = this.groupBuses.get(route.targetGroupId)?.pumpGain
+    if (!pumpGain) return
 
-    for (const channelId of targetChannelIds) {
-      if (channelId === this.pumpConfig.sourceChannelId) continue
-      const pumpGain = this.channels.get(channelId)?.pumpGain
-      if (!pumpGain) continue
-      const gain = pumpGain.gain
-      gain.cancelScheduledValues(when)
-      gain.setValueAtTime(gain.value, when)
-      gain.linearRampToValueAtTime(low, when + 0.005)
-      if (curve === 'snap') {
-        gain.exponentialRampToValueAtTime(1, when + Math.max(0.01, recoveryTime * 0.45))
-        gain.setValueAtTime(1, when + recoveryTime)
-      } else if (curve === 'smooth') {
-        gain.exponentialRampToValueAtTime(1, when + recoveryTime)
-      } else {
-        gain.setValueAtTime(low, when + recoveryTime * 0.65)
-        gain.linearRampToValueAtTime(1, when + recoveryTime)
-      }
+    const low = Math.max(0.0001, 1 - this.toGain(route.depth))
+    const recoveryTime = Math.max(0.01, route.lengthSeconds)
+    const gain = pumpGain.gain
+    gain.cancelScheduledValues(when)
+    gain.setValueAtTime(gain.value, when)
+    gain.linearRampToValueAtTime(low, when + 0.005)
+    if (route.curve === 'snap') {
+      gain.exponentialRampToValueAtTime(1, when + Math.max(0.01, recoveryTime * 0.45))
+      gain.setValueAtTime(1, when + recoveryTime)
+    } else if (route.curve === 'smooth') {
+      gain.exponentialRampToValueAtTime(1, when + recoveryTime)
+    } else {
+      gain.setValueAtTime(low, when + recoveryTime * 0.65)
+      gain.linearRampToValueAtTime(1, when + recoveryTime)
     }
   }
 

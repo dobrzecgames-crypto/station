@@ -4,7 +4,6 @@ import type { AudioEngine, AudioEngineStatus, SampleAssetId } from './audio/Audi
 import { createDefaultMasterEffectRack } from './audio/effects'
 import type { EffectRackState } from './audio/effects'
 import { createChannelId } from './audio/channelIdentity'
-import type { GroupPadReference } from './audio/channelIdentity'
 import { StepSequencer } from './audio/StepSequencer'
 import type { StepSequencerConfig } from './audio/StepSequencer'
 import { encodeWav } from './audio/wavEncoder'
@@ -16,7 +15,7 @@ import { BusDisplayLauncher } from './mixer/BusDisplay'
 import { MixTargetSelector } from './mixer/GroupMixPanel'
 import type { MixScope } from './mixer/GroupMixPanel'
 import { EffectDisplayLauncher } from './mixer/EffectDisplay'
-import { PumpDisplayLauncher } from './mixer/PumpDisplay'
+import { PumpScreen } from './mixer/PumpScreen'
 import { clonePadBank, createPadBank, padIdByKeyCode } from './pads/padBank'
 import type { PadBankState } from './pads/padBank'
 import { PadDisplayLauncher } from './pads/PadDisplay'
@@ -29,6 +28,7 @@ import type { MainView } from './shell/MainNavigation'
 import { TransportBar } from './shell/TransportBar'
 import { SystemDisplayProvider, useSystemDisplayHost } from './shell/systemDisplayContext'
 import { collectReferencedAssetIds, createProjectState, projectSchemaVersion, validateProjectState } from './project/ProjectState'
+import type { PumpRoute } from './project/ProjectState'
 import { ProjectKeyPanel } from './project/ProjectKeyPanel'
 import { renderSongToBuffer } from './project/renderSong'
 import type { RenderSongResult } from './project/renderSong'
@@ -77,6 +77,7 @@ function createSliceId(scope: string): string { return `slice-${scope}-${createR
 function createChopSessionId(): string { return `chop-session-${createRuntimeId()}` }
 function createPatternGroupId(): string { return `pattern-group-${createRuntimeId()}` }
 function createPatternClipId(): string { return `pattern-clip-${createRuntimeId()}` }
+function createPumpRouteId(): string { return `pump-route-${createRuntimeId()}` }
 function clearPadAssignment(pad: PadState): PadState {
   return { ...pad, assetId: null, fileName: null, durationSeconds: null, region: { startSeconds: 0, endSeconds: 0 }, slices: [], chopSessionId: null }
 }
@@ -114,11 +115,7 @@ export function App({ audioEngine }: AppProps) {
   const [metronomeEnabled, setMetronomeEnabled] = useState(false)
   const [playingSongSlot, setPlayingSongSlot] = useState<number | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
-  const [pumpSource, setPumpSource] = useState<GroupPadReference | null>(null)
-  const [pumpTargets, setPumpTargets] = useState<GroupPadReference[]>([])
-  const [pumpDepth, setPumpDepth] = useState(0.9)
-  const [pumpLengthBeats, setPumpLengthBeats] = useState(0.5)
-  const [pumpCurve, setPumpCurve] = useState<'snap' | 'smooth' | 'swell'>('smooth')
+  const [pumpRoutes, setPumpRoutes] = useState<PumpRoute[]>([])
   const [waveforms, setWaveforms] = useState<Record<string, number[]>>({})
   const [chopAddingSlice, setChopAddingSlice] = useState(false)
   const [sourcePreviewing, setSourcePreviewing] = useState(false)
@@ -227,7 +224,7 @@ export function App({ audioEngine }: AppProps) {
     setWaveformPlayback({ assetId, startedAt, startSeconds, endSeconds })
   }
 
-  useEffect(() => { audioEngine.setPumpConfig({ sourceChannelId: pumpSource ? createChannelId(pumpSource) : null, targetChannelIds: pumpTargets.map(createChannelId), depth: pumpDepth, lengthSeconds: 60 / bpm * pumpLengthBeats, curve: pumpCurve }) }, [audioEngine, bpm, pumpCurve, pumpDepth, pumpLengthBeats, pumpSource, pumpTargets])
+  useEffect(() => { audioEngine.setPumpRoutes(pumpRoutes.map((route) => ({ id: route.id, sourceChannelId: createChannelId(route.source), targetGroupId: route.targetGroupId, depth: route.depth, lengthSeconds: 60 / bpm * route.lengthBeats, curve: route.curve }))) }, [audioEngine, bpm, pumpRoutes])
   useEffect(() => { audioEngine.setBpm(bpm) }, [audioEngine, bpm])
   useEffect(() => { audioEngine.setMasterEffects(masterEffects) }, [audioEngine, masterEffects])
   useEffect(() => { for (const group of patternGroups) audioEngine.setGroupEffects(group.id, group.effects) }, [audioEngine, patternGroups])
@@ -291,7 +288,7 @@ export function App({ audioEngine }: AppProps) {
       swing,
       master,
       masterEffects,
-      pump: { source: pumpSource, targets: pumpTargets, depth: pumpDepth, lengthBeats: pumpLengthBeats, curve: pumpCurve },
+      pumpRoutes,
     })
   }
 
@@ -393,7 +390,7 @@ export function App({ audioEngine }: AppProps) {
       audioEngine.setBpm(state.bpm)
       audioEngine.setMasterEffects(state.masterEffects)
       for (const group of state.patternGroups) audioEngine.setGroupEffects(group.id, group.effects)
-      audioEngine.setPumpConfig({ sourceChannelId: state.pump.source ? createChannelId(state.pump.source) : null, targetChannelIds: state.pump.targets.map(createChannelId), depth: state.pump.depth, lengthSeconds: 60 / state.bpm * state.pump.lengthBeats, curve: state.pump.curve })
+      audioEngine.setPumpRoutes(state.pumpRoutes.map((route) => ({ id: route.id, sourceChannelId: createChannelId(route.source), targetGroupId: route.targetGroupId, depth: route.depth, lengthSeconds: 60 / state.bpm * route.lengthBeats, curve: route.curve })))
       setPatternGroups(state.patternGroups)
       setSelectedPatternGroupId(state.selectedPatternGroupId)
       setSelectedPatternVariant(state.selectedPatternVariant)
@@ -405,11 +402,7 @@ export function App({ audioEngine }: AppProps) {
       setSwing(state.swing)
       setMaster(state.master)
       setMasterEffects(state.masterEffects)
-      setPumpSource(state.pump.source)
-      setPumpTargets(state.pump.targets)
-      setPumpDepth(state.pump.depth)
-      setPumpLengthBeats(state.pump.lengthBeats)
-      setPumpCurve(state.pump.curve)
+      setPumpRoutes(state.pumpRoutes)
       setProjectKey(state.projectKey)
       setWaveforms(nextWaveforms)
       setChopAddingSlice(false)
@@ -736,8 +729,7 @@ export function App({ audioEngine }: AppProps) {
     const next = patternGroups.filter((item) => item.id !== group.id)
     setPatternGroups(next)
     setPlaylist((current) => removeClipsForGroup(current, group.id))
-    setPumpSource((current) => current?.patternGroupId === group.id ? null : current)
-    setPumpTargets((current) => current.filter((target) => target.patternGroupId !== group.id))
+    setPumpRoutes((current) => current.filter((route) => route.source.patternGroupId !== group.id && route.targetGroupId !== group.id))
     for (const assetId of group.bank.pads.map((pad) => pad.assetId).concat(group.bank.chopSession.assetId ?? [])) removeAssetIfUnused(assetId, next)
     setSelectedPatternGroupId(next[0].id)
     setSelectedPatternVariant('A')
@@ -758,8 +750,7 @@ export function App({ audioEngine }: AppProps) {
     setIsPlaying(true)
   }
   const stopPlayback = () => { sequencerRef.current.stop(); audioEngine.stopSequencerVoices(); setIsPlaying(false); setPlayingSongSlot(null); setSequencerPlayhead(null) }
-  const selectedPumpSourceId = pumpSource?.patternGroupId === selectedPatternGroupId ? pumpSource.padId : null
-  const selectedPumpTargets = pumpTargets.filter((target) => target.patternGroupId === selectedPatternGroupId).map((target) => target.padId)
+  const selectedPumpSourcePadIds = pumpRoutes.filter((route) => route.source.patternGroupId === selectedPatternGroupId).map((route) => route.source.padId)
   const selectPatternGroup = (groupId: string) => {
     if (groupId === selectedPatternGroupId) return
     audioEngine.stopPreview()
@@ -995,8 +986,7 @@ export function App({ audioEngine }: AppProps) {
                 audioEngine={audioEngine}
                 patternGroupId={selectedPatternGroupId}
                 pads={pads}
-                pumpSourceId={selectedPumpSourceId}
-                pumpTargets={selectedPumpTargets}
+                pumpSourcePadIds={selectedPumpSourcePadIds}
                 onVolumeChange={updateChannelVolume}
                 onMutedChange={updateChannelMuted}
                 onSoloChange={updateChannelSolo}
@@ -1040,21 +1030,6 @@ export function App({ audioEngine }: AppProps) {
                   setActiveFxContext({ scope: mixScope, slotIndex })
                 }
               />
-              <PumpDisplayLauncher
-                patternGroupId={selectedPatternGroupId}
-                padId={selectedPad.id}
-                padLabel={selectedPad.label}
-                source={pumpSource}
-                targets={pumpTargets}
-                depth={pumpDepth}
-                lengthBeats={pumpLengthBeats}
-                curve={pumpCurve}
-                onSourceChange={setPumpSource}
-                onTargetsChange={setPumpTargets}
-                onDepthChange={setPumpDepth}
-                onLengthChange={setPumpLengthBeats}
-                onCurveChange={setPumpCurve}
-              />
               <EffectDisplayLauncher
                 context={activeFxContext}
                 scopeLabel={activeFxContext ? mixBusLabel : undefined}
@@ -1064,6 +1039,17 @@ export function App({ audioEngine }: AppProps) {
                 onClose={() => setActiveFxContext(null)}
               />
             </>
+          )}
+          {mainView === "pump" && (
+            <PumpScreen
+              patternGroups={patternGroups}
+              routes={pumpRoutes}
+              onAddRoute={(source, targetGroupId) => setPumpRoutes((current) => [...current, { id: createPumpRouteId(), source, targetGroupId, depth: 0.9, lengthBeats: 0.5, curve: 'smooth' }])}
+              onRemoveRoute={(routeId) => setPumpRoutes((current) => current.filter((route) => route.id !== routeId))}
+              onDepthChange={(routeId, depth) => setPumpRoutes((current) => current.map((route) => route.id === routeId ? { ...route, depth } : route))}
+              onLengthChange={(routeId, lengthBeats) => setPumpRoutes((current) => current.map((route) => route.id === routeId ? { ...route, lengthBeats } : route))}
+              onCurveChange={(routeId, curve) => setPumpRoutes((current) => current.map((route) => route.id === routeId ? { ...route, curve } : route))}
+            />
           )}
           {mainView === "project" && (
             <section className="project-workspace" aria-label="Project key and files">

@@ -202,13 +202,14 @@ function applyRenderState(engine: AudioEngine, liveEngine: AudioEngine, state: P
   engine.setBpm(state.bpm)
   engine.setMasterEffects(state.masterEffects)
   for (const group of state.patternGroups) engine.setGroupEffects(group.id, group.effects)
-  engine.setPumpConfig({
-    sourceChannelId: state.pump.source ? createChannelId(state.pump.source) : null,
-    targetChannelIds: state.pump.targets.map(createChannelId),
-    depth: state.pump.depth,
-    lengthSeconds: 60 / state.bpm * state.pump.lengthBeats,
-    curve: state.pump.curve,
-  })
+  engine.setPumpRoutes(state.pumpRoutes.map((route) => ({
+    id: route.id,
+    sourceChannelId: createChannelId(route.source),
+    targetGroupId: route.targetGroupId,
+    depth: route.depth,
+    lengthSeconds: 60 / state.bpm * route.lengthBeats,
+    curve: route.curve,
+  })))
   engine.applyMixerStateImmediately()
 }
 

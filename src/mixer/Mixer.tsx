@@ -9,14 +9,14 @@ interface MixerProps {
   audioEngine: AudioEngine
   patternGroupId: string
   pads: readonly PadState[]
-  pumpSourceId: string | null
-  pumpTargets: readonly string[]
+  /** Pad IDs (within this Pattern Group) that trigger at least one Pump route. Set on the PUMP screen. */
+  pumpSourcePadIds: readonly string[]
   onVolumeChange: (padId: PadState['id'], volume: number) => void
   onMutedChange: (padId: PadState['id'], muted: boolean) => void
   onSoloChange: (padId: PadState['id'], solo: boolean) => void
 }
 
-export function Mixer({ audioEngine, patternGroupId, pads, pumpSourceId, pumpTargets, onVolumeChange, onMutedChange, onSoloChange }: MixerProps) {
+export function Mixer({ audioEngine, patternGroupId, pads, pumpSourcePadIds, onVolumeChange, onMutedChange, onSoloChange }: MixerProps) {
   const channelsPerPage = 4
   const pageCount = Math.ceil(pads.length / channelsPerPage)
   const [pageIndex, setPageIndex] = useState(0)
@@ -52,8 +52,7 @@ export function Mixer({ audioEngine, patternGroupId, pads, pumpSourceId, pumpTar
       </div>
       <div className="mixer-strips">
         {visiblePads.map((pad) => {
-          const isPumpSource = pumpSourceId === pad.id
-          const isPumpTarget = pumpTargets.includes(pad.id)
+          const isPumpSource = pumpSourcePadIds.includes(pad.id)
           return (
             <article className="mixer-strip" key={pad.id}>
               <strong className="mixer-strip-label">{pad.label.replace('PAD ', '')}</strong>
@@ -63,9 +62,9 @@ export function Mixer({ audioEngine, patternGroupId, pads, pumpSourceId, pumpTar
                 aria-label={pad.fileName ? `${pad.fileName} loaded` : 'Empty'}
               />
               <span
-                className={`mixer-strip-pump ${isPumpSource ? 'mixer-strip-pump-source' : isPumpTarget ? 'mixer-strip-pump-target' : ''}`}
-                aria-hidden={!isPumpSource && !isPumpTarget}
-                aria-label={isPumpSource ? 'Pump source' : isPumpTarget ? 'Pump target' : undefined}
+                className={isPumpSource ? 'mixer-strip-pump mixer-strip-pump-source' : 'mixer-strip-pump'}
+                aria-hidden={!isPumpSource}
+                aria-label={isPumpSource ? 'Pump source' : undefined}
               />
               <div className="mixer-strip-level">
                 <ChannelMeter

@@ -1,4 +1,5 @@
 import type { AudioEngine, ChannelId, GroupId, SampleAssetId, TriggerSampleOptions } from './AudioEngine'
+import type { SynthPatch } from '../synth/synthTypes'
 
 export interface StepSequencerConfig {
   bpm: number
@@ -13,16 +14,28 @@ export interface StepSequencerConfig {
   onSongComplete?: () => void
 }
 
-export interface StepSequencerTrack {
+interface StepSequencerTrackBase {
   groupId: GroupId
   channelId: ChannelId
-  assetId: SampleAssetId
   steps: readonly number[]
   shifts: readonly number[]
+}
+
+export interface SampleSequencerTrack extends StepSequencerTrackBase {
+  source: 'sample'
+  assetId: SampleAssetId
   /** Slices from one CHOP session share a mono choke group. */
   chokeGroupId?: string
   options: TriggerSampleOptions
 }
+
+export interface SynthSequencerTrack extends StepSequencerTrackBase {
+  source: 'synth'
+  patch: SynthPatch
+  midiNotes: readonly number[]
+}
+
+export type StepSequencerTrack = SampleSequencerTrack | SynthSequencerTrack
 
 /**
  * Decides when the next scheduling pass happens. Live playback wakes on a
@@ -105,8 +118,12 @@ export class StepSequencer {
         return [{ track, velocity, when: scheduledTime + shift * stepDuration }]
       })
       for (const { track, velocity, when } of activeTracks.sort((left, right) => left.when - right.when)) {
-        if (track.chokeGroupId) this.audioEngine.stopSequencerChokeGroupAt(track.chokeGroupId, when)
-        this.audioEngine.scheduleSample(track.groupId, track.channelId, track.assetId, when, { ...track.options, gain: (track.options.gain ?? 1) * velocity, chokeGroupId: track.chokeGroupId }, 'sequencer')
+        if (track.source === 'sample') {
+          if (track.chokeGroupId) this.audioEngine.stopSequencerChokeGroupAt(track.chokeGroupId, when)
+          this.audioEngine.scheduleSample(track.groupId, track.channelId, track.assetId, when, { ...track.options, gain: (track.options.gain ?? 1) * velocity, chokeGroupId: track.chokeGroupId }, 'sequencer')
+        } else {
+          this.audioEngine.scheduleSynthPad(track.groupId, track.channelId, track.patch, track.midiNotes, when, when + track.patch.gate * stepDuration, velocity)
+        }
       }
       const wasLastStep = this.nextStepIndex === 15
       this.nextStepIndex = (this.nextStepIndex + 1) % 16

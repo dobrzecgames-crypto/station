@@ -7,6 +7,7 @@ interface PadProps {
   audioReady: boolean
   dropSampleName: string | null
   onTrigger: (padId: PadState['id']) => void
+  onRelease: (padId: PadState['id']) => void
   onDropSample: (padId: PadState['id']) => void
   onFeedbackEnd: (padId: PadState['id']) => void
 }
@@ -18,28 +19,35 @@ export function Pad({
   audioReady,
   dropSampleName,
   onTrigger,
+  onRelease,
   onDropSample,
   onFeedbackEnd,
 }: PadProps) {
-  const isLoaded = pad.fileName !== null
-  const statusLabel = dropSampleName ? 'DROP' : isLoaded ? (audioReady ? 'READY' : 'LOCKED') : 'EMPTY'
+  const isSynth = pad.synthPatchId !== null
+  const isLoaded = pad.fileName !== null || isSynth
+  const sourceLabel = isSynth ? 'MONO-3' : pad.fileName
+  const statusLabel = dropSampleName ? 'DROP' : isSynth ? (audioReady ? 'SYNTH' : 'LOCKED') : isLoaded ? (audioReady ? 'READY' : 'LOCKED') : 'EMPTY'
 
   return (
     <button
       type="button"
       className={`pad ${isLoaded ? 'pad-loaded' : 'pad-empty'} ${isSelected ? 'pad-selected' : ''} ${isActive ? 'pad-active' : ''} ${dropSampleName ? 'pad-drop-target' : ''}`}
       aria-pressed={isSelected}
-      aria-label={dropSampleName ? `Drop ${dropSampleName} to ${pad.label}` : `${pad.label}, ${isLoaded ? `loaded: ${pad.fileName}` : 'empty'}`}
+      aria-label={dropSampleName ? `Drop ${dropSampleName} to ${pad.label}` : `${pad.label}, ${isLoaded ? `loaded: ${sourceLabel}` : 'empty'}`}
       onAnimationEnd={() => onFeedbackEnd(pad.id)}
       onPointerDown={(event) => {
         event.preventDefault()
+        event.currentTarget.setPointerCapture(event.pointerId)
         if (dropSampleName) onDropSample(pad.id)
         else onTrigger(pad.id)
       }}
+      onPointerUp={() => onRelease(pad.id)}
+      onPointerCancel={() => onRelease(pad.id)}
+      onLostPointerCapture={() => onRelease(pad.id)}
     >
       <span className="pad-number">{pad.label}</span>
       {isLoaded && (
-        <span className="pad-file" title={pad.fileName ?? undefined}>{pad.fileName}</span>
+        <span className="pad-file" title={sourceLabel ?? undefined}>{sourceLabel}</span>
       )}
       <span className="pad-footer">{statusLabel}</span>
     </button>

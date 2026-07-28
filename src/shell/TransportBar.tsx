@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import { patternVariantNames, maximumPatternGroups } from '../patterns/patternTypes'
 import type { PatternGroup, PatternVariantName } from '../patterns/patternTypes'
 import { SystemDisplay } from './SystemDisplay'
@@ -45,11 +46,14 @@ interface TransportBarProps {
   onVariantDuplicate: (target: PatternVariantName) => void
   onVariantClear: () => void
   onGroupDelete: () => void
+  /** Global project actions live in the display but keep a permanent way in
+      beside the bank and pattern context. */
+  projectControl: ReactNode
   onPlay: () => void
   onStop: () => void
 }
 
-export function TransportBar({ bpm, swing, isPlaying, mode, loopSong, metronomeEnabled, settingsOpen, onSettingsOpenChange, groups, selectedGroupId, selectedVariant, statusMessage, errorMessage, displayOwner, audioStatus, audioDisabled, controlsAwake, onStartAudio, onBpmChange, onSwingChange, onModeChange, onLoopSongChange, onMetronomeEnabledChange, onGroupChange, onVariantChange, onGroupCreate, onVariantCreate, onVariantDuplicate, onVariantClear, onGroupDelete, onPlay, onStop }: TransportBarProps) {
+export function TransportBar({ bpm, swing, isPlaying, mode, loopSong, metronomeEnabled, settingsOpen, onSettingsOpenChange, groups, selectedGroupId, selectedVariant, statusMessage, errorMessage, displayOwner, audioStatus, audioDisabled, controlsAwake, onStartAudio, onBpmChange, onSwingChange, onModeChange, onLoopSongChange, onMetronomeEnabledChange, onGroupChange, onVariantChange, onGroupCreate, onVariantCreate, onVariantDuplicate, onVariantClear, onGroupDelete, projectControl, onPlay, onStop }: TransportBarProps) {
   const groupIndex = groups.findIndex((group) => group.id === selectedGroupId)
   const selectedGroup = groups[groupIndex]
   const { claim, release, ownerId } = useSystemDisplay()
@@ -117,6 +121,7 @@ export function TransportBar({ bpm, swing, isPlaying, mode, loopSong, metronomeE
         "Pattern 1" inside saved projects. SONG has always labelled its clips
         1A and 2B - now the transport says the same thing. */}
     <div className="music-context" aria-label="Current music context">
+      {projectControl}
       <div className="group-selector">
         <span className="context-label">BANK</span>
         <button className="mixer-toggle" type="button" aria-label="Previous bank" disabled={groupIndex <= 0} onClick={() => onGroupChange(groups[groupIndex - 1].id)}>‹</button>

@@ -10,11 +10,12 @@ interface PadGridProps {
   audioReady: boolean
   dropSample?: LibrarySample | null
   onTrigger: (padId: PadState['id']) => void
+  onRelease?: (padId: PadState['id']) => void
   onDropSample?: (padId: PadState['id']) => void
   onFeedbackEnd: (padId: PadState['id']) => void
 }
 
-export function PadGrid({ pads, selectedPadId, activePadId, audioReady, dropSample = null, onTrigger, onDropSample = () => undefined, onFeedbackEnd }: PadGridProps) {
+export function PadGrid({ pads, selectedPadId, activePadId, audioReady, dropSample = null, onTrigger, onRelease = () => undefined, onDropSample = () => undefined, onFeedbackEnd }: PadGridProps) {
   return (
     <div className="pad-grid" aria-label="16 pad bank">
       {pads.map((pad) => (
@@ -26,6 +27,7 @@ export function PadGrid({ pads, selectedPadId, activePadId, audioReady, dropSamp
           audioReady={audioReady}
           dropSampleName={dropSample?.filename ?? null}
           onTrigger={onTrigger}
+          onRelease={onRelease}
           onDropSample={onDropSample}
           onFeedbackEnd={onFeedbackEnd}
         />

@@ -1,6 +1,7 @@
 import type { SampleId } from '../audio/AudioEngine'
 import type { EffectRackState } from '../audio/effects'
 import type { PadBankState } from '../pads/padBank'
+import type { SynthPatch } from '../synth/synthTypes'
 
 export const patternVariantNames = ['A', 'B', 'C', 'D'] as const
 export const maximumPatternGroups = 8
@@ -21,6 +22,7 @@ export interface PatternGroup {
   bank: PadBankState
   bus?: GroupBusState
   effects: EffectRackState
+  synthPatches: SynthPatch[]
   variants: Partial<Record<PatternVariantName, StepPattern>>
   shifts: Partial<Record<PatternVariantName, StepShiftPattern>>
 }

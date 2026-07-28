@@ -54,6 +54,8 @@ export function createPadBank(): PadState[] {
     // Matches the existing per-voice edge fade, preserving the sound of a new
     // pad bank and of projects written before the AR envelope existed.
     releaseMs: 4,
+    synthPatchId: null,
+    chordIntervals: [0],
   }))
 }
 
@@ -70,7 +72,16 @@ export function clonePadBank(bank: PadBankState): PadBankState {
   // pitch existed has no pitchSemitones on its chopSession at all.
   const legacySession = bank.chopSession as ChopSessionState & { pitchSemitones?: unknown }
   return {
-    pads: bank.pads.map((pad) => ({ ...pad, region: { ...pad.region }, slices: pad.slices.map((slice) => ({ ...slice })) })),
+    pads: bank.pads.map((pad) => {
+      const legacyPad = pad as PadState & { synthPatchId?: unknown; chordIntervals?: unknown }
+      return {
+        ...pad,
+        region: { ...pad.region },
+        slices: pad.slices.map((slice) => ({ ...slice })),
+        synthPatchId: legacyPad.synthPatchId === undefined ? null : legacyPad.synthPatchId as PadState['synthPatchId'],
+        chordIntervals: legacyPad.chordIntervals === undefined ? [0] : [...legacyPad.chordIntervals as number[]],
+      }
+    }),
     chopSession: {
       ...bank.chopSession,
       pitchSemitones: legacySession.pitchSemitones === undefined ? 0 : legacySession.pitchSemitones as number,

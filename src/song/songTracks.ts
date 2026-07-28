@@ -6,6 +6,7 @@ import { getVariant, getVariantShifts } from '../patterns/patternOperations'
 import type { PatternGroup, PatternVariantName, StepPattern, StepShiftPattern } from '../patterns/patternTypes'
 import { getActiveClipsForSlot } from './songOperations'
 import type { PatternClip } from './songTypes'
+import { getSynthPatch, resolveSynthPadMidiNotes } from '../synth/synthOperations'
 
 /** Reports whether the audio engine currently holds a decoded asset. */
 export type SampleAssetPredicate = (assetId: SampleAssetId) => boolean
@@ -40,16 +41,24 @@ function resolveVariant(groups: readonly PatternGroup[], groupId: string, varian
 function toTracks(variants: readonly (ResolvedVariant | undefined)[], hasSampleAsset: SampleAssetPredicate): StepSequencerTrack[] {
   return variants.flatMap((pattern) => {
     if (!pattern) return []
-    return pattern.group.bank.pads
-      .filter((pad): pad is PadState & { assetId: SampleAssetId } => pad.assetId !== null && hasSampleAsset(pad.assetId))
-      .map<StepSequencerTrack>((pad) => ({
+    return pattern.group.bank.pads.flatMap<StepSequencerTrack>((pad) => {
+      const common = {
         groupId: pattern.group.id,
         channelId: createChannelId({ patternGroupId: pattern.group.id, padId: pad.id }),
-        assetId: pad.assetId,
         steps: pattern.steps[pad.id],
         shifts: pattern.shifts[pad.id],
+      }
+      const patch = getSynthPatch(pattern.group, pad.synthPatchId)
+      if (patch) return [{ ...common, source: 'synth', patch, midiNotes: resolveSynthPadMidiNotes(patch, pad) }]
+      if (!pad.assetId || !hasSampleAsset(pad.assetId)) return []
+      const samplePad = pad as PadState & { assetId: SampleAssetId }
+      return [{
+        ...common,
+        source: 'sample',
+        assetId: samplePad.assetId,
         chokeGroupId: pad.chopSessionId ?? undefined,
         options: { pitchSemitones: pad.pitchSemitones, startSeconds: pad.region.startSeconds, endSeconds: pad.region.endSeconds, attackMs: pad.attackMs, releaseMs: pad.releaseMs },
-      }))
+      }]
+    })
   })
 }

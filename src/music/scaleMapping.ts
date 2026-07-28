@@ -9,30 +9,51 @@ export interface ScaleMapResult {
 
 export function findProjectScaleMapConflicts(pads: readonly PadState[], sourcePadId: PadState['id']): PadState[] {
   const sourceIndex = pads.findIndex((pad) => pad.id === sourcePadId)
-  return sourceIndex < 0 ? [] : pads.slice(sourceIndex + 1).filter((pad) => pad.assetId !== null)
+  return sourceIndex < 0 ? [] : pads.slice(sourceIndex + 1).filter((pad) => pad.assetId !== null || pad.synthPatchId !== null)
 }
 
 export function mapPadBankToProjectScale(pads: readonly PadState[], sourcePadId: PadState['id'], projectKey: ProjectKey): ScaleMapResult {
   const sourceIndex = pads.findIndex((pad) => pad.id === sourcePadId)
   const sourcePad = pads[sourceIndex]
-  if (sourceIndex < 0 || !sourcePad?.assetId || !sourcePad.fileName || sourcePad.durationSeconds === null) {
-    throw new Error('Choose a pad with a sample before mapping it to the project scale.')
+  if (sourceIndex < 0 || !sourcePad || (!sourcePad.assetId && !sourcePad.synthPatchId)) {
+    throw new Error('Choose a pad with a sample or MONO-3 patch before mapping it to the project scale.')
+  }
+  if (sourcePad.assetId && (!sourcePad.fileName || sourcePad.durationSeconds === null)) {
+    throw new Error('The selected sample is missing its playback metadata.')
   }
 
   const pitchOffsets = getScalePitchOffsets(projectKey.scale, pads.length - sourceIndex)
   return {
-    pads: pads.map((pad, index) => index < sourceIndex ? pad : {
-      ...pad,
-      assetId: sourcePad.assetId,
-      fileName: sourcePad.fileName,
-      durationSeconds: sourcePad.durationSeconds,
-      region: { ...sourcePad.region },
-      slices: [],
-      chopSessionId: null,
-      volume: sourcePad.volume,
-      pitchSemitones: pitchOffsets[index - sourceIndex],
-      attackMs: sourcePad.attackMs,
-      releaseMs: sourcePad.releaseMs,
+    pads: pads.map((pad, index) => {
+      if (index < sourceIndex) return pad
+      return sourcePad.synthPatchId
+        ? {
+            ...pad,
+            assetId: null,
+            fileName: null,
+            durationSeconds: null,
+            region: { startSeconds: 0, endSeconds: 0 },
+            slices: [],
+            chopSessionId: null,
+            synthPatchId: sourcePad.synthPatchId,
+            chordIntervals: [...sourcePad.chordIntervals],
+            pitchSemitones: pitchOffsets[index - sourceIndex],
+          }
+        : {
+            ...pad,
+            assetId: sourcePad.assetId,
+            fileName: sourcePad.fileName,
+            durationSeconds: sourcePad.durationSeconds,
+            region: { ...sourcePad.region },
+            slices: [],
+            chopSessionId: null,
+            synthPatchId: null,
+            chordIntervals: [0],
+            volume: sourcePad.volume,
+            pitchSemitones: pitchOffsets[index - sourceIndex],
+            attackMs: sourcePad.attackMs,
+            releaseMs: sourcePad.releaseMs,
+          }
     }),
     mappedPadCount: pads.length - sourceIndex,
   }

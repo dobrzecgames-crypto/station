@@ -1,5 +1,7 @@
 import { createDefaultMasterEffectRack, createEmptyEffectRack, defaultCompressorConfig, defaultDelayConfig, getDelayTimeSeconds, normalizeEffectRackState } from './effects'
 import type { EffectRackState, EffectSlotState, EffectType } from './effects'
+import { cloneSynthPatch, lfoFrequencyHz, maximumSynthVoices } from '../synth/synthOperations'
+import type { SynthPatch } from '../synth/synthTypes'
 
 export type SampleId = string
 export type SampleAssetId = string
@@ -67,6 +69,48 @@ interface ActiveVoice {
   onEnded?: () => void
 }
 
+export interface SynthPatchRegistration {
+  groupId: GroupId
+  patch: SynthPatch
+}
+
+interface ActiveSynthVoice {
+  oscillators: [OscillatorNode, OscillatorNode, OscillatorNode]
+  oscillatorGains: [GainNode, GainNode, GainNode]
+  filters: [BiquadFilterNode, BiquadFilterNode]
+  drive: WaveShaperNode
+  amp: GainNode
+  origin: 'manual' | 'sequencer'
+  patchKey: string
+  channelId: ChannelId
+  midiNote: number
+  startsAt: number
+  serial: number
+  manualToken?: string
+  stopAt?: number
+  stolen?: boolean
+  cleanedUp: boolean
+}
+
+interface HeldMonoNote {
+  token: string
+  groupId: GroupId
+  channelId: ChannelId
+  midiNote: number
+  velocity: number
+}
+
+interface SynthPatchRuntime {
+  groupId: GroupId
+  patch: SynthPatch
+  lfo?: OscillatorNode
+  lfoDepth?: GainNode
+  voices: Set<ActiveSynthVoice>
+  heldMonoNotes: HeldMonoNote[]
+  currentMonoVoice?: ActiveSynthVoice
+  lastMidiNote?: number
+}
+
 interface Channel {
   groupId: GroupId
   volume: number
@@ -124,6 +168,10 @@ export class AudioEngine {
   private runtimeAssets = new Map<SampleAssetId, RuntimeSampleAsset>()
   private activeVoices = new Set<ActiveVoice>()
   private previewVoices = new Set<ActiveVoice>()
+  private readonly synthPatches = new Map<string, SynthPatchRegistration>()
+  private readonly synthRuntimes = new Map<string, SynthPatchRuntime>()
+  private activeSynthVoices = new Set<ActiveSynthVoice>()
+  private synthVoiceSerial = 0
   private status: AudioEngineStatus = 'inactive'
   private readonly statusListeners = new Set<(status: AudioEngineStatus) => void>()
 
@@ -158,6 +206,7 @@ export class AudioEngine {
       this.liveContext.onstatechange = () => this.syncContextStatus()
       this.createMasterOutput(this.liveContext)
       this.createChannelNodes()
+      this.ensureAllSynthRuntimes()
       await this.liveContext.resume()
 
       if (this.liveContext.state !== 'running') {
@@ -180,6 +229,7 @@ export class AudioEngine {
     this.context = context
     this.createMasterOutput(context)
     this.createChannelNodes()
+    this.ensureAllSynthRuntimes()
     this.setStatus('ready')
   }
 
@@ -321,6 +371,25 @@ export class AudioEngine {
     if (this.bpm === nextBpm) return
     this.bpm = nextBpm
     this.applySynchronizedDelayTimes()
+    for (const runtime of this.synthRuntimes.values()) this.applySynthLfo(runtime)
+  }
+
+  syncSynthPatches(registrations: readonly SynthPatchRegistration[]): void {
+    const nextKeys = new Set<string>()
+    for (const registration of registrations) {
+      const key = this.synthPatchKey(registration.groupId, registration.patch.id)
+      nextKeys.add(key)
+      this.synthPatches.set(key, { groupId: registration.groupId, patch: cloneSynthPatch(registration.patch) })
+      const runtime = this.synthRuntimes.get(key)
+      if (runtime) this.updateSynthRuntime(runtime, registration.patch)
+      else if (this.context && this.masterEffects) this.ensureSynthRuntime(registration.groupId, registration.patch)
+    }
+    for (const key of [...this.synthPatches.keys()]) {
+      if (nextKeys.has(key)) continue
+      this.synthPatches.delete(key)
+      const runtime = this.synthRuntimes.get(key)
+      if (runtime) this.disposeSynthRuntime(key, runtime)
+    }
   }
 
   triggerSample(groupId: GroupId, channelId: ChannelId, assetId: SampleAssetId, options: TriggerSampleOptions = {}): void {
@@ -329,6 +398,58 @@ export class AudioEngine {
     }
 
     this.scheduleSample(groupId, channelId, assetId, this.context.currentTime, options)
+  }
+
+  triggerSynthPad(groupId: GroupId, channelId: ChannelId, patch: SynthPatch, midiNotes: readonly number[], velocity = 1, manualToken = channelId): void {
+    if (this.status !== 'ready' || !this.context) return
+    const runtime = this.ensureSynthRuntime(groupId, patch)
+    const when = this.context.currentTime
+    for (const route of this.pumpRoutes) if (route.sourceChannelId === channelId) this.triggerPumpRoute(route, when)
+    if (patch.mode === 'mono') {
+      const midiNote = midiNotes[0]
+      if (!Number.isFinite(midiNote)) return
+      runtime.heldMonoNotes = runtime.heldMonoNotes.filter((held) => held.token !== manualToken)
+      runtime.heldMonoNotes.push({ token: manualToken, groupId, channelId, midiNote, velocity: this.toGain(velocity) })
+      this.startMonoSynthVoice(runtime, groupId, channelId, midiNote, velocity, when, 'manual', manualToken)
+      return
+    }
+    this.releaseSynthPad(manualToken)
+    for (const midiNote of midiNotes.slice(0, maximumSynthVoices)) {
+      if (Number.isFinite(midiNote)) this.startSynthVoice(runtime, groupId, channelId, midiNote, velocity, when, 'manual', manualToken)
+    }
+  }
+
+  releaseSynthPad(manualToken: string): void {
+    if (!this.context) return
+    const when = this.context.currentTime
+    for (const runtime of this.synthRuntimes.values()) {
+      const wasLastHeld = runtime.heldMonoNotes.at(-1)?.token === manualToken
+      runtime.heldMonoNotes = runtime.heldMonoNotes.filter((held) => held.token !== manualToken)
+      for (const voice of runtime.voices) if (voice.origin === 'manual' && voice.manualToken === manualToken) this.releaseSynthVoice(runtime, voice, when)
+      if (runtime.patch.mode !== 'mono' || !wasLastHeld) continue
+      const fallback = runtime.heldMonoNotes.at(-1)
+      if (fallback) this.startMonoSynthVoice(runtime, fallback.groupId, fallback.channelId, fallback.midiNote, fallback.velocity, when, 'manual', fallback.token)
+    }
+  }
+
+  scheduleSynthPad(groupId: GroupId, channelId: ChannelId, patch: SynthPatch, midiNotes: readonly number[], when: number, noteOffWhen: number, velocity: number): void {
+    if (this.status !== 'ready' || !this.context) return
+    const runtime = this.ensureSynthRuntime(groupId, patch)
+    const scheduledWhen = Math.max(this.context.currentTime, when)
+    const scheduledOff = Math.max(scheduledWhen + 0.005, noteOffWhen)
+    for (const route of this.pumpRoutes) if (route.sourceChannelId === channelId) this.triggerPumpRoute(route, scheduledWhen)
+    if (patch.mode === 'mono') {
+      const midiNote = midiNotes[0]
+      if (!Number.isFinite(midiNote)) return
+      const voice = this.startMonoSynthVoice(runtime, groupId, channelId, midiNote, velocity, scheduledWhen, 'sequencer')
+      if (voice) this.releaseSynthVoice(runtime, voice, scheduledOff)
+      return
+    }
+    for (const midiNote of midiNotes.slice(0, maximumSynthVoices)) {
+      if (!Number.isFinite(midiNote)) continue
+      const voice = this.startSynthVoice(runtime, groupId, channelId, midiNote, velocity, scheduledWhen, 'sequencer')
+      if (voice) this.releaseSynthVoice(runtime, voice, scheduledOff)
+    }
   }
 
   previewAsset(assetId: SampleAssetId, options: TriggerSampleOptions = {}, onEnded?: () => void): void {
@@ -427,6 +548,7 @@ export class AudioEngine {
       }
       this.cleanUpVoice(voice)
     }
+    for (const voice of [...this.activeSynthVoices]) this.stopSynthVoiceImmediately(voice)
   }
 
   stopSequencerVoices(): void {
@@ -439,6 +561,7 @@ export class AudioEngine {
       }
       this.cleanUpVoice(voice)
     }
+    for (const voice of [...this.activeSynthVoices]) if (voice.origin === 'sequencer') this.stopSynthVoiceImmediately(voice)
   }
 
   stopSequencerChokeGroupAt(chokeGroupId: string, when: number): void {
@@ -467,10 +590,12 @@ export class AudioEngine {
       }
       this.cleanUpVoice(voice)
     }
+    for (const runtime of this.synthRuntimes.values()) runtime.heldMonoNotes = []
+    for (const voice of [...this.activeSynthVoices]) if (voice.origin === 'manual') this.stopSynthVoiceImmediately(voice)
   }
 
   getActiveVoiceCount(): number {
-    return this.activeVoices.size
+    return this.activeVoices.size + this.activeSynthVoices.size
   }
 
   getCurrentTime(): number {
@@ -482,6 +607,9 @@ export class AudioEngine {
     this.samples.clear()
     this.waveforms.clear()
     this.runtimeAssets.clear()
+    for (const [key, runtime] of this.synthRuntimes) this.disposeSynthRuntime(key, runtime)
+    this.synthPatches.clear()
+    this.activeSynthVoices.clear()
     for (const channel of this.channels.values()) {
       channel.gain?.disconnect()
       channel.meter?.disconnect()
@@ -542,6 +670,257 @@ export class AudioEngine {
       channel.meter.connect(this.ensureGroupBus(channel.groupId).gain!)
     }
     this.applyAllChannelGains(true)
+  }
+
+  private synthPatchKey(groupId: GroupId, patchId: string): string {
+    return `${groupId}:${patchId}`
+  }
+
+  private ensureAllSynthRuntimes(): void {
+    for (const registration of this.synthPatches.values()) this.ensureSynthRuntime(registration.groupId, registration.patch)
+  }
+
+  private ensureSynthRuntime(groupId: GroupId, patch: SynthPatch): SynthPatchRuntime {
+    const key = this.synthPatchKey(groupId, patch.id)
+    this.synthPatches.set(key, { groupId, patch: cloneSynthPatch(patch) })
+    let runtime = this.synthRuntimes.get(key)
+    if (!runtime) {
+      runtime = { groupId, patch: cloneSynthPatch(patch), voices: new Set(), heldMonoNotes: [] }
+      this.synthRuntimes.set(key, runtime)
+      if (this.context) this.createSynthLfo(runtime)
+    } else this.updateSynthRuntime(runtime, patch)
+    return runtime
+  }
+
+  private updateSynthRuntime(runtime: SynthPatchRuntime, patch: SynthPatch): void {
+    const modeChanged = runtime.patch.mode !== patch.mode
+    const waveformChanged = runtime.patch.lfo.waveform !== patch.lfo.waveform
+    runtime.patch = cloneSynthPatch(patch)
+    if (modeChanged && this.context) {
+      runtime.heldMonoNotes = []
+      for (const voice of [...runtime.voices]) this.releaseSynthVoice(runtime, voice, this.context.currentTime, 0.008)
+    }
+    if (waveformChanged && this.context) this.recreateSynthLfo(runtime)
+    else this.applySynthLfo(runtime)
+    for (const voice of runtime.voices) this.applyPatchToActiveSynthVoice(runtime, voice)
+  }
+
+  private createSynthLfo(runtime: SynthPatchRuntime): void {
+    if (!this.context || runtime.lfo || runtime.lfoDepth) return
+    const lfo = this.context.createOscillator()
+    const depth = this.context.createGain()
+    lfo.connect(depth)
+    runtime.lfo = lfo
+    runtime.lfoDepth = depth
+    this.applySynthLfo(runtime, true)
+    for (const voice of runtime.voices) {
+      depth.connect(voice.filters[0].detune)
+      depth.connect(voice.filters[1].detune)
+    }
+    lfo.start(this.context.currentTime)
+  }
+
+  private recreateSynthLfo(runtime: SynthPatchRuntime): void {
+    if (!this.context) return
+    try { runtime.lfo?.stop(this.context.currentTime) } catch { /* The LFO may already be stopped. */ }
+    runtime.lfo?.disconnect()
+    runtime.lfoDepth?.disconnect()
+    runtime.lfo = undefined
+    runtime.lfoDepth = undefined
+    this.createSynthLfo(runtime)
+  }
+
+  private applySynthLfo(runtime: SynthPatchRuntime, immediately = false): void {
+    if (!this.context || !runtime.lfo || !runtime.lfoDepth) return
+    runtime.lfo.type = runtime.patch.lfo.waveform
+    this.applyEffectParameter(runtime.lfo.frequency, lfoFrequencyHz(runtime.patch.lfo.division, this.bpm), immediately, 0.02)
+    this.applyEffectParameter(runtime.lfoDepth.gain, runtime.patch.lfo.depthSemitones * 100, immediately, 0.02)
+  }
+
+  private startMonoSynthVoice(runtime: SynthPatchRuntime, groupId: GroupId, channelId: ChannelId, midiNote: number, velocity: number, when: number, origin: 'manual' | 'sequencer', manualToken?: string): ActiveSynthVoice | undefined {
+    const previousMidiNote = runtime.lastMidiNote
+    if (runtime.currentMonoVoice && !runtime.currentMonoVoice.cleanedUp) this.releaseSynthVoice(runtime, runtime.currentMonoVoice, when, 0.008)
+    const voice = this.startSynthVoice(runtime, groupId, channelId, midiNote, velocity, when, origin, manualToken, previousMidiNote)
+    runtime.currentMonoVoice = voice
+    runtime.lastMidiNote = midiNote
+    return voice
+  }
+
+  private startSynthVoice(runtime: SynthPatchRuntime, groupId: GroupId, channelId: ChannelId, midiNote: number, velocity: number, when: number, origin: 'manual' | 'sequencer', manualToken?: string, glideFromMidiNote?: number): ActiveSynthVoice | undefined {
+    if (!this.context || !this.masterEffects) return
+    const channel = this.ensureChannel(groupId, channelId)
+    if (!channel.gain) return
+    const scheduledWhen = Math.max(this.context.currentTime, when)
+    if (runtime.patch.mode === 'poly5') this.stealOldestSynthVoice(runtime, scheduledWhen)
+
+    const oscillators = [this.context.createOscillator(), this.context.createOscillator(), this.context.createOscillator()] as [OscillatorNode, OscillatorNode, OscillatorNode]
+    const oscillatorGains = [this.context.createGain(), this.context.createGain(), this.context.createGain()] as [GainNode, GainNode, GainNode]
+    const filters = [this.context.createBiquadFilter(), this.context.createBiquadFilter()] as [BiquadFilterNode, BiquadFilterNode]
+    const drive = this.context.createWaveShaper()
+    const amp = this.context.createGain()
+    const voice: ActiveSynthVoice = {
+      oscillators,
+      oscillatorGains,
+      filters,
+      drive,
+      amp,
+      origin,
+      patchKey: this.synthPatchKey(groupId, runtime.patch.id),
+      channelId,
+      midiNote,
+      startsAt: scheduledWhen,
+      serial: this.synthVoiceSerial++,
+      manualToken,
+      cleanedUp: false,
+    }
+
+    for (let index = 0; index < oscillators.length; index += 1) {
+      oscillators[index].connect(oscillatorGains[index])
+      oscillatorGains[index].connect(filters[0])
+    }
+    filters[0].connect(filters[1])
+    filters[1].connect(drive)
+    drive.connect(amp)
+    amp.connect(channel.gain)
+    runtime.lfoDepth?.connect(filters[0].detune)
+    runtime.lfoDepth?.connect(filters[1].detune)
+
+    this.applyPatchToActiveSynthVoice(runtime, voice, true, glideFromMidiNote)
+    const attack = Math.max(0.001, runtime.patch.ampEnvelope.attackSeconds)
+    const decay = Math.max(0.001, runtime.patch.ampEnvelope.decaySeconds)
+    const peak = this.toGain(velocity) * (runtime.patch.mode === 'poly5' ? 0.18 : 0.45)
+    const sustain = Math.max(0.0001, peak * runtime.patch.ampEnvelope.sustain)
+    amp.gain.setValueAtTime(0.0001, scheduledWhen)
+    amp.gain.exponentialRampToValueAtTime(Math.max(0.0001, peak), scheduledWhen + attack)
+    amp.gain.exponentialRampToValueAtTime(sustain, scheduledWhen + attack + decay)
+    this.applySynthFilterEnvelope(runtime.patch, filters, scheduledWhen)
+
+    oscillators[0].addEventListener('ended', () => this.cleanUpSynthVoice(runtime, voice), { once: true })
+    runtime.voices.add(voice)
+    this.activeSynthVoices.add(voice)
+    for (const oscillator of oscillators) oscillator.start(scheduledWhen)
+    return voice
+  }
+
+  private applyPatchToActiveSynthVoice(runtime: SynthPatchRuntime, voice: ActiveSynthVoice, immediately = false, glideFromMidiNote?: number): void {
+    if (!this.context) return
+    const patch = runtime.patch
+    const now = Math.max(this.context.currentTime, voice.startsAt)
+    const oscillators = [patch.oscillator1, patch.oscillator2, patch.sub] as const
+    const totalLevel = Math.max(1, oscillators.reduce((sum, oscillator) => sum + oscillator.level, 0))
+    for (let index = 0; index < voice.oscillators.length; index += 1) {
+      const oscillator = voice.oscillators[index]
+      const config = oscillators[index]
+      oscillator.type = config.waveform
+      this.applySynthPitch(oscillator.frequency, voice.midiNote, config.octave, 'detuneCents' in config ? config.detuneCents : 0, now, immediately ? 0 : patch.glideSeconds, glideFromMidiNote)
+      this.applyEffectParameter(voice.oscillatorGains[index].gain, config.level / totalLevel, immediately, 0.01)
+    }
+    for (const filter of voice.filters) {
+      filter.type = 'lowpass'
+      this.applyEffectParameter(filter.frequency, patch.filter.cutoffHz, immediately, 0.015)
+      this.applyEffectParameter(filter.Q, patch.filter.resonance / 2, immediately, 0.015)
+    }
+    voice.drive.curve = this.createDriveCurve(patch.drive)
+    voice.drive.oversample = '2x'
+  }
+
+  private applySynthPitch(parameter: AudioParam, midiNote: number, octave: number, detuneCents: number, when: number, glideSeconds: number, glideFromMidiNote?: number): void {
+    const target = this.midiNoteToFrequency(midiNote + octave * 12 + detuneCents / 100)
+    const startMidi = glideFromMidiNote === undefined ? midiNote : glideFromMidiNote
+    const start = this.midiNoteToFrequency(startMidi + octave * 12 + detuneCents / 100)
+    parameter.cancelScheduledValues(when)
+    parameter.setValueAtTime(start, when)
+    if (glideSeconds > 0 && start !== target) parameter.exponentialRampToValueAtTime(target, when + glideSeconds)
+    else parameter.setValueAtTime(target, when)
+  }
+
+  private applySynthFilterEnvelope(patch: SynthPatch, filters: readonly [BiquadFilterNode, BiquadFilterNode], when: number): void {
+    const attack = Math.max(0.001, patch.filter.envelopeAttackSeconds)
+    const decay = Math.max(0.001, patch.filter.envelopeDecaySeconds)
+    for (const filter of filters) {
+      const detune = filter.detune
+      detune.setValueAtTime(0, when)
+      detune.linearRampToValueAtTime(patch.filter.envelopeAmountSemitones * 100, when + attack)
+      detune.linearRampToValueAtTime(0, when + attack + decay)
+    }
+  }
+
+  private stealOldestSynthVoice(runtime: SynthPatchRuntime, when: number): void {
+    const sounding = [...runtime.voices].filter((voice) => !voice.cleanedUp && !voice.stolen && (voice.stopAt === undefined || voice.stopAt > when))
+    if (sounding.length < maximumSynthVoices) return
+    const oldest = sounding.sort((left, right) => left.startsAt - right.startsAt || left.serial - right.serial)[0]
+    if (oldest) {
+      oldest.stolen = true
+      this.releaseSynthVoice(runtime, oldest, when, 0.008)
+    }
+  }
+
+  private releaseSynthVoice(runtime: SynthPatchRuntime, voice: ActiveSynthVoice, when: number, releaseOverride?: number): void {
+    if (!this.context || voice.cleanedUp) return
+    const releaseAt = Math.max(this.context.currentTime, when)
+    if (voice.stopAt !== undefined && voice.stopAt <= releaseAt) return
+    const release = Math.max(0.005, releaseOverride ?? runtime.patch.ampEnvelope.releaseSeconds)
+    this.holdAudioParamAtTime(voice.amp.gain, releaseAt)
+    voice.amp.gain.exponentialRampToValueAtTime(0.0001, releaseAt + release)
+    const stopAt = releaseAt + release + 0.01
+    for (const oscillator of voice.oscillators) {
+      try { oscillator.stop(stopAt) } catch { /* A stolen voice may already be stopping. */ }
+    }
+    voice.stopAt = stopAt
+  }
+
+  private holdAudioParamAtTime(parameter: AudioParam, when: number): void {
+    if (typeof parameter.cancelAndHoldAtTime === 'function') parameter.cancelAndHoldAtTime(when)
+    else {
+      parameter.cancelScheduledValues(when)
+      parameter.setValueAtTime(Math.max(0.0001, parameter.value), when)
+    }
+  }
+
+  private stopSynthVoiceImmediately(voice: ActiveSynthVoice): void {
+    for (const oscillator of voice.oscillators) {
+      try { oscillator.stop() } catch { /* The oscillator may already have ended. */ }
+    }
+    const runtime = this.synthRuntimes.get(voice.patchKey)
+    if (runtime) this.cleanUpSynthVoice(runtime, voice)
+  }
+
+  private cleanUpSynthVoice(runtime: SynthPatchRuntime, voice: ActiveSynthVoice): void {
+    if (voice.cleanedUp) return
+    voice.cleanedUp = true
+    runtime.voices.delete(voice)
+    this.activeSynthVoices.delete(voice)
+    if (runtime.currentMonoVoice === voice) runtime.currentMonoVoice = undefined
+    for (const oscillator of voice.oscillators) oscillator.disconnect()
+    for (const gain of voice.oscillatorGains) gain.disconnect()
+    for (const filter of voice.filters) {
+      try { runtime.lfoDepth?.disconnect(filter.detune) } catch { /* The LFO connection may already be gone. */ }
+      filter.disconnect()
+    }
+    voice.drive.disconnect()
+    voice.amp.disconnect()
+  }
+
+  private disposeSynthRuntime(key: string, runtime: SynthPatchRuntime): void {
+    for (const voice of [...runtime.voices]) this.stopSynthVoiceImmediately(voice)
+    try { runtime.lfo?.stop() } catch { /* The LFO may already have ended. */ }
+    runtime.lfo?.disconnect()
+    runtime.lfoDepth?.disconnect()
+    this.synthRuntimes.delete(key)
+  }
+
+  private createDriveCurve(drive: number): Float32Array<ArrayBuffer> {
+    const curve = new Float32Array(1024)
+    const amount = Math.max(0, Math.min(1, drive)) * 12
+    for (let index = 0; index < curve.length; index += 1) {
+      const input = index * 2 / (curve.length - 1) - 1
+      curve[index] = (1 + amount) * input / (1 + amount * Math.abs(input))
+    }
+    return curve
+  }
+
+  private midiNoteToFrequency(midiNote: number): number {
+    return 440 * 2 ** ((midiNote - 69) / 12)
   }
 
   private ensureGroupBus(groupId: GroupId): GroupBus {

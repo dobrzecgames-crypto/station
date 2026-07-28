@@ -1,4 +1,5 @@
 import type { SampleAssetId, SampleId } from '../audio/AudioEngine'
+import type { SynthPatchId } from '../synth/synthTypes'
 
 export interface ChannelState {
   id: SampleId
@@ -42,6 +43,8 @@ export interface PadState extends ChannelState {
   attackMs: number
   /** End fade for newly triggered pad voices. Kept short for samples and slices. */
   releaseMs: number
+  synthPatchId: SynthPatchId | null
+  chordIntervals: number[]
 }
 
 export interface PadDefinition {

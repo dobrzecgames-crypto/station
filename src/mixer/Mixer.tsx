@@ -57,9 +57,9 @@ export function Mixer({ audioEngine, patternGroupId, pads, pumpSourcePadIds, onV
             <article className="mixer-strip" key={pad.id}>
               <strong className="mixer-strip-label">{pad.label.replace('PAD ', '')}</strong>
               <span
-                className={pad.fileName ? 'mixer-strip-status mixer-strip-status-loaded' : 'mixer-strip-status'}
-                title={pad.fileName ?? undefined}
-                aria-label={pad.fileName ? `${pad.fileName} loaded` : 'Empty'}
+                className={pad.fileName || pad.synthPatchId ? 'mixer-strip-status mixer-strip-status-loaded' : 'mixer-strip-status'}
+                title={pad.synthPatchId ? 'MONO-3' : pad.fileName ?? undefined}
+                aria-label={pad.synthPatchId ? 'MONO-3 loaded' : pad.fileName ? `${pad.fileName} loaded` : 'Empty'}
               />
               <span
                 className={isPumpSource ? 'mixer-strip-pump mixer-strip-pump-source' : 'mixer-strip-pump'}

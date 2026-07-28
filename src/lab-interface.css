@@ -919,6 +919,13 @@ input[type="text"], input[type="number"], select, textarea {
 }
 .station-shell .transport-controls .system-display { grid-area: display; }
 
+/* PROJECT is a global machine action rather than a seventh workspace. Its
+   compact trigger sits beside the current bank and pattern and claims the same
+   display slot as every other contextual tool. */
+.station-shell .music-context {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
 .header-secondary-row { display: none; }
 .station-shell[data-powered='off'] {
   --station-accent: var(--station-text-disabled);

@@ -182,6 +182,7 @@ function measureRender(buffer: AudioBuffer): Omit<RenderSongResult, 'buffer'> {
 }
 
 function applyRenderState(engine: AudioEngine, liveEngine: AudioEngine, state: ProjectState): void {
+  engine.syncSynthPatches(state.patternGroups.flatMap((group) => group.synthPatches.map((patch) => ({ groupId: group.id, patch }))))
   for (const group of state.patternGroups) {
     for (const pad of group.bank.pads) {
       const buffer = pad.assetId ? liveEngine.getDecodedSampleAsset(pad.assetId) : undefined
@@ -222,7 +223,7 @@ function getRenderSeconds(state: ProjectState, lastSlot: number): number {
   const stepSeconds = 60 / state.bpm / 4
   const songSeconds = lastSlot * 16 * stepSeconds
   const latestStartSeconds = stepSeconds * (0.5 + Math.max(0, state.swing) * 0.5)
-  const tailSeconds = Math.min(maximumTailSeconds, Math.max(getSampleTailSeconds(state), getDelayTailSeconds(state)))
+  const tailSeconds = Math.min(maximumTailSeconds, Math.max(getSampleTailSeconds(state), getSynthTailSeconds(state), getDelayTailSeconds(state)))
   return songSeconds + latestStartSeconds + tailSeconds + tailSafetySeconds
 }
 
@@ -236,6 +237,22 @@ function getSampleTailSeconds(state: ProjectState): number {
       if (!pad.assetId || !steps[pad.id]?.some((velocity) => velocity > 0)) continue
       const playbackRate = 2 ** (pad.pitchSemitones / 12)
       longest = Math.max(longest, (pad.region.endSeconds - pad.region.startSeconds) / playbackRate)
+    }
+  }
+  return longest
+}
+
+function getSynthTailSeconds(state: ProjectState): number {
+  const stepSeconds = 60 / state.bpm / 4
+  let longest = 0
+  for (const clip of state.playlist) {
+    const group = state.patternGroups.find((candidate) => candidate.id === clip.patternGroupId)
+    const steps = group?.variants[clip.variant]
+    if (!group || !steps) continue
+    for (const pad of group.bank.pads) {
+      if (!pad.synthPatchId || !steps[pad.id]?.some((velocity) => velocity > 0)) continue
+      const patch = group.synthPatches.find((candidate) => candidate.id === pad.synthPatchId)
+      if (patch) longest = Math.max(longest, patch.gate * stepSeconds + patch.ampEnvelope.releaseSeconds)
     }
   }
   return longest

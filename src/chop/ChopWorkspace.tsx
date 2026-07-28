@@ -29,6 +29,7 @@ interface ChopWorkspaceProps {
   onPreviewSource: () => void
   onStopPreviewSource: () => void
   onTriggerPad: (padId: PadState['id']) => void
+  onReleasePad: (padId: PadState['id']) => void
   onFeedbackEnd: (padId: PadState['id']) => void
   onAddSlice: (timeSeconds: number) => void
   onMoveCut: (cutIndex: number, timeSeconds: number) => void
@@ -40,7 +41,7 @@ interface ChopWorkspaceProps {
   onApplyAutoChop: (regions: readonly SliceRegion[]) => boolean
 }
 
-export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, sourceFileName, sourceDurationSeconds, peaks, playheadSeconds, slices, activeSliceId, addingSlice, onLoadSource, testSamples, loadingTestId, onLoadTestSample, sourcePreviewing, onPreviewSource, onStopPreviewSource, onTriggerPad, onFeedbackEnd, onAddSlice, onMoveCut, onSelectSlice, onPreviewSlice, onToggleAdding, onRemoveActiveCut, onClearSlices, onApplyAutoChop }: ChopWorkspaceProps) {
+export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, sourceFileName, sourceDurationSeconds, peaks, playheadSeconds, slices, activeSliceId, addingSlice, onLoadSource, testSamples, loadingTestId, onLoadTestSample, sourcePreviewing, onPreviewSource, onStopPreviewSource, onTriggerPad, onReleasePad, onFeedbackEnd, onAddSlice, onMoveCut, onSelectSlice, onPreviewSlice, onToggleAdding, onRemoveActiveCut, onClearSlices, onApplyAutoChop }: ChopWorkspaceProps) {
   const hasSource = sourceFileName !== null && sourceDurationSeconds !== null
   const [previewCount, setPreviewCount] = useState<number | null>(null)
 
@@ -107,6 +108,6 @@ export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, so
       <ChopControls slices={slices} activeSliceId={activeSliceId} addingSlice={addingSlice} disabled={isPreviewing} onStartAdding={onToggleAdding} onSelectSlice={onSelectSlice} onPreviewSlice={onPreviewSlice} onRemoveActiveCut={onRemoveActiveCut} onClearSlices={onClearSlices} onAssignSlices={() => undefined} showAssign={false} />
     </>}
     <div className="chop-pad-heading"><p className="eyebrow">LIVE SLICE MAP</p></div>
-    <PadGrid pads={pads} selectedPadId={selectedPadId} activePadId={activePadId} audioReady={audioReady} onTrigger={onTriggerPad} onFeedbackEnd={onFeedbackEnd} />
+    <PadGrid pads={pads} selectedPadId={selectedPadId} activePadId={activePadId} audioReady={audioReady} onTrigger={onTriggerPad} onRelease={onReleasePad} onFeedbackEnd={onFeedbackEnd} />
   </section>
 }

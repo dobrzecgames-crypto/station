@@ -1,0 +1,38 @@
+.pump-route-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 12px;
+  border-top: 1px solid rgb(var(--display-light) / 8%);
+  font-family: var(--station-mono-font);
+}
+
+.pump-route-open {
+  overflow: hidden;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  color: rgb(var(--display-light));
+  background: transparent;
+  font: inherit;
+  font-size: .62rem;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 0 6px rgb(var(--display-light) / var(--display-bloom));
+  cursor: pointer;
+}
+
+.pump-route-open:hover, .pump-route-open:focus-visible { color: rgb(var(--display-light)); outline: none; text-decoration: underline; }
+
+.pump-route-empty {
+  margin: 0;
+  padding: 10px 12px;
+  color: rgb(var(--display-light) / 55%);
+  font-size: .6rem;
+  font-weight: 700;
+}
+
+.pump-add-route-row { width: 100%; margin-top: 4px; }

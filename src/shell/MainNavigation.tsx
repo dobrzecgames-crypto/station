@@ -1,4 +1,4 @@
-export type MainView = 'chop' | 'pad' | 'seq' | 'song' | 'mix' | 'pump' | 'project'
+export type MainView = 'chop' | 'pad' | 'synth' | 'seq' | 'song' | 'mix'
 
 interface MainNavigationProps {
   view: MainView
@@ -8,11 +8,10 @@ interface MainNavigationProps {
 const views: ReadonlyArray<{ id: MainView; label: string }> = [
   { id: 'chop', label: 'CHOP' },
   { id: 'pad', label: 'PADS' },
+  { id: 'synth', label: 'SYNTH' },
   { id: 'seq', label: 'SEQ' },
   { id: 'song', label: 'SONG' },
   { id: 'mix', label: 'MIX' },
-  { id: 'pump', label: 'PUMP' },
-  { id: 'project', label: 'PROJECT' },
 ]
 
 export function MainNavigation({ view, onViewChange }: MainNavigationProps) {

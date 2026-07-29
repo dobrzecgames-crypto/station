@@ -20,7 +20,7 @@ Wszystkie ścieżki są względne wobec katalogu tego laboratorium.
 | `portfolio-assets/evolution/seq/early/seq_early_mobile.png` | SEQ / mobile problem | EARLY | `HISTORICAL BUILD` | `5ab12d9` | Rzeczywista, szeroka 16-krokowa matryca na wąskim ekranie przed podziałem stron. | Autentyczny build, bez zmian w kodzie. |
 | `portfolio-assets/evolution/seq/early/seq_early_mobile_reconstructed.png` | SEQ / mobile problem | EARLY | `RECONSTRUCTED EARLY STATE` | źródło funkcjonalne `07c4d7a` | Izolowany kontrast: 16 celów dotykowych ściśniętych na 390 px. | Rekonstrukcja porównawcza React/CSS, wyraźnie oznaczona. |
 | `portfolio-assets/evolution/seq/early/seq_early_mobile_clean.png` | SEQ | EARLY / MOBILE | `RECONSTRUCTED EARLY STATE` | źródło funkcjonalne `07c4d7a` | Pionowy, pozbawiony opisowej ramki kadr pierwszego sekwencera: 16 kroków szerszych niż ekran, przewinięte w połowie, z widocznym prymitywnym paskiem przewijania. | Mobilny wariant rekonstrukcji React/CSS (`portfolio-lab`, scena `seq-problem`); nie jest historycznym screenshotem. |
-| `portfolio-assets/evolution/seq/intermediate/seq_intermediate_mobile.png` | SEQ / mobile solution | INTERMEDIATE | `HISTORICAL BUILD` | `dc14e7e` | Rzeczywisty podział `01–08 / 09–16` w commicie, który go wprowadził. | Autentyczny build, bez zmian w kodzie. |
+| `portfolio-assets/evolution/seq/intermediate/seq_intermediate_mobile.png` | SEQ / mobile problem | INTERMEDIATE | `HISTORICAL BUILD` | `5ab12d9` | Stara oprawa, załadowany `Kick 01.wav`, aktywne kroki i rzeczywista 16-krokowa matryca wymagająca przewijania w poziomie. | Autentyczny mobilny build, bez zmian w kodzie. |
 | `portfolio-assets/evolution/seq/current/seq_current_desktop.png` | SEQ | CURRENT | `CURRENT BUILD` | `20c8ee2` | Bieżący SEQ z wieloma padami, dwiema stronami kroków i edycją w System Display. | Czysty build bieżącego commita. |
 | `portfolio-assets/evolution/song/early/song_early_desktop.png` | SONG | EARLY | `HISTORICAL BUILD` | `3ab73a0` | Pierwsza Pattern Playlist z klipami 1A ułożonymi w start, rozwinięcie i finał. | Autentyczny build; klipy dodano przez jego własne UI. |
 | `portfolio-assets/evolution/song/current/song_current_desktop.png` | SONG | CURRENT | `CURRENT BUILD` | `20c8ee2` | Bieżące arrangement lanes, strona slotów 01–08 i aktywne klipy 1A. | Czysty build; klipy dodano przez jego własne UI. |
@@ -30,16 +30,46 @@ Wszystkie ścieżki są względne wobec katalogu tego laboratorium.
 | `portfolio-assets/evolution/mix/current/mix_current_desktop.png` | MIX | CURRENT | `CURRENT BUILD` | `20c8ee2` | Bieżące kanały 1–4, metering, bus i FX w System Display. | Czysty build bieżącego commita. |
 | `portfolio-assets/evolution/mix/early/mix_early_mobile.png` | MIX | EARLY / MOBILE | `RECONSTRUCTED EARLY STATE` | źródło funkcjonalne `dfbb888` | Cztery identyczne karty kanałów: VOL, MUTE, SOLO, bez routingu i Pump. | Rekonstrukcja React/CSS (`portfolio-lab`, scena `mix-early`); autentyczny zrzut `dfbb888` wyglądał zbyt dopracowanie wizualnie jak na najwcześniejszy stan. |
 | `portfolio-assets/evolution/system-display/early/system_display_early_mobile.png` | SYSTEM DISPLAY | EARLY | `RECONSTRUCTED EARLY STATE` | kompozycja na podstawie buildów przed `ac13738` | Rozproszone statusy, komunikaty i parametry w osobnych blokach na wąskim ekranie. | Rekonstrukcja React/CSS (`portfolio-lab`, scena `system-scattered`); zastąpiła autentyczny zrzut `5ab12d9`, który mimo poprawnego layoutu wyglądał zbyt dopracowanie wizualnie (ciemny/pomarańczowy branding Station istniał już wtedy). |
-| `portfolio-assets/evolution/system-display/current/system_display_current_mobile.png` | SYSTEM DISPLAY | CURRENT | `CURRENT BUILD` | `20c8ee2`; baza funkcji `ac13738` | Otwarty System Display z kontekstem sample browsera nad padami. | Czysty build bieżącego commita. |
-| `portfolio-assets/evolution/current/current_phone.png` | CURRENT BUILD | CURRENT | `CURRENT BUILD` | `20c8ee2` | Telefoniczny układ PADS z ośmioma slice’ami i otwartym System Display. | Czysty build, viewport układu 390 px pokazany w płótnie przeglądarki. |
+| `portfolio-assets/evolution/system-display/current/system_display_current_mobile.png` | SYSTEM DISPLAY | CURRENT | `CURRENT BUILD` | `e92961d`; baza funkcji `ac13738` | Otwarty System Display z kontekstem sample browsera nad dwunastoma padami utworzonymi z próbki. | Autentyczny mobilny build Station Beta 1. |
+| `portfolio-assets/evolution/current/current_phone.png` | CURRENT BUILD | CURRENT | `CURRENT BUILD` | `e92961d` | Telefoniczny układ PADS z dwunastoma slice’ami i otwartym System Display. | Autentyczny mobilny build Station Beta 1. |
 | `portfolio-assets/evolution/current/current_tablet.png` | CURRENT BUILD | CURRENT | `CURRENT BUILD` | `20c8ee2` | Tabletowy widok PADS. | Czysty build bieżącego commita. |
 | `portfolio-assets/evolution/current/current_desktop.png` | CURRENT BUILD | CURRENT | `CURRENT BUILD` | `20c8ee2` | Pełny desktopowy MIX z transportem, System Display, kanałami i busami. | Czysty build bieżącego commita. |
+
+## Mobilne kadry pośrednie do karuzel (2026-07-29)
+
+Wszystkie poniższe pliki są autentycznymi zrzutami historycznych buildów,
+wykonanymi w rzeczywistym viewportcie `390 × 844`. Nie są to rekonstrukcje ani
+przycięte zrzuty desktopowe.
+
+| Plik | Funkcja | Stan | Klasyfikacja | Commit |
+| --- | --- | --- | --- | --- |
+| `portfolio-assets/evolution/library-pad/intermediate/library_pad_intermediate_mobile.png` | LIBRARY + PAD | INTERMEDIATE | `HISTORICAL BUILD` | `ead3930` |
+| `portfolio-assets/evolution/chop/intermediate/chop_intermediate_mobile.png` | CHOP / autoslicing | INTERMEDIATE | `HISTORICAL BUILD` | `3263d54` |
+| `portfolio-assets/evolution/seq/intermediate/seq_intermediate_mobile.png` | SEQ / szeroka matryca 16 kroków | INTERMEDIATE | `HISTORICAL BUILD` | `5ab12d9` |
+| `portfolio-assets/evolution/song/intermediate/song_intermediate_mobile.png` | SONG / Pattern Playlist | INTERMEDIATE | `HISTORICAL BUILD` | `3ab73a0` |
+| `portfolio-assets/evolution/system-display/intermediate/system_display_intermediate_mobile.png` | SYSTEM DISPLAY | INTERMEDIATE | `HISTORICAL BUILD` | `ac13738` |
+| `portfolio-assets/evolution/design/intermediate/design_intermediate_mobile.png` | DESIGN / Lab Interface | INTERMEDIATE | `HISTORICAL BUILD` | `66352ed` |
+
+## Mobilne kadry końcowe Station Beta 1 (2026-07-29)
+
+Wszystkie poniższe pliki są autentycznymi zrzutami najnowszego commita Beta 1.
+Pokazują logiczny viewport `390 × 844`, wyrenderowany bezstratnie w skali 3×
+do rozdzielczości `1170 × 2532`.
+
+| Plik | Funkcja | Stan | Klasyfikacja | Commit | Stan aplikacji |
+| --- | --- | --- | --- | --- | --- |
+| `portfolio-assets/evolution/chop/current/chop_current_mobile.png` | CHOP | CURRENT | `CURRENT BUILD` | `e92961d` | Załadowana próbka `Sample 1.wav`, widoczna fala, aktywny odsłuch źródła i `SMART 12`. |
+| `portfolio-assets/evolution/seq/current/seq_current_mobile.png` | SEQ | CURRENT | `CURRENT BUILD` | `e92961d` | Dwanaście padów utworzonych z próbki oraz aktywne kroki 1, 3, 5 i 7 patternu. |
+| `portfolio-assets/evolution/system-display/current/system_display_current_mobile.png` | SYSTEM DISPLAY | CURRENT | `CURRENT BUILD` | `e92961d` | Rozwinięty sample browser nad dwunastoma załadowanymi padami. |
+| `portfolio-assets/evolution/current/current_pads_synth.png` | PADS | CURRENT | `CURRENT BUILD` | `e92961d` | `Sample 1.wav` pocięty równo na wszystkie szesnaście padów, z otwartym panelem SOUND. |
+| `portfolio-assets/evolution/current/current_song_full.png` | SONG | CURRENT | `CURRENT BUILD` | `e92961d` | Aktualny układ SONG z patternami rozłożonymi na ośmiu slotach. |
+| `portfolio-assets/evolution/current/current_mix_pump.png` | MIX + PUMP | CURRENT | `CURRENT BUILD` | `e92961d` | Aktualny MIX z routingiem Pump i meteringiem kanałów. |
 
 ## Zasady użycia
 
 - Nie podpisywać rekonstrukcji jako autentycznych buildów.
-- Case-study (`portfolio-case-study`) używa wyłącznie zrekonstruowanych kadrów `EARLY / MOBILE` — po jednym na funkcję, bez zestawień before/after w obrębie rozdziału. Autentyczne desktopowe zrzuty (`*_early_desktop.png`) i stany `INTERMEDIATE` zostają w `portfolio-assets`, ale nie są obecnie używane w case-study.
+- Case-study (`portfolio-case-study`) pokazuje w każdym rozdziale trzy mobilne etapy: zrekonstruowany `EARLY`, autentyczny `INTERMEDIATE` i autentyczny `CURRENT BUILD`.
 - Powód: nawet autentyczne, mobilne zrzuty wczesnych commitów (`e8d92f5`, `dfbb888`, `3ab73a0`, `5ab12d9`) wyglądają zbyt dopracowanie — ciemny/pomarańczowy branding Station istniał od bardzo wczesnych buildów. Dlatego wszystkie kadry `EARLY` w case-study pochodzą z `portfolio-lab` (celowo prymitywny wygląd: szare tło, systemowa typografia, brak brandingu), nawet gdy autentyczny build istnieje.
-- Jedyny wyjątek to finałowy rozdział CURRENT BUILD — tam pokazujemy prawdziwy, niezrekonstruowany zrzut (`current_phone.png`), bo kontrast z ubogimi rekonstrukcjami jest celem narracji.
+- Wszystkie slajdy `CURRENT BUILD` pokazują prawdziwe, niezrekonstruowane kadry najnowszej wersji Station.
 - Screenshoty CURRENT służą wyłącznie jako finał funkcjonalny. Nie analizować na ich podstawie rozwoju Vinyl Dust.
 

@@ -9,6 +9,12 @@ export const maximumPatternGroups = 8
 export type PatternVariantName = typeof patternVariantNames[number]
 export type StepPattern = Record<SampleId, number[]>
 export type StepShiftPattern = Record<SampleId, number[]>
+/**
+ * Step length in whole steps. `0` means "unbounded" - a sample step plays its
+ * full configured region uncut, which only means something for sample pads;
+ * a MONOPOLY step always has a concrete duration, so its length is never 0.
+ */
+export type StepLengthPattern = Record<SampleId, number[]>
 
 export interface GroupBusState {
   volume: number
@@ -25,6 +31,7 @@ export interface PatternGroup {
   synthPatches: SynthPatch[]
   variants: Partial<Record<PatternVariantName, StepPattern>>
   shifts: Partial<Record<PatternVariantName, StepShiftPattern>>
+  lengths: Partial<Record<PatternVariantName, StepLengthPattern>>
 }
 
 export function isPatternVariantName(value: unknown): value is PatternVariantName {

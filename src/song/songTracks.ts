@@ -2,8 +2,8 @@ import { createChannelId } from '../audio/channelIdentity'
 import type { SampleAssetId } from '../audio/AudioEngine'
 import type { StepSequencerTrack } from '../audio/StepSequencer'
 import type { PadState } from '../pads/types'
-import { getVariant, getVariantShifts } from '../patterns/patternOperations'
-import type { PatternGroup, PatternVariantName, StepPattern, StepShiftPattern } from '../patterns/patternTypes'
+import { getVariant, getVariantLengths, getVariantShifts } from '../patterns/patternOperations'
+import type { PatternGroup, PatternVariantName, StepLengthPattern, StepPattern, StepShiftPattern } from '../patterns/patternTypes'
 import { getActiveClipsForSlot } from './songOperations'
 import type { PatternClip } from './songTypes'
 import { getSynthPatch, resolveSynthPadMidiNotes } from '../synth/synthOperations'
@@ -15,6 +15,7 @@ interface ResolvedVariant {
   group: PatternGroup
   steps: StepPattern
   shifts: StepShiftPattern
+  lengths: StepLengthPattern
 }
 
 /**
@@ -35,7 +36,8 @@ function resolveVariant(groups: readonly PatternGroup[], groupId: string, varian
   const group = groups.find((candidate) => candidate.id === groupId)
   const steps = getVariant(groups, groupId, variant)
   const shifts = getVariantShifts(groups, groupId, variant)
-  return group && steps && shifts ? { group, steps, shifts } : undefined
+  const lengths = getVariantLengths(groups, groupId, variant)
+  return group && steps && shifts && lengths ? { group, steps, shifts, lengths } : undefined
 }
 
 function toTracks(variants: readonly (ResolvedVariant | undefined)[], hasSampleAsset: SampleAssetPredicate): StepSequencerTrack[] {
@@ -47,6 +49,7 @@ function toTracks(variants: readonly (ResolvedVariant | undefined)[], hasSampleA
         channelId: createChannelId({ patternGroupId: pattern.group.id, padId: pad.id }),
         steps: pattern.steps[pad.id],
         shifts: pattern.shifts[pad.id],
+        lengths: pattern.lengths[pad.id],
       }
       const patch = getSynthPatch(pattern.group, pad.synthPatchId)
       if (patch) return [{ ...common, source: 'synth', patch, midiNotes: resolveSynthPadMidiNotes(patch, pad) }]

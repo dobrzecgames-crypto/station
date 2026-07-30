@@ -6,7 +6,7 @@ import { defaultProjectKey, isNoteName, isScaleId } from '../music/scales'
 import type { ProjectKey } from '../music/scales'
 import { createEmptyChopSession, createPadBankState } from '../pads/padBank'
 import type { ChopSessionState, PadState, SampleSlice } from '../pads/types'
-import { clonePatternGroup, createGroupBusState, createInitialPatternGroups, ensurePatternGroupShifts } from '../patterns/patternOperations'
+import { clonePatternGroup, createGroupBusState, createInitialPatternGroups, ensurePatternGroupLengths, ensurePatternGroupShifts } from '../patterns/patternOperations'
 import { maximumPatternGroups, patternVariantNames } from '../patterns/patternTypes'
 import type { PatternGroup, PatternVariantName } from '../patterns/patternTypes'
 import { validatePatternClipReferences } from '../song/songOperations'
@@ -105,7 +105,7 @@ export function createProjectState(state: ProjectState): ProjectState {
 export function normalizeProjectState(state: ProjectState): ProjectState {
   const padIds = state.patternGroups[0]?.bank?.pads.map((pad) => pad.id)
   if (!padIds) throw new Error('Project has no Pattern Group bank.')
-  return createProjectState({ ...state, schemaVersion: projectSchemaVersion, master: state.master ? { ...state.master } : { volume: 1, muted: false }, masterEffects: normalizeEffectRackState(state.masterEffects, 'master', createDefaultMasterEffectRack()), patternGroups: ensurePatternGroupShifts(state.patternGroups, padIds).map((group) => ({ ...group, synthPatches: group.synthPatches ?? [], bank: { ...group.bank, pads: group.bank.pads.map(normalizePadState) }, bus: group.bus ? { ...group.bus } : createGroupBusState(), effects: normalizeEffectRackState(group.effects, group.id) })) })
+  return createProjectState({ ...state, schemaVersion: projectSchemaVersion, master: state.master ? { ...state.master } : { volume: 1, muted: false }, masterEffects: normalizeEffectRackState(state.masterEffects, 'master', createDefaultMasterEffectRack()), patternGroups: ensurePatternGroupLengths(ensurePatternGroupShifts(state.patternGroups, padIds)).map((group) => ({ ...group, synthPatches: group.synthPatches ?? [], bank: { ...group.bank, pads: group.bank.pads.map(normalizePadState) }, bus: group.bus ? { ...group.bus } : createGroupBusState(), effects: normalizeEffectRackState(group.effects, group.id) })) })
 }
 
 export function migrateLegacyProjectState(legacy: { pads: ReturnType<typeof createPadBankState>['pads']; patterns?: unknown; [key: string]: unknown }): ProjectState {
@@ -229,11 +229,15 @@ export function validateProjectState(project: ProjectState): string[] {
       if (!pattern) continue
       const shifts = group.shifts[variant]
       if (!shifts) errors.push(`${group.name}${variant} is missing step shifts.`)
+      const lengths = group.lengths[variant]
+      if (!lengths) errors.push(`${group.name}${variant} is missing step lengths.`)
       for (const pad of group.bank?.pads ?? []) {
         if (!pattern[pad.id] || pattern[pad.id].length !== stepCount) errors.push(`${group.name}${variant} must have exactly ${stepCount} steps for ${pad.id}.`)
         for (const velocity of pattern[pad.id] ?? []) if (!Number.isFinite(velocity) || velocity < 0 || velocity > 1) errors.push(`${group.name}${variant} has an invalid step velocity.`)
         if (!shifts?.[pad.id] || shifts[pad.id].length !== stepCount) errors.push(`${group.name}${variant} must have exactly ${stepCount} shifts for ${pad.id}.`)
         for (const shift of shifts?.[pad.id] ?? []) if (!Number.isFinite(shift) || shift < -0.5 || shift > 0.5) errors.push(`${group.name}${variant} has an invalid step shift.`)
+        if (!lengths?.[pad.id] || lengths[pad.id].length !== stepCount) errors.push(`${group.name}${variant} must have exactly ${stepCount} lengths for ${pad.id}.`)
+        for (const length of lengths?.[pad.id] ?? []) if (!Number.isInteger(length) || length < 0 || length > stepCount) errors.push(`${group.name}${variant} has an invalid step length.`)
       }
     }
   }

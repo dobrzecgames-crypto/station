@@ -29,6 +29,8 @@ export interface TriggerSampleOptions {
   releaseMs?: number
   /** Runtime-only sequencer key used to choke previous CHOP slices. */
   chokeGroupId?: string
+  /** Runtime-only sequencer step length. Shorter than the region's natural duration, it cuts the voice early through the same release fade as a normal envelope. */
+  maxDurationSeconds?: number
 }
 
 export type PumpCurve = 'snap' | 'smooth' | 'swell'
@@ -512,7 +514,8 @@ export class AudioEngine {
     const playbackRate = this.toPlaybackRate(options.pitchSemitones)
     const region = this.toPlaybackRegion(sampleBuffer.duration, options.startSeconds, options.endSeconds)
     const voiceGain = this.toGain(options.gain)
-    const outputDuration = region.durationSeconds / playbackRate
+    const naturalOutputDuration = region.durationSeconds / playbackRate
+    const outputDuration = options.maxDurationSeconds !== undefined && options.maxDurationSeconds > 0 ? Math.min(naturalOutputDuration, options.maxDurationSeconds) : naturalOutputDuration
     source.buffer = sampleBuffer
     this.applyPadEnvelope(gain.gain, voiceGain, scheduledWhen, outputDuration, options.attackMs, options.releaseMs)
     source.playbackRate.setValueAtTime(playbackRate, scheduledWhen)
@@ -522,7 +525,7 @@ export class AudioEngine {
 
     this.activeVoices.add(voice)
     for (const route of this.pumpRoutes) if (route.sourceChannelId === channelId) this.triggerPumpRoute(route, scheduledWhen)
-    source.start(scheduledWhen, region.startSeconds, region.durationSeconds)
+    source.start(scheduledWhen, region.startSeconds, outputDuration * playbackRate)
   }
 
   scheduleMetronome(when: number, accented: boolean): void {

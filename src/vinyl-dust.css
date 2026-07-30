@@ -111,12 +111,12 @@ select, textarea {
 }
 /* The inactive rail has gentle per-module night tones. These colours live on
    the keys alone; they do not alter the workspace accent or its controls. */
-.main-nav-button[data-workspace='chop'] { background: linear-gradient(180deg, #493547 0%, #2e263a 45%, #191827 100%); }
-.main-nav-button[data-workspace='pad'] { background: linear-gradient(180deg, #334454 0%, #263444 45%, #171e2b 100%); }
-.main-nav-button[data-workspace='seq'] { background: linear-gradient(180deg, #3e3a62 0%, #2c2b4b 45%, #19182f 100%); }
-.main-nav-button[data-workspace='song'] { background: linear-gradient(180deg, #503549 0%, #36263c 45%, #201827 100%); }
-.main-nav-button[data-workspace='mix'] { background: linear-gradient(180deg, #2c4954 0%, #213744 45%, #14212c 100%); }
-.main-nav-button[data-workspace='project'] { background: linear-gradient(180deg, #3e4556 0%, #2d3444 45%, #1a202d 100%); }
+.main-nav-button[data-workspace='chop']:not(.main-nav-button-active) { background: linear-gradient(180deg, #493547 0%, #2e263a 45%, #191827 100%); }
+.main-nav-button[data-workspace='pad']:not(.main-nav-button-active) { background: linear-gradient(180deg, #334454 0%, #263444 45%, #171e2b 100%); }
+.main-nav-button[data-workspace='seq']:not(.main-nav-button-active) { background: linear-gradient(180deg, #3e3a62 0%, #2c2b4b 45%, #19182f 100%); }
+.main-nav-button[data-workspace='song']:not(.main-nav-button-active) { background: linear-gradient(180deg, #503549 0%, #36263c 45%, #201827 100%); }
+.main-nav-button[data-workspace='mix']:not(.main-nav-button-active) { background: linear-gradient(180deg, #2c4954 0%, #213744 45%, #14212c 100%); }
+.main-nav-button[data-workspace='project']:not(.main-nav-button-active) { background: linear-gradient(180deg, #3e4556 0%, #2d3444 45%, #1a202d 100%); }
 .mixer-toggle-active, .main-nav-button-active, .group-strip-selected,
 .pump-target-toggle.mixer-toggle-active, .transport-button {
   border-color: color-mix(in srgb, var(--station-accent) 76%, var(--accent-gold-light));

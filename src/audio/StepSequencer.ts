@@ -19,6 +19,8 @@ interface StepSequencerTrackBase {
   channelId: ChannelId
   steps: readonly number[]
   shifts: readonly number[]
+  /** Whole steps per index; 0 means unbounded and only applies to a sample track. */
+  lengths: readonly number[]
 }
 
 export interface SampleSequencerTrack extends StepSequencerTrackBase {
@@ -115,14 +117,16 @@ export class StepSequencer {
         const velocity = track.steps[this.nextStepIndex]
         if (velocity <= 0) return []
         const shift = track.shifts[this.nextStepIndex] ?? 0
-        return [{ track, velocity, when: scheduledTime + shift * stepDuration }]
+        const length = track.lengths[this.nextStepIndex] ?? 0
+        return [{ track, velocity, length, when: scheduledTime + shift * stepDuration }]
       })
-      for (const { track, velocity, when } of activeTracks.sort((left, right) => left.when - right.when)) {
+      for (const { track, velocity, length, when } of activeTracks.sort((left, right) => left.when - right.when)) {
         if (track.source === 'sample') {
           if (track.chokeGroupId) this.audioEngine.stopSequencerChokeGroupAt(track.chokeGroupId, when)
-          this.audioEngine.scheduleSample(track.groupId, track.channelId, track.assetId, when, { ...track.options, gain: (track.options.gain ?? 1) * velocity, chokeGroupId: track.chokeGroupId }, 'sequencer')
+          const maxDurationSeconds = length > 0 ? length * stepDuration : undefined
+          this.audioEngine.scheduleSample(track.groupId, track.channelId, track.assetId, when, { ...track.options, gain: (track.options.gain ?? 1) * velocity, chokeGroupId: track.chokeGroupId, maxDurationSeconds }, 'sequencer')
         } else {
-          this.audioEngine.scheduleSynthPad(track.groupId, track.channelId, track.patch, track.midiNotes, when, when + track.patch.gate * stepDuration, velocity)
+          this.audioEngine.scheduleSynthPad(track.groupId, track.channelId, track.patch, track.midiNotes, when, when + Math.max(1, length) * track.patch.gate * stepDuration, velocity)
         }
       }
       const wasLastStep = this.nextStepIndex === 15

@@ -163,6 +163,32 @@ select, textarea {
   background: var(--status-recording);
   box-shadow: 0 0 5px rgb(207 84 80 / 38%);
 }
+/* REC only became a working control once recording shipped, so it now needs the two
+   states the placeholder never had. Both are carried by the lamp rather than the
+   bezel: the button keeps its shape, the light inside it changes, which is how a
+   hardware transport reads. */
+.transport-record-button:disabled::before {
+  background: #6c4644;
+  box-shadow: none;
+}
+.transport-record-active {
+  border-color: #b9615c;
+  background: linear-gradient(180deg, #52292c, #34191d);
+}
+.transport-record-active::before {
+  background: #ff6f68;
+  box-shadow: 0 0 9px rgb(255 111 104 / 78%), 0 0 18px rgb(207 84 80 / 42%);
+}
+/* Counting in is not yet recording - the lamp beats the four clicks rather than
+   holding lit, so the difference between "about to" and "armed" is visible. */
+.transport-record-counting::before { animation: station-record-count-in var(--count-in-beat, 500ms) steps(1, end) infinite; }
+@keyframes station-record-count-in {
+  0%, 49% { background: #ff6f68; box-shadow: 0 0 9px rgb(255 111 104 / 78%); }
+  50%, 100% { background: #6c4644; box-shadow: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .transport-record-counting::before { animation: none; background: #ff6f68; box-shadow: 0 0 9px rgb(255 111 104 / 78%); }
+}
 
 /* The display is a smoke-blue LCD glass: blue-violet, never turquoise. */
 .system-display {

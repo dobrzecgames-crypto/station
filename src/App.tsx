@@ -38,7 +38,7 @@ import type { ProjectKey } from './music/scales'
 import { findProjectScaleMapConflicts, mapPadBankToProjectScale } from './music/scaleMapping'
 import { projectRepository } from './storage/ProjectRepository'
 import { defaultProjectId } from './storage/storageTypes'
-import { addPatternGroup, clearVariant, createInitialPatternGroups, duplicateVariant, getVariant, getVariantLengths, getVariantShifts, setVariantStepLength, setVariantStepShift, setVariantStepVelocity, updateVariantStep } from './patterns/patternOperations'
+import { addPatternGroup, clearVariant, createInitialPatternGroups, duplicateVariant, getVariant, getVariantLengths, getVariantShifts, patternStepCount, recordVariantStep, setVariantStepLength, setVariantStepShift, setVariantStepVelocity, updateVariantStep } from './patterns/patternOperations'
 import type { PatternGroup, PatternVariantName } from './patterns/patternTypes'
 import { addPatternClip, getLastOccupiedSlot, removeClipsForGroup, removeClipsForVariant, removePatternClip } from './song/songOperations'
 import type { PatternClip, TransportMode } from './song/songTypes'
@@ -60,6 +60,8 @@ interface FxContext { scope: 'group' | 'master'; slotIndex: 0 | 1 }
 interface PendingConfirmation { message: string; confirmLabel: string; onConfirm: () => void }
 interface WaveformPlayback { assetId: SampleAssetId; startedAt: number; startSeconds: number; endSeconds: number }
 interface SequencerPlayhead { stepIndex: number; startsAt: number; durationSeconds: number }
+/** Anchor for quantizing a live pad hit to the nearest step - refreshed every time step 0 of a loop is scheduled. */
+interface RecordingGrid { startsAt: number; stepDurationSeconds: number }
 
 const emptySongPlaylistNotice = 'Add at least one Pattern Clip before playing SONG.'
 
@@ -122,6 +124,8 @@ export function App({ audioEngine }: AppProps) {
   const [metronomeEnabled, setMetronomeEnabled] = useState(false)
   const [playingSongSlot, setPlayingSongSlot] = useState<number | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [recording, setRecording] = useState(false)
+  const [countingIn, setCountingIn] = useState(false)
   const [pumpRoutes, setPumpRoutes] = useState<PumpRoute[]>([])
   const [waveforms, setWaveforms] = useState<Record<string, number[]>>({})
   const [chopAddingSlice, setChopAddingSlice] = useState(false)
@@ -140,6 +144,13 @@ export function App({ audioEngine }: AppProps) {
   const [sequencerPlayhead, setSequencerPlayhead] = useState<SequencerPlayhead | null>(null)
   const [visualAudioTime, setVisualAudioTime] = useState(0)
   const sequencerRef = useRef(new StepSequencer(audioEngine))
+  const recordingGridRef = useRef<RecordingGrid | null>(null)
+  /** Set right before a count-in's `start()` call, consumed by the first `onStepScheduled(0, ...)` that follows - the signal that recording should actually arm now that step 0 is truly about to sound. While it is set, the count-in is still running. */
+  const pendingRecordingStartRef = useRef(false)
+  /* Whether a hit should be captured, held in a ref rather than read off `recording`.
+     Arming is decided inside the audio scheduler callback, so a state read would lag
+     it by a render - long enough to silently drop the very first hit of a take. */
+  const recordingArmedRef = useRef(false)
   const renderAbortRef = useRef<AbortController | null>(null)
   const renderBusy = renderProgress !== null
   /* SOLO is honoured by the render, so a render started with one latched
@@ -225,7 +236,13 @@ export function App({ audioEngine }: AppProps) {
   sequenceConfigRef.current = {
     bpm,
     swing,
-    metronomeEnabled,
+    /* A take is played against the click, so recording forces the metronome on for as
+       long as it lasts and hands the setting back on punch-out. Without this the four
+       count-in clicks stopped dead on the downbeat, exactly where the beat is needed.
+       `countingIn` is part of it because `schedule` reads this config once per pass and
+       only flips to `recording` partway through the very pass that places step 0 - drop
+       it and the downbeat is the one click that goes missing. */
+    metronomeEnabled: metronomeEnabled || recording || countingIn,
     mode: transportMode,
     loopSong,
     lastSongSlot: getLastOccupiedSlot(playlist),
@@ -234,7 +251,18 @@ export function App({ audioEngine }: AppProps) {
       : getPatternTracks(patternGroups, selectedPatternGroupId, selectedPatternVariant, hasSampleAsset),
     onSongSlotChange: setPlayingSongSlot,
     onSongComplete: () => { setIsPlaying(false); setPlayingSongSlot(null); setSequencerPlayhead(null) },
-    onStepScheduled: (stepIndex, scheduledTime, durationSeconds) => setSequencerPlayhead({ stepIndex, startsAt: scheduledTime, durationSeconds }),
+    onStepScheduled: (stepIndex, scheduledTime, durationSeconds) => {
+      if (stepIndex === 0) {
+        recordingGridRef.current = { startsAt: scheduledTime, stepDurationSeconds: durationSeconds }
+        if (pendingRecordingStartRef.current) {
+          pendingRecordingStartRef.current = false
+          setIsPlaying(true)
+          setCountingIn(false)
+          setRecording(true)
+        }
+      }
+      setSequencerPlayhead({ stepIndex, startsAt: scheduledTime, durationSeconds })
+    },
   }
 
   const showWaveformPlayback = (assetId: SampleAssetId, startSeconds: number, endSeconds: number, startedAt = audioEngine.getCurrentTime()) => {
@@ -251,7 +279,12 @@ export function App({ audioEngine }: AppProps) {
     if ((status === 'suspended' || status === 'interrupted') && sequencerRef.current.isRunning()) {
       sequencerRef.current.stop()
       audioEngine.stopSequencerVoices()
+      recordingArmedRef.current = false
+      pendingRecordingStartRef.current = false
+      recordingGridRef.current = null
       setIsPlaying(false)
+      setCountingIn(false)
+      setRecording(false)
     }
   }), [audioEngine])
   useEffect(() => () => { sequencerRef.current.stop(); audioEngine.stopSequencerVoices() }, [audioEngine])
@@ -264,6 +297,7 @@ export function App({ audioEngine }: AppProps) {
     if (patch) {
       audioEngine.triggerSynthPad(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), patch, resolveSynthPadMidiNotes(patch, pad), 1, synthManualToken(selectedPatternGroupId, padId))
       setActivePadId(padId)
+      recordPadHit(padId, audioEngine.getCurrentTime())
       return
     }
     if (!pad.assetId || !audioEngine.hasSampleAsset(pad.assetId)) return
@@ -272,6 +306,7 @@ export function App({ audioEngine }: AppProps) {
     audioEngine.triggerSample(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), pad.assetId, { pitchSemitones: pad.pitchSemitones, startSeconds: pad.region.startSeconds, endSeconds: pad.region.endSeconds, attackMs: pad.attackMs, releaseMs: pad.releaseMs })
     showWaveformPlayback(pad.assetId, pad.region.startSeconds, pad.region.endSeconds, startedAt)
     setActivePadId(padId)
+    recordPadHit(padId, startedAt)
   }
 
   const releasePad = (padId: PadState['id']) => {
@@ -298,7 +333,10 @@ export function App({ audioEngine }: AppProps) {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
     }
-  }, [pads, audioReady, cutOnPadTrigger, selectedPatternGroupId, selectedGroup])
+    // `recording` and the selected variant are listed because the listener closes over
+    // triggerPad -> recordPadHit: without them a key press while armed would write into
+    // whichever variant was selected when this effect last ran, or not record at all.
+  }, [pads, audioReady, cutOnPadTrigger, selectedPatternGroupId, selectedGroup, recording, selectedPatternVariant])
 
   const startAudio = async () => {
     setErrorMessage(undefined)
@@ -865,7 +903,78 @@ export function App({ audioEngine }: AppProps) {
     sequencerRef.current.start(() => sequenceConfigRef.current)
     setIsPlaying(true)
   }
-  const stopPlayback = () => { sequencerRef.current.stop(); audioEngine.stopSequencerVoices(); setIsPlaying(false); setPlayingSongSlot(null); setSequencerPlayhead(null) }
+  const stopPlayback = () => {
+    sequencerRef.current.stop()
+    audioEngine.stopSequencerVoices()
+    recordingArmedRef.current = false
+    pendingRecordingStartRef.current = false
+    recordingGridRef.current = null
+    setIsPlaying(false)
+    setPlayingSongSlot(null)
+    setSequencerPlayhead(null)
+    setCountingIn(false)
+    setRecording(false)
+  }
+  /* Quantizes a live pad hit onto the pattern grid rather than recording audio - the
+     step it lands on is whichever is nearest in real time to the loop's last step 0,
+     wrapped modulo patternStepCount so a hit just before the next downbeat still
+     resolves to the run-out step of the pattern that's actually playing. */
+  const recordPadHit = (padId: PadState['id'], atTime: number) => {
+    if (!recordingArmedRef.current) return
+    const grid = recordingGridRef.current
+    if (!grid) return
+    const stepsFromZero = (atTime - grid.startsAt) / grid.stepDurationSeconds
+    /* Still counting in: the grid points at a downbeat that has not arrived yet, so a
+       hit lands here with a negative offset. Playing the downbeat a shade early is how
+       people actually play it, and rounding already puts anything within half a step
+       onto step 1 - only what falls further back is the player counting along rather
+       than starting the take, and that is all this drops. */
+    if (pendingRecordingStartRef.current && stepsFromZero <= -0.5) return
+    const stepIndex = ((Math.round(stepsFromZero) % patternStepCount) + patternStepCount) % patternStepCount
+    setPatternGroups((groups) => recordVariantStep(groups, selectedPatternGroupId, selectedPatternVariant, padId, stepIndex))
+  }
+  /* Already playing: arm immediately, punch-in style - the grid is already live, no
+     count-in needed. Stopped: count in one bar of always-audible clicks at the current
+     tempo, then arm once `onStepScheduled` reports step 0 has actually been scheduled
+     (see the StepSequencer.start `startAt` handoff above `sequenceConfigRef`). */
+  const startRecording = () => {
+    if (transportMode === 'song') return
+    if (isPlaying) { recordingArmedRef.current = true; setRecording(true); return }
+    if (!audioReady) { setErrorMessage('Start audio before recording.'); return }
+    if (sequenceConfigRef.current.getTracksForSlot(1).length === 0 && !pads.some((pad) => (pad.assetId && audioEngine.hasSampleAsset(pad.assetId)) || pad.synthPatchId) && !metronomeEnabled) { setErrorMessage('Load a sample or create a MONOPOLY patch first.'); return }
+    const beatSeconds = 60 / bpm
+    const now = audioEngine.getCurrentTime()
+    const startsAt = now + 4 * beatSeconds
+    for (let click = 0; click < 4; click += 1) audioEngine.scheduleMetronome(now + click * beatSeconds, click === 0)
+    /* The downbeat's timestamp is known the moment the count-in is scheduled, so the
+       grid is published now rather than when step 0 comes round. That is what lets a
+       hit played fractionally ahead of the beat still find a step to land on. */
+    recordingGridRef.current = { startsAt, stepDurationSeconds: beatSeconds / 4 }
+    recordingArmedRef.current = true
+    pendingRecordingStartRef.current = true
+    setCountingIn(true)
+    sequencerRef.current.start(() => sequenceConfigRef.current, startsAt)
+  }
+  /* Mid count-in there is nothing audible yet to keep running, so this cancels
+     outright. Mid recording, playback keeps going - this is a punch-out, not a stop. */
+  const stopRecording = () => {
+    recordingArmedRef.current = false
+    if (countingIn) {
+      sequencerRef.current.stop()
+      pendingRecordingStartRef.current = false
+      recordingGridRef.current = null
+      setCountingIn(false)
+      return
+    }
+    setRecording(false)
+  }
+  const toggleRecording = () => (recording || countingIn ? stopRecording() : startRecording())
+  /* Recording targets one Pattern Group and variant, which SONG's playlist walk makes
+     ambiguous - switching to SONG mid-take is treated as a hard stop first. */
+  const changeTransportMode = (mode: TransportMode) => {
+    if (mode === 'song' && (recording || countingIn)) stopPlayback()
+    setTransportMode(mode)
+  }
   const requestConfirmation = (message: string, confirmLabel: string, onConfirm: () => void) => {
     setPendingConfirmation({ message, confirmLabel, onConfirm })
   }
@@ -940,6 +1049,8 @@ export function App({ audioEngine }: AppProps) {
               bpm={bpm}
               swing={swing}
               isPlaying={isPlaying}
+              recording={recording}
+              countingIn={countingIn}
               mode={transportMode}
               loopSong={loopSong}
               metronomeEnabled={metronomeEnabled}
@@ -957,7 +1068,8 @@ export function App({ audioEngine }: AppProps) {
               selectedVariant={selectedPatternVariant}
               onBpmChange={setBpm}
               onSwingChange={setSwing}
-              onModeChange={setTransportMode}
+              onModeChange={changeTransportMode}
+              onRecordToggle={toggleRecording}
               onLoopSongChange={setLoopSong}
               onMetronomeEnabledChange={setMetronomeEnabled}
               onGroupChange={selectPatternGroup}

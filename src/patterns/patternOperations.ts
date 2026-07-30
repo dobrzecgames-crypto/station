@@ -96,6 +96,28 @@ export function updateVariantStep(groups: readonly PatternGroup[], groupId: stri
   })
 }
 
+/** Recording always forces a step on - replaying the same hit across loop passes must reinforce it, not toggle it back off like a manual tap would. Length resets to a single step only the first time this step activates; a step already on keeps whatever length it has. */
+export function recordVariantStep(groups: readonly PatternGroup[], groupId: string, variant: PatternVariantName, padId: SampleId, stepIndex: number, velocity = 1): PatternGroup[] {
+  return groups.map((group) => {
+    if (group.id !== groupId) return clonePatternGroup(group)
+    const current = group.variants[variant]
+    if (!current) throw new Error(`Pattern ${group.name}${variant} does not exist.`)
+    const steps = current[padId]
+    if (!steps || stepIndex < 0 || stepIndex >= patternStepCount) throw new Error('Pattern step is invalid.')
+    const wasInactive = steps[stepIndex] === 0
+    const cloned = clonePatternGroup(group)
+    const lengths = cloned.lengths[variant] ?? createEmptyStepLengthPattern(Object.keys(current))
+    const lengthSteps = lengths[padId] ?? Array(patternStepCount).fill(0)
+    return {
+      ...cloned,
+      variants: { ...cloned.variants, [variant]: { ...cloneStepPattern(current), [padId]: steps.map((value, index) => index === stepIndex ? velocity : value) } },
+      lengths: wasInactive
+        ? { ...cloned.lengths, [variant]: { ...lengths, [padId]: lengthSteps.map((length, index) => index === stepIndex ? 1 : length) } }
+        : cloned.lengths,
+    }
+  })
+}
+
 export function setVariantStepVelocity(groups: readonly PatternGroup[], groupId: string, variant: PatternVariantName, padId: SampleId, stepIndex: number, velocity: number): PatternGroup[] {
   return updateVariantPatternValue(groups, groupId, variant, padId, stepIndex, Math.min(1, Math.max(0, velocity)), 'velocity')
 }

@@ -82,12 +82,13 @@ export class StepSequencer {
     private readonly lookAheadSeconds = 0.1,
   ) {}
 
-  start(getConfig: () => StepSequencerConfig): void {
+  /** `startAt` lets a count-in hand off a future, already-scheduled timestamp instead of "now" - the look-ahead loop in `schedule` reaches it with the same sample accuracy as any other step. */
+  start(getConfig: () => StepSequencerConfig, startAt: number = this.audioEngine.getCurrentTime()): void {
     if (this.running) return
     this.running = true
     this.nextStepIndex = 0
     this.currentSongSlot = 1
-    this.nextStepTime = this.audioEngine.getCurrentTime()
+    this.nextStepTime = startAt
     this.schedule(getConfig)
   }
 

@@ -24,9 +24,10 @@ export function Pad({
   onFeedbackEnd,
 }: PadProps) {
   const isSynth = pad.synthPatchId !== null
-  const isLoaded = pad.fileName !== null || isSynth
-  const sourceLabel = isSynth ? 'MONOPOLY' : pad.fileName
-  const statusLabel = dropSampleName ? 'DROP' : isSynth ? (audioReady ? 'SYNTH' : 'LOCKED') : isLoaded ? (audioReady ? 'READY' : 'LOCKED') : 'EMPTY'
+  const isStrings = pad.stringsPatchId !== null
+  const isLoaded = pad.fileName !== null || isSynth || isStrings
+  const sourceLabel = isSynth ? 'MONOPOLY' : isStrings ? 'STRINGS' : pad.fileName
+  const statusLabel = dropSampleName ? 'DROP' : isSynth || isStrings ? (audioReady ? (isSynth ? 'SYNTH' : 'STRINGS') : 'LOCKED') : isLoaded ? (audioReady ? 'READY' : 'LOCKED') : 'EMPTY'
 
   return (
     <button

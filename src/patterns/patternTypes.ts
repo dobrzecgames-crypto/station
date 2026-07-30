@@ -2,6 +2,7 @@ import type { SampleId } from '../audio/AudioEngine'
 import type { EffectRackState } from '../audio/effects'
 import type { PadBankState } from '../pads/padBank'
 import type { SynthPatch } from '../synth/synthTypes'
+import type { StringsPatch } from '../strings/stringsTypes'
 
 export const patternVariantNames = ['A', 'B', 'C', 'D'] as const
 export const maximumPatternGroups = 8
@@ -12,7 +13,8 @@ export type StepShiftPattern = Record<SampleId, number[]>
 /**
  * Step length in whole steps. `0` means "unbounded" - a sample step plays its
  * full configured region uncut, which only means something for sample pads;
- * a MONOPOLY step always has a concrete duration, so its length is never 0.
+ * a MONOPOLY or STRINGS step always has a concrete duration, so its length is
+ * never 0.
  */
 export type StepLengthPattern = Record<SampleId, number[]>
 
@@ -29,6 +31,7 @@ export interface PatternGroup {
   bus?: GroupBusState
   effects: EffectRackState
   synthPatches: SynthPatch[]
+  stringsPatches: StringsPatch[]
   variants: Partial<Record<PatternVariantName, StepPattern>>
   shifts: Partial<Record<PatternVariantName, StepShiftPattern>>
   lengths: Partial<Record<PatternVariantName, StepLengthPattern>>

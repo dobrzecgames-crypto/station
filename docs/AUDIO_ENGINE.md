@@ -102,6 +102,16 @@ Each Pattern Group registers serializable patches with the engine. A patch owns 
 
 The sequencer supplies resolved MIDI notes, velocity, SHIFT-adjusted note-on time and `patch.gate * stepDuration` note-off time. Offline rendering registers the same patches and schedules the same events through the same engine class. Render length includes synth GATE and amp release in addition to sample and delay tails.
 
+## STRINGS synthesis
+
+STRINGS voices are created and cleaned up inside AudioEngine, alongside but separate from MONO-3's voice code - the two do not share a voice shape, since a wide, slowly-modulated ensemble pad has different DSP needs than a mono/poly5 bass-lead voice. A STRINGS voice is two sawtooth oscillators (the second statically detuned by the patch's DETUNE, in cents, on `.detune` rather than `.frequency`, so it sums cleanly with vibrato on the same AudioParam) into one lowpass biquad (BRIGHTNESS, fixed low Q, no filter envelope) and an amp envelope, before a per-channel ensemble insert.
+
+STRINGS is always polyphonic - there is no MONO mode or glide. Each patch is capped at `maximumStringsVoices` (8) voices, scoped per patch-runtime like MONO-3. Voice stealing prefers a voice already in its release phase over the oldest still-sounding voice, and a repeated note-on for an already-sounding note force-releases the old voice first (excluded from that same call's stealing pool, so it cannot be selected twice).
+
+Vibrato and the ensemble's delay-time modulation are driven by three free-running (not tempo-synced) oscillators created once, engine-wide, and shared by every STRINGS patch in the app - only the depth downstream of them is per-patch. The ensemble itself (two short modulated delay lines, panned wide, mixed with a dry signal that never fully disappears) is a signal-path insert and is therefore keyed by `(patch-runtime, channelId)`, not by patch alone: a patch shared across pads by Scale Map gets an independent ensemble per pad, so two pads playing the same shared patch do not sum into one pad's channel and do not break each other's volume/mute/solo/Pump. Vibrato depth, in contrast, modulates each voice's own oscillators directly and stays per-runtime.
+
+The sequencer and offline render integration mirrors MONO-3's exactly: resolved MIDI notes, velocity, SHIFT-adjusted note-on and `patch.gate * stepDuration` note-off, the same `syncStringsPatches` registration call, and a `getStringsTailSeconds` render-length term alongside the synth one.
+
 ## Sequencer timing
 
 The scheduler must:

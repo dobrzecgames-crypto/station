@@ -1,5 +1,6 @@
 import type { AudioEngine, ChannelId, GroupId, SampleAssetId, TriggerSampleOptions } from './AudioEngine'
 import type { SynthPatch } from '../synth/synthTypes'
+import type { StringsPatch } from '../strings/stringsTypes'
 
 export interface StepSequencerConfig {
   bpm: number
@@ -37,7 +38,13 @@ export interface SynthSequencerTrack extends StepSequencerTrackBase {
   midiNotes: readonly number[]
 }
 
-export type StepSequencerTrack = SampleSequencerTrack | SynthSequencerTrack
+export interface StringsSequencerTrack extends StepSequencerTrackBase {
+  source: 'strings'
+  patch: StringsPatch
+  midiNotes: readonly number[]
+}
+
+export type StepSequencerTrack = SampleSequencerTrack | SynthSequencerTrack | StringsSequencerTrack
 
 /**
  * Decides when the next scheduling pass happens. Live playback wakes on a
@@ -126,8 +133,10 @@ export class StepSequencer {
           if (track.chokeGroupId) this.audioEngine.stopSequencerChokeGroupAt(track.chokeGroupId, when)
           const maxDurationSeconds = length > 0 ? length * stepDuration : undefined
           this.audioEngine.scheduleSample(track.groupId, track.channelId, track.assetId, when, { ...track.options, gain: (track.options.gain ?? 1) * velocity, chokeGroupId: track.chokeGroupId, maxDurationSeconds }, 'sequencer')
-        } else {
+        } else if (track.source === 'synth') {
           this.audioEngine.scheduleSynthPad(track.groupId, track.channelId, track.patch, track.midiNotes, when, when + Math.max(1, length) * track.patch.gate * stepDuration, velocity)
+        } else {
+          this.audioEngine.scheduleStringsPad(track.groupId, track.channelId, track.patch, track.midiNotes, when, when + Math.max(1, length) * track.patch.gate * stepDuration, velocity)
         }
       }
       const wasLastStep = this.nextStepIndex === 15

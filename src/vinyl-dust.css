@@ -20,6 +20,8 @@
 .station-shell[data-view='library'] { --workspace-accent: var(--accent-library); }
 .station-shell[data-view='chop'] { --workspace-accent: var(--accent-chop); }
 .station-shell[data-view='pad'] { --workspace-accent: var(--accent-pads); }
+.station-shell[data-view='synth'] { --workspace-accent: var(--accent-synth); }
+.station-shell[data-view='strings'] { --workspace-accent: var(--accent-strings); }
 .station-shell[data-view='seq'] { --workspace-accent: var(--accent-seq); }
 .station-shell[data-view='song'] { --workspace-accent: var(--accent-song); }
 .station-shell[data-view='mix'] { --workspace-accent: var(--accent-mix); }
@@ -98,12 +100,13 @@ select, textarea {
 /* The tab is allowed to carry the module's colour. The workspace itself is
    not: MIX and PROJECT keep the warmer control accent below, preventing their
    light blue/stone tab colours from bleaching every active control inside. */
-.main-nav-button:nth-child(1).main-nav-button-active { --nav-active: #a5769d; }
-.main-nav-button:nth-child(2).main-nav-button-active { --nav-active: #c69b61; }
-.main-nav-button:nth-child(3).main-nav-button-active { --nav-active: #9a88c3; }
-.main-nav-button:nth-child(4).main-nav-button-active { --nav-active: #b07085; }
-.main-nav-button:nth-child(5).main-nav-button-active { --nav-active: #78a1b2; }
-.main-nav-button:nth-child(6).main-nav-button-active { --nav-active: #9aa5af; }
+.main-nav-button[data-workspace='chop'].main-nav-button-active { --nav-active: #a5769d; }
+.main-nav-button[data-workspace='pad'].main-nav-button-active { --nav-active: #c69b61; }
+.main-nav-button[data-workspace='synth'].main-nav-button-active { --nav-active: #87a066; }
+.main-nav-button[data-workspace='strings'].main-nav-button-active { --nav-active: #8fa8c7; }
+.main-nav-button[data-workspace='seq'].main-nav-button-active { --nav-active: #9a88c3; }
+.main-nav-button[data-workspace='song'].main-nav-button-active { --nav-active: #b07085; }
+.main-nav-button[data-workspace='mix'].main-nav-button-active { --nav-active: #78a1b2; }
 .main-nav-button.main-nav-button-active {
   border-color: color-mix(in srgb, var(--nav-active) 76%, var(--accent-gold-light));
   background: linear-gradient(180deg, color-mix(in srgb, var(--nav-active) 78%, #fff) 0%, var(--nav-active) 50%, color-mix(in srgb, var(--nav-active) 78%, #15111a) 100%);
@@ -113,6 +116,8 @@ select, textarea {
    the keys alone; they do not alter the workspace accent or its controls. */
 .main-nav-button[data-workspace='chop']:not(.main-nav-button-active) { background: linear-gradient(180deg, #493547 0%, #2e263a 45%, #191827 100%); }
 .main-nav-button[data-workspace='pad']:not(.main-nav-button-active) { background: linear-gradient(180deg, #334454 0%, #263444 45%, #171e2b 100%); }
+.main-nav-button[data-workspace='synth']:not(.main-nav-button-active) { background: linear-gradient(180deg, #3a4a3a 0%, #283a2a 45%, #17231a 100%); }
+.main-nav-button[data-workspace='strings']:not(.main-nav-button-active) { background: linear-gradient(180deg, #354356 0%, #253244 45%, #16202f 100%); }
 .main-nav-button[data-workspace='seq']:not(.main-nav-button-active) { background: linear-gradient(180deg, #3e3a62 0%, #2c2b4b 45%, #19182f 100%); }
 .main-nav-button[data-workspace='song']:not(.main-nav-button-active) { background: linear-gradient(180deg, #503549 0%, #36263c 45%, #201827 100%); }
 .main-nav-button[data-workspace='mix']:not(.main-nav-button-active) { background: linear-gradient(180deg, #2c4954 0%, #213744 45%, #14212c 100%); }

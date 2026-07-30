@@ -50,6 +50,9 @@ import type { ChopTestSample } from './chop/chopTestSamples'
 import { assignSynthSource, clearPadSource, createDefaultSynthPatch, getSynthPatch, maximumSynthMidiNote, minimumSynthMidiNote, removeUnreferencedSynthPatches, resolveSynthPadMidiNotes } from './synth/synthOperations'
 import type { SynthPatch, SynthVoiceMode } from './synth/synthTypes'
 import { SynthWorkspace } from './synth/SynthWorkspace'
+import { assignStringsSource, createDefaultStringsPatch, getStringsPatch, maximumStringsVoices, removeUnreferencedStringsPatches, resolveStringsPadMidiNotes } from './strings/stringsOperations'
+import type { StringsPatch } from './strings/stringsTypes'
+import { StringsWorkspace } from './strings/StringsWorkspace'
 import './App.css'
 // Loaded after App.css on purpose - the Lab Interface layer overrides the older
 // visual passes wholesale. See docs/DESIGN_SYSTEM.md.
@@ -86,6 +89,7 @@ function createPatternGroupId(): string { return `pattern-group-${createRuntimeI
 function createPatternClipId(): string { return `pattern-clip-${createRuntimeId()}` }
 function createPumpRouteId(): string { return `pump-route-${createRuntimeId()}` }
 function createSynthPatchId(): string { return `synth-patch-${createRuntimeId()}` }
+function createStringsPatchId(): string { return `strings-patch-${createRuntimeId()}` }
 function clearPadAssignment(pad: PadState): PadState {
   return clearPadSource(pad)
 }
@@ -164,6 +168,9 @@ export function App({ audioEngine }: AppProps) {
   const selectedSynthPatch = getSynthPatch(selectedGroup, selectedPad.synthPatchId)
   const selectedSynthUsageCount = selectedSynthPatch ? pads.filter((pad) => pad.synthPatchId === selectedSynthPatch.id).length : 0
   const selectedSynthBaseRange = selectedSynthPatch ? getSharedPatchBaseMidiRange(selectedGroup, selectedSynthPatch.id) : [minimumSynthMidiNote, maximumSynthMidiNote] as const
+  const selectedStringsPatch = getStringsPatch(selectedGroup, selectedPad.stringsPatchId)
+  const selectedStringsUsageCount = selectedStringsPatch ? pads.filter((pad) => pad.stringsPatchId === selectedStringsPatch.id).length : 0
+  const selectedStringsBaseRange = selectedStringsPatch ? getSharedStringsPatchBaseMidiRange(selectedGroup, selectedStringsPatch.id) : [minimumSynthMidiNote, maximumSynthMidiNote] as const
   const audioReady = audioStatus === 'ready'
   const audioRecovering = audioStatus === 'suspended' || audioStatus === 'interrupted'
   const controlsAwake = audioReady && powerVisualPhase === 'on'
@@ -272,6 +279,7 @@ export function App({ audioEngine }: AppProps) {
   useEffect(() => { audioEngine.setPumpRoutes(pumpRoutes.map((route) => ({ id: route.id, sourceChannelId: createChannelId(route.source), targetGroupId: route.targetGroupId, depth: route.depth, lengthSeconds: 60 / bpm * route.lengthBeats, curve: route.curve }))) }, [audioEngine, bpm, pumpRoutes])
   useEffect(() => { audioEngine.setBpm(bpm) }, [audioEngine, bpm])
   useEffect(() => { audioEngine.syncSynthPatches(patternGroups.flatMap((group) => group.synthPatches.map((patch) => ({ groupId: group.id, patch })))) }, [audioEngine, patternGroups])
+  useEffect(() => { audioEngine.syncStringsPatches(patternGroups.flatMap((group) => group.stringsPatches.map((patch) => ({ groupId: group.id, patch })))) }, [audioEngine, patternGroups])
   useEffect(() => { audioEngine.setMasterEffects(masterEffects) }, [audioEngine, masterEffects])
   useEffect(() => { for (const group of patternGroups) audioEngine.setGroupEffects(group.id, group.effects) }, [audioEngine, patternGroups])
   useEffect(() => audioEngine.subscribeToStatus((status) => {
@@ -295,7 +303,14 @@ export function App({ audioEngine }: AppProps) {
     if (!pad || !audioReady) return
     const patch = getSynthPatch(selectedGroup, pad.synthPatchId)
     if (patch) {
-      audioEngine.triggerSynthPad(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), patch, resolveSynthPadMidiNotes(patch, pad), 1, synthManualToken(selectedPatternGroupId, padId))
+      audioEngine.triggerSynthPad(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), patch, resolveSynthPadMidiNotes(patch, pad), 1, manualPadToken(selectedPatternGroupId, padId))
+      setActivePadId(padId)
+      recordPadHit(padId, audioEngine.getCurrentTime())
+      return
+    }
+    const stringsPatch = getStringsPatch(selectedGroup, pad.stringsPatchId)
+    if (stringsPatch) {
+      audioEngine.triggerStringsPad(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), stringsPatch, resolveStringsPadMidiNotes(stringsPatch, pad), 1, manualPadToken(selectedPatternGroupId, padId))
       setActivePadId(padId)
       recordPadHit(padId, audioEngine.getCurrentTime())
       return
@@ -310,8 +325,10 @@ export function App({ audioEngine }: AppProps) {
   }
 
   const releasePad = (padId: PadState['id']) => {
-    audioEngine.releaseSynthPad(synthManualToken(selectedPatternGroupId, padId))
-    if (pads.find((pad) => pad.id === padId)?.synthPatchId) setActivePadId((current) => current === padId ? null : current)
+    audioEngine.releaseSynthPad(manualPadToken(selectedPatternGroupId, padId))
+    audioEngine.releaseStringsPad(manualPadToken(selectedPatternGroupId, padId))
+    const releasedPad = pads.find((pad) => pad.id === padId)
+    if (releasedPad?.synthPatchId || releasedPad?.stringsPatchId) setActivePadId((current) => current === padId ? null : current)
   }
 
   useEffect(() => {
@@ -469,6 +486,7 @@ export function App({ audioEngine }: AppProps) {
       audioEngine.setMasterEffects(state.masterEffects)
       for (const group of state.patternGroups) audioEngine.setGroupEffects(group.id, group.effects)
       audioEngine.syncSynthPatches(state.patternGroups.flatMap((group) => group.synthPatches.map((patch) => ({ groupId: group.id, patch }))))
+      audioEngine.syncStringsPatches(state.patternGroups.flatMap((group) => group.stringsPatches.map((patch) => ({ groupId: group.id, patch }))))
       audioEngine.setPumpRoutes(state.pumpRoutes.map((route) => ({ id: route.id, sourceChannelId: createChannelId(route.source), targetGroupId: route.targetGroupId, depth: route.depth, lengthSeconds: 60 / state.bpm * route.lengthBeats, curve: route.curve })))
       setPatternGroups(state.patternGroups)
       setSelectedPatternGroupId(state.selectedPatternGroupId)
@@ -504,13 +522,13 @@ export function App({ audioEngine }: AppProps) {
     if (changes.volume !== selectedPad.volume) audioEngine.setChannelVolume(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId: selectedPadId }), changes.volume)
   }
   const createSynthForSelectedPad = (confirmed = false, onCreated?: () => void) => {
-    if (selectedPad.assetId && !confirmed) {
-      requestConfirmation(`Replace the sample on ${selectedPad.label} with a MONOPOLY patch?`, 'REPLACE', () => createSynthForSelectedPad(true, onCreated))
+    if ((selectedPad.assetId || selectedPad.stringsPatchId) && !confirmed) {
+      requestConfirmation(`Replace the ${selectedPad.stringsPatchId ? 'STRINGS patch' : 'sample'} on ${selectedPad.label} with a MONOPOLY patch?`, 'REPLACE', () => createSynthForSelectedPad(true, onCreated))
       return
     }
     const patch = createDefaultSynthPatch(createSynthPatchId())
     const bank = { ...selectedGroup.bank, pads: pads.map((pad) => pad.id === selectedPadId ? assignSynthSource(pad, patch.id) : pad) }
-    const groups = patternGroups.map((group) => group.id === selectedPatternGroupId ? removeUnreferencedSynthPatches({ ...group, bank, synthPatches: [...group.synthPatches, patch] }) : group)
+    const groups = patternGroups.map((group) => group.id === selectedPatternGroupId ? removeUnreferencedStringsPatches(removeUnreferencedSynthPatches({ ...group, bank, synthPatches: [...group.synthPatches, patch] })) : group)
     const previousAssetId = selectedPad.assetId
     setPatternGroups(groups)
     removeAssetIfUnused(previousAssetId, groups)
@@ -541,6 +559,31 @@ export function App({ audioEngine }: AppProps) {
     const next = [...new Set(chordIntervals)]
     if (next.length < 1 || next.length > 5 || !next.includes(0) || next.some((interval) => !Number.isInteger(interval) || interval < -24 || interval > 24)) return
     const notes = next.map((interval) => selectedSynthPatch.baseMidiNote + selectedPad.pitchSemitones + interval)
+    if (notes.some((note) => note < minimumSynthMidiNote || note > maximumSynthMidiNote)) { setErrorMessage('Chord notes must stay between C0 and C8.'); return }
+    replaceActiveBank({ ...selectedGroup.bank, pads: pads.map((pad) => pad.id === selectedPadId ? { ...pad, chordIntervals: next } : pad) })
+  }
+  const createStringsForSelectedPad = (confirmed = false, onCreated?: () => void) => {
+    if ((selectedPad.assetId || selectedPad.synthPatchId) && !confirmed) {
+      requestConfirmation(`Replace the ${selectedPad.synthPatchId ? 'MONOPOLY patch' : 'sample'} on ${selectedPad.label} with a STRINGS patch?`, 'REPLACE', () => createStringsForSelectedPad(true, onCreated))
+      return
+    }
+    const patch = createDefaultStringsPatch(createStringsPatchId())
+    const bank = { ...selectedGroup.bank, pads: pads.map((pad) => pad.id === selectedPadId ? assignStringsSource(pad, patch.id) : pad) }
+    const groups = patternGroups.map((group) => group.id === selectedPatternGroupId ? removeUnreferencedSynthPatches(removeUnreferencedStringsPatches({ ...group, bank, stringsPatches: [...group.stringsPatches, patch] })) : group)
+    const previousAssetId = selectedPad.assetId
+    setPatternGroups(groups)
+    removeAssetIfUnused(previousAssetId, groups)
+    setProjectMessage(`STRINGS created on ${selectedPad.label}.`)
+    onCreated?.()
+  }
+  const updateSelectedStringsPatch = (patch: StringsPatch) => {
+    setPatternGroups((groups) => groups.map((group) => group.id === selectedPatternGroupId ? { ...group, stringsPatches: group.stringsPatches.map((candidate) => candidate.id === patch.id ? patch : candidate) } : group))
+  }
+  const updateSelectedStringsChord = (chordIntervals: number[]) => {
+    if (!selectedStringsPatch) return
+    const next = [...new Set(chordIntervals)]
+    if (next.length < 1 || next.length > maximumStringsVoices || !next.includes(0) || next.some((interval) => !Number.isInteger(interval) || interval < -24 || interval > 24)) return
+    const notes = next.map((interval) => selectedStringsPatch.baseMidiNote + selectedPad.pitchSemitones + interval)
     if (notes.some((note) => note < minimumSynthMidiNote || note > maximumSynthMidiNote)) { setErrorMessage('Chord notes must stay between C0 and C8.'); return }
     replaceActiveBank({ ...selectedGroup.bank, pads: pads.map((pad) => pad.id === selectedPadId ? { ...pad, chordIntervals: next } : pad) })
   }
@@ -575,8 +618,8 @@ export function App({ audioEngine }: AppProps) {
     if (!audioReady || projectBusy || loadingLibrarySampleId) return false
     const targetPad = pads.find((pad) => pad.id === targetPadId)
     if (!targetPad) return false
-    if (targetPad.synthPatchId && !confirmed) {
-      requestConfirmation(`Replace the MONOPOLY source on ${targetPad.label} with ${sample.filename}?`, 'REPLACE', () => {
+    if ((targetPad.synthPatchId || targetPad.stringsPatchId) && !confirmed) {
+      requestConfirmation(`Replace the ${targetPad.stringsPatchId ? 'STRINGS' : 'MONOPOLY'} source on ${targetPad.label} with ${sample.filename}?`, 'REPLACE', () => {
         void loadLibrarySample(sample, targetPadId, true).then((loaded) => {
           if (loaded) setSelectedLibrarySample(null)
         })
@@ -592,8 +635,8 @@ export function App({ audioEngine }: AppProps) {
       const loadedSample = await audioEngine.loadSampleBlob(assetId, await response.blob(), sample.filename)
       const waveform = audioEngine.getWaveformPeaks(assetId) ?? []
       const previousAssetId = targetPad.assetId
-      const bank = { ...selectedGroup.bank, pads: pads.map((pad) => pad.id === targetPad.id ? { ...pad, assetId, fileName: loadedSample.filename, durationSeconds: loadedSample.durationSeconds, region: { startSeconds: 0, endSeconds: loadedSample.durationSeconds }, slices: [], chopSessionId: null, synthPatchId: null, chordIntervals: [0] } : pad) }
-      const groups = patternGroups.map((group) => group.id === selectedPatternGroupId ? removeUnreferencedSynthPatches({ ...group, bank }) : group)
+      const bank = { ...selectedGroup.bank, pads: pads.map((pad) => pad.id === targetPad.id ? { ...pad, assetId, fileName: loadedSample.filename, durationSeconds: loadedSample.durationSeconds, region: { startSeconds: 0, endSeconds: loadedSample.durationSeconds }, slices: [], chopSessionId: null, synthPatchId: null, stringsPatchId: null, chordIntervals: [0] } : pad) }
+      const groups = patternGroups.map((group) => group.id === selectedPatternGroupId ? removeUnreferencedStringsPatches(removeUnreferencedSynthPatches({ ...group, bank })) : group)
       setPatternGroups(groups)
       setSelectedPadId(targetPad.id)
       setWaveforms((current) => ({ ...current, [assetId]: waveform }))
@@ -645,16 +688,17 @@ export function App({ audioEngine }: AppProps) {
 
   const clearSelectedPad = () => {
     const assetId = selectedPad.assetId
-    audioEngine.releaseSynthPad(synthManualToken(selectedPatternGroupId, selectedPadId))
+    audioEngine.releaseSynthPad(manualPadToken(selectedPatternGroupId, selectedPadId))
+    audioEngine.releaseStringsPad(manualPadToken(selectedPatternGroupId, selectedPadId))
     const bank = { ...selectedGroup.bank, pads: pads.map((pad) => pad.id === selectedPadId ? clearPadAssignment(pad) : pad) }
-    const groups = patternGroups.map((group) => group.id === selectedPatternGroupId ? removeUnreferencedSynthPatches({ ...group, bank }) : group)
+    const groups = patternGroups.map((group) => group.id === selectedPatternGroupId ? removeUnreferencedStringsPatches(removeUnreferencedSynthPatches({ ...group, bank })) : group)
     setPatternGroups(groups)
     removeAssetIfUnused(assetId, groups)
     setActivePadId((current) => current === selectedPadId ? null : current)
   }
 
   const mapSelectedPadToProjectScale = (confirmed = false) => {
-    if (projectBusy || (!selectedPad.assetId && !selectedPad.synthPatchId)) return
+    if (projectBusy || (!selectedPad.assetId && !selectedPad.synthPatchId && !selectedPad.stringsPatchId)) return
     const conflicts = findProjectScaleMapConflicts(pads, selectedPad.id)
     if (conflicts.length > 0 && !confirmed) {
       requestConfirmation(`Replace ${conflicts.length} occupied pad${conflicts.length === 1 ? '' : 's'} with the Project Scale map?`, 'REPLACE', () => mapSelectedPadToProjectScale(true))
@@ -663,6 +707,10 @@ export function App({ audioEngine }: AppProps) {
     const result = mapPadBankToProjectScale(pads, selectedPad.id, projectKey)
     if (selectedSynthPatch && result.pads.some((pad) => pad.synthPatchId === selectedSynthPatch.id && resolveSynthPadMidiNotes(selectedSynthPatch, pad).some((note) => note < minimumSynthMidiNote || note > maximumSynthMidiNote))) {
       setErrorMessage('This Project Scale map would place MONOPOLY notes outside C0-C8.')
+      return
+    }
+    if (selectedStringsPatch && result.pads.some((pad) => pad.stringsPatchId === selectedStringsPatch.id && resolveStringsPadMidiNotes(selectedStringsPatch, pad).some((note) => note < minimumSynthMidiNote || note > maximumSynthMidiNote))) {
+      setErrorMessage('This Project Scale map would place STRINGS notes outside C0-C8.')
       return
     }
     replaceActiveBank({ ...selectedGroup.bank, pads: result.pads })
@@ -681,7 +729,7 @@ export function App({ audioEngine }: AppProps) {
 
   const applyChopMapping = (nextSlices: SampleSlice[], nextSession: ChopSessionState, confirmed = false, onApplied?: () => void): boolean => {
     if (!chopSession.assetId || !chopSession.durationSeconds) return false
-    const conflicts = pads.slice(0, nextSlices.length).filter((pad) => (pad.assetId || pad.synthPatchId) && pad.chopSessionId !== chopSession.id)
+    const conflicts = pads.slice(0, nextSlices.length).filter((pad) => (pad.assetId || pad.synthPatchId || pad.stringsPatchId) && pad.chopSessionId !== chopSession.id)
     if (conflicts.length > 0 && !confirmed) {
       requestConfirmation(`Replace ${conflicts.length} occupied pad${conflicts.length === 1 ? '' : 's'} with live Chop slices?`, 'REPLACE', () => {
         applyChopMapping(nextSlices, nextSession, true, onApplied)
@@ -693,10 +741,10 @@ export function App({ audioEngine }: AppProps) {
       // A pad already on this session keeps whatever pitch it has - re-slicing
       // must not undo a pad the user has since tuned by hand. A pad newly
       // joining starts from the session's current official pitch instead of 0.
-      if (slice) return { ...pad, assetId: chopSession.assetId!, fileName: chopSession.fileName, durationSeconds: chopSession.durationSeconds, region: { startSeconds: slice.startSeconds, endSeconds: slice.endSeconds }, slices: [], chopSessionId: chopSession.id, pitchSemitones: pad.chopSessionId === chopSession.id ? pad.pitchSemitones : chopSession.pitchSemitones, synthPatchId: null, chordIntervals: [0] }
+      if (slice) return { ...pad, assetId: chopSession.assetId!, fileName: chopSession.fileName, durationSeconds: chopSession.durationSeconds, region: { startSeconds: slice.startSeconds, endSeconds: slice.endSeconds }, slices: [], chopSessionId: chopSession.id, pitchSemitones: pad.chopSessionId === chopSession.id ? pad.pitchSemitones : chopSession.pitchSemitones, synthPatchId: null, stringsPatchId: null, chordIntervals: [0] }
       return pad.chopSessionId === chopSession.id ? clearPadAssignment(pad) : pad
     }), chopSession: nextSession }
-    setPatternGroups((groups) => groups.map((group) => group.id === selectedPatternGroupId ? removeUnreferencedSynthPatches({ ...group, bank }) : group))
+    setPatternGroups((groups) => groups.map((group) => group.id === selectedPatternGroupId ? removeUnreferencedStringsPatches(removeUnreferencedSynthPatches({ ...group, bank })) : group))
     onApplied?.()
     return true
   }
@@ -899,7 +947,7 @@ export function App({ audioEngine }: AppProps) {
     if (isPlaying) return
     if (!audioReady) { setErrorMessage('Start audio before playing the sequencer.'); return }
     if (transportMode === 'song' && playlist.length === 0) { setTransportNotice(emptySongPlaylistNotice); return }
-    if (sequenceConfigRef.current.getTracksForSlot(1).length === 0 && !pads.some((pad) => (pad.assetId && audioEngine.hasSampleAsset(pad.assetId)) || pad.synthPatchId) && !metronomeEnabled) { setErrorMessage('Load a sample or create a MONOPOLY patch first.'); return }
+    if (sequenceConfigRef.current.getTracksForSlot(1).length === 0 && !pads.some((pad) => (pad.assetId && audioEngine.hasSampleAsset(pad.assetId)) || pad.synthPatchId || pad.stringsPatchId) && !metronomeEnabled) { setErrorMessage('Load a sample or create a MONOPOLY or STRINGS patch first.'); return }
     sequencerRef.current.start(() => sequenceConfigRef.current)
     setIsPlaying(true)
   }
@@ -941,7 +989,7 @@ export function App({ audioEngine }: AppProps) {
     if (transportMode === 'song') return
     if (isPlaying) { recordingArmedRef.current = true; setRecording(true); return }
     if (!audioReady) { setErrorMessage('Start audio before recording.'); return }
-    if (sequenceConfigRef.current.getTracksForSlot(1).length === 0 && !pads.some((pad) => (pad.assetId && audioEngine.hasSampleAsset(pad.assetId)) || pad.synthPatchId) && !metronomeEnabled) { setErrorMessage('Load a sample or create a MONOPOLY patch first.'); return }
+    if (sequenceConfigRef.current.getTracksForSlot(1).length === 0 && !pads.some((pad) => (pad.assetId && audioEngine.hasSampleAsset(pad.assetId)) || pad.synthPatchId || pad.stringsPatchId) && !metronomeEnabled) { setErrorMessage('Load a sample or create a MONOPOLY or STRINGS patch first.'); return }
     const beatSeconds = 60 / bpm
     const now = audioEngine.getCurrentTime()
     const startsAt = now + 4 * beatSeconds
@@ -1001,11 +1049,18 @@ export function App({ audioEngine }: AppProps) {
   }
   const changeMainView = (view: MainView) => {
     if (view === 'synth' && !selectedSynthPatch) {
-      if (selectedPad.assetId) {
+      if (selectedPad.assetId || selectedPad.stringsPatchId) {
         createSynthForSelectedPad(false, () => enterMainView('synth'))
         return
       }
       createSynthForSelectedPad()
+    }
+    if (view === 'strings' && !selectedStringsPatch) {
+      if (selectedPad.assetId || selectedPad.synthPatchId) {
+        createStringsForSelectedPad(false, () => enterMainView('strings'))
+        return
+      }
+      createStringsForSelectedPad()
     }
     enterMainView(view)
   }
@@ -1232,13 +1287,31 @@ export function App({ audioEngine }: AppProps) {
               onClear={clearSelectedPad}
             />
           )}
+          {mainView === "strings" && (
+            <StringsWorkspace
+              pad={selectedPad}
+              patch={selectedStringsPatch}
+              usageCount={selectedStringsUsageCount}
+              baseMidiRange={selectedStringsBaseRange}
+              audioReady={audioReady}
+              projectBusy={projectBusy}
+              projectKeyLabel={formatProjectKey(projectKey)}
+              onPatchChange={updateSelectedStringsPatch}
+              onChordChange={updateSelectedStringsChord}
+              onPadPitchChange={(pitchSemitones) => updateSelectedPad({ volume: selectedPad.volume, pitchSemitones, attackMs: selectedPad.attackMs, releaseMs: selectedPad.releaseMs })}
+              onTrigger={() => triggerPad(selectedPad.id)}
+              onRelease={() => releasePad(selectedPad.id)}
+              onMapToProjectScale={mapSelectedPadToProjectScale}
+              onClear={clearSelectedPad}
+            />
+          )}
           {mainView === "seq" && (
             <SequencerControls
               pattern={selectedPattern}
               shifts={selectedPatternShifts}
               lengths={selectedPatternLengths}
               pads={pads.filter(
-                (pad) => pad.fileName || pad.synthPatchId || pad.id === selectedPad.id,
+                (pad) => pad.fileName || pad.synthPatchId || pad.stringsPatchId || pad.id === selectedPad.id,
               )}
               selectedPadId={selectedPad.id}
               group={selectedGroup}
@@ -1397,7 +1470,7 @@ function toMessage(error: unknown): string { return error instanceof Error ? err
 function assetIsReferencedByGroups(groups: readonly PatternGroup[], assetId: SampleAssetId): boolean {
   return groups.some((group) => group.bank.pads.some((pad) => pad.assetId === assetId) || group.bank.chopSession.assetId === assetId)
 }
-function synthManualToken(groupId: string, padId: PadState['id']): string {
+function manualPadToken(groupId: string, padId: PadState['id']): string {
   return `manual:${groupId}:${padId}`
 }
 function getSharedPatchBaseMidiRange(group: PatternGroup, patchId: string): readonly [number, number] {
@@ -1405,6 +1478,16 @@ function getSharedPatchBaseMidiRange(group: PatternGroup, patchId: string): read
   let maximum = maximumSynthMidiNote
   for (const pad of group.bank.pads) {
     if (pad.synthPatchId !== patchId) continue
+    minimum = Math.max(minimum, minimumSynthMidiNote - pad.pitchSemitones - Math.min(...pad.chordIntervals))
+    maximum = Math.min(maximum, maximumSynthMidiNote - pad.pitchSemitones - Math.max(...pad.chordIntervals))
+  }
+  return [minimum, maximum]
+}
+function getSharedStringsPatchBaseMidiRange(group: PatternGroup, patchId: string): readonly [number, number] {
+  let minimum = minimumSynthMidiNote
+  let maximum = maximumSynthMidiNote
+  for (const pad of group.bank.pads) {
+    if (pad.stringsPatchId !== patchId) continue
     minimum = Math.max(minimum, minimumSynthMidiNote - pad.pitchSemitones - Math.min(...pad.chordIntervals))
     maximum = Math.min(maximum, maximumSynthMidiNote - pad.pitchSemitones - Math.max(...pad.chordIntervals))
   }

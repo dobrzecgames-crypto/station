@@ -2,6 +2,8 @@ import { createDefaultMasterEffectRack, createEmptyEffectRack, defaultCompressor
 import type { EffectRackState, EffectSlotState, EffectType } from './effects'
 import { cloneSynthPatch, lfoFrequencyHz, maximumSynthVoices } from '../synth/synthOperations'
 import type { SynthPatch } from '../synth/synthTypes'
+import { cloneStringsPatch, maximumStringsVoices, stringsBrightnessToHz } from '../strings/stringsOperations'
+import type { StringsPatch } from '../strings/stringsTypes'
 
 export type SampleId = string
 export type SampleAssetId = string
@@ -113,6 +115,57 @@ interface SynthPatchRuntime {
   lastMidiNote?: number
 }
 
+export interface StringsPatchRegistration {
+  groupId: GroupId
+  patch: StringsPatch
+}
+
+interface ActiveStringsVoice {
+  oscillators: [OscillatorNode, OscillatorNode]
+  filter: BiquadFilterNode
+  amp: GainNode
+  /** Fades the shared vibrato signal in after note-on rather than gating the LFO itself, so the LFO stays phase-continuous across every voice. */
+  vibratoOnset: GainNode
+  origin: 'manual' | 'sequencer'
+  patchKey: string
+  channelId: ChannelId
+  midiNote: number
+  startsAt: number
+  serial: number
+  manualToken?: string
+  stopAt?: number
+  stolen?: boolean
+  cleanedUp: boolean
+}
+
+/**
+ * A signal-path insert, so it must be keyed per channel, not just per patch: a
+ * patch shared across several pads (Scale Map) needs an independent ensemble
+ * per pad, or their voices would sum into whichever channel built the
+ * ensemble first and silently break that pad's own volume/mute/solo/Pump.
+ */
+interface RuntimeStringsEnsemble {
+  input: GainNode
+  dryGain: GainNode
+  delayA: DelayNode
+  delayB: DelayNode
+  pannerA: StereoPannerNode
+  pannerB: StereoPannerNode
+  wetGainA: GainNode
+  wetGainB: GainNode
+  delayModDepthA: GainNode
+  delayModDepthB: GainNode
+  output: GainNode
+}
+
+interface StringsPatchRuntime {
+  groupId: GroupId
+  patch: StringsPatch
+  voices: Set<ActiveStringsVoice>
+  ensembles: Map<ChannelId, RuntimeStringsEnsemble>
+  vibratoDepth?: GainNode
+}
+
 interface Channel {
   groupId: GroupId
   volume: number
@@ -174,6 +227,14 @@ export class AudioEngine {
   private readonly synthRuntimes = new Map<string, SynthPatchRuntime>()
   private activeSynthVoices = new Set<ActiveSynthVoice>()
   private synthVoiceSerial = 0
+  private readonly stringsPatches = new Map<string, StringsPatchRegistration>()
+  private readonly stringsRuntimes = new Map<string, StringsPatchRuntime>()
+  private activeStringsVoices = new Set<ActiveStringsVoice>()
+  private stringsVoiceSerial = 0
+  /** Free-running, engine-wide - shared by every STRINGS patch for CPU cost, never tempo-synced. Only the depth downstream of them is per-patch/per-channel. */
+  private stringsVibratoLfo?: OscillatorNode
+  private stringsEnsembleLfoA?: OscillatorNode
+  private stringsEnsembleLfoB?: OscillatorNode
   private status: AudioEngineStatus = 'inactive'
   private readonly statusListeners = new Set<(status: AudioEngineStatus) => void>()
   private lifecycleRecoveryInstalled = false
@@ -217,6 +278,7 @@ export class AudioEngine {
       this.createMasterOutput(this.liveContext)
       this.createChannelNodes()
       this.ensureAllSynthRuntimes()
+      this.ensureAllStringsRuntimes()
       await this.liveContext.resume()
 
       if (this.liveContext.state !== 'running') {
@@ -240,6 +302,7 @@ export class AudioEngine {
     this.createMasterOutput(context)
     this.createChannelNodes()
     this.ensureAllSynthRuntimes()
+    this.ensureAllStringsRuntimes()
     this.setStatus('ready')
   }
 
@@ -402,6 +465,24 @@ export class AudioEngine {
     }
   }
 
+  syncStringsPatches(registrations: readonly StringsPatchRegistration[]): void {
+    const nextKeys = new Set<string>()
+    for (const registration of registrations) {
+      const key = this.stringsPatchKey(registration.groupId, registration.patch.id)
+      nextKeys.add(key)
+      this.stringsPatches.set(key, { groupId: registration.groupId, patch: cloneStringsPatch(registration.patch) })
+      const runtime = this.stringsRuntimes.get(key)
+      if (runtime) this.updateStringsRuntime(runtime, registration.patch)
+      else if (this.context) this.ensureStringsRuntime(registration.groupId, registration.patch)
+    }
+    for (const key of [...this.stringsPatches.keys()]) {
+      if (nextKeys.has(key)) continue
+      this.stringsPatches.delete(key)
+      const runtime = this.stringsRuntimes.get(key)
+      if (runtime) this.disposeStringsRuntime(key, runtime)
+    }
+  }
+
   triggerSample(groupId: GroupId, channelId: ChannelId, assetId: SampleAssetId, options: TriggerSampleOptions = {}): void {
     if (!this.context) {
       return
@@ -414,7 +495,7 @@ export class AudioEngine {
     if (this.status !== 'ready' || !this.context) return
     const runtime = this.ensureSynthRuntime(groupId, patch)
     const when = this.context.currentTime
-    for (const route of this.pumpRoutes) if (route.sourceChannelId === channelId) this.triggerPumpRoute(route, when)
+    this.triggerPumpRoutesForChannel(channelId, when)
     if (patch.mode === 'mono') {
       const midiNote = midiNotes[0]
       if (!Number.isFinite(midiNote)) return
@@ -447,7 +528,7 @@ export class AudioEngine {
     const runtime = this.ensureSynthRuntime(groupId, patch)
     const scheduledWhen = Math.max(this.context.currentTime, when)
     const scheduledOff = Math.max(scheduledWhen + 0.005, noteOffWhen)
-    for (const route of this.pumpRoutes) if (route.sourceChannelId === channelId) this.triggerPumpRoute(route, scheduledWhen)
+    this.triggerPumpRoutesForChannel(channelId, scheduledWhen)
     if (patch.mode === 'mono') {
       const midiNote = midiNotes[0]
       if (!Number.isFinite(midiNote)) return
@@ -459,6 +540,39 @@ export class AudioEngine {
       if (!Number.isFinite(midiNote)) continue
       const voice = this.startSynthVoice(runtime, groupId, channelId, midiNote, velocity, scheduledWhen, 'sequencer')
       if (voice) this.releaseSynthVoice(runtime, voice, scheduledOff)
+    }
+  }
+
+  /** Always polyphonic - unlike MONOPOLY there is no MONO mode, so every call takes the same chord path. */
+  triggerStringsPad(groupId: GroupId, channelId: ChannelId, patch: StringsPatch, midiNotes: readonly number[], velocity = 1, manualToken = channelId): void {
+    if (this.status !== 'ready' || !this.context) return
+    const runtime = this.ensureStringsRuntime(groupId, patch)
+    const when = this.context.currentTime
+    this.triggerPumpRoutesForChannel(channelId, when)
+    this.releaseStringsPad(manualToken)
+    for (const midiNote of midiNotes.slice(0, maximumStringsVoices)) {
+      if (Number.isFinite(midiNote)) this.startStringsVoice(runtime, channelId, midiNote, velocity, when, 'manual', manualToken)
+    }
+  }
+
+  releaseStringsPad(manualToken: string): void {
+    if (!this.context) return
+    const when = this.context.currentTime
+    for (const runtime of this.stringsRuntimes.values()) {
+      for (const voice of runtime.voices) if (voice.origin === 'manual' && voice.manualToken === manualToken) this.releaseStringsVoice(runtime, voice, when)
+    }
+  }
+
+  scheduleStringsPad(groupId: GroupId, channelId: ChannelId, patch: StringsPatch, midiNotes: readonly number[], when: number, noteOffWhen: number, velocity: number): void {
+    if (this.status !== 'ready' || !this.context) return
+    const runtime = this.ensureStringsRuntime(groupId, patch)
+    const scheduledWhen = Math.max(this.context.currentTime, when)
+    const scheduledOff = Math.max(scheduledWhen + 0.005, noteOffWhen)
+    this.triggerPumpRoutesForChannel(channelId, scheduledWhen)
+    for (const midiNote of midiNotes.slice(0, maximumStringsVoices)) {
+      if (!Number.isFinite(midiNote)) continue
+      const voice = this.startStringsVoice(runtime, channelId, midiNote, velocity, scheduledWhen, 'sequencer')
+      if (voice) this.releaseStringsVoice(runtime, voice, scheduledOff)
     }
   }
 
@@ -524,7 +638,7 @@ export class AudioEngine {
     source.addEventListener('ended', () => this.cleanUpVoice(voice), { once: true })
 
     this.activeVoices.add(voice)
-    for (const route of this.pumpRoutes) if (route.sourceChannelId === channelId) this.triggerPumpRoute(route, scheduledWhen)
+    this.triggerPumpRoutesForChannel(channelId, scheduledWhen)
     source.start(scheduledWhen, region.startSeconds, outputDuration * playbackRate)
   }
 
@@ -560,6 +674,7 @@ export class AudioEngine {
       this.cleanUpVoice(voice)
     }
     for (const voice of [...this.activeSynthVoices]) this.stopSynthVoiceImmediately(voice)
+    for (const voice of [...this.activeStringsVoices]) this.stopStringsVoiceImmediately(voice)
   }
 
   stopSequencerVoices(): void {
@@ -573,6 +688,7 @@ export class AudioEngine {
       this.cleanUpVoice(voice)
     }
     for (const voice of [...this.activeSynthVoices]) if (voice.origin === 'sequencer') this.stopSynthVoiceImmediately(voice)
+    for (const voice of [...this.activeStringsVoices]) if (voice.origin === 'sequencer') this.stopStringsVoiceImmediately(voice)
   }
 
   stopSequencerChokeGroupAt(chokeGroupId: string, when: number): void {
@@ -603,10 +719,11 @@ export class AudioEngine {
     }
     for (const runtime of this.synthRuntimes.values()) runtime.heldMonoNotes = []
     for (const voice of [...this.activeSynthVoices]) if (voice.origin === 'manual') this.stopSynthVoiceImmediately(voice)
+    for (const voice of [...this.activeStringsVoices]) if (voice.origin === 'manual') this.stopStringsVoiceImmediately(voice)
   }
 
   getActiveVoiceCount(): number {
-    return this.activeVoices.size + this.activeSynthVoices.size
+    return this.activeVoices.size + this.activeSynthVoices.size + this.activeStringsVoices.size
   }
 
   getCurrentTime(): number {
@@ -621,6 +738,18 @@ export class AudioEngine {
     for (const [key, runtime] of this.synthRuntimes) this.disposeSynthRuntime(key, runtime)
     this.synthPatches.clear()
     this.activeSynthVoices.clear()
+    for (const [key, runtime] of this.stringsRuntimes) this.disposeStringsRuntime(key, runtime)
+    this.stringsPatches.clear()
+    this.activeStringsVoices.clear()
+    try { this.stringsVibratoLfo?.stop() } catch { /* The LFO may already be stopped. */ }
+    try { this.stringsEnsembleLfoA?.stop() } catch { /* The LFO may already be stopped. */ }
+    try { this.stringsEnsembleLfoB?.stop() } catch { /* The LFO may already be stopped. */ }
+    this.stringsVibratoLfo?.disconnect()
+    this.stringsEnsembleLfoA?.disconnect()
+    this.stringsEnsembleLfoB?.disconnect()
+    this.stringsVibratoLfo = undefined
+    this.stringsEnsembleLfoA = undefined
+    this.stringsEnsembleLfoB = undefined
     for (const channel of this.channels.values()) {
       channel.gain?.disconnect()
       channel.meter?.disconnect()
@@ -951,6 +1080,289 @@ export class AudioEngine {
     this.synthRuntimes.delete(key)
   }
 
+  private stringsPatchKey(groupId: GroupId, patchId: string): string {
+    return `${groupId}:${patchId}`
+  }
+
+  private ensureAllStringsRuntimes(): void {
+    for (const registration of this.stringsPatches.values()) this.ensureStringsRuntime(registration.groupId, registration.patch)
+  }
+
+  private ensureStringsRuntime(groupId: GroupId, patch: StringsPatch): StringsPatchRuntime {
+    const key = this.stringsPatchKey(groupId, patch.id)
+    this.stringsPatches.set(key, { groupId, patch: cloneStringsPatch(patch) })
+    let runtime = this.stringsRuntimes.get(key)
+    if (!runtime) {
+      runtime = { groupId, patch: cloneStringsPatch(patch), voices: new Set(), ensembles: new Map() }
+      this.stringsRuntimes.set(key, runtime)
+      if (this.context) this.createStringsVibratoDepth(runtime)
+    } else this.updateStringsRuntime(runtime, patch)
+    return runtime
+  }
+
+  private updateStringsRuntime(runtime: StringsPatchRuntime, patch: StringsPatch): void {
+    runtime.patch = cloneStringsPatch(patch)
+    if (runtime.vibratoDepth) this.applyStringsVibratoDepth(runtime, runtime.vibratoDepth, false)
+    for (const ensemble of runtime.ensembles.values()) this.applyStringsEnsemble(runtime, ensemble, false)
+    for (const voice of runtime.voices) this.applyPatchToActiveStringsVoice(runtime, voice)
+  }
+
+  /** Lazily created once, ever - shared by every STRINGS patch in the app. */
+  private ensureStringsGlobalLfos(): void {
+    if (!this.context || this.stringsVibratoLfo) return
+    const now = this.context.currentTime
+    const vibrato = this.context.createOscillator()
+    vibrato.type = 'sine'
+    vibrato.frequency.setValueAtTime(5.3, now)
+    vibrato.start(now)
+    this.stringsVibratoLfo = vibrato
+
+    // Deliberately free-running (not tempo-synced) and at non-integer-ratio
+    // rates, so the two delay lines never fall into a regular, audible pulse.
+    const ensembleA = this.context.createOscillator()
+    ensembleA.type = 'sine'
+    ensembleA.frequency.setValueAtTime(0.13, now)
+    ensembleA.start(now)
+    this.stringsEnsembleLfoA = ensembleA
+
+    const ensembleB = this.context.createOscillator()
+    ensembleB.type = 'sine'
+    ensembleB.frequency.setValueAtTime(0.19, now)
+    ensembleB.start(now)
+    this.stringsEnsembleLfoB = ensembleB
+  }
+
+  private createStringsVibratoDepth(runtime: StringsPatchRuntime): void {
+    if (!this.context || runtime.vibratoDepth) return
+    this.ensureStringsGlobalLfos()
+    if (!this.stringsVibratoLfo) return
+    const depth = this.context.createGain()
+    this.stringsVibratoLfo.connect(depth)
+    runtime.vibratoDepth = depth
+    this.applyStringsVibratoDepth(runtime, depth, true)
+  }
+
+  private applyStringsVibratoDepth(runtime: StringsPatchRuntime, depth: GainNode, immediately: boolean): void {
+    // Cents of peak deviation at VIBRATO = 1. Musical, not a siren: real vibrato
+    // typically swings well under this even at its most pronounced.
+    this.applyEffectParameter(depth.gain, runtime.patch.vibrato * 16, immediately, 0.02)
+  }
+
+  /** Built once per (patch, channel) and never torn down until the runtime disposes - a chord's worth of voices reuses the same ensemble, matching how `ensureChannel` itself is never rebuilt mid-session. */
+  private ensureStringsEnsemble(runtime: StringsPatchRuntime, channelId: ChannelId): RuntimeStringsEnsemble | undefined {
+    const existing = runtime.ensembles.get(channelId)
+    if (existing) return existing
+    if (!this.context) return undefined
+    const channel = this.ensureChannel(runtime.groupId, channelId)
+    if (!channel.gain) return undefined
+    this.ensureStringsGlobalLfos()
+    const now = this.context.currentTime
+    const input = this.context.createGain()
+    const dryGain = this.context.createGain()
+    const delayA = this.context.createDelay(0.05)
+    const delayB = this.context.createDelay(0.05)
+    const pannerA = this.context.createStereoPanner()
+    const pannerB = this.context.createStereoPanner()
+    const wetGainA = this.context.createGain()
+    const wetGainB = this.context.createGain()
+    const delayModDepthA = this.context.createGain()
+    const delayModDepthB = this.context.createGain()
+    const output = this.context.createGain()
+
+    delayA.delayTime.setValueAtTime(0.01, now)
+    delayB.delayTime.setValueAtTime(0.013, now)
+    pannerA.pan.setValueAtTime(-0.7, now)
+    pannerB.pan.setValueAtTime(0.7, now)
+
+    input.connect(dryGain)
+    dryGain.connect(output)
+    input.connect(delayA)
+    delayA.connect(pannerA)
+    pannerA.connect(wetGainA)
+    wetGainA.connect(output)
+    input.connect(delayB)
+    delayB.connect(pannerB)
+    pannerB.connect(wetGainB)
+    wetGainB.connect(output)
+    this.stringsEnsembleLfoA?.connect(delayModDepthA)
+    delayModDepthA.connect(delayA.delayTime)
+    this.stringsEnsembleLfoB?.connect(delayModDepthB)
+    delayModDepthB.connect(delayB.delayTime)
+    output.connect(channel.gain)
+
+    const ensemble: RuntimeStringsEnsemble = { input, dryGain, delayA, delayB, pannerA, pannerB, wetGainA, wetGainB, delayModDepthA, delayModDepthB, output }
+    runtime.ensembles.set(channelId, ensemble)
+    this.applyStringsEnsemble(runtime, ensemble, true)
+    return ensemble
+  }
+
+  private applyStringsEnsemble(runtime: StringsPatchRuntime, ensemble: RuntimeStringsEnsemble, immediately: boolean): void {
+    const amount = runtime.patch.ensemble
+    // Dry never fully disappears - ENSEMBLE widens the sound, it does not replace it.
+    this.applyEffectParameter(ensemble.dryGain.gain, 1 - amount * 0.45, immediately, 0.03)
+    this.applyEffectParameter(ensemble.wetGainA.gain, amount * 0.55, immediately, 0.03)
+    this.applyEffectParameter(ensemble.wetGainB.gain, amount * 0.55, immediately, 0.03)
+    // A few milliseconds of delay-time wobble - chorus movement, short of flanger territory.
+    this.applyEffectParameter(ensemble.delayModDepthA.gain, amount * 0.003, immediately, 0.03)
+    this.applyEffectParameter(ensemble.delayModDepthB.gain, amount * 0.0035, immediately, 0.03)
+  }
+
+  private startStringsVoice(runtime: StringsPatchRuntime, channelId: ChannelId, midiNote: number, velocity: number, when: number, origin: 'manual' | 'sequencer', manualToken?: string): ActiveStringsVoice | undefined {
+    if (!this.context) return
+    const ensemble = this.ensureStringsEnsemble(runtime, channelId)
+    if (!ensemble) return
+    const scheduledWhen = Math.max(this.context.currentTime, when)
+
+    // A repeated note-on for a note already sounding must not stack voices
+    // indefinitely - release the old one first, and keep it out of the
+    // stealing pool below so it is not "stolen" a second time for nothing.
+    const duplicate = [...runtime.voices].find((voice) => !voice.cleanedUp && !voice.stolen && voice.midiNote === midiNote && (voice.stopAt === undefined || voice.stopAt > scheduledWhen))
+    if (duplicate) {
+      duplicate.stolen = true
+      this.releaseStringsVoice(runtime, duplicate, scheduledWhen, 0.008)
+    }
+    this.stealStringsVoiceIfNeeded(runtime, scheduledWhen, duplicate)
+
+    const oscillatorA = this.context.createOscillator()
+    const oscillatorB = this.context.createOscillator()
+    oscillatorA.type = 'sawtooth'
+    oscillatorB.type = 'sawtooth'
+    const filter = this.context.createBiquadFilter()
+    filter.type = 'lowpass'
+    // Fixed, low Q - a gentle tone control, not a resonant subtractive filter.
+    filter.Q.setValueAtTime(0.7, scheduledWhen)
+    const amp = this.context.createGain()
+    const vibratoOnset = this.context.createGain()
+
+    const voice: ActiveStringsVoice = {
+      oscillators: [oscillatorA, oscillatorB],
+      filter,
+      amp,
+      vibratoOnset,
+      origin,
+      patchKey: this.stringsPatchKey(runtime.groupId, runtime.patch.id),
+      channelId,
+      midiNote,
+      startsAt: scheduledWhen,
+      serial: this.stringsVoiceSerial++,
+      manualToken,
+      cleanedUp: false,
+    }
+
+    oscillatorA.connect(filter)
+    oscillatorB.connect(filter)
+    filter.connect(amp)
+    amp.connect(ensemble.input)
+    // Vibrato fades in after note-on instead of being present from the attack,
+    // so a fresh note starts clean and settles into its vibrato like a played
+    // instrument - the shared LFO itself never stops or resets phase for this.
+    vibratoOnset.gain.setValueAtTime(0, scheduledWhen)
+    vibratoOnset.gain.linearRampToValueAtTime(1, scheduledWhen + 0.35)
+    runtime.vibratoDepth?.connect(vibratoOnset)
+    vibratoOnset.connect(oscillatorA.detune)
+    vibratoOnset.connect(oscillatorB.detune)
+
+    this.applyPatchToActiveStringsVoice(runtime, voice, true)
+    const attack = Math.max(0.001, runtime.patch.ampEnvelope.attackSeconds)
+    const decay = Math.max(0.001, runtime.patch.ampEnvelope.decaySeconds)
+    const peak = this.toGain(velocity) * runtime.patch.level * 0.14
+    const sustain = Math.max(0.0001, peak * runtime.patch.ampEnvelope.sustain)
+    amp.gain.setValueAtTime(0.0001, scheduledWhen)
+    amp.gain.exponentialRampToValueAtTime(Math.max(0.0001, peak), scheduledWhen + attack)
+    amp.gain.exponentialRampToValueAtTime(sustain, scheduledWhen + attack + decay)
+
+    oscillatorA.addEventListener('ended', () => this.cleanUpStringsVoice(runtime, voice), { once: true })
+    runtime.voices.add(voice)
+    this.activeStringsVoices.add(voice)
+    oscillatorA.start(scheduledWhen)
+    oscillatorB.start(scheduledWhen)
+    return voice
+  }
+
+  private applyPatchToActiveStringsVoice(runtime: StringsPatchRuntime, voice: ActiveStringsVoice, immediately = false): void {
+    if (!this.context) return
+    const patch = runtime.patch
+    const frequency = this.midiNoteToFrequency(voice.midiNote)
+    const [oscillatorA, oscillatorB] = voice.oscillators
+    this.applyEffectParameter(oscillatorA.frequency, frequency, immediately, 0.01)
+    this.applyEffectParameter(oscillatorB.frequency, frequency, immediately, 0.01)
+    // Static spread lives on .detune (cents) so it sums cleanly with the
+    // shared vibrato signal also connected there, rather than fighting it on
+    // .frequency.
+    this.applyEffectParameter(oscillatorB.detune, patch.detuneCents, immediately, 0.02)
+    this.applyEffectParameter(voice.filter.frequency, stringsBrightnessToHz(patch.brightness), immediately, 0.03)
+  }
+
+  /** Prefers a voice already fading out over cutting one still fully sounding - see docs. */
+  private stealStringsVoiceIfNeeded(runtime: StringsPatchRuntime, when: number, exclude?: ActiveStringsVoice): void {
+    const sounding = [...runtime.voices].filter((voice) => voice !== exclude && !voice.cleanedUp && !voice.stolen && (voice.stopAt === undefined || voice.stopAt > when))
+    if (sounding.length < maximumStringsVoices) return
+    const releasing = sounding.filter((voice) => voice.stopAt !== undefined)
+    const oldest = (releasing.length > 0 ? releasing : sounding).sort((left, right) => left.startsAt - right.startsAt || left.serial - right.serial)[0]
+    if (oldest) {
+      oldest.stolen = true
+      this.releaseStringsVoice(runtime, oldest, when, 0.008)
+    }
+  }
+
+  private releaseStringsVoice(runtime: StringsPatchRuntime, voice: ActiveStringsVoice, when: number, releaseOverride?: number): void {
+    if (!this.context || voice.cleanedUp) return
+    const releaseAt = Math.max(this.context.currentTime, when)
+    if (voice.stopAt !== undefined && voice.stopAt <= releaseAt) return
+    const release = Math.max(0.005, releaseOverride ?? runtime.patch.ampEnvelope.releaseSeconds)
+    this.holdAudioParamAtTime(voice.amp.gain, releaseAt)
+    voice.amp.gain.exponentialRampToValueAtTime(0.0001, releaseAt + release)
+    const stopAt = releaseAt + release + 0.01
+    for (const oscillator of voice.oscillators) {
+      try { oscillator.stop(stopAt) } catch { /* A stolen voice may already be stopping. */ }
+    }
+    voice.stopAt = stopAt
+  }
+
+  private stopStringsVoiceImmediately(voice: ActiveStringsVoice): void {
+    for (const oscillator of voice.oscillators) {
+      try { oscillator.stop() } catch { /* The oscillator may already have ended. */ }
+    }
+    const runtime = this.stringsRuntimes.get(voice.patchKey)
+    if (runtime) this.cleanUpStringsVoice(runtime, voice)
+  }
+
+  private cleanUpStringsVoice(runtime: StringsPatchRuntime, voice: ActiveStringsVoice): void {
+    if (voice.cleanedUp) return
+    voice.cleanedUp = true
+    runtime.voices.delete(voice)
+    this.activeStringsVoices.delete(voice)
+    for (const oscillator of voice.oscillators) oscillator.disconnect()
+    voice.filter.disconnect()
+    try { runtime.vibratoDepth?.disconnect(voice.vibratoOnset) } catch { /* The vibrato connection may already be gone. */ }
+    voice.vibratoOnset.disconnect()
+    voice.amp.disconnect()
+  }
+
+  private disposeStringsRuntime(key: string, runtime: StringsPatchRuntime): void {
+    for (const voice of [...runtime.voices]) this.stopStringsVoiceImmediately(voice)
+    try { runtime.vibratoDepth?.disconnect() } catch { /* Already disconnected. */ }
+    for (const ensemble of runtime.ensembles.values()) this.disposeStringsEnsemble(ensemble)
+    runtime.ensembles.clear()
+    this.stringsRuntimes.delete(key)
+  }
+
+  private disposeStringsEnsemble(ensemble: RuntimeStringsEnsemble): void {
+    try { this.stringsEnsembleLfoA?.disconnect(ensemble.delayModDepthA) } catch { /* Already disconnected. */ }
+    try { this.stringsEnsembleLfoB?.disconnect(ensemble.delayModDepthB) } catch { /* Already disconnected. */ }
+    ensemble.input.disconnect()
+    ensemble.dryGain.disconnect()
+    ensemble.delayA.disconnect()
+    ensemble.delayB.disconnect()
+    ensemble.pannerA.disconnect()
+    ensemble.pannerB.disconnect()
+    ensemble.wetGainA.disconnect()
+    ensemble.wetGainB.disconnect()
+    ensemble.delayModDepthA.disconnect()
+    ensemble.delayModDepthB.disconnect()
+    ensemble.output.disconnect()
+  }
+
   private createDriveCurve(drive: number): Float32Array<ArrayBuffer> {
     const curve = new Float32Array(1024)
     const amount = Math.max(0, Math.min(1, drive)) * 12
@@ -1270,6 +1682,10 @@ export class AudioEngine {
     parameter.linearRampToValueAtTime(target, now + durationSeconds)
   }
 
+
+  private triggerPumpRoutesForChannel(channelId: ChannelId, when: number): void {
+    for (const route of this.pumpRoutes) if (route.sourceChannelId === channelId) this.triggerPumpRoute(route, when)
+  }
 
   private triggerPumpRoute(route: PumpRoute, when: number): void {
     const pumpGain = this.groupBuses.get(route.targetGroupId)?.pumpGain

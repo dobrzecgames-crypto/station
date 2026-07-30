@@ -61,11 +61,15 @@ Suggested fields:
 
 A Pad must not contain decoded AudioBuffer objects in persisted state.
 
-A pad source is mutually exclusive: `assetId` identifies a sample, while `synthPatchId` identifies a MONO-3 patch in the same Pattern Group. `chordIntervals` stores one to five unique integer semitone offsets and always includes zero. The default is `[0]`.
+A pad source is mutually exclusive: `assetId` identifies a sample, `synthPatchId` identifies a MONO-3 patch, and `stringsPatchId` identifies a STRINGS patch, all in the same Pattern Group, and never more than one at a time. `chordIntervals` stores unique integer semitone offsets and always includes zero - up to five for a MONO-3 pad, up to eight for a STRINGS pad. The default is `[0]`.
 
 ### MONO-3 SynthPatch
 
 Each Pattern Group owns a `synthPatches` collection. Pads created by Scale Map share a stable patch ID while retaining their own pitch and chord arrays. A patch stores its voice mode, base MIDI note, two main oscillators, sub oscillator, amp/filter envelopes, 24 dB low-pass settings, tempo-synced filter LFO, drive, glide and sequencer gate. AudioNodes, active voices and LFO phase are runtime-only.
+
+### STRINGS Patch
+
+Each Pattern Group also owns a `stringsPatches` collection, structured the same way as `synthPatches`: pads created by Scale Map share a stable patch ID while retaining their own pitch and chord arrays. A patch stores its base MIDI note, static oscillator DETUNE (cents), BRIGHTNESS (a musical taper onto the shared lowpass cutoff), ENSEMBLE (chorus dry/wet and modulation depth), VIBRATO (shared-LFO depth in cents), LEVEL, sequencer gate and an amp envelope (attack/decay/sustain/release, though the UI exposes only attack and release). STRINGS has no voice mode field - it is always polyphonic. AudioNodes, active voices and the engine-wide vibrato/ensemble LFOs are runtime-only and are not part of the patch.
 
 ### SamplePlaybackRegion
 
@@ -161,7 +165,7 @@ The following must not be serialized into the project:
 
 ## Pre-persistence ProjectState
 
-ProjectState schema v10 is the serializable boundary. Each Pattern Group contains its private bank, CHOP session, MONO-3 patch collection and two-slot serial FX Rack. It contains shared asset references and durations, Pattern Groups and their 16-step velocities, selected Pattern Group/variant, Pattern Clips, persisted transport mode and Loop Song, BPM, swing, group-and-pad Pump references, the global Project Key (`root`, `scale`) and a serializable two-slot master FX Rack. Waveform peaks and synth voices are runtime cache/state and are not serialized.
+ProjectState schema v11 is the serializable boundary. Each Pattern Group contains its private bank, CHOP session, MONO-3 patch collection, STRINGS patch collection and two-slot serial FX Rack. It contains shared asset references and durations, Pattern Groups and their 16-step velocities, selected Pattern Group/variant, Pattern Clips, persisted transport mode and Loop Song, BPM, swing, group-and-pad Pump references, the global Project Key (`root`, `scale`) and a serializable two-slot master FX Rack. Waveform peaks and synth/strings voices are runtime cache/state and are not serialized.
 
 Project Key is a preference for future Project Scale mappings. A mapping writes normal independent pad configurations that reference one shared SampleAsset and contain their calculated pitch offsets. Existing mapped pads have no runtime link to Project Key and are not retuned when it changes.
 
@@ -169,7 +173,7 @@ It intentionally excludes AudioContext, buffers, nodes, active voices, transport
 
 ## Persistence v1 records
 
-The one saved local project has ID `default-project`. Its manifest contains `ProjectState` with `schemaVersion: 10`; a separate asset record contains each referenced asset ID, filename, MIME type, byte size and original WAV Blob. A shared asset is represented by one asset record even when referenced by many group banks. `lastProjectId` points to the most recently saved project. Schema-v1 through v9 migrations preserve existing sample, pattern, SHIFT, velocity, Pump and FX state while adding an empty `synthPatches` collection to every group plus `synthPatchId: null` and `chordIntervals: [0]` to every pad.
+The one saved local project has ID `default-project`. Its manifest contains `ProjectState` with `schemaVersion: 11`; a separate asset record contains each referenced asset ID, filename, MIME type, byte size and original WAV Blob. A shared asset is represented by one asset record even when referenced by many group banks. `lastProjectId` points to the most recently saved project. Schema-v1 through v9 migrations preserve existing sample, pattern, SHIFT, velocity, Pump and FX state while adding an empty `synthPatches` collection to every group plus `synthPatchId: null` and `chordIntervals: [0]` to every pad. Schema-v10 migration additionally adds an empty `stringsPatches` collection to every group and `stringsPatchId: null` to every pad, leaving all existing sample and MONO-3 sound unchanged.
 
 Only assets used by pads or by the active CHOP source are included in a save. Waveform peaks, AudioBuffers, transport playback state, preview state and UI-only Chop editing state are rebuilt or reset on OPEN.
 

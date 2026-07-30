@@ -55,6 +55,7 @@ export function createPadBank(): PadState[] {
     // pad bank and of projects written before the AR envelope existed.
     releaseMs: 4,
     synthPatchId: null,
+    stringsPatchId: null,
     chordIntervals: [0],
   }))
 }
@@ -73,12 +74,13 @@ export function clonePadBank(bank: PadBankState): PadBankState {
   const legacySession = bank.chopSession as ChopSessionState & { pitchSemitones?: unknown }
   return {
     pads: bank.pads.map((pad) => {
-      const legacyPad = pad as PadState & { synthPatchId?: unknown; chordIntervals?: unknown }
+      const legacyPad = pad as PadState & { synthPatchId?: unknown; stringsPatchId?: unknown; chordIntervals?: unknown }
       return {
         ...pad,
         region: { ...pad.region },
         slices: pad.slices.map((slice) => ({ ...slice })),
         synthPatchId: legacyPad.synthPatchId === undefined ? null : legacyPad.synthPatchId as PadState['synthPatchId'],
+        stringsPatchId: legacyPad.stringsPatchId === undefined ? null : legacyPad.stringsPatchId as PadState['stringsPatchId'],
         chordIntervals: legacyPad.chordIntervals === undefined ? [0] : [...legacyPad.chordIntervals as number[]],
       }
     }),

@@ -4,6 +4,7 @@ import { clonePadBank, createPadBankState } from '../pads/padBank'
 import { patternVariantNames, maximumPatternGroups } from './patternTypes'
 import type { GroupBusState, PatternGroup, PatternVariantName, StepPattern, StepShiftPattern, StepLengthPattern } from './patternTypes'
 import { cloneSynthPatch } from '../synth/synthOperations'
+import { cloneStringsPatch } from '../strings/stringsOperations'
 
 export const patternStepCount = 16
 
@@ -37,7 +38,7 @@ export function cloneStepLengthPattern(pattern: StepLengthPattern): StepLengthPa
 }
 
 export function createPatternGroup(id: string, groupNumber: number, padIds: readonly SampleId[]): PatternGroup {
-  return { id, name: `Pattern ${groupNumber}`, bank: createPadBankState(), bus: createGroupBusState(), effects: createEmptyEffectRack(id), synthPatches: [], variants: { A: createEmptyStepPattern(padIds) }, shifts: { A: createEmptyStepShiftPattern(padIds) }, lengths: { A: createEmptyStepLengthPattern(padIds) } }
+  return { id, name: `Pattern ${groupNumber}`, bank: createPadBankState(), bus: createGroupBusState(), effects: createEmptyEffectRack(id), synthPatches: [], stringsPatches: [], variants: { A: createEmptyStepPattern(padIds) }, shifts: { A: createEmptyStepShiftPattern(padIds) }, lengths: { A: createEmptyStepLengthPattern(padIds) } }
 }
 
 export function createInitialPatternGroups(padIds: readonly SampleId[]): PatternGroup[] {
@@ -145,7 +146,7 @@ function updateVariantPatternValue(groups: readonly PatternGroup[], groupId: str
 }
 
 export function clonePatternGroup(group: PatternGroup): PatternGroup {
-  return { ...group, bank: clonePadBank(group.bank), bus: group.bus ? { ...group.bus } : createGroupBusState(), effects: cloneEffectRackState(group.effects ?? createEmptyEffectRack(group.id)), synthPatches: (group.synthPatches ?? []).map(cloneSynthPatch), variants: Object.fromEntries(patternVariantNames.flatMap((variant) => group.variants[variant] ? [[variant, cloneStepPattern(group.variants[variant]!)] as const] : [])), shifts: Object.fromEntries(patternVariantNames.flatMap((variant) => group.shifts?.[variant] ? [[variant, cloneStepShiftPattern(group.shifts[variant]!)] as const] : [])), lengths: Object.fromEntries(patternVariantNames.flatMap((variant) => group.lengths?.[variant] ? [[variant, cloneStepLengthPattern(group.lengths[variant]!)] as const] : [])) }
+  return { ...group, bank: clonePadBank(group.bank), bus: group.bus ? { ...group.bus } : createGroupBusState(), effects: cloneEffectRackState(group.effects ?? createEmptyEffectRack(group.id)), synthPatches: (group.synthPatches ?? []).map(cloneSynthPatch), stringsPatches: (group.stringsPatches ?? []).map(cloneStringsPatch), variants: Object.fromEntries(patternVariantNames.flatMap((variant) => group.variants[variant] ? [[variant, cloneStepPattern(group.variants[variant]!)] as const] : [])), shifts: Object.fromEntries(patternVariantNames.flatMap((variant) => group.shifts?.[variant] ? [[variant, cloneStepShiftPattern(group.shifts[variant]!)] as const] : [])), lengths: Object.fromEntries(patternVariantNames.flatMap((variant) => group.lengths?.[variant] ? [[variant, cloneStepLengthPattern(group.lengths[variant]!)] as const] : [])) }
 }
 
 export function getVariant(groups: readonly PatternGroup[], groupId: string, variant: PatternVariantName): StepPattern | undefined {
@@ -177,7 +178,7 @@ export function ensurePatternGroupShifts(groups: readonly PatternGroup[], padIds
 export function ensurePatternGroupLengths(groups: readonly PatternGroup[]): PatternGroup[] {
   return groups.map((group) => {
     const cloned = clonePatternGroup(group)
-    const synthPadIds = new Set(group.bank.pads.filter((pad) => pad.synthPatchId).map((pad) => pad.id))
+    const synthPadIds = new Set(group.bank.pads.filter((pad) => pad.synthPatchId || pad.stringsPatchId).map((pad) => pad.id))
     return {
       ...cloned,
       lengths: Object.fromEntries(patternVariantNames.flatMap((variant) => {

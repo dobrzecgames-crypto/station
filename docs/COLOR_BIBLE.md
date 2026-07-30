@@ -33,7 +33,8 @@ Text is ivory `#EEE4D6` with muted text `#C8BCAE`; pure white is not a UI colour
 
 ## Workspace identity
 
-CHOP is plum, PADS gold, SEQ lavender, SONG dusty rose and MIX petrol. These
+CHOP is plum, PADS gold, SYNTH moss green, STRINGS dusty blue, SEQ lavender,
+SONG dusty rose and MIX petrol. These
 colours belong to the top navigation, headings and small scope labels only.
 They do not recolour buttons, pads, sequencer steps or panels. PROJECT is a
 System Display tenant rather than a workspace and therefore uses the display's

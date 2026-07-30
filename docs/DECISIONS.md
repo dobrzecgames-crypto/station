@@ -321,3 +321,22 @@ Consequences:
 - PATTERN, SONG and offline WAV use the same pad resolver, scheduler and engine path,
 - schema v10 stores patches, pad references and chord intervals; v1–v9 migrate with neutral synth defaults,
 - MIDI, Piano Roll, note lengths per step, automation, mod matrix, wavetable, presets, resampling and unbounded polyphony remain out of scope.
+
+## DEC-023 — STRINGS is a second, deliberately different constrained pad source
+
+**Status:** Accepted
+
+STRINGS is a second oscillator-synth pad source alongside MONO-3, sharing its constrained-pad-source shape (DEC-022) rather than introducing a new architecture, but deliberately different in DSP and character: a wide, slow, always-polyphonic analog string-machine/ensemble pad rather than a mono/poly5 bass-lead voice. Station's audit before implementation found no on-screen keyboard or MIDI input anywhere in the app - STRINGS plugs into the same pad + `chordIntervals` note system MONO-3 already uses, not a new one.
+
+Consequences:
+
+- a pad's source is mutually exclusive across sample, MONO-3 and STRINGS (`assetId` / `synthPatchId` / `stringsPatchId`), never more than one at a time, and cross-type replacement requires confirmation in both directions,
+- Scale Map shares one STRINGS patch ID across pads while keeping pitch and chord voicing on each pad, identically to MONO-3,
+- STRINGS is always polyphonic - there is no MONO mode or glide - capped at eight voices per patch with stealing that prefers an already-releasing voice over the oldest still-sounding one, and a repeated note-on force-releases a duplicate note first,
+- the ensemble (two modulated delay lines feeding a per-channel insert) is keyed by `(patch-runtime, channelId)`, not by patch alone, so a patch shared across pads by Scale Map does not break per-pad volume/mute/solo/Pump,
+- vibrato and ensemble modulation are driven by free-running, non-tempo-synced, engine-wide shared LFOs rather than MONO-3's tempo-synced filter LFO,
+- oscillators, the shared lowpass, envelopes, the ensemble and voice cleanup remain inside AudioEngine, as a separate voice shape from MONO-3's - the two are not node-for-node shared,
+- PATTERN, SONG and offline WAV use the same pad resolver, scheduler and engine path as MONO-3,
+- schema v11 stores STRINGS patches, pad references and chord intervals; v1–v10 migrate with neutral defaults and unchanged existing sound,
+- six presets (WARM STRINGS, SLOW ORCHESTRA, DISCO STRINGS, DARK PAD, SYNTH BRASS, SOFT CHOIR) apply parameter values on the same engine, not separate hidden instruments,
+- MIDI, an on-screen keyboard, sampled/multisampled strings, physical modeling, legato/round-robin/velocity layers, MPE, convolution reverb, mod matrix, a separate full Brass Synth, oscillator waveform choice, a filter envelope and a third oscillator layer remain out of scope for the first version.

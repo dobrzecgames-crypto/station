@@ -7,6 +7,7 @@ import type { PatternGroup, PatternVariantName, StepLengthPattern, StepPattern, 
 import { getActiveClipsForSlot } from './songOperations'
 import type { PatternClip } from './songTypes'
 import { getSynthPatch, resolveSynthPadMidiNotes } from '../synth/synthOperations'
+import { getStringsPatch, resolveStringsPadMidiNotes } from '../strings/stringsOperations'
 
 /** Reports whether the audio engine currently holds a decoded asset. */
 export type SampleAssetPredicate = (assetId: SampleAssetId) => boolean
@@ -53,6 +54,8 @@ function toTracks(variants: readonly (ResolvedVariant | undefined)[], hasSampleA
       }
       const patch = getSynthPatch(pattern.group, pad.synthPatchId)
       if (patch) return [{ ...common, source: 'synth', patch, midiNotes: resolveSynthPadMidiNotes(patch, pad) }]
+      const stringsPatch = getStringsPatch(pattern.group, pad.stringsPatchId)
+      if (stringsPatch) return [{ ...common, source: 'strings', patch: stringsPatch, midiNotes: resolveStringsPadMidiNotes(stringsPatch, pad) }]
       if (!pad.assetId || !hasSampleAsset(pad.assetId)) return []
       const samplePad = pad as PadState & { assetId: SampleAssetId }
       return [{

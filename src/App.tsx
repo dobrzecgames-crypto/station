@@ -30,7 +30,7 @@ import { TransportBar } from './shell/TransportBar'
 import { SystemDisplayProvider, useSystemDisplayHost } from './shell/systemDisplayContext'
 import { collectReferencedAssetIds, createProjectState, projectSchemaVersion, validateProjectState } from './project/ProjectState'
 import type { PumpRoute } from './project/ProjectState'
-import { ProjectKeyPanel } from './project/ProjectKeyPanel'
+import { ProjectDisplayButton } from './project/ProjectDisplay'
 import { renderSongToBuffer } from './project/renderSong'
 import type { RenderSongResult } from './project/renderSong'
 import { defaultProjectKey, formatProjectKey } from './music/scales'
@@ -1079,6 +1079,21 @@ export function App({ audioEngine }: AppProps) {
               onVariantDuplicate={duplicateCurrentVariant}
               onVariantClear={clearCurrentVariant}
               onGroupDelete={deleteCurrentPatternGroup}
+              projectControl={<ProjectDisplayButton
+                projectKey={projectKey}
+                projectBusy={projectBusy}
+                audioReady={audioReady}
+                renderProgress={renderProgress}
+                soloActive={soloActive}
+                hotRender={hotRender?.result ?? null}
+                onProjectKeyChange={setProjectKey}
+                onSave={() => void saveProject()}
+                onOpen={() => void openProject()}
+                onRender={() => void renderSong()}
+                onCancelRender={() => renderAbortRef.current?.abort()}
+                onDownloadTrimmed={() => downloadRender(true)}
+                onDownloadOriginal={() => downloadRender(false)}
+              />}
               onPlay={startPlayback}
               onStop={stopPlayback}
             />
@@ -1322,42 +1337,6 @@ export function App({ audioEngine }: AppProps) {
                 onClose={() => setActiveFxContext(null)}
               />
             </>
-          )}
-          {mainView === "project" && (
-            <section className="project-workspace" aria-label="Project key and files">
-              <ProjectKeyPanel projectKey={projectKey} disabled={projectBusy} onChange={setProjectKey} />
-              {/* One button face for the whole tab. Size no longer carries
-                  meaning here; the accent is left for controls that are
-                  actually doing something, which is the rule the rest of the
-                  interface already follows. RENDER SONG takes the full width
-                  until a render is running and CANCEL needs the other half. */}
-              <div className="project-workspace-actions">
-                <button className="mixer-toggle" type="button" disabled={projectBusy} onClick={() => void saveProject()}>SAVE PROJECT</button>
-                <button className="mixer-toggle" type="button" disabled={!audioReady || projectBusy} onClick={() => void openProject()}>OPEN PROJECT</button>
-                <button className={renderBusy ? 'mixer-toggle' : 'mixer-toggle project-action-wide'} type="button" disabled={!audioReady || projectBusy || renderBusy} onClick={() => void renderSong()}>{renderBusy ? 'RENDERING…' : 'RENDER SONG'}</button>
-                {renderBusy && <button className="mixer-toggle" type="button" onClick={() => renderAbortRef.current?.abort()}>CANCEL</button>}
-              </div>
-              {renderBusy && (
-                <div className="render-progress" role="status" aria-live="polite">
-                  <div className="render-progress-track"><div className="render-progress-fill" style={{ width: `${Math.round((renderProgress ?? 0) * 100)}%` }} /></div>
-                  <span className="render-progress-value">{Math.round((renderProgress ?? 0) * 100)}%</span>
-                </div>
-              )}
-              {soloActive && !renderBusy && <p className="render-warning">SOLO IS LATCHED — a render contains only the soloed channels.</p>}
-              {hotRender && (
-                <div className="render-result">
-                  <p className="render-warning">PEAK {formatDbfs(hotRender.result.peak)} — {hotRender.result.clippedSampleCount.toLocaleString()} samples clip at 16 bit.</p>
-                  <div className="project-workspace-actions">
-                    <button className="mixer-toggle" type="button" onClick={() => downloadRender(true)}>TRIM {formatDb(trimGainFor(hotRender.result.peak))} &amp; DOWNLOAD</button>
-                    <button className="mixer-toggle" type="button" onClick={() => downloadRender(false)}>DOWNLOAD 1:1</button>
-                  </div>
-                </div>
-              )}
-              {/* The pattern-group actions that were parked here have moved to
-                  the transport, which is where the bank and pattern they act on
-                  are named. Creating is on the selector itself; copy, clear and
-                  delete claim the system display from the bank number. */}
-            </section>
           )}
         </div>
       </section>

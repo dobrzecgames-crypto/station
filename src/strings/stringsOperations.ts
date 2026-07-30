@@ -62,22 +62,3 @@ export function stringsBrightnessToHz(brightness: number): number {
   return minimumHz * (maximumHz / minimumHz) ** clamped
 }
 
-export const stringsPresetNames = ['WARM STRINGS', 'SLOW ORCHESTRA', 'DISCO STRINGS', 'DARK PAD', 'SYNTH BRASS', 'SOFT CHOIR'] as const
-export type StringsPresetName = typeof stringsPresetNames[number]
-
-type StringsPresetValues = Omit<StringsPatch, 'id'>
-
-const stringsPresetValues: Record<StringsPresetName, StringsPresetValues> = {
-  'WARM STRINGS': { name: 'WARM STRINGS', baseMidiNote: 48, detuneCents: 9, brightness: 0.46, ensemble: 0.65, vibrato: 0.18, level: 0.75, gate: 0.92, ampEnvelope: { attackSeconds: 0.3, decaySeconds: 0.4, sustain: 0.88, releaseSeconds: 0.8 } },
-  'SLOW ORCHESTRA': { name: 'SLOW ORCHESTRA', baseMidiNote: 48, detuneCents: 10, brightness: 0.5, ensemble: 0.85, vibrato: 0.15, level: 0.72, gate: 0.95, ampEnvelope: { attackSeconds: 1.8, decaySeconds: 0.5, sustain: 0.9, releaseSeconds: 1.8 } },
-  'DISCO STRINGS': { name: 'DISCO STRINGS', baseMidiNote: 55, detuneCents: 8, brightness: 0.78, ensemble: 0.6, vibrato: 0.12, level: 0.78, gate: 0.85, ampEnvelope: { attackSeconds: 0.06, decaySeconds: 0.25, sustain: 0.85, releaseSeconds: 0.5 } },
-  'DARK PAD': { name: 'DARK PAD', baseMidiNote: 43, detuneCents: 7, brightness: 0.26, ensemble: 0.4, vibrato: 0.1, level: 0.7, gate: 0.95, ampEnvelope: { attackSeconds: 1.2, decaySeconds: 0.6, sustain: 0.85, releaseSeconds: 1.5 } },
-  'SYNTH BRASS': { name: 'SYNTH BRASS', baseMidiNote: 55, detuneCents: 6, brightness: 0.68, ensemble: 0.28, vibrato: 0.05, level: 0.78, gate: 0.8, ampEnvelope: { attackSeconds: 0.04, decaySeconds: 0.2, sustain: 0.8, releaseSeconds: 0.3 } },
-  'SOFT CHOIR': { name: 'SOFT CHOIR', baseMidiNote: 48, detuneCents: 8, brightness: 0.35, ensemble: 0.55, vibrato: 0.25, level: 0.7, gate: 0.92, ampEnvelope: { attackSeconds: 0.7, decaySeconds: 0.45, sustain: 0.85, releaseSeconds: 1.2 } },
-}
-
-/** Applies a preset's sound, keeping the patch's `id` so existing pad references stay valid. */
-export function applyStringsPreset(patch: StringsPatch, presetName: StringsPresetName): StringsPatch {
-  const values = stringsPresetValues[presetName]
-  return { ...patch, ...values, ampEnvelope: { ...values.ampEnvelope } }
-}

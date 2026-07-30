@@ -50,6 +50,8 @@ import type { ChopTestSample } from './chop/chopTestSamples'
 import { assignSynthSource, clearPadSource, createDefaultSynthPatch, getSynthPatch, maximumSynthMidiNote, minimumSynthMidiNote, removeUnreferencedSynthPatches, resolveSynthPadMidiNotes } from './synth/synthOperations'
 import type { SynthPatch, SynthVoiceMode } from './synth/synthTypes'
 import { SynthWorkspace } from './synth/SynthWorkspace'
+import { SynthPicker } from './synth/SynthPicker'
+import type { SynthPickerInstrument } from './synth/SynthPicker'
 import { assignStringsSource, createDefaultStringsPatch, getStringsPatch, maximumStringsVoices, removeUnreferencedStringsPatches, resolveStringsPadMidiNotes } from './strings/stringsOperations'
 import type { StringsPatch } from './strings/stringsTypes'
 import { StringsWorkspace } from './strings/StringsWorkspace'
@@ -119,6 +121,11 @@ export function App({ audioEngine }: AppProps) {
   const [mixScope, setMixScope] = useState<MixScope>('group')
   const [mixClaimNonce, setMixClaimNonce] = useState(0)
   const [sampleEditorOpen, setSampleEditorOpen] = useState(false)
+  /* Forces the SYNTH tab back to the instrument picker even though the selected pad
+     already has a patch - set by "BACK TO SYNTHS", cleared whenever the tab is
+     entered fresh from elsewhere so the entry rule (patch present -> its editor)
+     can re-decide. */
+  const [synthPickerForced, setSynthPickerForced] = useState(false)
   const [patternGroups, setPatternGroups] = useState<PatternGroup[]>(() => createInitialPatternGroups(createPadBank().map((pad) => pad.id)))
   const [selectedPatternGroupId, setSelectedPatternGroupId] = useState('pattern-group-1')
   const [selectedPatternVariant, setSelectedPatternVariant] = useState<PatternVariantName>('A')
@@ -521,20 +528,6 @@ export function App({ audioEngine }: AppProps) {
     replaceActiveBank({ ...selectedGroup.bank, pads: pads.map((pad) => pad.id === selectedPadId ? { ...pad, ...changes } : pad) })
     if (changes.volume !== selectedPad.volume) audioEngine.setChannelVolume(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId: selectedPadId }), changes.volume)
   }
-  const createSynthForSelectedPad = (confirmed = false, onCreated?: () => void) => {
-    if ((selectedPad.assetId || selectedPad.stringsPatchId) && !confirmed) {
-      requestConfirmation(`Replace the ${selectedPad.stringsPatchId ? 'STRINGS patch' : 'sample'} on ${selectedPad.label} with a MONOPOLY patch?`, 'REPLACE', () => createSynthForSelectedPad(true, onCreated))
-      return
-    }
-    const patch = createDefaultSynthPatch(createSynthPatchId())
-    const bank = { ...selectedGroup.bank, pads: pads.map((pad) => pad.id === selectedPadId ? assignSynthSource(pad, patch.id) : pad) }
-    const groups = patternGroups.map((group) => group.id === selectedPatternGroupId ? removeUnreferencedStringsPatches(removeUnreferencedSynthPatches({ ...group, bank, synthPatches: [...group.synthPatches, patch] })) : group)
-    const previousAssetId = selectedPad.assetId
-    setPatternGroups(groups)
-    removeAssetIfUnused(previousAssetId, groups)
-    setProjectMessage(`MONOPOLY created on ${selectedPad.label}.`)
-    onCreated?.()
-  }
   const updateSelectedSynthPatch = (patch: SynthPatch) => {
     setPatternGroups((groups) => groups.map((group) => group.id === selectedPatternGroupId ? { ...group, synthPatches: group.synthPatches.map((candidate) => candidate.id === patch.id ? patch : candidate) } : group))
   }
@@ -561,20 +554,6 @@ export function App({ audioEngine }: AppProps) {
     const notes = next.map((interval) => selectedSynthPatch.baseMidiNote + selectedPad.pitchSemitones + interval)
     if (notes.some((note) => note < minimumSynthMidiNote || note > maximumSynthMidiNote)) { setErrorMessage('Chord notes must stay between C0 and C8.'); return }
     replaceActiveBank({ ...selectedGroup.bank, pads: pads.map((pad) => pad.id === selectedPadId ? { ...pad, chordIntervals: next } : pad) })
-  }
-  const createStringsForSelectedPad = (confirmed = false, onCreated?: () => void) => {
-    if ((selectedPad.assetId || selectedPad.synthPatchId) && !confirmed) {
-      requestConfirmation(`Replace the ${selectedPad.synthPatchId ? 'MONOPOLY patch' : 'sample'} on ${selectedPad.label} with a STRINGS patch?`, 'REPLACE', () => createStringsForSelectedPad(true, onCreated))
-      return
-    }
-    const patch = createDefaultStringsPatch(createStringsPatchId())
-    const bank = { ...selectedGroup.bank, pads: pads.map((pad) => pad.id === selectedPadId ? assignStringsSource(pad, patch.id) : pad) }
-    const groups = patternGroups.map((group) => group.id === selectedPatternGroupId ? removeUnreferencedSynthPatches(removeUnreferencedStringsPatches({ ...group, bank, stringsPatches: [...group.stringsPatches, patch] })) : group)
-    const previousAssetId = selectedPad.assetId
-    setPatternGroups(groups)
-    removeAssetIfUnused(previousAssetId, groups)
-    setProjectMessage(`STRINGS created on ${selectedPad.label}.`)
-    onCreated?.()
   }
   const updateSelectedStringsPatch = (patch: StringsPatch) => {
     setPatternGroups((groups) => groups.map((group) => group.id === selectedPatternGroupId ? { ...group, stringsPatches: group.stringsPatches.map((candidate) => candidate.id === patch.id ? patch : candidate) } : group))
@@ -1042,27 +1021,51 @@ export function App({ audioEngine }: AppProps) {
     setSelectedPatternVariant('A')
   }
   const enterMainView = (view: MainView) => {
+    // Entering SYNTH fresh re-derives picker-vs-editor from the selected pad's
+    // patch (see synthShowsPicker below). Re-clicking SYNTH while already on it
+    // must not override an explicit "BACK TO SYNTHS" click.
+    if (view === 'synth' && mainView !== 'synth') setSynthPickerForced(false)
     workspaceRef.current?.scrollTo({ top: 0 })
     setMainView(view)
     setActiveFxContext(null)
     if (view !== 'pad') setSampleEditorOpen(false)
   }
-  const changeMainView = (view: MainView) => {
-    if (view === 'synth' && !selectedSynthPatch) {
-      if (selectedPad.assetId || selectedPad.stringsPatchId) {
-        createSynthForSelectedPad(false, () => enterMainView('synth'))
-        return
-      }
-      createSynthForSelectedPad()
+  const requestOpenInstrumentOnNewPattern = (instrument: SynthPickerInstrument) => {
+    const label = instrument === 'monopoly' ? 'MONOPOLY' : 'STRINGS'
+    requestConfirmation(`Open ${label} on a new pattern? This creates a new Bank with PATTERN A - your current pattern stays untouched.`, 'OPEN ON NEW PATTERN', () => openInstrumentOnNewPattern(instrument))
+  }
+  /* Picking an instrument in SYNTH must never touch the active pattern - it always
+     creates a fresh Bank (Station's existing "new Pattern Group" mechanism) and
+     assigns the instrument only there, on that bank's first (always empty) pad. */
+  const openInstrumentOnNewPattern = (instrument: SynthPickerInstrument) => {
+    let nextGroups: PatternGroup[]
+    try {
+      nextGroups = addPatternGroup(patternGroups, createPatternGroupId(), pads.map((pad) => pad.id))
+    } catch (error) {
+      setErrorMessage(toMessage(error))
+      return
     }
-    if (view === 'strings' && !selectedStringsPatch) {
-      if (selectedPad.assetId || selectedPad.synthPatchId) {
-        createStringsForSelectedPad(false, () => enterMainView('strings'))
-        return
+    const newGroup = nextGroups.at(-1)!
+    const targetPadId = newGroup.bank.pads[0].id
+    const finalGroups = nextGroups.map((group) => {
+      if (group.id !== newGroup.id) return group
+      if (instrument === 'monopoly') {
+        const patch = createDefaultSynthPatch(createSynthPatchId())
+        return { ...group, bank: { ...group.bank, pads: group.bank.pads.map((pad) => pad.id === targetPadId ? assignSynthSource(pad, patch.id) : pad) }, synthPatches: [patch] }
       }
-      createStringsForSelectedPad()
-    }
-    enterMainView(view)
+      const patch = createDefaultStringsPatch(createStringsPatchId())
+      return { ...group, bank: { ...group.bank, pads: group.bank.pads.map((pad) => pad.id === targetPadId ? assignStringsSource(pad, patch.id) : pad) }, stringsPatches: [patch] }
+    })
+    audioEngine.stopManualVoices()
+    audioEngine.stopPreview()
+    setSourcePreviewing(false)
+    setPatternGroups(finalGroups)
+    setSelectedPatternGroupId(newGroup.id)
+    setSelectedPatternVariant('A')
+    setSelectedPadId(targetPadId)
+    setSynthPickerForced(false)
+    setProjectMessage(`${instrument === 'monopoly' ? 'MONOPOLY' : 'STRINGS'} created on a new pattern.`)
+    enterMainView('synth')
   }
   const activeFxRack = activeFxContext?.scope === 'group' ? selectedGroup.effects : activeFxContext?.scope === 'master' ? masterEffects : undefined
   const updateActiveFxRack = (effects: EffectRackState) => {
@@ -1076,11 +1079,15 @@ export function App({ audioEngine }: AppProps) {
     ? { volume: master.volume, muted: master.muted }
     : { volume: selectedGroup.bus!.volume, muted: selectedGroup.bus!.muted, solo: selectedGroup.bus!.solo }
   const mixBusLabel = mixScope === 'master' ? 'MASTER' : `G${patternGroups.findIndex((group) => group.id === selectedPatternGroupId) + 1}`
+  const synthShowsPicker = (!selectedSynthPatch && !selectedStringsPatch) || synthPickerForced
+  // The SYNTH tab keeps STRINGS' own accent colour while its editor is actually on
+  // screen, and falls back to the shared SYNTH accent for the picker and MONOPOLY.
+  const accentView = mainView === 'synth' && !synthShowsPicker && selectedStringsPatch ? 'strings' : mainView
   return (
     <SystemDisplayProvider api={displayApi}>
     <main
       className="station-shell"
-      data-view={mainView}
+      data-view={accentView}
       data-powered={powerVisualPhase === 'off' ? 'off' : 'on'}
       data-power-phase={powerVisualPhase}
       onAnimationEnd={(event) => {
@@ -1153,7 +1160,7 @@ export function App({ audioEngine }: AppProps) {
               onStop={stopPlayback}
             />
           </div>
-          <MainNavigation view={mainView} onViewChange={changeMainView} />
+          <MainNavigation view={mainView} onViewChange={enterMainView} />
         </header>
         {/* Messages used to render here, in a bar wedged between the header and
             the workspace, which read as belonging to whichever panel was open.
@@ -1268,7 +1275,10 @@ export function App({ audioEngine }: AppProps) {
               )}
             </>
           )}
-          {mainView === "synth" && (
+          {mainView === "synth" && synthShowsPicker && (
+            <SynthPicker onSelect={requestOpenInstrumentOnNewPattern} />
+          )}
+          {mainView === "synth" && !synthShowsPicker && selectedSynthPatch && (
             <SynthWorkspace
               pad={selectedPad}
               patch={selectedSynthPatch}
@@ -1285,9 +1295,10 @@ export function App({ audioEngine }: AppProps) {
               onRelease={() => releasePad(selectedPad.id)}
               onMapToProjectScale={mapSelectedPadToProjectScale}
               onClear={clearSelectedPad}
+              onBack={() => setSynthPickerForced(true)}
             />
           )}
-          {mainView === "strings" && (
+          {mainView === "synth" && !synthShowsPicker && selectedStringsPatch && (
             <StringsWorkspace
               pad={selectedPad}
               patch={selectedStringsPatch}
@@ -1303,6 +1314,7 @@ export function App({ audioEngine }: AppProps) {
               onRelease={() => releasePad(selectedPad.id)}
               onMapToProjectScale={mapSelectedPadToProjectScale}
               onClear={clearSelectedPad}
+              onBack={() => setSynthPickerForced(true)}
             />
           )}
           {mainView === "seq" && (

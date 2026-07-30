@@ -6,6 +6,10 @@
   background: var(--station-panel);
 }
 
+.synth-back-row {
+  margin-bottom: 10px;
+}
+
 .synth-heading {
   display: flex;
   align-items: center;

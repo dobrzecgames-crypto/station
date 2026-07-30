@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { PadState } from '../pads/types'
 import { StringsDisplayLauncher } from './StringsDisplay'
-import { applyStringsPreset, stringsPresetNames } from './stringsOperations'
 import type { StringsPatch } from './stringsTypes'
 import './StringsWorkspace.css'
 
@@ -20,6 +19,7 @@ interface StringsWorkspaceProps {
   onRelease: () => void
   onMapToProjectScale: () => void
   onClear: () => void
+  onBack: () => void
 }
 
 export function StringsWorkspace(props: StringsWorkspaceProps) {
@@ -53,6 +53,9 @@ export function StringsWorkspace(props: StringsWorkspaceProps) {
     />
 
     <section className="strings-workspace" aria-label={`STRINGS editor for ${pad.label}`}>
+      <div className="strings-back-row">
+        <button className="mixer-toggle" type="button" onClick={props.onBack}>← BACK TO SYNTHS</button>
+      </div>
       <header className="strings-heading">
         <div>
           <p className="eyebrow">STRINGS / {pad.label}</p>
@@ -75,19 +78,6 @@ export function StringsWorkspace(props: StringsWorkspaceProps) {
           onLostPointerCapture={props.onRelease}
         />
       </header>
-
-      <div className="strings-presets" role="group" aria-label="STRINGS presets">
-        {stringsPresetNames.map((name) => (
-          <button
-            key={name}
-            type="button"
-            className={patch.name === name ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'}
-            onClick={() => props.onPatchChange(applyStringsPreset(patch, name))}
-          >
-            {name}
-          </button>
-        ))}
-      </div>
 
       <p className="strings-display-hint">ATTACK / RELEASE / BRIGHTNESS / ENSEMBLE / VIBRATO / DETUNE / LEVEL ARE IN THE SYSTEM DISPLAY</p>
     </section>

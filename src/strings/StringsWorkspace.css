@@ -6,6 +6,10 @@
   background: var(--station-panel);
 }
 
+.strings-back-row {
+  margin-bottom: 10px;
+}
+
 .strings-heading {
   display: flex;
   align-items: center;
@@ -62,20 +66,6 @@
 .strings-audition:disabled {
   cursor: not-allowed;
   opacity: .45;
-}
-
-.strings-presets {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 14px;
-}
-
-.strings-presets .mixer-toggle {
-  flex: 1 1 auto;
-  min-width: 84px;
-  min-height: 40px;
-  font-size: .6rem;
 }
 
 .strings-display-hint {
@@ -192,10 +182,6 @@
 @media (max-width: 390px) {
   .strings-workspace {
     padding: 12px;
-  }
-
-  .strings-presets .mixer-toggle {
-    min-width: 0;
   }
 
   .strings-display-hint {

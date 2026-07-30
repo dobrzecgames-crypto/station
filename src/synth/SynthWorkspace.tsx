@@ -21,6 +21,7 @@ interface SynthWorkspaceProps {
   onRelease: () => void
   onMapToProjectScale: () => void
   onClear: () => void
+  onBack: () => void
 }
 
 export function SynthWorkspace(props: SynthWorkspaceProps) {
@@ -50,6 +51,9 @@ export function SynthWorkspace(props: SynthWorkspaceProps) {
     />
 
     <section className="synth-workspace" aria-label={`MONOPOLY editor for ${pad.label}`}>
+      <div className="synth-back-row">
+        <button className="mixer-toggle" type="button" onClick={props.onBack}>← BACK TO SYNTHS</button>
+      </div>
       <header className="synth-heading">
         <div>
           <p className="eyebrow">MONOPOLY / {pad.label}</p>

@@ -377,20 +377,21 @@ Na padzie wskazującym współdzielony patch:
 
 ### Kontrolki patcha
 
-Powierzchnia SYNTH pozostaje zwarta i pokazuje trzy poziome rzędy jeden pod
-drugim:
+Podzielić powierzchnię na małe, czytelne sekcje:
 
-- OSC 1: przebieg, oktawa, detune, level,
-- OSC 2: przebieg, oktawa, detune, level,
-- SUB: przebieg, oktawa, level.
-
-FILTER, AMP ENV, FILTER ENV, LFO, DRIVE / GLIDE / GATE i CHORD korzystają z
-istniejącego System Display. Nawigacja panelu jest nazwana zawartością:
-`FILTER`, `AMP`, `LFO`, `VOICE`, `PAD`; nie jest to numeryczny pager.
+- OSC 1,
+- OSC 2,
+- SUB,
+- FILTER,
+- AMP ENV,
+- FILTER ENV,
+- LFO,
+- DRIVE / GLIDE / GATE,
+- CHORD.
 
 Kontrolki muszą działać pointerem i dotykiem. Nie opierać żadnej funkcji na
-hover. Panel ma stałą wysokość i przewija własną zawartość zgodnie z
-`docs/SYSTEM_DISPLAY.md`.
+hover. System Display może pokazywać aktualnie edytowany parametr, ale nie
+należy wciskać wszystkich kontrolek syntezatora do jego małego panelu.
 
 ### Edycja akordu
 
@@ -505,7 +506,7 @@ a v9 otwiera się bez regresji.
 
 1. Uruchomić typecheck/build.
 2. Sprawdzić import i playback prawdziwego WAV obok synth.
-3. Sprawdzić CHOP, PADS, SEQ, SONG, MIX, PROJECT w System Display oraz PumpDisplay.
+3. Sprawdzić CHOP, PADS, SEQ, SONG, MIX, PROJECT oraz PumpDisplay.
 4. Sprawdzić klawiaturę komputera, pointer i touch-capable pointer.
 5. Sprawdzić cleanup po STOP, zmianie banku, usunięciu patcha i OPEN PROJECT.
 6. Zaktualizować README, DATA_MODEL, AUDIO_ENGINE i DECISIONS.

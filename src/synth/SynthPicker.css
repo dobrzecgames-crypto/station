@@ -11,19 +11,19 @@
   font-size: 1rem;
 }
 
-.synth-picker-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.synth-picker-list {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
 }
 
 .synth-picker-card {
-  display: grid;
-  gap: 6px;
-  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
   border: 1px solid var(--station-line);
   border-radius: 6px;
-  color: var(--station-text);
   background: var(--station-raised);
   text-align: left;
   cursor: pointer;
@@ -31,26 +31,43 @@
 
 .synth-picker-card:hover,
 .synth-picker-card:focus-visible {
-  border-color: var(--station-accent);
+  border-color: currentColor;
   outline: none;
 }
 
+.synth-picker-card-monopoly {
+  color: var(--accent-synth);
+  border-color: color-mix(in srgb, var(--accent-synth) 45%, var(--station-line));
+  background: color-mix(in srgb, var(--accent-synth) 7%, var(--station-raised));
+}
+
+.synth-picker-card-strings {
+  color: var(--accent-strings);
+  border-color: color-mix(in srgb, var(--accent-strings) 45%, var(--station-line));
+  background: color-mix(in srgb, var(--accent-strings) 7%, var(--station-raised));
+}
+
+.synth-picker-card-icon {
+  flex: 0 0 auto;
+  width: 92px;
+  height: 63px;
+}
+
+.synth-picker-card-text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
 .synth-picker-card-name {
-  color: var(--station-accent);
   font-family: var(--station-mono-font);
-  font-size: .7rem;
+  font-size: .78rem;
   font-weight: 700;
   letter-spacing: .06em;
 }
 
 .synth-picker-card-description {
   color: var(--station-text-muted);
-  font-size: .62rem;
+  font-size: .64rem;
   line-height: 1.4;
-}
-
-@media (max-width: 390px) {
-  .synth-picker-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }

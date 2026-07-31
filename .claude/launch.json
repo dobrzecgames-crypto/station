@@ -14,6 +14,12 @@
       "port": 5182
     },
     {
+      "name": "station-verify",
+      "runtimeExecutable": "C:\\Users\\T470\\Documents\\station\\node_modules\\.bin\\vite.CMD",
+      "runtimeArgs": [],
+      "autoPort": true
+    },
+    {
       "name": "station-history",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--dir", "C:\\Users\\T470\\Documents\\station-history", "exec", "vite", "--port", "4180", "--strictPort"],

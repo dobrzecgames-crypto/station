@@ -2,7 +2,22 @@ import { createDefaultMasterEffectRack, createEmptyEffectRack, defaultCompressor
 import type { EffectRackState, EffectSlotState, EffectType } from './effects'
 import { cloneSynthPatch, lfoFrequencyHz, maximumSynthVoices } from '../synth/synthOperations'
 import type { SynthPatch } from '../synth/synthTypes'
-import { cloneStringsPatch, maximumStringsVoices, stringsBrightnessToHz } from '../strings/stringsOperations'
+import {
+  cloneStringsPatch,
+  maximumStringsVoices,
+  stringsBodyToBrightnessBias,
+  stringsBodyToOscillatorBGain,
+  stringsBowToGain,
+  stringsBrightnessToHz,
+  stringsCharacterBias,
+  stringsMotionFilterDepthHz,
+  stringsMotionPanDepth,
+  stringsOctaveLayerMixToGain,
+  stringsSpaceFeedback,
+  stringsSpaceWet,
+  stringsWarmthWetGain,
+  stringsWidthToPan,
+} from '../strings/stringsOperations'
 import type { StringsPatch } from '../strings/stringsTypes'
 
 export type SampleId = string
@@ -120,12 +135,23 @@ export interface StringsPatchRegistration {
   patch: StringsPatch
 }
 
+interface ActiveStringsVoiceLayer {
+  oscillator: OscillatorNode
+  gain: GainNode
+}
+
 interface ActiveStringsVoice {
   oscillators: [OscillatorNode, OscillatorNode]
+  /** BODY balance sits here, between each oscillator and the shared filter - oscillatorA's is always unity, oscillatorB's tracks stringsBodyToOscillatorBGain. */
+  oscillatorGains: [GainNode, GainNode]
   filter: BiquadFilterNode
   amp: GainNode
   /** Fades the shared vibrato signal in after note-on rather than gating the LFO itself, so the LFO stays phase-continuous across every voice. */
   vibratoOnset: GainNode
+  /** Present only when the voice was built with OCTAVE LAYER active - a layer cannot be added to an already-playing voice, only at its own note-on. */
+  layer?: ActiveStringsVoiceLayer
+  /** BOW's shared-buffer noise layer. Always present (unlike `layer`) since BOW must update smoothly on an already-sounding voice; its fade-out rides the same shared `amp` envelope as the oscillators rather than having one of its own. */
+  bow: { source: AudioBufferSourceNode; gain: GainNode }
   origin: 'manual' | 'sequencer'
   patchKey: string
   channelId: ChannelId
@@ -155,7 +181,19 @@ interface RuntimeStringsEnsemble {
   wetGainB: GainNode
   delayModDepthA: GainNode
   delayModDepthB: GainNode
+  /** MOTION's pan drift, fed from the same shared LFO into both panners with opposite sign - the stereo image breathes in width around a fixed center rather than sliding like autopan. */
+  motionPanDepthA: GainNode
+  motionPanDepthB: GainNode
   output: GainNode
+  /** WARMTH: one fixed saturation curve, created once and never regenerated (a WaveShaper's `.curve` cannot be ramped, so changing it live would click) - only the dry/wet balance below moves. */
+  warmthShaper: WaveShaperNode
+  warmthDry: GainNode
+  warmthWet: GainNode
+  /** SPACE: a small damped feedback delay, independent of ENSEMBLE - see docs. */
+  spaceDelay: DelayNode
+  spaceDamping: BiquadFilterNode
+  spaceFeedback: GainNode
+  spaceWet: GainNode
 }
 
 interface StringsPatchRuntime {
@@ -164,6 +202,8 @@ interface StringsPatchRuntime {
   voices: Set<ActiveStringsVoice>
   ensembles: Map<ChannelId, RuntimeStringsEnsemble>
   vibratoDepth?: GainNode
+  /** MOTION's filter-cutoff drift, fanned into every active voice's filter.frequency at creation - one shared depth gain per runtime, not per voice. */
+  motionFilterDepth?: GainNode
 }
 
 interface Channel {
@@ -235,6 +275,12 @@ export class AudioEngine {
   private stringsVibratoLfo?: OscillatorNode
   private stringsEnsembleLfoA?: OscillatorNode
   private stringsEnsembleLfoB?: OscillatorNode
+  /** MOTION's shared LFO - one more free-running oscillator at an incommensurate rate, feeding a per-runtime filter depth and a per-channel pan depth. */
+  private stringsMotionLfo?: OscillatorNode
+  /** BOW's noise source data, generated once and reused by every voice's own cheap AudioBufferSourceNode - the expensive part (the buffer) is shared, not the lightweight per-voice player. */
+  private stringsNoiseBuffer?: AudioBuffer
+  /** WARMTH's saturation curve - fixed and generated once, ever. A WaveShaper's `.curve` cannot be smoothly ramped, so WARMTH moves a dry/wet blend instead of regenerating this. */
+  private stringsWarmthCurve?: Float32Array<ArrayBuffer>
   private status: AudioEngineStatus = 'inactive'
   private readonly statusListeners = new Set<(status: AudioEngineStatus) => void>()
   private lifecycleRecoveryInstalled = false
@@ -744,12 +790,16 @@ export class AudioEngine {
     try { this.stringsVibratoLfo?.stop() } catch { /* The LFO may already be stopped. */ }
     try { this.stringsEnsembleLfoA?.stop() } catch { /* The LFO may already be stopped. */ }
     try { this.stringsEnsembleLfoB?.stop() } catch { /* The LFO may already be stopped. */ }
+    try { this.stringsMotionLfo?.stop() } catch { /* The LFO may already be stopped. */ }
     this.stringsVibratoLfo?.disconnect()
     this.stringsEnsembleLfoA?.disconnect()
     this.stringsEnsembleLfoB?.disconnect()
+    this.stringsMotionLfo?.disconnect()
     this.stringsVibratoLfo = undefined
     this.stringsEnsembleLfoA = undefined
     this.stringsEnsembleLfoB = undefined
+    this.stringsMotionLfo = undefined
+    this.stringsNoiseBuffer = undefined
     for (const channel of this.channels.values()) {
       channel.gain?.disconnect()
       channel.meter?.disconnect()
@@ -1095,7 +1145,10 @@ export class AudioEngine {
     if (!runtime) {
       runtime = { groupId, patch: cloneStringsPatch(patch), voices: new Set(), ensembles: new Map() }
       this.stringsRuntimes.set(key, runtime)
-      if (this.context) this.createStringsVibratoDepth(runtime)
+      if (this.context) {
+        this.createStringsVibratoDepth(runtime)
+        this.createStringsMotionFilterDepth(runtime)
+      }
     } else this.updateStringsRuntime(runtime, patch)
     return runtime
   }
@@ -1103,8 +1156,16 @@ export class AudioEngine {
   private updateStringsRuntime(runtime: StringsPatchRuntime, patch: StringsPatch): void {
     runtime.patch = cloneStringsPatch(patch)
     if (runtime.vibratoDepth) this.applyStringsVibratoDepth(runtime, runtime.vibratoDepth, false)
+    if (runtime.motionFilterDepth) this.applyStringsMotionFilterDepth(runtime, runtime.motionFilterDepth, false)
     for (const ensemble of runtime.ensembles.values()) this.applyStringsEnsemble(runtime, ensemble, false)
-    for (const voice of runtime.voices) this.applyPatchToActiveStringsVoice(runtime, voice)
+    for (const voice of runtime.voices) {
+      this.applyPatchToActiveStringsVoice(runtime, voice)
+      // Deliberately kept out of applyPatchToActiveStringsVoice, which also
+      // runs at construction time with immediately=true - that would cancel
+      // BOW's note-on fade-in ramp (see startStringsVoice) and snap it to a
+      // flat value instead. A live update is always a smooth ramp here.
+      this.applyEffectParameter(voice.bow.gain.gain, stringsBowToGain(patch.bow), false, 0.05)
+    }
   }
 
   /** Lazily created once, ever - shared by every STRINGS patch in the app. */
@@ -1130,6 +1191,43 @@ export class AudioEngine {
     ensembleB.frequency.setValueAtTime(0.19, now)
     ensembleB.start(now)
     this.stringsEnsembleLfoB = ensembleB
+
+    // Fourth free-running rate, incommensurate with the three above, so MOTION
+    // never lines up into a regular pulse with vibrato or the ensemble.
+    const motion = this.context.createOscillator()
+    motion.type = 'sine'
+    motion.frequency.setValueAtTime(0.071, now)
+    motion.start(now)
+    this.stringsMotionLfo = motion
+  }
+
+  /** Generated once, ever, and reused by every BOW voice in the app - a couple of seconds of white noise is plenty since each voice reads it back looped through its own cheap AudioBufferSourceNode. */
+  private ensureStringsNoiseBuffer(): AudioBuffer | undefined {
+    if (!this.context) return undefined
+    if (!this.stringsNoiseBuffer) {
+      const durationSeconds = 2
+      const buffer = this.context.createBuffer(1, Math.round(this.context.sampleRate * durationSeconds), this.context.sampleRate)
+      const data = buffer.getChannelData(0)
+      for (let index = 0; index < data.length; index += 1) data[index] = Math.random() * 2 - 1
+      this.stringsNoiseBuffer = buffer
+    }
+    return this.stringsNoiseBuffer
+  }
+
+  /** A single gentle tanh curve, generated once and shared by every channel's WaveShaper - see the field doc for why it is never regenerated. */
+  private ensureStringsWarmthCurve(): Float32Array<ArrayBuffer> {
+    if (!this.stringsWarmthCurve) {
+      const length = 1024
+      const curve = new Float32Array(length)
+      const drive = 2.5
+      const normalizer = Math.tanh(drive)
+      for (let index = 0; index < length; index += 1) {
+        const x = (index / (length - 1)) * 2 - 1
+        curve[index] = Math.tanh(drive * x) / normalizer
+      }
+      this.stringsWarmthCurve = curve
+    }
+    return this.stringsWarmthCurve
   }
 
   private createStringsVibratoDepth(runtime: StringsPatchRuntime): void {
@@ -1145,7 +1243,31 @@ export class AudioEngine {
   private applyStringsVibratoDepth(runtime: StringsPatchRuntime, depth: GainNode, immediately: boolean): void {
     // Cents of peak deviation at VIBRATO = 1. Musical, not a siren: real vibrato
     // typically swings well under this even at its most pronounced.
-    this.applyEffectParameter(depth.gain, runtime.patch.vibrato * 16, immediately, 0.02)
+    const bias = stringsCharacterBias(runtime.patch.character)
+    this.applyEffectParameter(depth.gain, runtime.patch.vibrato * bias.vibratoScale * 16, immediately, 0.02)
+  }
+
+  /** Lazily created alongside vibratoDepth - one shared gain per runtime, fanned into every active voice's filter.frequency. */
+  private createStringsMotionFilterDepth(runtime: StringsPatchRuntime): void {
+    if (!this.context || runtime.motionFilterDepth) return
+    this.ensureStringsGlobalLfos()
+    if (!this.stringsMotionLfo) return
+    const depth = this.context.createGain()
+    this.stringsMotionLfo.connect(depth)
+    runtime.motionFilterDepth = depth
+    this.applyStringsMotionFilterDepth(runtime, depth, true)
+  }
+
+  private applyStringsMotionFilterDepth(runtime: StringsPatchRuntime, depth: GainNode, immediately: boolean): void {
+    const cutoffHz = this.stringsEffectiveCutoffHz(runtime.patch)
+    this.applyEffectParameter(depth.gain, stringsMotionFilterDepthHz(runtime.patch.motion, cutoffHz), immediately, 0.02)
+  }
+
+  /** BRIGHTNESS plus CHARACTER's bias plus BODY's reinforcing shift, in one place so MOTION's wobble (which needs the same live cutoff) can never drift from what the filter itself is actually set to. Uses the same character-biased BODY value as the oscillator balance, so both mechanisms always move together. */
+  private stringsEffectiveCutoffHz(patch: StringsPatch): number {
+    const bias = stringsCharacterBias(patch.character)
+    const effectiveBody = this.clamp01(patch.body + bias.bodyBias)
+    return stringsBrightnessToHz(this.clamp01(patch.brightness + bias.brightnessBias + stringsBodyToBrightnessBias(effectiveBody)))
   }
 
   /** Built once per (patch, channel) and never torn down until the runtime disposes - a chord's worth of voices reuses the same ensemble, matching how `ensureChannel` itself is never rebuilt mid-session. */
@@ -1167,12 +1289,28 @@ export class AudioEngine {
     const wetGainB = this.context.createGain()
     const delayModDepthA = this.context.createGain()
     const delayModDepthB = this.context.createGain()
+    const motionPanDepthA = this.context.createGain()
+    const motionPanDepthB = this.context.createGain()
     const output = this.context.createGain()
+    const warmthShaper = this.context.createWaveShaper()
+    const warmthDry = this.context.createGain()
+    const warmthWet = this.context.createGain()
+    const spaceDelay = this.context.createDelay(0.1)
+    const spaceDamping = this.context.createBiquadFilter()
+    const spaceFeedback = this.context.createGain()
+    const spaceWet = this.context.createGain()
 
     delayA.delayTime.setValueAtTime(0.01, now)
     delayB.delayTime.setValueAtTime(0.013, now)
-    pannerA.pan.setValueAtTime(-0.7, now)
-    pannerB.pan.setValueAtTime(0.7, now)
+    // Static WIDTH pan and MOTION's drift depth are both applied immediately
+    // below by applyStringsEnsemble, before any voice can reach this ensemble.
+    warmthShaper.curve = this.ensureStringsWarmthCurve()
+    // Fixed, short and gently damped - a sense of distance, not a discrete echo
+    // or a flanger. Only the feedback and wet amounts below move with SPACE.
+    spaceDelay.delayTime.setValueAtTime(0.047, now)
+    spaceDamping.type = 'lowpass'
+    spaceDamping.frequency.setValueAtTime(2600, now)
+    spaceDamping.Q.setValueAtTime(0.5, now)
 
     input.connect(dryGain)
     dryGain.connect(output)
@@ -1188,16 +1326,41 @@ export class AudioEngine {
     delayModDepthA.connect(delayA.delayTime)
     this.stringsEnsembleLfoB?.connect(delayModDepthB)
     delayModDepthB.connect(delayB.delayTime)
-    output.connect(channel.gain)
+    // MOTION's pan drift: one shared LFO into both panners with opposite sign,
+    // so the image breathes in width around a fixed center - never autopan.
+    this.stringsMotionLfo?.connect(motionPanDepthA)
+    motionPanDepthA.connect(pannerA.pan)
+    this.stringsMotionLfo?.connect(motionPanDepthB)
+    motionPanDepthB.connect(pannerB.pan)
+    // WARMTH: the shaped and dry paths run in parallel from `output`, each
+    // fanning out to both the plain channel path and SPACE's send below -
+    // this is the crossfade, not a swap, so it never clicks as it moves.
+    output.connect(warmthShaper)
+    warmthShaper.connect(warmthWet)
+    output.connect(warmthDry)
+    warmthDry.connect(channel.gain)
+    warmthDry.connect(spaceDelay)
+    warmthWet.connect(channel.gain)
+    warmthWet.connect(spaceDelay)
+    // SPACE: a short damped feedback delay sitting after WARMTH, summing its
+    // own wet tap back into the channel alongside (never instead of) the dry
+    // signal above.
+    spaceDelay.connect(spaceDamping)
+    spaceDamping.connect(spaceFeedback)
+    spaceFeedback.connect(spaceDelay)
+    spaceDamping.connect(spaceWet)
+    spaceWet.connect(channel.gain)
 
-    const ensemble: RuntimeStringsEnsemble = { input, dryGain, delayA, delayB, pannerA, pannerB, wetGainA, wetGainB, delayModDepthA, delayModDepthB, output }
+    const ensemble: RuntimeStringsEnsemble = { input, dryGain, delayA, delayB, pannerA, pannerB, wetGainA, wetGainB, delayModDepthA, delayModDepthB, motionPanDepthA, motionPanDepthB, output, warmthShaper, warmthDry, warmthWet, spaceDelay, spaceDamping, spaceFeedback, spaceWet }
     runtime.ensembles.set(channelId, ensemble)
     this.applyStringsEnsemble(runtime, ensemble, true)
     return ensemble
   }
 
   private applyStringsEnsemble(runtime: StringsPatchRuntime, ensemble: RuntimeStringsEnsemble, immediately: boolean): void {
-    const amount = runtime.patch.ensemble
+    const patch = runtime.patch
+    const bias = stringsCharacterBias(patch.character)
+    const amount = this.clamp01(patch.ensemble * bias.ensembleScale)
     // Dry never fully disappears - ENSEMBLE widens the sound, it does not replace it.
     this.applyEffectParameter(ensemble.dryGain.gain, 1 - amount * 0.45, immediately, 0.03)
     this.applyEffectParameter(ensemble.wetGainA.gain, amount * 0.55, immediately, 0.03)
@@ -1205,6 +1368,21 @@ export class AudioEngine {
     // A few milliseconds of delay-time wobble - chorus movement, short of flanger territory.
     this.applyEffectParameter(ensemble.delayModDepthA.gain, amount * 0.003, immediately, 0.03)
     this.applyEffectParameter(ensemble.delayModDepthB.gain, amount * 0.0035, immediately, 0.03)
+    // WIDTH sets the static spread, independent of ENSEMBLE's own wet/modulation amount.
+    const pan = stringsWidthToPan(patch.width)
+    this.applyEffectParameter(ensemble.pannerA.pan, -pan, immediately, 0.03)
+    this.applyEffectParameter(ensemble.pannerB.pan, pan, immediately, 0.03)
+    // MOTION drifts on top of that static spread, opposite sign on each side.
+    const motionPan = stringsMotionPanDepth(patch.motion)
+    this.applyEffectParameter(ensemble.motionPanDepthA.gain, motionPan, immediately, 0.03)
+    this.applyEffectParameter(ensemble.motionPanDepthB.gain, -motionPan, immediately, 0.03)
+    // WARMTH crossfades into the fixed saturation curve rather than reshaping it.
+    const warmthWet = stringsWarmthWetGain(patch.warmth)
+    this.applyEffectParameter(ensemble.warmthDry.gain, 1 - warmthWet, immediately, 0.03)
+    this.applyEffectParameter(ensemble.warmthWet.gain, warmthWet, immediately, 0.03)
+    // SPACE's send and the feedback loop's decay both open up together.
+    this.applyEffectParameter(ensemble.spaceFeedback.gain, stringsSpaceFeedback(patch.space), immediately, 0.03)
+    this.applyEffectParameter(ensemble.spaceWet.gain, stringsSpaceWet(patch.space), immediately, 0.03)
   }
 
   private startStringsVoice(runtime: StringsPatchRuntime, channelId: ChannelId, midiNote: number, velocity: number, when: number, origin: 'manual' | 'sequencer', manualToken?: string): ActiveStringsVoice | undefined {
@@ -1223,22 +1401,37 @@ export class AudioEngine {
     }
     this.stealStringsVoiceIfNeeded(runtime, scheduledWhen, duplicate)
 
+    const patch = runtime.patch
+    const bias = stringsCharacterBias(patch.character)
     const oscillatorA = this.context.createOscillator()
     const oscillatorB = this.context.createOscillator()
     oscillatorA.type = 'sawtooth'
     oscillatorB.type = 'sawtooth'
+    // BODY's balance sits between each oscillator and the shared filter.
+    const oscillatorGainA = this.context.createGain()
+    const oscillatorGainB = this.context.createGain()
     const filter = this.context.createBiquadFilter()
     filter.type = 'lowpass'
     // Fixed, low Q - a gentle tone control, not a resonant subtractive filter.
     filter.Q.setValueAtTime(0.7, scheduledWhen)
     const amp = this.context.createGain()
     const vibratoOnset = this.context.createGain()
+    // BOW: a cheap per-voice player reading the one shared noise buffer, mixed
+    // in through the same filter as the oscillators so BRIGHTNESS/MOTION shape
+    // it too. Its own gain never fades out on release - the shared `amp`
+    // envelope below already does that for the whole voice.
+    const bowSource = this.context.createBufferSource()
+    bowSource.buffer = this.ensureStringsNoiseBuffer() ?? null
+    bowSource.loop = true
+    const bowGain = this.context.createGain()
 
     const voice: ActiveStringsVoice = {
       oscillators: [oscillatorA, oscillatorB],
+      oscillatorGains: [oscillatorGainA, oscillatorGainB],
       filter,
       amp,
       vibratoOnset,
+      bow: { source: bowSource, gain: bowGain },
       origin,
       patchKey: this.stringsPatchKey(runtime.groupId, runtime.patch.id),
       channelId,
@@ -1249,24 +1442,51 @@ export class AudioEngine {
       cleanedUp: false,
     }
 
-    oscillatorA.connect(filter)
-    oscillatorB.connect(filter)
+    oscillatorA.connect(oscillatorGainA)
+    oscillatorGainA.connect(filter)
+    oscillatorB.connect(oscillatorGainB)
+    oscillatorGainB.connect(filter)
+    bowSource.connect(bowGain)
+    bowGain.connect(filter)
     filter.connect(amp)
     amp.connect(ensemble.input)
+    // MOTION's shared filter-cutoff drift fans into every voice built while it is active.
+    runtime.motionFilterDepth?.connect(filter.frequency)
+    // A short fixed ramp so BOW's continuous noise never steps in abruptly,
+    // independent of ATTACK - the level itself comes from applyPatchToActiveStringsVoice below.
+    bowGain.gain.setValueAtTime(0, scheduledWhen)
+    bowGain.gain.linearRampToValueAtTime(stringsBowToGain(patch.bow), scheduledWhen + 0.05)
     // Vibrato fades in after note-on instead of being present from the attack,
     // so a fresh note starts clean and settles into its vibrato like a played
     // instrument - the shared LFO itself never stops or resets phase for this.
+    // VIBRATO DELAY holds it at zero for a little longer first, if set.
+    const vibratoDelaySeconds = Math.max(0, patch.vibratoDelayMs) / 1000
     vibratoOnset.gain.setValueAtTime(0, scheduledWhen)
-    vibratoOnset.gain.linearRampToValueAtTime(1, scheduledWhen + 0.35)
+    vibratoOnset.gain.setValueAtTime(0, scheduledWhen + vibratoDelaySeconds)
+    vibratoOnset.gain.linearRampToValueAtTime(1, scheduledWhen + vibratoDelaySeconds + 0.35)
     runtime.vibratoDepth?.connect(vibratoOnset)
     vibratoOnset.connect(oscillatorA.detune)
     vibratoOnset.connect(oscillatorB.detune)
 
+    // OCTAVE LAYER is part of voice construction, not a live-updatable signal
+    // path: a layer cannot be grafted onto an already-playing voice, only built
+    // fresh at its own note-on. It shares the main voice's filter and amp
+    // envelope rather than duplicating them, and rides the same vibrato.
+    if (patch.octaveLayer !== 'off') {
+      const layerOscillator = this.context.createOscillator()
+      layerOscillator.type = 'sawtooth'
+      const layerGain = this.context.createGain()
+      layerOscillator.connect(layerGain)
+      layerGain.connect(filter)
+      vibratoOnset.connect(layerOscillator.detune)
+      voice.layer = { oscillator: layerOscillator, gain: layerGain }
+    }
+
     this.applyPatchToActiveStringsVoice(runtime, voice, true)
-    const attack = Math.max(0.001, runtime.patch.ampEnvelope.attackSeconds)
-    const decay = Math.max(0.001, runtime.patch.ampEnvelope.decaySeconds)
-    const peak = this.toGain(velocity) * runtime.patch.level * 0.14
-    const sustain = Math.max(0.0001, peak * runtime.patch.ampEnvelope.sustain)
+    const attack = Math.max(0.001, patch.ampEnvelope.attackSeconds * bias.attackScale)
+    const decay = Math.max(0.001, patch.ampEnvelope.decaySeconds)
+    const peak = this.toGain(velocity) * patch.level * 0.14
+    const sustain = Math.max(0.0001, peak * patch.ampEnvelope.sustain)
     amp.gain.setValueAtTime(0.0001, scheduledWhen)
     amp.gain.exponentialRampToValueAtTime(Math.max(0.0001, peak), scheduledWhen + attack)
     amp.gain.exponentialRampToValueAtTime(sustain, scheduledWhen + attack + decay)
@@ -1276,21 +1496,40 @@ export class AudioEngine {
     this.activeStringsVoices.add(voice)
     oscillatorA.start(scheduledWhen)
     oscillatorB.start(scheduledWhen)
+    voice.layer?.oscillator.start(scheduledWhen)
+    bowSource.start(scheduledWhen)
     return voice
   }
 
   private applyPatchToActiveStringsVoice(runtime: StringsPatchRuntime, voice: ActiveStringsVoice, immediately = false): void {
     if (!this.context) return
     const patch = runtime.patch
+    const bias = stringsCharacterBias(patch.character)
     const frequency = this.midiNoteToFrequency(voice.midiNote)
     const [oscillatorA, oscillatorB] = voice.oscillators
+    const [, oscillatorGainB] = voice.oscillatorGains
     this.applyEffectParameter(oscillatorA.frequency, frequency, immediately, 0.01)
     this.applyEffectParameter(oscillatorB.frequency, frequency, immediately, 0.01)
     // Static spread lives on .detune (cents) so it sums cleanly with the
     // shared vibrato signal also connected there, rather than fighting it on
     // .frequency.
-    this.applyEffectParameter(oscillatorB.detune, patch.detuneCents, immediately, 0.02)
-    this.applyEffectParameter(voice.filter.frequency, stringsBrightnessToHz(patch.brightness), immediately, 0.03)
+    this.applyEffectParameter(oscillatorB.detune, patch.detuneCents * bias.detuneScale, immediately, 0.02)
+    this.applyEffectParameter(voice.filter.frequency, this.stringsEffectiveCutoffHz(patch), immediately, 0.03)
+    // BODY balances the two oscillators - oscillator A always stays at unity,
+    // this is a real harmonic-structure change, not a second filter. Also
+    // nudges brightness (via stringsEffectiveCutoffHz above) in the same
+    // direction, so the two mechanisms reinforce one clearly audible move
+    // instead of leaving BODY as a subtle balance shift alone.
+    this.applyEffectParameter(oscillatorGainB.gain, stringsBodyToOscillatorBGain(this.clamp01(patch.body + bias.bodyBias)), immediately, 0.02)
+    if (voice.layer) {
+      const layerFrequency = patch.octaveLayer === 'down' ? frequency / 2 : frequency * 2
+      this.applyEffectParameter(voice.layer.oscillator.frequency, layerFrequency, immediately, 0.01)
+      // Fades to silence rather than being torn down if OCTAVE LAYER is turned
+      // off while this voice is still sounding - it just cannot come back on
+      // this same voice, only on the next note-on.
+      const layerGain = patch.octaveLayer === 'off' ? 0 : stringsOctaveLayerMixToGain(patch.octaveLayerMix)
+      this.applyEffectParameter(voice.layer.gain.gain, layerGain, immediately, 0.03)
+    }
   }
 
   /** Prefers a voice already fading out over cutting one still fully sounding - see docs. */
@@ -1309,13 +1548,20 @@ export class AudioEngine {
     if (!this.context || voice.cleanedUp) return
     const releaseAt = Math.max(this.context.currentTime, when)
     if (voice.stopAt !== undefined && voice.stopAt <= releaseAt) return
-    const release = Math.max(0.005, releaseOverride ?? runtime.patch.ampEnvelope.releaseSeconds)
+    // A steal/duplicate override always uses its own fast release regardless
+    // of CHARACTER - that release is about avoiding voice pile-up, not tone.
+    const bias = stringsCharacterBias(runtime.patch.character)
+    const release = Math.max(0.005, releaseOverride ?? runtime.patch.ampEnvelope.releaseSeconds * bias.releaseScale)
     this.holdAudioParamAtTime(voice.amp.gain, releaseAt)
     voice.amp.gain.exponentialRampToValueAtTime(0.0001, releaseAt + release)
     const stopAt = releaseAt + release + 0.01
     for (const oscillator of voice.oscillators) {
       try { oscillator.stop(stopAt) } catch { /* A stolen voice may already be stopping. */ }
     }
+    if (voice.layer) {
+      try { voice.layer.oscillator.stop(stopAt) } catch { /* A stolen voice may already be stopping. */ }
+    }
+    try { voice.bow.source.stop(stopAt) } catch { /* A stolen voice may already be stopping. */ }
     voice.stopAt = stopAt
   }
 
@@ -1323,6 +1569,10 @@ export class AudioEngine {
     for (const oscillator of voice.oscillators) {
       try { oscillator.stop() } catch { /* The oscillator may already have ended. */ }
     }
+    if (voice.layer) {
+      try { voice.layer.oscillator.stop() } catch { /* The oscillator may already have ended. */ }
+    }
+    try { voice.bow.source.stop() } catch { /* The source may already have ended. */ }
     const runtime = this.stringsRuntimes.get(voice.patchKey)
     if (runtime) this.cleanUpStringsVoice(runtime, voice)
   }
@@ -1333,15 +1583,24 @@ export class AudioEngine {
     runtime.voices.delete(voice)
     this.activeStringsVoices.delete(voice)
     for (const oscillator of voice.oscillators) oscillator.disconnect()
+    for (const gain of voice.oscillatorGains) gain.disconnect()
+    try { runtime.motionFilterDepth?.disconnect(voice.filter.frequency) } catch { /* The motion connection may already be gone. */ }
     voice.filter.disconnect()
     try { runtime.vibratoDepth?.disconnect(voice.vibratoOnset) } catch { /* The vibrato connection may already be gone. */ }
     voice.vibratoOnset.disconnect()
     voice.amp.disconnect()
+    if (voice.layer) {
+      voice.layer.oscillator.disconnect()
+      voice.layer.gain.disconnect()
+    }
+    voice.bow.source.disconnect()
+    voice.bow.gain.disconnect()
   }
 
   private disposeStringsRuntime(key: string, runtime: StringsPatchRuntime): void {
     for (const voice of [...runtime.voices]) this.stopStringsVoiceImmediately(voice)
     try { runtime.vibratoDepth?.disconnect() } catch { /* Already disconnected. */ }
+    try { runtime.motionFilterDepth?.disconnect() } catch { /* Already disconnected. */ }
     for (const ensemble of runtime.ensembles.values()) this.disposeStringsEnsemble(ensemble)
     runtime.ensembles.clear()
     this.stringsRuntimes.delete(key)
@@ -1350,6 +1609,8 @@ export class AudioEngine {
   private disposeStringsEnsemble(ensemble: RuntimeStringsEnsemble): void {
     try { this.stringsEnsembleLfoA?.disconnect(ensemble.delayModDepthA) } catch { /* Already disconnected. */ }
     try { this.stringsEnsembleLfoB?.disconnect(ensemble.delayModDepthB) } catch { /* Already disconnected. */ }
+    try { this.stringsMotionLfo?.disconnect(ensemble.motionPanDepthA) } catch { /* Already disconnected. */ }
+    try { this.stringsMotionLfo?.disconnect(ensemble.motionPanDepthB) } catch { /* Already disconnected. */ }
     ensemble.input.disconnect()
     ensemble.dryGain.disconnect()
     ensemble.delayA.disconnect()
@@ -1360,7 +1621,16 @@ export class AudioEngine {
     ensemble.wetGainB.disconnect()
     ensemble.delayModDepthA.disconnect()
     ensemble.delayModDepthB.disconnect()
+    ensemble.motionPanDepthA.disconnect()
+    ensemble.motionPanDepthB.disconnect()
     ensemble.output.disconnect()
+    ensemble.warmthShaper.disconnect()
+    ensemble.warmthDry.disconnect()
+    ensemble.warmthWet.disconnect()
+    ensemble.spaceDelay.disconnect()
+    ensemble.spaceDamping.disconnect()
+    ensemble.spaceFeedback.disconnect()
+    ensemble.spaceWet.disconnect()
   }
 
   private createDriveCurve(drive: number): Float32Array<ArrayBuffer> {
@@ -1727,6 +1997,10 @@ export class AudioEngine {
 
   private toGain(gain: number | undefined): number {
     return typeof gain === 'number' && Number.isFinite(gain) ? Math.min(1, Math.max(0, gain)) : 1
+  }
+
+  private clamp01(value: number): number {
+    return Math.min(1, Math.max(0, value))
   }
 
   private toBoundedNumber(value: unknown, minimum: number, maximum: number, fallback: number): number {

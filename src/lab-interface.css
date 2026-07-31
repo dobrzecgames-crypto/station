@@ -69,8 +69,8 @@
    would leave nothing reading as primary. Filling it is a one-line change if
    that judgement turns out wrong. */
 .main-navigation { gap: 4px; border-bottom: 0; }.main-nav-button {
-  min-height: 34px;
-  padding: 0 4px;
+  min-height: 38px;
+  padding: 0 6px;
   border: 1px solid var(--station-line);
   border-radius: 4px;
   /* Fallbacks because the palette does not define these - see the note on the
@@ -84,7 +84,7 @@
      large flat areas are what make an interface look printed rather than lit. */
   background: linear-gradient(180deg, color-mix(in srgb, var(--station-surface) 100%, #fff 6%), var(--station-surface) 45%);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 7%), 0 1px 0 rgb(0 0 0 / 45%);
-  font-size: .58rem;
+  font-size: .64rem;
   letter-spacing: .07em;
   transition: color 90ms ease, border-color 90ms ease, background 90ms ease;
 }.main-nav-button:hover { color: var(--station-text, #e8eae4); border-color: color-mix(in srgb, var(--station-line) 100%, #fff 22%); }/* Pressed is a flat change of edge, not a shove downwards - section 8 of the

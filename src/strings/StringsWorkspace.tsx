@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
 import type { PadState } from '../pads/types'
 import { StringsDisplayLauncher } from './StringsDisplay'
-import type { StringsPatch } from './stringsTypes'
+import { stringsCharacters, stringsOctaveLayers } from './stringsTypes'
+import type { StringsOctaveLayer, StringsPatch } from './stringsTypes'
 import './StringsWorkspace.css'
 
 interface StringsWorkspaceProps {
@@ -37,6 +38,8 @@ export function StringsWorkspace(props: StringsWorkspaceProps) {
   useEffect(() => () => onReleaseRef.current(), [])
 
   if (!patch) return null
+
+  const change = (changes: Partial<StringsPatch>) => props.onPatchChange({ ...patch, ...changes })
 
   return <>
     <StringsDisplayLauncher
@@ -79,7 +82,76 @@ export function StringsWorkspace(props: StringsWorkspaceProps) {
         />
       </header>
 
-      <p className="strings-display-hint">ATTACK / RELEASE / BRIGHTNESS / ENSEMBLE / VIBRATO / DETUNE / LEVEL ARE IN THE SYSTEM DISPLAY</p>
+      <div className="strings-starter-row">
+        <InlineSelect
+          label="CHARACTER"
+          value={patch.character}
+          options={stringsCharacters}
+          onChange={(character) => change({ character })}
+        />
+        <InlineSelect
+          label="OCTAVE LAYER"
+          value={patch.octaveLayer}
+          options={stringsOctaveLayers}
+          labels={octaveLayerSelectLabels}
+          onChange={(octaveLayer) => change({ octaveLayer })}
+        />
+      </div>
+      <InlineRange
+        label="OCTAVE MIX"
+        value={patch.octaveLayerMix}
+        min={0}
+        max={1}
+        step={0.01}
+        disabled={patch.octaveLayer === 'off'}
+        format={percent}
+        onChange={(octaveLayerMix) => change({ octaveLayerMix })}
+      />
+
+      <p className="strings-display-hint">ATTACK / RELEASE / BRIGHTNESS / ENSEMBLE / VIBRATO / DETUNE / LEVEL / OCTAVE ARE IN THE SYSTEM DISPLAY — TAP MORE FOR BODY, MOTION, WIDTH, BOW, VIBRATO DELAY, WARMTH, SPACE</p>
     </section>
   </>
+}
+
+const octaveLayerSelectLabels: Partial<Record<StringsOctaveLayer, string>> = {
+  off: 'OFF',
+  down: '-1',
+  up: '+1',
+}
+
+function percent(value: number): string {
+  return `${Math.round(value * 100)}%`
+}
+
+/** Mirrors MONOPOLY's own inline oscillator controls (SynthWorkspace.tsx) - the same compact label+control row, right in the main workspace rather than behind a tap into the System Display, for the handful of settings a player reaches for immediately after picking a sound. */
+function InlineSelect<T extends string>({ label, value, options, labels, onChange }: {
+  label: string
+  value: T
+  options: readonly T[]
+  labels?: Partial<Record<T, string>>
+  onChange: (value: T) => void
+}) {
+  return <label className="strings-inline-control strings-inline-select">
+    <span>{label}</span>
+    <select value={value} onChange={(event) => onChange(event.target.value as T)}>
+      {options.map((option) => <option value={option} key={option}>{labels?.[option] ?? option.toUpperCase()}</option>)}
+    </select>
+  </label>
+}
+
+function InlineRange({ label, value, min, max, step, disabled, format = percent, onChange }: {
+  label: string
+  value: number
+  min: number
+  max: number
+  step: number
+  disabled?: boolean
+  format?: (value: number) => string
+  onChange: (value: number) => void
+}) {
+  return <label className="strings-inline-control strings-inline-range">
+    <span>{label}</span>
+    <output>{format(value)}</output>
+    <input type="range" value={value} min={min} max={max} step={step} disabled={disabled} onChange={(event) => onChange(Number(event.target.value))} />
+  </label>
 }

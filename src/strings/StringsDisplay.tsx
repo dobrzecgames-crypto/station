@@ -5,9 +5,10 @@ import { DisplayRange } from '../shell/displayControls'
 import { useSystemDisplay } from '../shell/systemDisplayContext'
 import { formatMidiNote, maximumChordInterval, minimumChordInterval } from '../synth/synthOperations'
 import { maximumStringsVoices } from './stringsOperations'
+import { stringsOctaves } from './stringsTypes'
 import type { StringsPatch } from './stringsTypes'
 
-type StringsDisplayPage = 'sound' | 'character' | 'pad'
+type StringsDisplayPage = 'sound' | 'character' | 'pad' | 'more'
 
 interface StringsDisplayLauncherProps {
   pad: PadState
@@ -23,7 +24,7 @@ interface StringsDisplayLauncherProps {
 }
 
 const displayId = 'strings-controls'
-const pages: readonly StringsDisplayPage[] = ['sound', 'character', 'pad']
+const pages: readonly StringsDisplayPage[] = ['sound', 'character', 'pad', 'more']
 
 export function StringsDisplayLauncher(props: StringsDisplayLauncherProps) {
   const { claim, release, ownerId } = useSystemDisplay()
@@ -116,6 +117,7 @@ function stringsTenant(props: StringsTenantProps): DisplayTenant {
       </nav>
 
       {page === 'sound' && <>
+        <SegmentedSwitch label="OCTAVE" value={patch.octave} options={stringsOctaves} format={signed} onChange={(octave) => change({ octave })} />
         <DisplayRange label="ATTACK" value={formatSeconds(patch.ampEnvelope.attackSeconds)} min="0.01" max="5" step="0.01" current={patch.ampEnvelope.attackSeconds} idPrefix={displayId} onChange={(attackSeconds) => change({ ampEnvelope: { ...patch.ampEnvelope, attackSeconds } })} />
         <DisplayRange label="RELEASE" value={formatSeconds(patch.ampEnvelope.releaseSeconds)} min="0.05" max="8" step="0.05" current={patch.ampEnvelope.releaseSeconds} idPrefix={displayId} onChange={(releaseSeconds) => change({ ampEnvelope: { ...patch.ampEnvelope, releaseSeconds } })} />
         <DisplayRange label="BRIGHTNESS" value={`${Math.round(patch.brightness * 100)}%`} min="0" max="1" step="0.01" current={patch.brightness} idPrefix={displayId} onChange={(brightness) => change({ brightness })} />
@@ -126,6 +128,16 @@ function stringsTenant(props: StringsTenantProps): DisplayTenant {
         <DisplayRange label="ENSEMBLE" value={`${Math.round(patch.ensemble * 100)}%`} min="0" max="1" step="0.01" current={patch.ensemble} idPrefix={displayId} onChange={(ensemble) => change({ ensemble })} />
         <DisplayRange label="VIBRATO" value={`${Math.round(patch.vibrato * 100)}%`} min="0" max="1" step="0.01" current={patch.vibrato} idPrefix={displayId} onChange={(vibrato) => change({ vibrato })} />
         <DisplayRange label="DETUNE" value={`${patch.detuneCents.toFixed(0)} ct`} min="0" max="40" step="1" current={patch.detuneCents} idPrefix={displayId} onChange={(detuneCents) => change({ detuneCents })} />
+      </>}
+
+      {page === 'more' && <>
+        <DisplayRange label="BODY" value={`${Math.round(patch.body * 100)}%`} min="0" max="1" step="0.01" current={patch.body} idPrefix={displayId} onChange={(body) => change({ body })} />
+        <DisplayRange label="MOTION" value={`${Math.round(patch.motion * 100)}%`} min="0" max="1" step="0.01" current={patch.motion} idPrefix={displayId} onChange={(motion) => change({ motion })} />
+        <DisplayRange label="WIDTH" value={`${Math.round(patch.width * 100)}%`} min="0" max="1" step="0.01" current={patch.width} idPrefix={displayId} onChange={(width) => change({ width })} />
+        <DisplayRange label="BOW" value={`${Math.round(patch.bow * 100)}%`} min="0" max="1" step="0.01" current={patch.bow} idPrefix={displayId} onChange={(bow) => change({ bow })} />
+        <DisplayRange label="VIBRATO DELAY" value={`${Math.round(patch.vibratoDelayMs)} ms`} min="0" max="2000" step="10" current={patch.vibratoDelayMs} idPrefix={displayId} onChange={(vibratoDelayMs) => change({ vibratoDelayMs })} />
+        <DisplayRange label="WARMTH" value={`${Math.round(patch.warmth * 100)}%`} min="0" max="1" step="0.01" current={patch.warmth} idPrefix={displayId} onChange={(warmth) => change({ warmth })} />
+        <DisplayRange label="SPACE" value={`${Math.round(patch.space * 100)}%`} min="0" max="1" step="0.01" current={patch.space} idPrefix={displayId} onChange={(space) => change({ space })} />
       </>}
 
       {page === 'pad' && <>
@@ -175,6 +187,7 @@ function stringsReadout(page: StringsDisplayPage, patch: StringsPatch, pad: PadS
     case 'sound': return `STRINGS / ${formatSeconds(patch.ampEnvelope.attackSeconds)} ATK / ${Math.round(patch.brightness * 100)}% BRIGHT`
     case 'character': return `STRINGS / ENSEMBLE ${Math.round(patch.ensemble * 100)}% / VIBRATO ${Math.round(patch.vibrato * 100)}%`
     case 'pad': return `STRINGS / ${pad.label} / ${pad.chordIntervals.length} NOTE${pad.chordIntervals.length === 1 ? '' : 'S'}`
+    case 'more': return `STRINGS / BODY ${Math.round(patch.body * 100)}% / WIDTH ${Math.round(patch.width * 100)}%`
   }
 }
 
@@ -184,4 +197,31 @@ function formatSeconds(value: number): string {
 
 function signed(value: number): string {
   return `${value > 0 ? '+' : ''}${value}`
+}
+
+/** Reuses the page nav's own segmented-button look for any discrete (not continuous) STRINGS parameter - OCTAVE, OCTAVE LAYER, CHARACTER. */
+function SegmentedSwitch<T extends string | number>({ label, value, options, format, disabled, onChange }: {
+  label: string
+  value: T
+  options: readonly T[]
+  format?: (option: T) => string
+  disabled?: boolean
+  onChange: (value: T) => void
+}) {
+  return <div className="strings-display-switch">
+    <span className="strings-display-switch-label">{label}</span>
+    <div className="strings-display-switch-options" role="group" aria-label={label}>
+      {options.map((option) => (
+        <button
+          type="button"
+          key={option}
+          aria-pressed={option === value}
+          disabled={disabled}
+          onClick={() => onChange(option)}
+        >
+          {format ? format(option) : String(option).toUpperCase()}
+        </button>
+      ))}
+    </div>
+  </div>
 }

@@ -15,10 +15,13 @@ import { maximumChordInterval, maximumSynthMidiNote, maximumSynthVoices, minimum
 import { subWaveforms, synthLfoDivisions, synthVoiceModes, synthWaveforms } from '../synth/synthTypes'
 import type { SynthOscillatorState, SynthPatch } from '../synth/synthTypes'
 import { maximumStringsVoices, resolveStringsPadMidiNotes } from '../strings/stringsOperations'
+import { stringsCharacters, stringsOctaveLayers, stringsOctaves } from '../strings/stringsTypes'
 import type { StringsPatch } from '../strings/stringsTypes'
 
-export const projectSchemaVersion = 11
-export const previousProjectSchemaVersion = 10
+export const projectSchemaVersion = 13
+export const previousProjectSchemaVersion = 12
+export const v11ProjectSchemaVersion = 11
+export const v10ProjectSchemaVersion = 10
 export const v9ProjectSchemaVersion = 9
 export const v8ProjectSchemaVersion = 8
 export const v7ProjectSchemaVersion = 7
@@ -108,7 +111,7 @@ export function createProjectState(state: ProjectState): ProjectState {
 export function normalizeProjectState(state: ProjectState): ProjectState {
   const padIds = state.patternGroups[0]?.bank?.pads.map((pad) => pad.id)
   if (!padIds) throw new Error('Project has no Pattern Group bank.')
-  return createProjectState({ ...state, schemaVersion: projectSchemaVersion, master: state.master ? { ...state.master } : { volume: 1, muted: false }, masterEffects: normalizeEffectRackState(state.masterEffects, 'master', createDefaultMasterEffectRack()), patternGroups: ensurePatternGroupLengths(ensurePatternGroupShifts(state.patternGroups, padIds)).map((group) => ({ ...group, synthPatches: group.synthPatches ?? [], stringsPatches: group.stringsPatches ?? [], bank: { ...group.bank, pads: group.bank.pads.map(normalizePadState) }, bus: group.bus ? { ...group.bus } : createGroupBusState(), effects: normalizeEffectRackState(group.effects, group.id) })) })
+  return createProjectState({ ...state, schemaVersion: projectSchemaVersion, master: state.master ? { ...state.master } : { volume: 1, muted: false }, masterEffects: normalizeEffectRackState(state.masterEffects, 'master', createDefaultMasterEffectRack()), patternGroups: ensurePatternGroupLengths(ensurePatternGroupShifts(state.patternGroups, padIds)).map((group) => ({ ...group, synthPatches: group.synthPatches ?? [], stringsPatches: (group.stringsPatches ?? []).map(normalizeStringsPatch), bank: { ...group.bank, pads: group.bank.pads.map(normalizePadState) }, bus: group.bus ? { ...group.bus } : createGroupBusState(), effects: normalizeEffectRackState(group.effects, group.id) })) })
 }
 
 export function migrateLegacyProjectState(legacy: { pads: ReturnType<typeof createPadBankState>['pads']; patterns?: unknown; [key: string]: unknown }): ProjectState {
@@ -192,6 +195,16 @@ export function migrateV9ProjectState(previous: { [key: string]: unknown }): Pro
 
 /** v10 predates STRINGS; normalization adds empty patch collections and neutral pad fields. */
 export function migrateV10ProjectState(previous: { [key: string]: unknown }): ProjectState {
+  return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
+}
+
+/** v11 predates the STRINGS v2 parameters (OCTAVE, OCTAVE LAYER, OCTAVE LAYER MIX, CHARACTER, BODY, MOTION, WIDTH); normalization backfills neutral defaults that reproduce the pre-v2 sound exactly. */
+export function migrateV11ProjectState(previous: { [key: string]: unknown }): ProjectState {
+  return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
+}
+
+/** v12 predates STRINGS' BOW, VIBRATO DELAY, WARMTH and SPACE; normalization backfills 0 for all four, reproducing the pre-v2b sound exactly. */
+export function migrateV12ProjectState(previous: { [key: string]: unknown }): ProjectState {
   return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
 }
 
@@ -391,6 +404,32 @@ function normalizePadState(pad: PadState): PadState {
   }
 }
 
+/**
+ * Only absent fields are migrated, matching normalizePadState above - a
+ * present-but-malformed value is left for validation to reject rather than
+ * silently rewritten. Defaults reproduce the pre-v2 STRINGS sound exactly:
+ * OCTAVE 0, OCTAVE LAYER off, BODY 0.5 (the old fixed equal oscillator mix),
+ * WIDTH 1 (the old fixed +/-0.7 ensemble pan), and BOW/VIBRATO DELAY/WARMTH/
+ * SPACE all 0 (silent/instant/dry/no send - none of them existed before).
+ */
+function normalizeStringsPatch(patch: StringsPatch): StringsPatch {
+  const legacyPatch = patch as StringsPatch & { octave?: unknown; octaveLayer?: unknown; octaveLayerMix?: unknown; character?: unknown; body?: unknown; motion?: unknown; width?: unknown; bow?: unknown; vibratoDelayMs?: unknown; warmth?: unknown; space?: unknown }
+  return {
+    ...patch,
+    octave: legacyPatch.octave === undefined ? 0 : legacyPatch.octave as StringsPatch['octave'],
+    octaveLayer: legacyPatch.octaveLayer === undefined ? 'off' : legacyPatch.octaveLayer as StringsPatch['octaveLayer'],
+    octaveLayerMix: legacyPatch.octaveLayerMix === undefined ? 0 : legacyPatch.octaveLayerMix as number,
+    character: legacyPatch.character === undefined ? 'strings' : legacyPatch.character as StringsPatch['character'],
+    body: legacyPatch.body === undefined ? 0.5 : legacyPatch.body as number,
+    motion: legacyPatch.motion === undefined ? 0 : legacyPatch.motion as number,
+    width: legacyPatch.width === undefined ? 1 : legacyPatch.width as number,
+    bow: legacyPatch.bow === undefined ? 0 : legacyPatch.bow as number,
+    vibratoDelayMs: legacyPatch.vibratoDelayMs === undefined ? 0 : legacyPatch.vibratoDelayMs as number,
+    warmth: legacyPatch.warmth === undefined ? 0 : legacyPatch.warmth as number,
+    space: legacyPatch.space === undefined ? 0 : legacyPatch.space as number,
+  }
+}
+
 function validateSynthPatch(patch: SynthPatch, label: string, errors: string[]): void {
   if (!patch.id || !patch.name) errors.push(`${label} requires an ID and name.`)
   if (!synthVoiceModes.includes(patch.mode)) errors.push(`${label} has an unsupported voice mode.`)
@@ -428,6 +467,17 @@ function validateStringsPatch(patch: StringsPatch, label: string, errors: string
   if (!isFiniteInRange(patch.level, 0, 1)) errors.push(`${label} has an invalid LEVEL.`)
   if (!isFiniteInRange(patch.gate, 0.05, 2)) errors.push(`${label} has an invalid GATE.`)
   if (!isFiniteInRange(patch.ampEnvelope?.attackSeconds, 0, 5) || !isFiniteInRange(patch.ampEnvelope?.decaySeconds, 0, 5) || !isFiniteInRange(patch.ampEnvelope?.sustain, 0, 1) || !isFiniteInRange(patch.ampEnvelope?.releaseSeconds, 0.005, 10)) errors.push(`${label} has an invalid AMP envelope.`)
+  if (!stringsOctaves.includes(patch.octave)) errors.push(`${label} has an invalid OCTAVE.`)
+  if (!stringsOctaveLayers.includes(patch.octaveLayer)) errors.push(`${label} has an invalid OCTAVE LAYER.`)
+  if (!isFiniteInRange(patch.octaveLayerMix, 0, 1)) errors.push(`${label} has an invalid OCTAVE LAYER MIX.`)
+  if (!stringsCharacters.includes(patch.character)) errors.push(`${label} has an invalid CHARACTER.`)
+  if (!isFiniteInRange(patch.body, 0, 1)) errors.push(`${label} has an invalid BODY.`)
+  if (!isFiniteInRange(patch.motion, 0, 1)) errors.push(`${label} has an invalid MOTION.`)
+  if (!isFiniteInRange(patch.width, 0, 1)) errors.push(`${label} has an invalid WIDTH.`)
+  if (!isFiniteInRange(patch.bow, 0, 1)) errors.push(`${label} has an invalid BOW.`)
+  if (!isFiniteInRange(patch.vibratoDelayMs, 0, 2000)) errors.push(`${label} has an invalid VIBRATO DELAY.`)
+  if (!isFiniteInRange(patch.warmth, 0, 1)) errors.push(`${label} has an invalid WARMTH.`)
+  if (!isFiniteInRange(patch.space, 0, 1)) errors.push(`${label} has an invalid SPACE.`)
 }
 
 function isFiniteInRange(value: unknown, minimum: number, maximum: number): value is number {

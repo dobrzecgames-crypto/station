@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
+import { effectTypeLabel } from '../audio/effects'
 import type { EffectRackState, EffectSlotState } from '../audio/effects'
 import { DisplayRange } from '../shell/displayControls'
 import type { DisplayTenant } from '../shell/SystemDisplay'
@@ -34,7 +35,7 @@ const displayId = 'bus-controls'
 
 function slotLabel(slot: EffectSlotState): string {
   if (slot.type === 'none') return 'EMPTY'
-  return slot.enabled ? slot.type.toUpperCase() : `${slot.type.toUpperCase()} · BYPASS`
+  return slot.enabled ? effectTypeLabel(slot.type) : `${effectTypeLabel(slot.type)} · BYPASS`
 }
 
 /* The line separates slots with the same dot the row label uses between an
@@ -42,7 +43,7 @@ function slotLabel(slot: EffectSlotState): string {
    as four things rather than two. The line names the effects; whether one is
    bypassed is on its own row, where there is room to say it. */
 function slotReadout(slot: EffectSlotState): string {
-  return slot.type === 'none' ? 'EMPTY' : slot.type.toUpperCase()
+  return slot.type === 'none' ? 'EMPTY' : effectTypeLabel(slot.type)
 }
 
 /** The selected mix target on the shared display: level, mute/solo, and both FX

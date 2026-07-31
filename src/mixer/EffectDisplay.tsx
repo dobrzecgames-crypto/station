@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { availableEffects, getDelayTimeSeconds } from '../audio/effects'
+import { availableEffects, effectTypeLabel, getDelayTimeSeconds } from '../audio/effects'
 import type { EffectRackState, EffectSlotState, EffectType } from '../audio/effects'
 import { DisplayRange } from '../shell/displayControls'
 import type { DisplayTenant } from '../shell/SystemDisplay'
@@ -20,9 +20,12 @@ interface EffectDisplayLauncherProps {
 }
 
 const displayId = 'effect-controls'
+// Kept as {type, label} pairs, not just types - TIGHT ROOM is the first
+// effect whose label differs from `type.toUpperCase()` once camelCase enters
+// the mix, so the button text needs the real label instead of deriving it.
 const selectableEffects = availableEffects
-  .map((effect) => effect.type)
-  .filter((type): type is Exclude<EffectType, 'none'> => type !== 'none')
+  .filter((effect) => effect.type !== 'none')
+  .map((effect) => ({ type: effect.type as Exclude<EffectType, 'none'>, label: effect.label }))
 
 /** Claims the shared display for one selected FX slot and keeps MIX uncluttered. */
 export function EffectDisplayLauncher({ context, scopeLabel, rack, bpm, onChange, onClose }: EffectDisplayLauncherProps) {
@@ -85,7 +88,7 @@ function effectTenant(props: EffectTenantProps): DisplayTenant {
   return {
     id: displayId,
     label: `${props.scopeLabel}, FX slot ${props.slotIndex + 1}`,
-    readout: `${props.scopeLabel.toUpperCase()} · FX ${props.slotIndex + 1} · ${slot.type === 'none' ? 'EMPTY' : slot.type.toUpperCase()}`,
+    readout: `${props.scopeLabel.toUpperCase()} · FX ${props.slotIndex + 1} · ${slot.type === 'none' ? 'EMPTY' : effectTypeLabel(slot.type)}`,
     panel: <EffectDisplayPanel {...props} />,
   }
 }
@@ -93,22 +96,25 @@ function effectTenant(props: EffectTenantProps): DisplayTenant {
 function EffectDisplayPanel({ scopeLabel, slotIndex, rack, bpm, onChange, onClose }: EffectTenantProps) {
   const slot = rack.slots[slotIndex]
   const [showChooser, setShowChooser] = useState(slot.type === 'none')
+  const [showTightRoomMore, setShowTightRoomMore] = useState(false)
 
   useEffect(() => {
     setShowChooser(slot.type === 'none')
+    setShowTightRoomMore(false)
   }, [slot.id, slot.type])
 
   const updateSlot = (changes: Partial<EffectSlotState>) => {
     onChange({
       slots: rack.slots.map((candidate, index) => index === slotIndex
-        ? { ...candidate, ...changes, compressor: { ...candidate.compressor, ...changes.compressor }, delay: { ...candidate.delay, ...changes.delay }, eq: { ...candidate.eq, ...changes.eq } }
-        : { ...candidate, compressor: { ...candidate.compressor }, delay: { ...candidate.delay }, eq: { ...candidate.eq } },
+        ? { ...candidate, ...changes, compressor: { ...candidate.compressor, ...changes.compressor }, delay: { ...candidate.delay, ...changes.delay }, eq: { ...candidate.eq, ...changes.eq }, tightRoom: { ...candidate.tightRoom, ...changes.tightRoom } }
+        : { ...candidate, compressor: { ...candidate.compressor }, delay: { ...candidate.delay }, eq: { ...candidate.eq }, tightRoom: { ...candidate.tightRoom } },
       ) as EffectRackState['slots'],
     })
   }
   const updateCompressor = (changes: Partial<EffectSlotState['compressor']>) => updateSlot({ compressor: { ...slot.compressor, ...changes } })
   const updateDelay = (changes: Partial<EffectSlotState['delay']>) => updateSlot({ delay: { ...slot.delay, ...changes } })
   const updateEQ = (changes: Partial<EffectSlotState['eq']>) => updateSlot({ eq: { ...slot.eq, ...changes } })
+  const updateTightRoom = (changes: Partial<EffectSlotState['tightRoom']>) => updateSlot({ tightRoom: { ...slot.tightRoom, ...changes } })
   const setEffect = (type: Exclude<EffectType, 'none'>) => {
     updateSlot({
       type,
@@ -116,6 +122,7 @@ function EffectDisplayPanel({ scopeLabel, slotIndex, rack, bpm, onChange, onClos
       compressor: { ...slot.compressor, enabled: type === 'compressor' ? true : slot.compressor.enabled },
       delay: { ...slot.delay, enabled: type === 'delay' ? true : slot.delay.enabled },
       eq: { ...slot.eq, enabled: type === 'eq' ? true : slot.eq.enabled },
+      tightRoom: { ...slot.tightRoom, enabled: type === 'tightRoom' ? true : slot.tightRoom.enabled },
     })
     setShowChooser(false)
   }
@@ -126,6 +133,7 @@ function EffectDisplayPanel({ scopeLabel, slotIndex, rack, bpm, onChange, onClos
       compressor: { ...slot.compressor, enabled: slot.type === 'compressor' ? enabled : slot.compressor.enabled },
       delay: { ...slot.delay, enabled: slot.type === 'delay' ? enabled : slot.delay.enabled },
       eq: { ...slot.eq, enabled: slot.type === 'eq' ? enabled : slot.eq.enabled },
+      tightRoom: { ...slot.tightRoom, enabled: slot.type === 'tightRoom' ? enabled : slot.tightRoom.enabled },
     })
   }
   const removeEffect = () => updateSlot({ type: 'none', enabled: false })
@@ -133,14 +141,14 @@ function EffectDisplayPanel({ scopeLabel, slotIndex, rack, bpm, onChange, onClos
 
   return <>
     {!isEmpty && <button className="display-toggle" type="button" role="switch" aria-label={`${scopeLabel} FX slot ${slotIndex + 1}`} aria-checked={slot.enabled} onClick={toggleBypass}>
-      <span className="display-param-label">{slot.type.toUpperCase()}</span>
+      <span className="display-param-label">{effectTypeLabel(slot.type)}</span>
       <span className="display-toggle-value" aria-hidden="true">{slot.enabled ? 'ON' : 'BYPASS'}</span>
     </button>}
 
     {(isEmpty || showChooser) && <div className="display-param">
       <span className="display-param-label">{isEmpty ? 'ADD EFFECT' : 'REPLACE'}</span>
       <div className="display-actions">
-        {selectableEffects.map((type) => <button className="display-action" key={type} type="button" onClick={() => setEffect(type)}>{type.toUpperCase()}</button>)}
+        {selectableEffects.map(({ type, label }) => <button className="display-action" key={type} type="button" onClick={() => setEffect(type)}>{label}</button>)}
       </div>
     </div>}
 
@@ -177,6 +185,33 @@ function EffectDisplayPanel({ scopeLabel, slotIndex, rack, bpm, onChange, onClos
       <DisplayRange idPrefix="fx-display" label="HIGH GAIN" value={formatEqGain(slot.eq.highShelfGainDb)} min="-15" max="15" step="0.1" current={slot.eq.highShelfGainDb} onChange={(value) => updateEQ({ highShelfGainDb: value })} />
     </>}
 
+    {/* Split across two light "pages" (mirroring STRINGS' own MORE page)
+        instead of listing all 6 parameters plus MODE in one long scroll. */}
+    {!showChooser && slot.type === 'tightRoom' && <>
+      <div className="display-param">
+        <span className="display-param-label">{showTightRoomMore ? 'TIGHT ROOM · MORE' : 'TIGHT ROOM'}</span>
+        <div className="display-actions">
+          <button className="display-action" type="button" onClick={() => setShowTightRoomMore((current) => !current)}>{showTightRoomMore ? '‹ MAIN' : 'MORE ›'}</button>
+        </div>
+      </div>
+      {!showTightRoomMore && <>
+        <div className="display-param">
+          <span className="display-param-label">MODE</span>
+          <div className="display-actions">
+            {(['room', 'drum', 'vocal'] as const).map((mode) => <button className={slot.tightRoom.mode === mode ? 'display-action display-action-active' : 'display-action'} key={mode} type="button" aria-pressed={slot.tightRoom.mode === mode} onClick={() => updateTightRoom({ mode })}>{mode.toUpperCase()}</button>)}
+          </div>
+        </div>
+        <DisplayRange idPrefix="fx-display" label="AMOUNT" value={`${Math.round(slot.tightRoom.amount * 100)}%`} min="0" max="1" step="0.01" current={slot.tightRoom.amount} onChange={(value) => updateTightRoom({ amount: value })} />
+        <DisplayRange idPrefix="fx-display" label="SIZE" value={`${Math.round(slot.tightRoom.size * 100)}%`} min="0" max="1" step="0.01" current={slot.tightRoom.size} onChange={(value) => updateTightRoom({ size: value })} />
+        <DisplayRange idPrefix="fx-display" label="DECAY" value={`${slot.tightRoom.decaySeconds.toFixed(2)} s`} min="0.15" max="1.5" step="0.01" current={slot.tightRoom.decaySeconds} onChange={(value) => updateTightRoom({ decaySeconds: value })} />
+      </>}
+      {showTightRoomMore && <>
+        <DisplayRange idPrefix="fx-display" label="PRE-DELAY" value={`${Math.round(slot.tightRoom.preDelaySeconds * 1000)} ms`} min="0" max="0.045" step="0.001" current={slot.tightRoom.preDelaySeconds} onChange={(value) => updateTightRoom({ preDelaySeconds: value })} />
+        <DisplayRange idPrefix="fx-display" label="TONE" value={formatTightRoomTone(slot.tightRoom.tone)} min="-1" max="1" step="0.01" current={slot.tightRoom.tone} onChange={(value) => updateTightRoom({ tone: value })} />
+        <DisplayRange idPrefix="fx-display" label="TIGHT" value={`${Math.round(slot.tightRoom.tight * 100)}%`} min="0" max="1" step="0.01" current={slot.tightRoom.tight} onChange={(value) => updateTightRoom({ tight: value })} />
+      </>}
+    </>}
+
     {!isEmpty && !showChooser && <div className="display-param">
       <span className="display-param-label">ACTIONS</span>
       <div className="display-actions">
@@ -190,4 +225,9 @@ function EffectDisplayPanel({ scopeLabel, slotIndex, rack, bpm, onChange, onClos
 
 function formatEqGain(gainDb: number): string {
   return `${gainDb > 0 ? '+' : ''}${gainDb.toFixed(1)} dB`
+}
+
+function formatTightRoomTone(tone: number): string {
+  const percent = Math.round(tone * 100)
+  return `${percent > 0 ? '+' : ''}${percent}%`
 }

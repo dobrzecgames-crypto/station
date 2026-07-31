@@ -18,8 +18,9 @@ import { maximumStringsVoices, resolveStringsPadMidiNotes } from '../strings/str
 import { stringsCharacters, stringsOctaveLayers, stringsOctaves } from '../strings/stringsTypes'
 import type { StringsPatch } from '../strings/stringsTypes'
 
-export const projectSchemaVersion = 13
-export const previousProjectSchemaVersion = 12
+export const projectSchemaVersion = 14
+export const previousProjectSchemaVersion = 13
+export const v12ProjectSchemaVersion = 12
 export const v11ProjectSchemaVersion = 11
 export const v10ProjectSchemaVersion = 10
 export const v9ProjectSchemaVersion = 9
@@ -205,6 +206,11 @@ export function migrateV11ProjectState(previous: { [key: string]: unknown }): Pr
 
 /** v12 predates STRINGS' BOW, VIBRATO DELAY, WARMTH and SPACE; normalization backfills 0 for all four, reproducing the pre-v2b sound exactly. */
 export function migrateV12ProjectState(previous: { [key: string]: unknown }): ProjectState {
+  return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
+}
+
+/** v13 predates the TIGHT ROOM effect type; normalization backfills a bypassed, neutral-default TightRoomConfig onto every FX slot missing one - no existing slot's active effect or settings change. */
+export function migrateV13ProjectState(previous: { [key: string]: unknown }): ProjectState {
   return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
 }
 

@@ -1,5 +1,5 @@
 import { createDefaultMasterEffectRack, createEmptyEffectRack, defaultCompressorConfig, defaultDelayConfig, getDelayTimeSeconds, normalizeEffectRackState } from './effects'
-import type { EffectRackState, EffectSlotState, EffectType } from './effects'
+import type { EffectRackState, EffectSlotState, EffectType, TightRoomMode } from './effects'
 import { cloneSynthPatch, lfoFrequencyHz, maximumSynthVoices } from '../synth/synthOperations'
 import type { SynthPatch } from '../synth/synthTypes'
 import {
@@ -237,6 +237,40 @@ interface RuntimeEffectRack {
   input: GainNode
   output: GainNode
   slots: [RuntimeEffectSlot, RuntimeEffectSlot]
+}
+
+interface TightRoomModeBias {
+  lowCutHz: number
+  dampingMultiplier: number
+  tightBias: number
+  toneBias: number
+}
+
+/** ROOM is neutral; DRUM and VOCAL only nudge these four coefficients - all three modes share one DSP graph, never a separate algorithm. */
+const tightRoomModeBiases: Record<TightRoomMode, TightRoomModeBias> = {
+  room: { lowCutHz: 170, dampingMultiplier: 1, tightBias: 0, toneBias: 0 },
+  drum: { lowCutHz: 220, dampingMultiplier: 0.92, tightBias: 0.12, toneBias: -0.05 },
+  vocal: { lowCutHz: 150, dampingMultiplier: 0.85, tightBias: -0.1, toneBias: -0.12 },
+}
+
+function tightRoomModeBias(mode: TightRoomMode): TightRoomModeBias {
+  return tightRoomModeBiases[mode] ?? tightRoomModeBiases.room
+}
+
+/** One damped feedback comb inside a TIGHT ROOM channel. `ratio` is a fixed construction-time constant; delay time is recomputed from the live SIZE parameter on every applyConfig call. `modDepthGain` scales a shared, slow, free-running LFO onto the delay time - without it a handful of static combs beat as discrete metallic pitches instead of a diffuse tail. */
+interface TightRoomComb {
+  ratio: number
+  delayTime: AudioParam
+  feedbackGain: AudioParam
+  dampingFrequency: AudioParam
+  modDepthGain: AudioParam
+  dispose: () => void
+}
+
+interface TightRoomChannel {
+  combs: TightRoomComb[]
+  output: AudioNode
+  dispose: () => void
 }
 
 export class AudioEngine {
@@ -1829,7 +1863,7 @@ export class AudioEngine {
   }
 
   private createRuntimeEffect(type: Exclude<EffectType, 'none'>): RuntimeEffect {
-    return type === 'compressor' ? this.createCompressorEffect() : type === 'delay' ? this.createDelayEffect() : this.createEQEffect()
+    return type === 'compressor' ? this.createCompressorEffect() : type === 'delay' ? this.createDelayEffect() : type === 'eq' ? this.createEQEffect() : this.createTightRoomEffect()
   }
 
   private createCompressorEffect(): RuntimeEffect {
@@ -1918,6 +1952,236 @@ export class AudioEngine {
         highShelf.disconnect()
       },
     }
+  }
+
+  /**
+   * A compact stereo Schroeder/Moorer-style room reverb: a bank of damped
+   * feedback combs per channel (SIZE/DECAY/TIGHT/TONE all shape these) feeds
+   * two fixed series allpass stages for diffusion (this is what keeps a small
+   * comb bank from ringing metallically, unlike a plain biquad allpass), then
+   * a shared tone shelf and a fixed safety lowpass before the wet gain. Dry is
+   * always 1 (matching DELAY's own insert convention) so AMOUNT=0 is
+   * bit-for-bit transparent.
+   */
+  private createTightRoomEffect(): RuntimeEffect {
+    const context = this.context!
+    const now = context.currentTime
+    const input = context.createGain()
+    const dry = context.createGain()
+    const preDelay = context.createDelay(0.05)
+    const lowCut = context.createBiquadFilter()
+    lowCut.type = 'highpass'
+    lowCut.Q.setValueAtTime(0.7, now)
+    const toneShelf = context.createBiquadFilter()
+    toneShelf.type = 'highshelf'
+    toneShelf.frequency.setValueAtTime(3500, now)
+    // Fixed regardless of TONE - a ceiling, not a user control, so the
+    // brightest TONE setting still cannot turn hissy or digitally harsh.
+    const safetyLowpass = context.createBiquadFilter()
+    safetyLowpass.type = 'lowpass'
+    safetyLowpass.frequency.setValueAtTime(13000, now)
+    safetyLowpass.Q.setValueAtTime(0.5, now)
+    const wetSum = context.createGain()
+    const wetGain = context.createGain()
+    const output = context.createGain()
+
+    // A small, slow, per-instance delay-time wobble shared by every comb -
+    // without it a handful of static comb filters beat as discrete metallic
+    // pitches instead of a diffuse tail. Two free-running LFOs at
+    // incommensurate rates, alternated across combs (see
+    // createTightRoomChannel), so neighbouring combs never wobble in
+    // lockstep. Same technique STRINGS already uses for its ensemble, just
+    // owned by this effect instance instead of shared engine-wide.
+    const modLfoA = context.createOscillator()
+    modLfoA.type = 'sine'
+    modLfoA.frequency.setValueAtTime(0.9, now)
+    modLfoA.start(now)
+    const modLfoB = context.createOscillator()
+    modLfoB.type = 'sine'
+    modLfoB.frequency.setValueAtTime(1.3, now)
+    modLfoB.start(now)
+
+    input.connect(dry)
+    dry.connect(output)
+    input.connect(preDelay)
+    preDelay.connect(lowCut)
+
+    const channels = [this.createTightRoomChannel(context, lowCut, 0, modLfoA, modLfoB), this.createTightRoomChannel(context, lowCut, 1, modLfoA, modLfoB)]
+    for (const channel of channels) channel.output.connect(wetSum)
+    wetSum.connect(toneShelf)
+    toneShelf.connect(safetyLowpass)
+    safetyLowpass.connect(wetGain)
+    wetGain.connect(output)
+
+    return {
+      input,
+      output,
+      applyConfig: (slot, immediately) => {
+        const config = slot.tightRoom
+        const bias = tightRoomModeBias(config.mode)
+        const sizeMs = 9 + this.clamp01(config.size) * 39
+        const effectiveTight = this.clamp01(config.tight + bias.tightBias)
+        const effectiveTone = Math.min(1, Math.max(-1, config.tone + bias.toneBias))
+        const dampingHz = this.tightRoomDampingHz(effectiveTone, effectiveTight, bias.dampingMultiplier)
+        this.applyEffectParameter(dry.gain, 1, immediately, 0.02)
+        this.applyEffectParameter(lowCut.frequency, bias.lowCutHz, immediately, 0.02)
+        this.applyEffectParameter(preDelay.delayTime, config.preDelaySeconds, immediately, 0.03)
+        this.applyEffectParameter(toneShelf.gain, effectiveTone * 5, immediately, 0.02)
+        this.applyEffectParameter(wetGain.gain, slot.enabled ? this.tightRoomWetGain(config.amount) : 0, immediately, 0.02)
+        for (const channel of channels) {
+          for (const comb of channel.combs) {
+            const delaySeconds = (sizeMs * comb.ratio) / 1000
+            const feedback = slot.enabled ? this.tightRoomCombFeedback(delaySeconds, config.decaySeconds, effectiveTight) : 0
+            this.applyEffectParameter(comb.delayTime, delaySeconds, immediately, 0.03)
+            this.applyEffectParameter(comb.feedbackGain, feedback, immediately, 0.02)
+            this.applyEffectParameter(comb.dampingFrequency, dampingHz, immediately, 0.02)
+            // ~4.5% of the line's own delay time, at a faster (~1 Hz) rate than a first pass used - slow modulation barely moves within a short drum-length tail, so it wasn't actually decorrelating anything there.
+            this.applyEffectParameter(comb.modDepthGain, delaySeconds * 0.045, immediately, 0.03)
+          }
+        }
+      },
+      dispose: () => {
+        for (const channel of channels) channel.dispose()
+        try { modLfoA.stop() } catch { /* May already be stopped. */ }
+        try { modLfoB.stop() } catch { /* May already be stopped. */ }
+        modLfoA.disconnect()
+        modLfoB.disconnect()
+        input.disconnect()
+        dry.disconnect()
+        preDelay.disconnect()
+        lowCut.disconnect()
+        toneShelf.disconnect()
+        safetyLowpass.disconnect()
+        wetSum.disconnect()
+        wetGain.disconnect()
+        output.disconnect()
+      },
+    }
+  }
+
+  /**
+   * One stereo side of the reverb network. This is a small Feedback Delay
+   * Network, not independent parallel combs - each of the 6 delay lines used
+   * to feed back only into itself (a classic Schroeder comb bank), and even
+   * with modulation and more lines that still rang as discrete, "metallic"
+   * pitches rather than a diffuse tail, because each line was its own
+   * isolated resonator. Here every line's decayed output is cross-mixed
+   * through a Householder reflection matrix before returning to the delay
+   * lines, so energy genuinely spreads between all 6 instead of each one
+   * ringing alone - this is the standard modern fix for comb-bank metallic
+   * character (see e.g. Jot's FDN reverb design), not a hand-tuned patch.
+   * The full N x N matrix collapses to two shared nodes (`matrixSum`,
+   * `matrixMix`) because a Householder matrix I - (2/N)*ones simplifies to
+   * "each line's own output, minus (2/N) of the sum of all of them" - see the
+   * comment at `matrixMix` below. Ratios/allpass/matrix are fixed constants,
+   * not user parameters; SIZE/DECAY/TIGHT/TONE still shape delay time,
+   * per-line decay and damping exactly as before.
+   */
+  private createTightRoomChannel(context: BaseAudioContext, source: AudioNode, channelIndex: 0 | 1, modLfoA: OscillatorNode, modLfoB: OscillatorNode): TightRoomChannel {
+    const now = context.currentTime
+    const ratios = channelIndex === 0 ? [1, 1.11, 1.24, 1.36, 1.51, 1.68] : [1.04, 1.15, 1.29, 1.41, 1.57, 1.74]
+    const combSum = context.createGain()
+    // feedbackInput_i = x_i - (2/N)*sum_all(x) is the Householder reflection
+    // matrix I - (2/N)*ones applied to the 6 lines' decayed outputs x_i - the
+    // orthogonal (energy-preserving) mixing matrix standard FDN reverbs use,
+    // collapsed to two shared nodes instead of an N x N gain matrix.
+    const matrixSum = context.createGain()
+    const matrixMix = context.createGain()
+    matrixMix.gain.setValueAtTime(-2 / ratios.length, now)
+    matrixSum.connect(matrixMix)
+    const combs: TightRoomComb[] = ratios.map((ratio, combIndex) => {
+      const delay = context.createDelay(0.1)
+      const damping = context.createBiquadFilter()
+      damping.type = 'lowpass'
+      damping.Q.setValueAtTime(0.5, now)
+      const decayGain = context.createGain()
+      const modDepth = context.createGain()
+      modDepth.gain.setValueAtTime(0, now)
+      // Alternating LFOs, not one shared by every line - otherwise all 6
+      // wobble in identical phase and could reintroduce a new periodicity.
+      const lfo = combIndex % 2 === 0 ? modLfoA : modLfoB
+      lfo.connect(modDepth)
+      modDepth.connect(delay.delayTime)
+      source.connect(delay)
+      matrixMix.connect(delay)
+      delay.connect(damping)
+      damping.connect(decayGain)
+      decayGain.connect(delay)
+      decayGain.connect(matrixSum)
+      damping.connect(combSum)
+      return {
+        ratio,
+        delayTime: delay.delayTime,
+        feedbackGain: decayGain.gain,
+        dampingFrequency: damping.frequency,
+        modDepthGain: modDepth.gain,
+        dispose: () => { delay.disconnect(); damping.disconnect(); decayGain.disconnect(); modDepth.disconnect() },
+      }
+    })
+    // Coefficient nudged up from the first pass (0.6 -> 0.65) for a touch more diffusion, still well short of audible allpass coloration.
+    const allpass1 = this.createTightRoomAllpass(context, channelIndex === 0 ? 0.006 : 0.0063, 0.65)
+    const allpass2 = this.createTightRoomAllpass(context, channelIndex === 0 ? 0.0035 : 0.0037, 0.65)
+    const panner = context.createStereoPanner()
+    panner.pan.setValueAtTime(channelIndex === 0 ? -0.65 : 0.65, now)
+    combSum.connect(allpass1.input)
+    allpass1.output.connect(allpass2.input)
+    allpass2.output.connect(panner)
+    return {
+      combs,
+      output: panner,
+      dispose: () => {
+        combSum.disconnect()
+        matrixSum.disconnect()
+        matrixMix.disconnect()
+        for (const comb of combs) comb.dispose()
+        allpass1.dispose()
+        allpass2.dispose()
+        panner.disconnect()
+      },
+    }
+  }
+
+  /** A single-multiplier Schroeder allpass (w[n]=x[n]+g*w[n-D], y[n]=-g*w[n]+w[n-D]) - the delay-line diffuser that keeps a small comb bank from ringing metallically, unlike a plain biquad allpass. Delay time and coefficient are fixed for the lifetime of the effect. */
+  private createTightRoomAllpass(context: BaseAudioContext, delaySeconds: number, coefficient: number): { input: AudioNode; output: AudioNode; dispose: () => void } {
+    const now = context.currentTime
+    const sum = context.createGain()
+    const delay = context.createDelay(0.02)
+    delay.delayTime.setValueAtTime(delaySeconds, now)
+    const feedback = context.createGain()
+    feedback.gain.setValueAtTime(coefficient, now)
+    const forward = context.createGain()
+    forward.gain.setValueAtTime(-coefficient, now)
+    const output = context.createGain()
+    sum.connect(delay)
+    delay.connect(output)
+    delay.connect(feedback)
+    feedback.connect(sum)
+    sum.connect(forward)
+    forward.connect(output)
+    return {
+      input: sum,
+      output,
+      dispose: () => { sum.disconnect(); delay.disconnect(); feedback.disconnect(); forward.disconnect(); output.disconnect() },
+    }
+  }
+
+  /** AMOUNT's own curve: a mild power taper (the same reasoning as the STRINGS OCTAVE MIX fix) so the first third of the knob stays subtle instead of becoming audible immediately. Dry is always 1, so this only ever adds to the signal - see createTightRoomEffect. */
+  private tightRoomWetGain(amount: number): number {
+    return this.clamp01(amount) ** 1.4
+  }
+
+  /** Classic RT60 comb-feedback formula (feedback = 10^(-3*delay/decay)), then TIGHT further shortens it on top of whatever DECAY alone would produce, capped well under unity regardless of the inputs - the same "never trust the formula alone" caution as DELAY's own 0.85 feedback ceiling. */
+  private tightRoomCombFeedback(delaySeconds: number, decaySeconds: number, tight: number): number {
+    const raw = 10 ** ((-3 * delaySeconds) / Math.max(0.05, decaySeconds))
+    return Math.min(0.88, Math.max(0, raw * (1 - this.clamp01(tight) * 0.4)))
+  }
+
+  /** The comb feedback loop's damping lowpass: TONE sets the base brightness, TIGHT closes it further (faster high-frequency decay reads as "tighter"), and the mode bias nudges the whole thing without a separate code path per mode. */
+  private tightRoomDampingHz(tone: number, tight: number, dampingMultiplier: number): number {
+    const toneFactor = (Math.min(1, Math.max(-1, tone)) + 1) / 2
+    const base = 2500 + toneFactor * 7500
+    const tightened = base * (1 - this.clamp01(tight) * 0.5)
+    return Math.min(12000, Math.max(800, tightened * dampingMultiplier))
   }
 
   private applySynchronizedDelayTimes(): void {

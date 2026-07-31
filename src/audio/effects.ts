@@ -28,7 +28,20 @@ export interface EQConfig {
   highShelfGainDb: number
 }
 
-export type EffectType = 'none' | 'compressor' | 'delay' | 'eq'
+export type TightRoomMode = 'room' | 'drum' | 'vocal'
+
+export interface TightRoomConfig {
+  enabled: boolean
+  mode: TightRoomMode
+  amount: number
+  size: number
+  decaySeconds: number
+  preDelaySeconds: number
+  tone: number
+  tight: number
+}
+
+export type EffectType = 'none' | 'compressor' | 'delay' | 'eq' | 'tightRoom'
 
 export interface EffectSlotState {
   id: string
@@ -37,6 +50,7 @@ export interface EffectSlotState {
   compressor: CompressorConfig
   delay: DelayConfig
   eq: EQConfig
+  tightRoom: TightRoomConfig
 }
 
 export interface EffectRackState {
@@ -48,7 +62,13 @@ export const availableEffects = [
   { type: 'compressor', label: 'COMPRESSOR' },
   { type: 'delay', label: 'DELAY' },
   { type: 'eq', label: 'EQ' },
+  { type: 'tightRoom', label: 'TIGHT ROOM' },
 ] as const
+
+/** The display label for a type - not always `type.toUpperCase()` now that TIGHT ROOM's camelCase type doesn't match its two-word label. */
+export function effectTypeLabel(type: EffectType): string {
+  return availableEffects.find((effect) => effect.type === type)?.label ?? type.toUpperCase()
+}
 
 export const defaultCompressorConfig: CompressorConfig = {
   enabled: false,
@@ -78,6 +98,17 @@ export const defaultEQConfig: EQConfig = {
   highShelfGainDb: 0,
 }
 
+export const defaultTightRoomConfig: TightRoomConfig = {
+  enabled: false,
+  mode: 'room',
+  amount: 0.2,
+  size: 0.3,
+  decaySeconds: 0.55,
+  preDelaySeconds: 0.008,
+  tone: -0.15,
+  tight: 0.5,
+}
+
 export const delayDivisionBeats: Record<DelayDivision, number> = {
   '1/2': 2,
   '1/4': 1,
@@ -85,7 +116,7 @@ export const delayDivisionBeats: Record<DelayDivision, number> = {
   '1/16': 0.25,
 }
 
-export function createEffectSlotState(id: string, type: EffectType = 'none', enabled = false, compressor: CompressorConfig = defaultCompressorConfig, delay: DelayConfig = defaultDelayConfig, eq: EQConfig = defaultEQConfig): EffectSlotState {
+export function createEffectSlotState(id: string, type: EffectType = 'none', enabled = false, compressor: CompressorConfig = defaultCompressorConfig, delay: DelayConfig = defaultDelayConfig, eq: EQConfig = defaultEQConfig, tightRoom: TightRoomConfig = defaultTightRoomConfig): EffectSlotState {
   return {
     id,
     type,
@@ -93,6 +124,7 @@ export function createEffectSlotState(id: string, type: EffectType = 'none', ena
     compressor: { ...compressor },
     delay: { ...delay },
     eq: { ...eq },
+    tightRoom: { ...tightRoom },
   }
 }
 
@@ -126,7 +158,7 @@ export function createMigratedMasterEffectRack(delay: unknown, compressor: unkno
 }
 
 export function cloneEffectRackState(rack: EffectRackState): EffectRackState {
-  return { slots: rack.slots.map((slot) => ({ ...slot, compressor: { ...slot.compressor }, delay: { ...slot.delay }, eq: { ...slot.eq } })) as EffectRackState['slots'] }
+  return { slots: rack.slots.map((slot) => ({ ...slot, compressor: { ...slot.compressor }, delay: { ...slot.delay }, eq: { ...slot.eq }, tightRoom: { ...slot.tightRoom } })) as EffectRackState['slots'] }
 }
 
 export function normalizeEffectRackState(value: unknown, scope: string, defaultRack: EffectRackState = createEmptyEffectRack(scope)): EffectRackState {
@@ -178,6 +210,21 @@ export function normalizeEQConfig(value: unknown): EQConfig {
   }
 }
 
+export function normalizeTightRoomConfig(value: unknown): TightRoomConfig {
+  const config = value as Partial<TightRoomConfig> | null | undefined
+  const mode = config?.mode
+  return {
+    enabled: typeof config?.enabled === 'boolean' ? config.enabled : defaultTightRoomConfig.enabled,
+    mode: mode === 'room' || mode === 'drum' || mode === 'vocal' ? mode : defaultTightRoomConfig.mode,
+    amount: toBoundedNumber(config?.amount, 0, 1, defaultTightRoomConfig.amount),
+    size: toBoundedNumber(config?.size, 0, 1, defaultTightRoomConfig.size),
+    decaySeconds: toBoundedNumber(config?.decaySeconds, 0.15, 1.5, defaultTightRoomConfig.decaySeconds),
+    preDelaySeconds: toBoundedNumber(config?.preDelaySeconds, 0, 0.045, defaultTightRoomConfig.preDelaySeconds),
+    tone: toBoundedNumber(config?.tone, -1, 1, defaultTightRoomConfig.tone),
+    tight: toBoundedNumber(config?.tight, 0, 1, defaultTightRoomConfig.tight),
+  }
+}
+
 export function getDelayTimeSeconds(config: DelayConfig, bpm: number): number {
   const safeBpm = toBoundedNumber(bpm, 60, 200, 120)
   const requestedTime = config.sync ? (60 / safeBpm) * delayDivisionBeats[config.division] : config.timeSeconds
@@ -189,17 +236,18 @@ export function isEffectRackState(value: unknown, scope: string): value is Effec
   return Array.isArray(slots) && slots.length === 2 && slots.every((slot, index) => {
     const value = slot as Partial<EffectSlotState> | null | undefined
     return value?.id === `${scope}:fx-slot-${index + 1}`
-      && (value.type === 'none' || value.type === 'compressor' || value.type === 'delay' || value.type === 'eq')
+      && (value.type === 'none' || value.type === 'compressor' || value.type === 'delay' || value.type === 'eq' || value.type === 'tightRoom')
       && typeof value.enabled === 'boolean'
       && isCompressorConfig(value.compressor)
       && isDelayConfig(value.delay)
       && isEQConfig(value.eq)
+      && isTightRoomConfig(value.tightRoom)
   })
 }
 
 function normalizeEffectSlotState(value: unknown, id: string, fallback: EffectSlotState): EffectSlotState {
   const slot = value as Partial<EffectSlotState> | null | undefined
-  const type = slot?.type === 'none' || slot?.type === 'compressor' || slot?.type === 'delay' || slot?.type === 'eq' ? slot.type : fallback.type
+  const type = slot?.type === 'none' || slot?.type === 'compressor' || slot?.type === 'delay' || slot?.type === 'eq' || slot?.type === 'tightRoom' ? slot.type : fallback.type
   return createEffectSlotState(
     id,
     type,
@@ -207,6 +255,7 @@ function normalizeEffectSlotState(value: unknown, id: string, fallback: EffectSl
     normalizeCompressorConfig(slot?.compressor),
     normalizeDelayConfig(slot?.delay),
     normalizeEQConfig(slot?.eq),
+    normalizeTightRoomConfig(slot?.tightRoom),
   )
 }
 
@@ -239,6 +288,18 @@ function isEQConfig(value: unknown): value is EQConfig {
     && typeof config.midQ === 'number' && Number.isFinite(config.midQ) && config.midQ >= 0.4 && config.midQ <= 4
     && typeof config.highShelfFreqHz === 'number' && Number.isFinite(config.highShelfFreqHz) && config.highShelfFreqHz >= 2000 && config.highShelfFreqHz <= 12000
     && typeof config.highShelfGainDb === 'number' && Number.isFinite(config.highShelfGainDb) && config.highShelfGainDb >= -15 && config.highShelfGainDb <= 15
+}
+
+function isTightRoomConfig(value: unknown): value is TightRoomConfig {
+  const config = value as Partial<TightRoomConfig> | null | undefined
+  return typeof config?.enabled === 'boolean'
+    && (config.mode === 'room' || config.mode === 'drum' || config.mode === 'vocal')
+    && typeof config.amount === 'number' && Number.isFinite(config.amount) && config.amount >= 0 && config.amount <= 1
+    && typeof config.size === 'number' && Number.isFinite(config.size) && config.size >= 0 && config.size <= 1
+    && typeof config.decaySeconds === 'number' && Number.isFinite(config.decaySeconds) && config.decaySeconds >= 0.15 && config.decaySeconds <= 1.5
+    && typeof config.preDelaySeconds === 'number' && Number.isFinite(config.preDelaySeconds) && config.preDelaySeconds >= 0 && config.preDelaySeconds <= 0.045
+    && typeof config.tone === 'number' && Number.isFinite(config.tone) && config.tone >= -1 && config.tone <= 1
+    && typeof config.tight === 'number' && Number.isFinite(config.tight) && config.tight >= 0 && config.tight <= 1
 }
 
 function toBoundedNumber(value: unknown, minimum: number, maximum: number, fallback: number): number {

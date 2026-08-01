@@ -148,8 +148,7 @@ function EffectDisplayPanel({ scopeLabel, slotIndex, rack, bpm, onChange, onClos
       <span className="display-toggle-value" aria-hidden="true">{slot.enabled ? 'ON' : 'BYPASS'}</span>
     </button>}
 
-    {(isEmpty || showChooser) && <div className="display-param">
-      <span className="display-param-label">{isEmpty ? 'ADD EFFECT' : 'REPLACE'}</span>
+    {(isEmpty || showChooser) && <div className="display-param display-effect-picker">
       <div className="display-actions">
         {selectableEffects.map(({ type, label }) => <button className="display-action" key={type} type="button" onClick={() => setEffect(type)}>{label}</button>)}
       </div>

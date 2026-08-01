@@ -25,6 +25,8 @@ interface SystemDisplayProps {
   owner: DisplayTenant
   /** Confirmation shown on the line; clears itself after a few seconds. */
   statusMessage?: string
+  /** Ongoing non-live activity such as a recording timer. */
+  activityMessage?: string
   /** Failure or blocked action; holds the line until the next action. */
   errorMessage?: string
   open: boolean
@@ -41,11 +43,11 @@ interface SystemDisplayProps {
    The tappable surface is a sibling of the text, not its parent: a live region
    nested inside a button is unreliable, because assistive tech may flatten a
    button's contents to its label and never announce the change. */
-export function SystemDisplay({ owner, statusMessage, errorMessage, open, onOpenChange }: SystemDisplayProps) {
-  // An error outranks a confirmation: if both are pending, the failure is the
-  // one you need to see.
-  const message = errorMessage ?? statusMessage
-  const tone = errorMessage ? 'error' : statusMessage ? 'status' : 'idle'
+export function SystemDisplay({ owner, statusMessage, activityMessage, errorMessage, open, onOpenChange }: SystemDisplayProps) {
+  // An error always wins. While a take is running its clock then outranks old
+  // confirmations, so the musician never loses the only proof of recording.
+  const message = errorMessage ?? activityMessage ?? statusMessage
+  const tone = errorMessage ? 'error' : activityMessage ? 'activity' : statusMessage ? 'status' : 'idle'
   /* A line-only tenant - the resting MIX readout, the library's drop prompt -
      has nothing behind the line. The chevron and the tap target used to render
      for it anyway, so tapping the display in MIX toggled state that produced no
@@ -78,8 +80,8 @@ export function SystemDisplay({ owner, statusMessage, errorMessage, open, onOpen
       <p
         key={tone}
         className="system-display-text"
-        role={tone === 'idle' ? undefined : tone === 'error' ? 'alert' : 'status'}
-        aria-live={tone === 'idle' ? 'off' : undefined}
+        role={tone === 'error' ? 'alert' : tone === 'status' ? 'status' : undefined}
+        aria-live={tone === 'idle' || tone === 'activity' ? 'off' : undefined}
       >
         {message ?? owner.readout}
       </p>

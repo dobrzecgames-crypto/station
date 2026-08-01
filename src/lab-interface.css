@@ -13,6 +13,11 @@
 
 /* ---------- 1. Surfaces ------------------------------------------------- */
 
+.station-shell, .station-shell * {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
 .station-shell { background: var(--station-bg); }.station-panel {
   border: 1px solid var(--station-line);
   border-radius: 6px;
@@ -829,7 +834,9 @@ input[type="text"], input[type="number"], select, textarea {
   text-shadow: 0 0 6px rgb(var(--display-light) / var(--display-bloom));
 }.display-pad:disabled { cursor: default; opacity: .4; }/* Actions in a parameter row: the label says what they act on, the buttons sit
    where a value would. Same light as everything else in the glass. */
-.display-actions { display: flex; gap: 4px; }.display-action {
+.display-actions { display: flex; gap: 4px; }.display-effect-picker { grid-template-columns: 1fr; }.display-effect-picker .display-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); width: 100%; }.display-effect-picker .display-action { min-width: 0; padding-right: 4px; padding-left: 4px; }.display-action {
+  display: grid;
+  place-items: center;
   min-height: 26px;
   padding: 0 8px;
   border: 1px solid rgb(var(--display-light) / 25%);
@@ -839,6 +846,7 @@ input[type="text"], input[type="number"], select, textarea {
   font-family: var(--station-mono-font);
   font-size: .55rem;
   letter-spacing: .06em;
+  text-decoration: none;
   cursor: pointer;
 }.display-action:hover:not(:disabled), .display-action:focus-visible { border-color: rgb(var(--display-light) / 60%); color: rgb(var(--display-light)); outline: none; }.display-action:disabled { cursor: default; opacity: .35; }/* Destructive, so it takes the error tone from the status palette instead of
    the display's own light. The one thing in here allowed to differ, for the
@@ -879,6 +887,12 @@ input[type="text"], input[type="number"], select, textarea {
   --display-bloom: 38%;
   border-color: color-mix(in srgb, var(--status-recording) 55%, var(--station-line));
 }.system-display-error .system-display-text { color: var(--status-recording); }
+.system-display-activity {
+  --display-light: 221 98 92;
+  --display-bloom: 28%;
+  border-color: color-mix(in srgb, var(--status-recording) 48%, var(--station-line));
+}
+.system-display-activity .system-display-text { color: var(--status-recording); font-variant-numeric: tabular-nums; }
 
 @media (prefers-reduced-motion: no-preference) {.system-display { transition: border-color 160ms ease, background 160ms ease; }.system-display-text { transition: color 160ms ease, text-shadow 160ms ease; }
 }

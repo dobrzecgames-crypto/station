@@ -9,10 +9,10 @@ import './projectDisplay.css'
 interface ProjectDisplayButtonProps {
   projectKey: ProjectKey
   projectBusy: boolean
-  audioReady: boolean
+  statusMessage?: string
   renderProgress: number | null
   soloActive: boolean
-  hotRender: RenderSongResult | null
+  hotRender: { result: RenderSongResult; filename: string; originalUrl: string; trimmedUrl?: string } | null
   onProjectKeyChange: (projectKey: ProjectKey) => void
   onSave: () => void
   onOpen: () => void
@@ -45,7 +45,7 @@ export function ProjectDisplayButton(props: ProjectDisplayButtonProps) {
     props.projectKey.root,
     props.projectKey.scale,
     props.projectBusy,
-    props.audioReady,
+    props.statusMessage,
     props.renderProgress,
     props.soloActive,
     props.hotRender,
@@ -85,7 +85,7 @@ export function ProjectDisplayButton(props: ProjectDisplayButtonProps) {
 function projectTenant(props: ProjectDisplayButtonProps): DisplayTenant {
   const renderBusy = props.renderProgress !== null
   const progressPercent = Math.round((props.renderProgress ?? 0) * 100)
-  const hotPeak = props.hotRender?.peak ?? 0
+  const hotPeak = props.hotRender?.result.peak ?? 0
 
   return {
     id: displayId,
@@ -116,7 +116,7 @@ function projectTenant(props: ProjectDisplayButtonProps): DisplayTenant {
         <span className="display-param-label">PROJECT FILE</span>
         <div className="display-actions">
           <button className="display-action" type="button" disabled={props.projectBusy} onClick={props.onSave}>SAVE</button>
-          <button className="display-action" type="button" disabled={!props.audioReady || props.projectBusy} onClick={props.onOpen}>OPEN</button>
+          <button className="display-action" type="button" disabled={props.projectBusy} onClick={props.onOpen}>OPEN</button>
         </div>
       </div>
       <div className="display-param">
@@ -124,18 +124,23 @@ function projectTenant(props: ProjectDisplayButtonProps): DisplayTenant {
         <div className="display-actions">
           {renderBusy
             ? <button className="display-action display-action-danger" type="button" onClick={props.onCancelRender}>CANCEL</button>
-            : <button className="display-action" type="button" disabled={!props.audioReady || props.projectBusy} onClick={props.onRender}>RENDER</button>}
+            : <button className="display-action" type="button" disabled={props.projectBusy} onClick={props.onRender}>RENDER</button>}
         </div>
         {renderBusy && <div className="project-display-progress" aria-label={`Render progress ${progressPercent}%`}>
           <span style={{ width: `${progressPercent}%` }} />
         </div>}
       </div>
       {props.soloActive && !renderBusy && <p className="project-display-note">SOLO IS LATCHED / RENDER CONTAINS SOLOED CHANNELS ONLY</p>}
+      {props.statusMessage && !renderBusy && <p className="project-display-note">{props.statusMessage}</p>}
       {props.hotRender && <div className="project-display-result">
-        <p>PEAK {formatDbfs(hotPeak)} / {props.hotRender.clippedSampleCount.toLocaleString()} CLIPPED SAMPLES</p>
+        <p>PEAK {formatDbfs(hotPeak)} / {props.hotRender.result.clippedSampleCount.toLocaleString()} CLIPPED SAMPLES</p>
         <div className="display-actions">
-          <button className="display-action" type="button" onClick={props.onDownloadTrimmed}>TRIM {formatDb(trimGainFor(hotPeak))}</button>
-          <button className="display-action" type="button" onClick={props.onDownloadOriginal}>1:1</button>
+          {hotPeak > 1
+            ? <>
+              {props.hotRender.trimmedUrl && <a className="display-action" href={props.hotRender.trimmedUrl} download={props.hotRender.filename} onClick={props.onDownloadTrimmed}>TRIM {formatDb(trimGainFor(hotPeak))}</a>}
+              <a className="display-action" href={props.hotRender.originalUrl} download={props.hotRender.filename} onClick={props.onDownloadOriginal}>1:1</a>
+            </>
+            : <a className="display-action" href={props.hotRender.originalUrl} download={props.hotRender.filename} onClick={props.onDownloadOriginal}>DOWNLOAD WAV</a>}
         </div>
       </div>}
     </>,

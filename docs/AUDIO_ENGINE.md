@@ -57,6 +57,10 @@ Initial playback requirements:
 - deterministic cleanup after playback,
 - no AudioNode ownership in React.
 
+### Microphone field capture
+
+The live engine owns microphone permission acquisition, the input stream, browser `MediaRecorder`, a silent analyser path for the UI meter, and cleanup of every track and node. Capture requests mono input and disables browser speech processing where supported, but accepts the device's actual channel layout when a browser cannot honour that preference. The browser-selected WebM/Opus, MP4 or Ogg recording is decoded by the same live context, converted to 16-bit WAV, and passed through the ordinary CHOP asset loader. Recording duration and the level meter are presentation concerns; neither is a source of sequencer timing.
+
 Time-stretching is explicitly outside the MVP.
 
 ### Playback regions and waveform snapshots

@@ -10,6 +10,8 @@ interface PadProps {
   onRelease: (padId: PadState['id']) => void
   onDropSample: (padId: PadState['id']) => void
   onFeedbackEnd: (padId: PadState['id']) => void
+  chordName?: string
+  chordRoot?: string
 }
 
 export function Pad({
@@ -22,6 +24,8 @@ export function Pad({
   onRelease,
   onDropSample,
   onFeedbackEnd,
+  chordName,
+  chordRoot,
 }: PadProps) {
   const isSynth = pad.synthPatchId !== null
   const isStrings = pad.stringsPatchId !== null
@@ -32,7 +36,7 @@ export function Pad({
   return (
     <button
       type="button"
-      className={`pad ${isLoaded ? 'pad-loaded' : 'pad-empty'} ${isSelected ? 'pad-selected' : ''} ${isActive ? 'pad-active' : ''} ${dropSampleName ? 'pad-drop-target' : ''}`}
+      className={`pad ${isLoaded ? 'pad-loaded' : 'pad-empty'} ${isSelected ? `pad-selected${chordName ? ' pad-chord-selected' : ''}` : ''} ${isActive ? `pad-active${chordName ? ' pad-chord-playing' : ''}` : ''} ${dropSampleName ? 'pad-drop-target' : ''}`}
       aria-pressed={isSelected}
       aria-label={dropSampleName ? `Drop ${dropSampleName} to ${pad.label}` : `${pad.label}, ${isLoaded ? `loaded: ${sourceLabel}` : 'empty'}`}
       onAnimationEnd={() => onFeedbackEnd(pad.id)}
@@ -47,10 +51,10 @@ export function Pad({
       onLostPointerCapture={() => onRelease(pad.id)}
     >
       <span className="pad-number">{pad.label}</span>
-      {isLoaded && (
-        <span className="pad-file" title={sourceLabel ?? undefined}>{sourceLabel}</span>
+      {(isLoaded || chordName) && (
+        <span className={`pad-file${chordName ? ' pad-chord-name' : ''}`} title={chordName ?? sourceLabel ?? undefined}>{chordName ?? sourceLabel}</span>
       )}
-      <span className="pad-footer">{statusLabel}</span>
+      <span className="pad-footer">{chordRoot ?? statusLabel}</span>
     </button>
   )
 }

@@ -24,6 +24,8 @@ import {
   stringsWidthToPan,
 } from '../strings/stringsOperations'
 import type { StringsPatch } from '../strings/stringsTypes'
+import { MicrophoneRecorder } from './MicrophoneRecorder'
+import { encodeWav } from './wavEncoder'
 
 export type SampleId = string
 export type SampleAssetId = string
@@ -105,6 +107,7 @@ interface ActiveSynthVoice {
   drive: WaveShaperNode
   amp: GainNode
   origin: 'manual' | 'sequencer'
+  groupId: GroupId
   patchKey: string
   channelId: ChannelId
   midiNote: number
@@ -158,6 +161,7 @@ interface ActiveStringsVoice {
   /** BOW's shared-buffer noise layer. Always present (unlike `layer`) since BOW must update smoothly on an already-sounding voice; its fade-out rides the same shared `amp` envelope as the oscillators rather than having one of its own. */
   bow: { source: AudioBufferSourceNode; gain: GainNode }
   origin: 'manual' | 'sequencer'
+  groupId: GroupId
   patchKey: string
   channelId: ChannelId
   midiNote: number
@@ -300,6 +304,7 @@ export class AudioEngine {
   private samples = new Map<SampleId, AudioBuffer>()
   private waveforms = new Map<SampleId, number[]>()
   private runtimeAssets = new Map<SampleAssetId, RuntimeSampleAsset>()
+  private microphoneRecorder: MicrophoneRecorder | null = null
   private activeVoices = new Set<ActiveVoice>()
   private previewVoices = new Set<ActiveVoice>()
   private readonly synthPatches = new Map<string, SynthPatchRegistration>()
@@ -597,6 +602,57 @@ export class AudioEngine {
     }
   }
 
+  /** Pattern CHORDS ignores the patch-level MONO switch: the Pattern Group is
+      the monophonic unit, while the notes inside its one chord are polyphonic. */
+  triggerSynthChord(groupId: GroupId, channelId: ChannelId, patch: SynthPatch, midiNotes: readonly number[], velocity = 1, manualToken = channelId): void {
+    if (this.status !== 'ready' || !this.context) return
+    const runtime = this.ensureSynthRuntime(groupId, patch)
+    const when = this.context.currentTime
+    this.triggerPumpRoutesForChannel(channelId, when)
+    this.releaseSynthPad(manualToken)
+    for (const midiNote of midiNotes.slice(0, maximumSynthVoices)) {
+      if (Number.isFinite(midiNote)) this.startSynthVoice(runtime, groupId, channelId, midiNote, velocity * 0.42, when, 'manual', manualToken)
+    }
+  }
+
+  async startMicrophoneRecording(onLevel: (level: number) => void): Promise<void> {
+    if (this.status !== 'ready' || !this.liveContext) throw new Error('Start audio before recording with the microphone.')
+    if (this.microphoneRecorder) throw new Error('Microphone recording is already active.')
+    const recorder = new MicrophoneRecorder(this.liveContext)
+    this.microphoneRecorder = recorder
+    try {
+      await recorder.start({ onLevel })
+    } catch (error) {
+      this.microphoneRecorder = null
+      throw error
+    }
+  }
+
+  async stopMicrophoneRecording(): Promise<Blob> {
+    const recorder = this.microphoneRecorder
+    if (!recorder) throw new Error('Microphone recording is not active.')
+    try {
+      return await recorder.stop()
+    } finally {
+      this.microphoneRecorder = null
+    }
+  }
+
+  cancelMicrophoneRecording(): void {
+    this.microphoneRecorder?.cancel()
+    this.microphoneRecorder = null
+  }
+
+  async microphoneRecordingToWav(recording: Blob): Promise<Blob> {
+    if (this.status !== 'ready' || !this.liveContext) throw new Error('Start audio before processing a microphone recording.')
+    try {
+      const buffer = await this.liveContext.decodeAudioData(await recording.arrayBuffer())
+      return encodeWav(buffer)
+    } catch (error) {
+      throw this.toError(error, 'Could not decode the microphone recording.')
+    }
+  }
+
   releaseSynthPad(manualToken: string): void {
     if (!this.context) return
     const when = this.context.currentTime
@@ -626,6 +682,19 @@ export class AudioEngine {
     for (const midiNote of midiNotes.slice(0, maximumSynthVoices)) {
       if (!Number.isFinite(midiNote)) continue
       const voice = this.startSynthVoice(runtime, groupId, channelId, midiNote, velocity, scheduledWhen, 'sequencer')
+      if (voice) this.releaseSynthVoice(runtime, voice, scheduledOff)
+    }
+  }
+
+  scheduleSynthChord(groupId: GroupId, channelId: ChannelId, patch: SynthPatch, midiNotes: readonly number[], when: number, noteOffWhen: number, velocity: number): void {
+    if (this.status !== 'ready' || !this.context) return
+    const runtime = this.ensureSynthRuntime(groupId, patch)
+    const scheduledWhen = Math.max(this.context.currentTime, when)
+    const scheduledOff = Math.max(scheduledWhen + 0.005, noteOffWhen)
+    this.triggerPumpRoutesForChannel(channelId, scheduledWhen)
+    for (const midiNote of midiNotes.slice(0, maximumSynthVoices)) {
+      if (!Number.isFinite(midiNote)) continue
+      const voice = this.startSynthVoice(runtime, groupId, channelId, midiNote, velocity * 0.42, scheduledWhen, 'sequencer')
       if (voice) this.releaseSynthVoice(runtime, voice, scheduledOff)
     }
   }
@@ -660,6 +729,19 @@ export class AudioEngine {
       if (!Number.isFinite(midiNote)) continue
       const voice = this.startStringsVoice(runtime, channelId, midiNote, velocity, scheduledWhen, 'sequencer')
       if (voice) this.releaseStringsVoice(runtime, voice, scheduledOff)
+    }
+  }
+
+  /** Releases only the predecessor in this CHORDS Pattern Group. A later
+      note-off still owns only its old voice, so it cannot mute the newer chord. */
+  releaseSequencerChordAt(groupId: GroupId, when: number): void {
+    if (!this.context) return
+    const releaseAt = Math.max(this.context.currentTime, when)
+    for (const runtime of this.synthRuntimes.values()) {
+      for (const voice of runtime.voices) if (voice.origin === 'sequencer' && voice.groupId === groupId && voice.startsAt < releaseAt && (voice.stopAt === undefined || voice.stopAt > releaseAt)) this.releaseSynthVoice(runtime, voice, releaseAt, 0.008)
+    }
+    for (const runtime of this.stringsRuntimes.values()) {
+      for (const voice of runtime.voices) if (voice.origin === 'sequencer' && voice.groupId === groupId && voice.startsAt < releaseAt && (voice.stopAt === undefined || voice.stopAt > releaseAt)) this.releaseStringsVoice(runtime, voice, releaseAt, 0.008)
     }
   }
 
@@ -836,6 +918,7 @@ export class AudioEngine {
   }
 
   dispose(): void {
+    this.cancelMicrophoneRecording()
     this.stopAll()
     this.samples.clear()
     this.waveforms.clear()
@@ -1045,6 +1128,7 @@ export class AudioEngine {
       drive,
       amp,
       origin,
+      groupId,
       patchKey: this.synthPatchKey(groupId, runtime.patch.id),
       channelId,
       midiNote,
@@ -1492,6 +1576,7 @@ export class AudioEngine {
       vibratoOnset,
       bow: { source: bowSource, gain: bowGain },
       origin,
+      groupId: runtime.groupId,
       patchKey: this.stringsPatchKey(runtime.groupId, runtime.patch.id),
       channelId,
       midiNote,

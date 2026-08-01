@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { effectTypeLabel } from '../audio/effects'
-import type { EffectRackState, EffectSlotState } from '../audio/effects'
+import type { EffectRackState, EffectSlotIndex, EffectSlotState } from '../audio/effects'
 import { DisplayRange } from '../shell/displayControls'
 import type { DisplayTenant } from '../shell/SystemDisplay'
 import { useSystemDisplay } from '../shell/systemDisplayContext'
@@ -28,7 +28,7 @@ interface BusDisplayLauncherProps {
   onVolumeChange: (volume: number) => void
   onMutedChange: (muted: boolean) => void
   onSoloChange?: (solo: boolean) => void
-  onOpenSlot: (slotIndex: 0 | 1) => void
+  onOpenSlot: (slotIndex: EffectSlotIndex) => void
 }
 
 const displayId = 'bus-controls'
@@ -104,7 +104,7 @@ interface BusTenantProps {
   onVolumeChange: (volume: number) => void
   onMutedChange: (muted: boolean) => void
   onSoloChange?: (solo: boolean) => void
-  onOpenSlot: (slotIndex: 0 | 1) => void
+  onOpenSlot: (slotIndex: EffectSlotIndex) => void
 }
 
 function busTenant(props: BusTenantProps): DisplayTenant {
@@ -122,7 +122,7 @@ function busTenant(props: BusTenantProps): DisplayTenant {
           {props.onSoloChange && <button className={bus.solo ? 'display-action display-action-active' : 'display-action'} type="button" aria-pressed={bus.solo} onClick={() => props.onSoloChange!(!bus.solo)}>SOLO</button>}
         </div>
       </div>
-      {/* Both slots are named on the screen rather than hidden behind a tap, so
+      {/* All four slots are named on the screen rather than hidden behind a tap, so
           the rack reads at a glance and opening one is a decision rather than a
           probe. The chevron marks the row as a way through, matching the pad
           browser's EDIT. */}
@@ -131,7 +131,7 @@ function busTenant(props: BusTenantProps): DisplayTenant {
         key={slot.id}
         type="button"
         aria-label={`${scopeLabel} FX slot ${index + 1}, ${slotLabel(slot)}`}
-        onClick={() => props.onOpenSlot(index as 0 | 1)}
+        onClick={() => props.onOpenSlot(index as EffectSlotIndex)}
       >
         <span className="display-param-label">FX {index + 1}</span>
         <span className="display-toggle-value" aria-hidden="true">{slotLabel(slot)} ›</span>

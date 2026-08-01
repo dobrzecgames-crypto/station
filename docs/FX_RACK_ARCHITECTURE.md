@@ -34,12 +34,14 @@ Nie dodajemy nowych algorytmów DSP. Wykorzystujemy istniejące implementacje ko
 
 ## 2. Zakres wersji 1
 
-Każda Pattern Group otrzymuje dokładnie dwa sloty efektów, a master również dokładnie dwa. Każdy slot pozwala wybrać `NONE`, `COMPRESSOR` albo `DELAY`. Efekty działają szeregowo zgodnie z kolejnością slotów.
+Każda Pattern Group otrzymuje dokładnie cztery sloty efektów, a master również dokładnie cztery. Każdy slot korzysta ze wspólnej listy dostępnych efektów. Efekty działają szeregowo zgodnie z kolejnością slotów.
 
 ```text
 Pattern Group bus
 -> FX SLOT 1
 -> FX SLOT 2
+-> FX SLOT 3
+-> FX SLOT 4
 -> master input
 ```
 
@@ -47,6 +49,8 @@ Pattern Group bus
 sum of Pattern Groups and preview
 -> MASTER FX SLOT 1
 -> MASTER FX SLOT 2
+-> MASTER FX SLOT 3
+-> MASTER FX SLOT 4
 -> master gain
 -> destination
 ```
@@ -57,8 +61,8 @@ sum of Pattern Groups and preview
 
 W tej wersji:
 
-- dokładnie 2 sloty na każdą Pattern Group;
-- dokładnie 2 sloty na master;
+- dokładnie 4 sloty na każdą Pattern Group;
+- dokładnie 4 sloty na master;
 - tylko `NONE`, `COMPRESSOR`, `DELAY`;
 - brak drag-and-drop;
 - brak dowolnej liczby slotów;
@@ -116,7 +120,7 @@ export interface EffectSlotState {
 }
 
 export interface EffectRackState {
-  slots: [EffectSlotState, EffectSlotState]
+  slots: [EffectSlotState, EffectSlotState, EffectSlotState, EffectSlotState]
 }
 ```
 
@@ -147,6 +151,8 @@ Nowa Pattern Group:
 ```text
 SLOT 1 = NONE
 SLOT 2 = NONE
+SLOT 3 = NONE
+SLOT 4 = NONE
 ```
 
 Nowy projekt powinien zachować obecne domyślne zachowanie master efektów. Jeżeli obecny compressor i delay są domyślnie obecne, ale wyłączone, można utworzyć:
@@ -154,6 +160,8 @@ Nowy projekt powinien zachować obecne domyślne zachowanie master efektów. Je�
 ```text
 MASTER SLOT 1 = DELAY, enabled false
 MASTER SLOT 2 = COMPRESSOR, enabled false
+MASTER SLOT 3 = NONE
+MASTER SLOT 4 = NONE
 ```
 
 Sloty muszą mieć stabilne ID, na przykład:
@@ -161,8 +169,12 @@ Sloty muszą mieć stabilne ID, na przykład:
 ```text
 pattern-group-1:fx-slot-1
 pattern-group-1:fx-slot-2
+pattern-group-1:fx-slot-3
+pattern-group-1:fx-slot-4
 master:fx-slot-1
 master:fx-slot-2
+master:fx-slot-3
+master:fx-slot-4
 ```
 
 Nie generować nowych losowych ID przy każdym renderze ani otwarciu projektu.
@@ -204,6 +216,8 @@ Każdy slot powinien mieć stałe `input` i `output`.
 rack input
 -> slot 1 input/output
 -> slot 2 input/output
+-> slot 3 input/output
+-> slot 4 input/output
 -> rack output
 ```
 
@@ -253,6 +267,8 @@ group bus gain
 -> group FX rack input
 -> group FX slot 1
 -> group FX slot 2
+-> group FX slot 3
+-> group FX slot 4
 -> master FX rack input
 ```
 
@@ -280,6 +296,8 @@ Pattern Group FX outputs
 -> master FX rack input
 -> master slot 1
 -> master slot 2
+-> master slot 3
+-> master slot 4
 -> master gain
 -> destination
 ```
@@ -304,9 +322,9 @@ Maksymalny zakładany projekt:
 
 ```text
 8 Pattern Groups
-x 2 FX slots
-+ 2 master slots
-= maksymalnie 18 slotów
+x 4 FX slots
++ 4 master slots
+= maksymalnie 36 slotów
 ```
 
 Nie tworzyć runtime node'ów ciężkiego efektu, gdy slot ma `NONE`. Nie tworzyć jednocześnie compressor i delay w każdym slocie tylko po to, aby jeden był nieaktywny.
@@ -327,6 +345,12 @@ SLOT 1
 
 SLOT 2
 [ NONE / COMPRESSOR / DELAY ]
+
+SLOT 3
+[ NONE / COMPRESSOR / DELAY ]
+
+SLOT 4
+[ NONE / COMPRESSOR / DELAY ]
 ```
 
 Po wybraniu efektu wyświetlić jego parametry pod slotem.
@@ -340,6 +364,12 @@ SLOT 1
 [ NONE / COMPRESSOR / DELAY ]
 
 SLOT 2
+[ NONE / COMPRESSOR / DELAY ]
+
+SLOT 3
+[ NONE / COMPRESSOR / DELAY ]
+
+SLOT 4
 [ NONE / COMPRESSOR / DELAY ]
 ```
 
@@ -361,7 +391,7 @@ Nie duplikować listy osobno dla grup i mastera.
 
 ## 14. Persistence
 
-Każda Pattern Group zapisuje swoje dwa sloty, a projekt zapisuje dwa sloty mastera. Sprawdzić faktyczny aktualny schema version i zwiększyć go o jeden.
+Każda Pattern Group zapisuje swoje cztery sloty, a projekt zapisuje cztery sloty mastera. Migracja z wcześniejszego układu zachowuje sloty 1–2 i dodaje puste sloty 3–4.
 
 Migracja musi:
 
@@ -375,7 +405,7 @@ Starsze projekty muszą nadal się otwierać.
 
 Nie zmieniać padów, banków, assetów, Pattern variants, Pattern Clips, Playlist, Pump, Project Key, CHOP ani transportu.
 
-Walidacja projektu musi sprawdzać dokładnie dwa sloty, poprawny `EffectType`, poprawne configi, stabilne ID slotów, brak nieprawidłowych liczb oraz bezpieczne wartości feedback.
+Walidacja projektu musi sprawdzać dokładnie cztery sloty, poprawny `EffectType`, poprawne configi, stabilne ID slotów, brak nieprawidłowych liczb oraz bezpieczne wartości feedback.
 
 ---
 
@@ -426,14 +456,14 @@ pnpm typecheck
 pnpm build
 ```
 
-Jeżeli repo ma testy jednostkowe, dodać testy dla migracji istniejących master efektów do slotów, walidacji dwóch slotów, tworzenia domyślnego racka, zmiany typu efektu, obliczania czasu delay dla wielu instancji oraz stabilnych ID slotów.
+Jeżeli repo ma testy jednostkowe, dodać testy dla migracji istniejących master efektów do slotów, walidacji czterech slotów, tworzenia domyślnego racka, zmiany typu efektu, obliczania czasu delay dla wielu instancji oraz stabilnych ID slotów.
 
 ---
 
 ## 18. Kryteria akceptacji
 
-- każda Pattern Group ma dokładnie dwa sloty;
-- master ma dokładnie dwa sloty;
+- każda Pattern Group ma dokładnie cztery sloty;
+- master ma dokładnie cztery sloty;
 - lista zawiera NONE, COMPRESSOR i DELAY;
 - kolejność slotów odpowiada routingowi;
 - group effects działają tylko na swoją grupę;

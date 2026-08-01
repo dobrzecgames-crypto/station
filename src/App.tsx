@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import type { AudioEngine, AudioEngineStatus, SampleAssetId } from './audio/AudioEngine'
 import { createDefaultMasterEffectRack } from './audio/effects'
-import type { EffectRackState } from './audio/effects'
+import type { EffectRackState, EffectSlotIndex } from './audio/effects'
 import { createChannelId } from './audio/channelIdentity'
 import { StepSequencer } from './audio/StepSequencer'
 import type { StepSequencerConfig } from './audio/StepSequencer'
@@ -67,7 +67,7 @@ import './App.css'
 import './lab-interface.css'
 
 interface AppProps { audioEngine: AudioEngine }
-interface FxContext { scope: 'group' | 'master'; slotIndex: 0 | 1 }
+interface FxContext { scope: 'group' | 'master'; slotIndex: EffectSlotIndex }
 interface PendingConfirmation { message: string; confirmLabel: string; onConfirm: () => void }
 interface WaveformPlayback { assetId: SampleAssetId; startedAt: number; startSeconds: number; endSeconds: number }
 interface SequencerPlayhead { stepIndex: number; startsAt: number; durationSeconds: number }

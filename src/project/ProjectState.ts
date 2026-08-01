@@ -21,8 +21,10 @@ import { maximumStringsVoices, resolveStringsPadMidiNotes } from '../strings/str
 import { stringsCharacters, stringsOctaveLayers, stringsOctaves } from '../strings/stringsTypes'
 import type { StringsPatch } from '../strings/stringsTypes'
 
-export const projectSchemaVersion = 16
-export const previousProjectSchemaVersion = 15
+export const projectSchemaVersion = 18
+export const previousProjectSchemaVersion = 17
+export const v16ProjectSchemaVersion = 16
+export const v15ProjectSchemaVersion = 15
 export const v14ProjectSchemaVersion = 14
 export const v13ProjectSchemaVersion = 13
 export const v12ProjectSchemaVersion = 12
@@ -230,6 +232,16 @@ export function migrateV14ProjectState(previous: { [key: string]: unknown }): Pr
 
 /** v15 predates SNARE, DRUM SYNTH's second voice; normalization backfills a default SNARE patch alongside the existing KICK one. See docs/DECISIONS.md DEC-025. */
 export function migrateV15ProjectState(previous: { [key: string]: unknown }): ProjectState {
+  return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
+}
+
+/** v16 predates TAPE; normalization adds its bypassed 32% default config to every slot without changing the selected effect or sound. */
+export function migrateV16ProjectState(previous: { [key: string]: unknown }): ProjectState {
+  return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
+}
+
+/** v17 had two FX slots per rack; normalization preserves slots 1-2 and appends empty slots 3-4 for every Pattern Group and the master. */
+export function migrateV17ProjectState(previous: { [key: string]: unknown }): ProjectState {
   return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
 }
 

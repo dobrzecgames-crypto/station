@@ -2,6 +2,8 @@ import { createDefaultMasterEffectRack, createEmptyEffectRack, createMigratedMas
 import type { EffectRackState } from '../audio/effects'
 import type { PumpCurve, SampleAssetId } from '../audio/AudioEngine'
 import type { GroupPadReference } from '../audio/channelIdentity'
+import { cloneDrumKickPatch, createDefaultDrumKickPatch, createDefaultDrumSynthState } from '../drumsynth/drumSynthOperations'
+import type { DrumKickPatch, DrumSynthState } from '../drumsynth/drumSynthTypes'
 import { defaultProjectKey, isNoteName, isScaleId } from '../music/scales'
 import type { ProjectKey } from '../music/scales'
 import { createEmptyChopSession, createPadBankState } from '../pads/padBank'
@@ -18,8 +20,9 @@ import { maximumStringsVoices, resolveStringsPadMidiNotes } from '../strings/str
 import { stringsCharacters, stringsOctaveLayers, stringsOctaves } from '../strings/stringsTypes'
 import type { StringsPatch } from '../strings/stringsTypes'
 
-export const projectSchemaVersion = 14
-export const previousProjectSchemaVersion = 13
+export const projectSchemaVersion = 15
+export const previousProjectSchemaVersion = 14
+export const v13ProjectSchemaVersion = 13
 export const v12ProjectSchemaVersion = 12
 export const v11ProjectSchemaVersion = 11
 export const v10ProjectSchemaVersion = 10
@@ -74,6 +77,8 @@ export interface ProjectState {
   master: MasterMixerState
   masterEffects: EffectRackState
   pumpRoutes: PumpRoute[]
+  /** DRUM SYNTH's current workbench - not per-pad, not per-Pattern-Group. See docs/DECISIONS.md DEC-024. */
+  drumSynth: DrumSynthState
 }
 
 export function createEmptyProjectState(): ProjectState {
@@ -93,6 +98,7 @@ export function createEmptyProjectState(): ProjectState {
     master: { volume: 1, muted: false },
     masterEffects: createDefaultMasterEffectRack(),
     pumpRoutes: [],
+    drumSynth: createDefaultDrumSynthState(),
   }
 }
 
@@ -106,13 +112,14 @@ export function createProjectState(state: ProjectState): ProjectState {
     master: { ...state.master },
     masterEffects: cloneEffectRackState(state.masterEffects),
     pumpRoutes: state.pumpRoutes.map((route) => ({ ...route, source: { ...route.source } })),
+    drumSynth: { selectedInstrument: state.drumSynth.selectedInstrument, kick: cloneDrumKickPatch(state.drumSynth.kick) },
   }
 }
 
 export function normalizeProjectState(state: ProjectState): ProjectState {
   const padIds = state.patternGroups[0]?.bank?.pads.map((pad) => pad.id)
   if (!padIds) throw new Error('Project has no Pattern Group bank.')
-  return createProjectState({ ...state, schemaVersion: projectSchemaVersion, master: state.master ? { ...state.master } : { volume: 1, muted: false }, masterEffects: normalizeEffectRackState(state.masterEffects, 'master', createDefaultMasterEffectRack()), patternGroups: ensurePatternGroupLengths(ensurePatternGroupShifts(state.patternGroups, padIds)).map((group) => ({ ...group, synthPatches: group.synthPatches ?? [], stringsPatches: (group.stringsPatches ?? []).map(normalizeStringsPatch), bank: { ...group.bank, pads: group.bank.pads.map(normalizePadState) }, bus: group.bus ? { ...group.bus } : createGroupBusState(), effects: normalizeEffectRackState(group.effects, group.id) })) })
+  return createProjectState({ ...state, schemaVersion: projectSchemaVersion, master: state.master ? { ...state.master } : { volume: 1, muted: false }, masterEffects: normalizeEffectRackState(state.masterEffects, 'master', createDefaultMasterEffectRack()), drumSynth: normalizeDrumSynthState(state.drumSynth), patternGroups: ensurePatternGroupLengths(ensurePatternGroupShifts(state.patternGroups, padIds)).map((group) => ({ ...group, synthPatches: group.synthPatches ?? [], stringsPatches: (group.stringsPatches ?? []).map(normalizeStringsPatch), bank: { ...group.bank, pads: group.bank.pads.map(normalizePadState) }, bus: group.bus ? { ...group.bus } : createGroupBusState(), effects: normalizeEffectRackState(group.effects, group.id) })) })
 }
 
 export function migrateLegacyProjectState(legacy: { pads: ReturnType<typeof createPadBankState>['pads']; patterns?: unknown; [key: string]: unknown }): ProjectState {
@@ -211,6 +218,11 @@ export function migrateV12ProjectState(previous: { [key: string]: unknown }): Pr
 
 /** v13 predates the TIGHT ROOM effect type; normalization backfills a bypassed, neutral-default TightRoomConfig onto every FX slot missing one - no existing slot's active effect or settings change. */
 export function migrateV13ProjectState(previous: { [key: string]: unknown }): ProjectState {
+  return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
+}
+
+/** v14 predates DRUM SYNTH; normalization backfills a default KICK patch. No pad or Pattern Group field changes - DRUM SYNTH is a sample-generating instrument, not a pad source. See docs/DECISIONS.md DEC-024. */
+export function migrateV14ProjectState(previous: { [key: string]: unknown }): ProjectState {
   return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
 }
 
@@ -319,6 +331,8 @@ export function validateProjectState(project: ProjectState): string[] {
   if (!Number.isFinite(project.swing) || project.swing < 0 || project.swing > 0.5) errors.push('Swing must be between 0 and 0.5.')
   if (!Number.isFinite(project.master?.volume) || project.master.volume < 0 || project.master.volume > 1 || typeof project.master.muted !== 'boolean') errors.push('Master mixer state is invalid.')
   if (!isEffectRackState(project.masterEffects, 'master')) errors.push('Master effects are invalid.')
+  if (project.drumSynth?.selectedInstrument !== 'kick') errors.push('DRUM SYNTH selected instrument is invalid.')
+  validateDrumKickPatch(project.drumSynth?.kick, 'DRUM SYNTH KICK', errors)
   const pumpRouteIds = new Set<string>()
   for (const route of project.pumpRoutes) {
     if (pumpRouteIds.has(route.id)) errors.push('Pump route IDs must be unique.')
@@ -436,6 +450,33 @@ function normalizeStringsPatch(patch: StringsPatch): StringsPatch {
   }
 }
 
+/**
+ * Only absent fields are migrated, matching normalizePadState/normalizeStringsPatch
+ * above - a present-but-malformed value is left for validation to reject
+ * rather than silently rewritten. A project entirely predating DRUM SYNTH
+ * (schema v14 and earlier) has no `drumSynth` at all and falls back to the
+ * full default patch.
+ */
+function normalizeDrumSynthState(state: DrumSynthState | undefined): DrumSynthState {
+  if (!state) return createDefaultDrumSynthState()
+  const defaults = createDefaultDrumKickPatch()
+  const legacyKick = state.kick as Partial<DrumKickPatch> | undefined
+  return {
+    selectedInstrument: 'kick',
+    kick: {
+      instrument: 'kick',
+      tune: legacyKick?.tune === undefined ? defaults.tune : legacyKick.tune,
+      punch: legacyKick?.punch === undefined ? defaults.punch : legacyKick.punch,
+      body: legacyKick?.body === undefined ? defaults.body : legacyKick.body,
+      click: legacyKick?.click === undefined ? defaults.click : legacyKick.click,
+      decay: legacyKick?.decay === undefined ? defaults.decay : legacyKick.decay,
+      tone: legacyKick?.tone === undefined ? defaults.tone : legacyKick.tone,
+      drive: legacyKick?.drive === undefined ? defaults.drive : legacyKick.drive,
+      dust: legacyKick?.dust === undefined ? defaults.dust : legacyKick.dust,
+    },
+  }
+}
+
 function validateSynthPatch(patch: SynthPatch, label: string, errors: string[]): void {
   if (!patch.id || !patch.name) errors.push(`${label} requires an ID and name.`)
   if (!synthVoiceModes.includes(patch.mode)) errors.push(`${label} has an unsupported voice mode.`)
@@ -484,6 +525,18 @@ function validateStringsPatch(patch: StringsPatch, label: string, errors: string
   if (!isFiniteInRange(patch.vibratoDelayMs, 0, 2000)) errors.push(`${label} has an invalid VIBRATO DELAY.`)
   if (!isFiniteInRange(patch.warmth, 0, 1)) errors.push(`${label} has an invalid WARMTH.`)
   if (!isFiniteInRange(patch.space, 0, 1)) errors.push(`${label} has an invalid SPACE.`)
+}
+
+function validateDrumKickPatch(patch: DrumKickPatch | undefined, label: string, errors: string[]): void {
+  if (patch?.instrument !== 'kick') { errors.push(`${label} has an invalid instrument.`); return }
+  if (!isFiniteInRange(patch.tune, 0, 1)) errors.push(`${label} has an invalid TUNE.`)
+  if (!isFiniteInRange(patch.punch, 0, 1)) errors.push(`${label} has an invalid PUNCH.`)
+  if (!isFiniteInRange(patch.body, 0, 1)) errors.push(`${label} has an invalid BODY.`)
+  if (!isFiniteInRange(patch.click, 0, 1)) errors.push(`${label} has an invalid CLICK.`)
+  if (!isFiniteInRange(patch.decay, 0, 1)) errors.push(`${label} has an invalid DECAY.`)
+  if (!isFiniteInRange(patch.tone, 0, 1)) errors.push(`${label} has an invalid TONE.`)
+  if (!isFiniteInRange(patch.drive, 0, 1)) errors.push(`${label} has an invalid DRIVE.`)
+  if (!isFiniteInRange(patch.dust, 0, 1)) errors.push(`${label} has an invalid DUST.`)
 }
 
 function isFiniteInRange(value: unknown, minimum: number, maximum: number): value is number {

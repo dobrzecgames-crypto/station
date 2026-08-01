@@ -22,6 +22,7 @@
 .station-shell[data-view='pad'] { --workspace-accent: var(--accent-pads); }
 .station-shell[data-view='synth'] { --workspace-accent: var(--accent-synth); }
 .station-shell[data-view='strings'] { --workspace-accent: var(--accent-strings); }
+.station-shell[data-view='drumsynth'] { --workspace-accent: var(--accent-drumsynth); }
 .station-shell[data-view='seq'] { --workspace-accent: var(--accent-seq); }
 .station-shell[data-view='song'] { --workspace-accent: var(--accent-song); }
 .station-shell[data-view='mix'] { --workspace-accent: var(--accent-mix); }

@@ -1,0 +1,162 @@
+.drumsynth-workspace {
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid var(--station-line);
+  border-radius: 6px;
+  background: var(--station-panel);
+}
+
+.drumsynth-back-row {
+  margin-bottom: 10px;
+}
+
+.drumsynth-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 0 12px;
+  border-bottom: 1px solid var(--station-line);
+}
+
+.drumsynth-heading h2 {
+  margin: 3px 0 0;
+  font-size: 1rem;
+}
+
+.drumsynth-heading p {
+  margin: 0;
+}
+
+.drumsynth-trigger {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  color: var(--station-bg);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--station-accent) 88%, #000), var(--station-accent) 60%, color-mix(in srgb, var(--station-accent) 88%, #fff));
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.drumsynth-trigger::before {
+  content: '';
+  width: 0;
+  height: 0;
+  margin-left: 2px;
+  border-style: solid;
+  border-width: 7px 0 7px 11px;
+  border-color: transparent transparent transparent currentColor;
+}
+
+.drumsynth-trigger:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+
+.drumsynth-preset-row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 12px;
+}
+
+.drumsynth-preset-button {
+  min-height: 30px;
+  padding: 0 2px;
+  border: 1px solid var(--station-line);
+  border-radius: 4px;
+  color: var(--station-text-muted);
+  background: var(--station-raised);
+  font-family: var(--station-mono-font);
+  font-size: .5rem;
+  letter-spacing: .03em;
+  cursor: pointer;
+}
+
+.drumsynth-preset-button:hover,
+.drumsynth-preset-button:focus-visible {
+  color: var(--station-text);
+  border-color: color-mix(in srgb, var(--station-accent) 55%, var(--station-line));
+  outline: none;
+}
+
+.drumsynth-inline-range {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 6px;
+  width: 100%;
+  min-width: 0;
+  margin-top: 14px;
+  color: var(--station-text-muted);
+  font-family: var(--station-mono-font);
+  font-size: .5rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+}
+
+.drumsynth-inline-range output {
+  color: var(--station-text);
+  font-size: .52rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.drumsynth-inline-range input {
+  box-sizing: border-box;
+  grid-column: 1 / -1;
+  display: block;
+  width: calc(100% - 4px);
+  min-width: 0;
+  max-width: calc(100% - 4px);
+  margin-inline: 2px;
+}
+
+/* DUST is the one Vinyl-Dust-identity control - a faint separator and a
+   warmer readout tint set it apart as the optional texture layer, without
+   letting it dominate the seven musical parameters above it. */
+.drumsynth-inline-range-dust {
+  padding-top: 10px;
+  border-top: 1px dashed color-mix(in srgb, var(--accent-drumsynth) 35%, var(--station-line));
+}
+
+.drumsynth-inline-range-dust output {
+  color: color-mix(in srgb, var(--accent-drumsynth) 65%, var(--station-text));
+}
+
+.drumsynth-add-to-pad {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 16px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--station-bg);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--station-accent) 88%, #000), var(--station-accent) 60%, color-mix(in srgb, var(--station-accent) 88%, #fff));
+  font-family: var(--station-mono-font);
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  cursor: pointer;
+}
+
+.drumsynth-workspace button:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+
+@media (max-width: 390px) {
+  .drumsynth-workspace {
+    padding: 12px;
+  }
+
+  .drumsynth-preset-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

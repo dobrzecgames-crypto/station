@@ -340,3 +340,24 @@ Consequences:
 - schema v11 stores STRINGS patches, pad references and chord intervals; v1–v10 migrate with neutral defaults and unchanged existing sound,
 - six presets (WARM STRINGS, SLOW ORCHESTRA, DISCO STRINGS, DARK PAD, SYNTH BRASS, SOFT CHOIR) apply parameter values on the same engine, not separate hidden instruments,
 - MIDI, an on-screen keyboard, sampled/multisampled strings, physical modeling, legato/round-robin/velocity layers, MPE, convolution reverb, mod matrix, a separate full Brass Synth, oscillator waveform choice, a filter envelope and a third oscillator layer remain out of scope for the first version.
+
+## DEC-024 — DRUM SYNTH is a sample-generating instrument, not a pad source
+
+**Status:** Accepted
+
+Unlike MONO-3 (DEC-022) and STRINGS (DEC-023), DRUM SYNTH is not a third constrained live pad source. It holds one editable, project-persisted KICK patch - not a Pattern-Group-owned collection referenced by id - and pads never hold a `drumSynthPatchId`. ADD TO PAD renders the current patch offline to a WAV and assigns it through the same `loadSampleBlob` path the built-in library and CHOP already use; the result is an ordinary sample-bearing pad from that point on, indistinguishable from one loaded any other way, and later panel edits do not retroactively change it. This is architecturally closer to the not-yet-built M10 Resampling milestone than to MONO-3/STRINGS: the source is on-the-fly synthesis rather than master-bus capture, but the destination and mechanism (render to buffer, encode WAV, assign to pad) are the same shape.
+
+The picker in SYNTH gained a third card alongside MONOPOLY and STRINGS. Selecting it does not create a Pattern Group or touch any pad - it only opens `DrumSynthWorkspace`, a pad-independent panel gated by its own `drumSynthPanelOpen` flag rather than by the selected pad's patch id, unlike the other two instruments' pickers.
+
+The first version implements only a KICK sound, behind a `DrumInstrumentType` union sized for SNARE, CLAP, HAT, TOM and PERC to follow later without a rewrite: one more member in the union, one more `DrumXPatch` interface, one more DSP module mirroring `kickVoice.ts`, one more sub-panel - with no change to the picker, ADD TO PAD, or persistence plumbing, all of which are already generic over "whichever instrument is selected."
+
+DUST, the layer tying the Vinyl Dust identity to this instrument's sound, uses a small seeded PRNG (`drumsynth/seededRandom.ts`) rather than raw `Math.random()` - the first such utility in the codebase. The algorithm is deterministic given a seed; the seed itself is not, so live preview retriggers vary hit to hit as intended while a rendered-and-placed kick is a frozen WAV and therefore trivially stable across reload and export - nothing about its reproducibility needs to be persisted.
+
+Consequences:
+
+- no new `PadState` field, no new `StepSequencerTrack` union arm, no `songTracks.ts` change - the sequencer, mixer, Pump routing (keyed by `channelId`/`groupId`, not source type) and WAV export handle a kick-bearing pad exactly like any other sample, at no extra cost,
+- schema v15 adds one top-level `drumSynth: DrumSynthState` field to `ProjectState`; v1-v14 migrate with a default KICK patch,
+- the kick's Web Audio graph is built by a standalone module (`drumsynth/kickVoice.ts`), not as `AudioEngine` methods alongside MONOPOLY/STRINGS, because it has to run identically in two contexts that share no other state: a live preview voice (routed through `AudioEngine`'s master effects, for a consistent preview/mixer path) and a throwaway `OfflineAudioContext` bounce (`drumsynth/renderKick.ts`) that needs none of `AudioEngine`'s channels, groups or master rack,
+- no `DynamicsCompressorNode` or limiter in the kick voice; level safety comes from a bounded per-layer gain budget and one fixed output trim, so the full parameter range stays clip-safe without flattening its own dynamics,
+- ADD TO PAD reuses the existing occupied-pad confirmation (`StationConfirm`) and the library's "arm an item, then tap a pad" mechanism (`PadGrid`'s drop-target affordance, generalized from a library-sample-specific prop to a plain filename),
+- LFO/mod matrix, multi-operator FM, user-sample layering, effect sends, a global Vinyl Bed, full vinyl emulation, an internal sequencer, multiple simultaneous DRUM SYNTH tracks, automatic Pump sidechain wiring and SNARE/CLAP/HAT/TOM/PERC's own UI and DSP remain out of scope for the first version.

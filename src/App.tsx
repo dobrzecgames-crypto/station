@@ -28,6 +28,11 @@ import type { MainView } from './shell/MainNavigation'
 import { StationConfirm } from './shell/StationConfirm'
 import { TransportBar } from './shell/TransportBar'
 import { SystemDisplayProvider, useSystemDisplayHost } from './shell/systemDisplayContext'
+import { applyKickPreset, createDefaultDrumSynthState } from './drumsynth/drumSynthOperations'
+import type { KickPresetName } from './drumsynth/drumSynthOperations'
+import type { DrumKickPatch, DrumSynthState } from './drumsynth/drumSynthTypes'
+import { DrumSynthWorkspace } from './drumsynth/DrumSynthWorkspace'
+import { renderKickToBuffer } from './drumsynth/renderKick'
 import { collectReferencedAssetIds, createProjectState, projectSchemaVersion, validateProjectState } from './project/ProjectState'
 import type { PumpRoute } from './project/ProjectState'
 import { ProjectDisplayButton } from './project/ProjectDisplay'
@@ -106,6 +111,8 @@ export function App({ audioEngine }: AppProps) {
   const [selectedPadId, setSelectedPadId] = useState<PadState['id']>('pad-01')
   const [activePadId, setActivePadId] = useState<PadState['id'] | null>(null)
   const [selectedLibrarySample, setSelectedLibrarySample] = useState<LibrarySample | null>(null)
+  const [pendingDrumKick, setPendingDrumKick] = useState<{ blob: Blob; filename: string; durationSeconds: number } | null>(null)
+  const [drumKickRenderBusy, setDrumKickRenderBusy] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string>()
   const [pendingConfirmation, setPendingConfirmation] = useState<PendingConfirmation>()
   const [bpm, setBpm] = useState(120)
@@ -126,6 +133,11 @@ export function App({ audioEngine }: AppProps) {
      entered fresh from elsewhere so the entry rule (patch present -> its editor)
      can re-decide. */
   const [synthPickerForced, setSynthPickerForced] = useState(false)
+  /* DRUM SYNTH's panel is pad-independent, unlike MONOPOLY/STRINGS - it is
+     never derived from the selected pad, only from this flag. See
+     synthShowsPicker and docs/DECISIONS.md DEC-024. */
+  const [drumSynthPanelOpen, setDrumSynthPanelOpen] = useState(false)
+  const [drumSynth, setDrumSynth] = useState<DrumSynthState>(() => createDefaultDrumSynthState())
   const [patternGroups, setPatternGroups] = useState<PatternGroup[]>(() => createInitialPatternGroups(createPadBank().map((pad) => pad.id)))
   const [selectedPatternGroupId, setSelectedPatternGroupId] = useState('pattern-group-1')
   const [selectedPatternVariant, setSelectedPatternVariant] = useState<PatternVariantName>('A')
@@ -341,6 +353,18 @@ export function App({ audioEngine }: AppProps) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || isTypingTarget(event.target)) return
+      /* DRUM SYNTH's panel is pad-independent, so the same physical pad keys
+         preview the current kick instead while it is the active view - a
+         one-shot fire, since the kick has no note-off/hold concept and no
+         gate to release. This must stay a branch inside this single listener
+         rather than a second one, or a keypress would double-fire both the
+         preview and whichever pad happens to share that key. */
+      if (mainView === 'synth' && drumSynthPanelOpen) {
+        if (!padIdByKeyCode.has(event.code)) return
+        event.preventDefault()
+        previewDrumSynth()
+        return
+      }
       const padId = padIdByKeyCode.get(event.code)
       if (!padId) return
       event.preventDefault()
@@ -360,7 +384,7 @@ export function App({ audioEngine }: AppProps) {
     // `recording` and the selected variant are listed because the listener closes over
     // triggerPad -> recordPadHit: without them a key press while armed would write into
     // whichever variant was selected when this effect last ran, or not record at all.
-  }, [pads, audioReady, cutOnPadTrigger, selectedPatternGroupId, selectedGroup, recording, selectedPatternVariant])
+  }, [pads, audioReady, cutOnPadTrigger, selectedPatternGroupId, selectedGroup, recording, selectedPatternVariant, mainView, drumSynthPanelOpen, drumSynth])
 
   const startAudio = async () => {
     setErrorMessage(undefined)
@@ -390,6 +414,7 @@ export function App({ audioEngine }: AppProps) {
       master,
       masterEffects,
       pumpRoutes,
+      drumSynth,
     })
   }
 
@@ -508,10 +533,13 @@ export function App({ audioEngine }: AppProps) {
       setMasterEffects(state.masterEffects)
       setPumpRoutes(state.pumpRoutes)
       setProjectKey(state.projectKey)
+      setDrumSynth(state.drumSynth)
       setWaveforms(nextWaveforms)
       setChopAddingSlice(false)
       setSelectedPadId('pad-01')
       setActivePadId(null)
+      setPendingDrumKick(null)
+      setDrumSynthPanelOpen(false)
       setProjectMessage('Project opened.')
     } catch (error) {
       setErrorMessage(toMessage(error))
@@ -565,6 +593,12 @@ export function App({ audioEngine }: AppProps) {
     const notes = next.map((interval) => selectedStringsPatch.baseMidiNote + selectedPad.pitchSemitones + interval)
     if (notes.some((note) => note < minimumSynthMidiNote || note > maximumSynthMidiNote)) { setErrorMessage('Chord notes must stay between C0 and C8.'); return }
     replaceActiveBank({ ...selectedGroup.bank, pads: pads.map((pad) => pad.id === selectedPadId ? { ...pad, chordIntervals: next } : pad) })
+  }
+  const updateDrumSynthKick = (kick: DrumKickPatch) => setDrumSynth((current) => ({ ...current, kick }))
+  const applyDrumSynthPreset = (name: KickPresetName) => setDrumSynth((current) => ({ ...current, kick: applyKickPreset(current.kick, name) }))
+  const previewDrumSynth = () => {
+    if (!audioReady) return
+    audioEngine.previewDrumKick(drumSynth.kick)
   }
   const updateChannelVolume = (padId: PadState['id'], volume: number) => { replaceActiveBank({ ...selectedGroup.bank, pads: pads.map((pad) => pad.id === padId ? { ...pad, volume } : pad) }); audioEngine.setChannelVolume(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), volume) }
   const updateChannelMuted = (padId: PadState['id'], muted: boolean) => { replaceActiveBank({ ...selectedGroup.bank, pads: pads.map((pad) => pad.id === padId ? { ...pad, muted } : pad) }); audioEngine.setChannelMuted(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), muted) }
@@ -638,6 +672,67 @@ export function App({ audioEngine }: AppProps) {
     void loadLibrarySample(sample, padId).then((loaded) => {
       if (loaded) setSelectedLibrarySample(null)
     })
+  }
+
+  /* Renders the current DRUM SYNTH patch once, immediately - the armed buffer
+     is ready the instant a pad is tapped, mirroring how a library sample is
+     already fetched before it is dropped. Later knob edits have nothing left
+     to act on: this WAV is a frozen, independent object from this point on. */
+  const addDrumKickToPad = async () => {
+    if (!audioReady || projectBusy || drumKickRenderBusy) return
+    setDrumKickRenderBusy(true)
+    setErrorMessage(undefined)
+    try {
+      const buffer = await renderKickToBuffer(drumSynth.kick, audioEngine.getSampleRate())
+      setPendingDrumKick({ blob: encodeWav(buffer), filename: 'KICK.wav', durationSeconds: buffer.duration })
+      setSelectedLibrarySample(null)
+      enterMainView('pad')
+      setTransportNotice('Tap a pad to place the kick.')
+    } catch (error) {
+      setErrorMessage(toMessage(error))
+    } finally {
+      setDrumKickRenderBusy(false)
+    }
+  }
+
+  const dropDrumKickOnPad = async (targetPadId: PadState['id'], confirmed = false): Promise<boolean> => {
+    if (!audioReady || projectBusy) return false
+    const kick = pendingDrumKick
+    if (!kick) return false
+    const targetPad = pads.find((pad) => pad.id === targetPadId)
+    if (!targetPad) return false
+    if ((targetPad.assetId || targetPad.synthPatchId || targetPad.stringsPatchId) && !confirmed) {
+      requestConfirmation(`Replace the sound on ${targetPad.label} with this kick?`, 'REPLACE', () => { void dropDrumKickOnPad(targetPadId, true) })
+      return false
+    }
+    setErrorMessage(undefined)
+    try {
+      const assetId = createAssetId(`drumsynth-${targetPad.id}`)
+      const loadedSample = await audioEngine.loadSampleBlob(assetId, kick.blob, kick.filename)
+      const waveform = audioEngine.getWaveformPeaks(assetId) ?? []
+      const previousAssetId = targetPad.assetId
+      const bank = { ...selectedGroup.bank, pads: pads.map((pad) => pad.id === targetPad.id ? { ...pad, assetId, fileName: loadedSample.filename, durationSeconds: loadedSample.durationSeconds, region: { startSeconds: 0, endSeconds: loadedSample.durationSeconds }, slices: [], chopSessionId: null, synthPatchId: null, stringsPatchId: null, chordIntervals: [0] } : pad) }
+      const groups = patternGroups.map((group) => group.id === selectedPatternGroupId ? removeUnreferencedStringsPatches(removeUnreferencedSynthPatches({ ...group, bank })) : group)
+      setPatternGroups(groups)
+      setSelectedPadId(targetPad.id)
+      setWaveforms((current) => ({ ...current, [assetId]: waveform }))
+      const channelId = createChannelId({ patternGroupId: selectedPatternGroupId, padId: targetPad.id })
+      audioEngine.setChannelVolume(selectedPatternGroupId, channelId, targetPad.volume)
+      audioEngine.setChannelMuted(selectedPatternGroupId, channelId, targetPad.muted)
+      audioEngine.setChannelSolo(selectedPatternGroupId, channelId, targetPad.solo)
+      removeAssetIfUnused(previousAssetId, groups)
+      setPendingDrumKick(null)
+      setProjectMessage(`Kick placed on ${targetPad.label}.`)
+      return true
+    } catch (error) {
+      setErrorMessage(toMessage(error))
+      return false
+    }
+  }
+
+  const dropArmedItemOnPad = (padId: PadState['id']) => {
+    if (selectedLibrarySample) dropLibrarySampleOnPad(padId)
+    else if (pendingDrumKick) void dropDrumKickOnPad(padId)
   }
 
   const previewLibrarySample = async (sample: LibrarySample) => {
@@ -1030,14 +1125,31 @@ export function App({ audioEngine }: AppProps) {
     setActiveFxContext(null)
     if (view !== 'pad') setSampleEditorOpen(false)
   }
-  const requestOpenInstrumentOnNewPattern = (instrument: SynthPickerInstrument) => {
+  /* DRUM SYNTH never reaches this path - it has no pad-bound patch to create,
+     so picking it only opens its own panel (see selectSynthInstrument). The
+     narrower parameter type here makes routing it through the pattern-group-
+     creating flow a compile error rather than a behaviour to remember. */
+  const requestOpenInstrumentOnNewPattern = (instrument: Exclude<SynthPickerInstrument, 'drumsynth'>) => {
     const label = instrument === 'monopoly' ? 'MONOPOLY' : 'STRINGS'
     requestConfirmation(`Open ${label} on a new pattern? This creates a new Bank with PATTERN A - your current pattern stays untouched.`, 'OPEN ON NEW PATTERN', () => openInstrumentOnNewPattern(instrument))
   }
+  const selectSynthInstrument = (instrument: SynthPickerInstrument) => {
+    if (instrument === 'drumsynth') {
+      setDrumSynthPanelOpen(true)
+      setSynthPickerForced(false)
+      return
+    }
+    requestOpenInstrumentOnNewPattern(instrument)
+  }
   /* Picking an instrument in SYNTH must never touch the active pattern - it always
      creates a fresh Bank (Station's existing "new Pattern Group" mechanism) and
-     assigns the instrument only there, on that bank's first (always empty) pad. */
-  const openInstrumentOnNewPattern = (instrument: SynthPickerInstrument) => {
+     assigns the instrument on that bank's first (always empty) pad, then spreads
+     it across the rest of the bank via the same Project Scale mapping the
+     MAP TO PROJECT SCALE button uses - a fresh instrument should be playable
+     across the whole bank immediately, not just on one pad. If that mapping
+     would push a note outside C0-C8 (an unusual bank size/scale combination),
+     it silently falls back to the single pad rather than blocking creation. */
+  const openInstrumentOnNewPattern = (instrument: Exclude<SynthPickerInstrument, 'drumsynth'>) => {
     let nextGroups: PatternGroup[]
     try {
       nextGroups = addPatternGroup(patternGroups, createPatternGroupId(), pads.map((pad) => pad.id))
@@ -1047,14 +1159,23 @@ export function App({ audioEngine }: AppProps) {
     }
     const newGroup = nextGroups.at(-1)!
     const targetPadId = newGroup.bank.pads[0].id
+    let mappedPadCount = 1
     const finalGroups = nextGroups.map((group) => {
       if (group.id !== newGroup.id) return group
       if (instrument === 'monopoly') {
         const patch = createDefaultSynthPatch(createSynthPatchId())
-        return { ...group, bank: { ...group.bank, pads: group.bank.pads.map((pad) => pad.id === targetPadId ? assignSynthSource(pad, patch.id) : pad) }, synthPatches: [patch] }
+        const assignedPads = group.bank.pads.map((pad) => pad.id === targetPadId ? assignSynthSource(pad, patch.id) : pad)
+        const mapped = mapPadBankToProjectScale(assignedPads, targetPadId, projectKey)
+        const inRange = mapped.pads.every((pad) => pad.synthPatchId !== patch.id || resolveSynthPadMidiNotes(patch, pad).every((note) => note >= minimumSynthMidiNote && note <= maximumSynthMidiNote))
+        mappedPadCount = inRange ? mapped.mappedPadCount : 1
+        return { ...group, bank: { ...group.bank, pads: inRange ? mapped.pads : assignedPads }, synthPatches: [patch] }
       }
       const patch = createDefaultStringsPatch(createStringsPatchId())
-      return { ...group, bank: { ...group.bank, pads: group.bank.pads.map((pad) => pad.id === targetPadId ? assignStringsSource(pad, patch.id) : pad) }, stringsPatches: [patch] }
+      const assignedPads = group.bank.pads.map((pad) => pad.id === targetPadId ? assignStringsSource(pad, patch.id) : pad)
+      const mapped = mapPadBankToProjectScale(assignedPads, targetPadId, projectKey)
+      const inRange = mapped.pads.every((pad) => pad.stringsPatchId !== patch.id || resolveStringsPadMidiNotes(patch, pad).every((note) => note >= minimumSynthMidiNote && note <= maximumSynthMidiNote))
+      mappedPadCount = inRange ? mapped.mappedPadCount : 1
+      return { ...group, bank: { ...group.bank, pads: inRange ? mapped.pads : assignedPads }, stringsPatches: [patch] }
     })
     audioEngine.stopManualVoices()
     audioEngine.stopPreview()
@@ -1064,7 +1185,8 @@ export function App({ audioEngine }: AppProps) {
     setSelectedPatternVariant('A')
     setSelectedPadId(targetPadId)
     setSynthPickerForced(false)
-    setProjectMessage(`${instrument === 'monopoly' ? 'MONOPOLY' : 'STRINGS'} created on a new pattern.`)
+    const label = instrument === 'monopoly' ? 'MONOPOLY' : 'STRINGS'
+    setProjectMessage(mappedPadCount > 1 ? `${label} created and mapped across ${mappedPadCount} pads.` : `${label} created on a new pattern.`)
     enterMainView('synth')
   }
   const activeFxRack = activeFxContext?.scope === 'group' ? selectedGroup.effects : activeFxContext?.scope === 'master' ? masterEffects : undefined
@@ -1079,10 +1201,10 @@ export function App({ audioEngine }: AppProps) {
     ? { volume: master.volume, muted: master.muted }
     : { volume: selectedGroup.bus!.volume, muted: selectedGroup.bus!.muted, solo: selectedGroup.bus!.solo }
   const mixBusLabel = mixScope === 'master' ? 'MASTER' : `G${patternGroups.findIndex((group) => group.id === selectedPatternGroupId) + 1}`
-  const synthShowsPicker = (!selectedSynthPatch && !selectedStringsPatch) || synthPickerForced
-  // The SYNTH tab keeps STRINGS' own accent colour while its editor is actually on
-  // screen, and falls back to the shared SYNTH accent for the picker and MONOPOLY.
-  const accentView = mainView === 'synth' && !synthShowsPicker && selectedStringsPatch ? 'strings' : mainView
+  const synthShowsPicker = synthPickerForced || (!drumSynthPanelOpen && !selectedSynthPatch && !selectedStringsPatch)
+  // The SYNTH tab keeps STRINGS'/DRUM SYNTH's own accent colour while their editor is
+  // actually on screen, and falls back to the shared SYNTH accent for the picker and MONOPOLY.
+  const accentView = mainView === 'synth' && !synthShowsPicker && drumSynthPanelOpen ? 'drumsynth' : mainView === 'synth' && !synthShowsPicker && selectedStringsPatch ? 'strings' : mainView
   return (
     <SystemDisplayProvider api={displayApi}>
     <main
@@ -1233,7 +1355,7 @@ export function App({ audioEngine }: AppProps) {
                 selectedLibrarySample={selectedLibrarySample}
                 onUpdate={updateSelectedPad}
                 onPreviewLibrarySample={previewLibrarySample}
-                onSelectedLibrarySampleChange={setSelectedLibrarySample}
+                onSelectedLibrarySampleChange={(sample) => { setSelectedLibrarySample(sample); setPendingDrumKick(null) }}
                 onMapToProjectScale={mapSelectedPadToProjectScale}
                 onEditSample={() => setSampleEditorOpen(true)}
                 onClear={clearSelectedPad}
@@ -1245,10 +1367,10 @@ export function App({ audioEngine }: AppProps) {
                     selectedPadId={selectedPadId}
                     activePadId={activePadId}
                     audioReady={audioReady}
-                    dropSample={selectedLibrarySample}
+                    dropSampleName={selectedLibrarySample?.filename ?? pendingDrumKick?.filename ?? null}
                     onTrigger={triggerPad}
                     onRelease={releasePad}
-                    onDropSample={dropLibrarySampleOnPad}
+                    onDropSample={dropArmedItemOnPad}
                     onFeedbackEnd={(padId) => {
                       if (!pads.find((pad) => pad.id === padId)?.synthPatchId) setActivePadId((current) => current === padId ? null : current)
                     }}
@@ -1276,9 +1398,21 @@ export function App({ audioEngine }: AppProps) {
             </>
           )}
           {mainView === "synth" && synthShowsPicker && (
-            <SynthPicker onSelect={requestOpenInstrumentOnNewPattern} />
+            <SynthPicker onSelect={selectSynthInstrument} />
           )}
-          {mainView === "synth" && !synthShowsPicker && selectedSynthPatch && (
+          {mainView === "synth" && !synthShowsPicker && drumSynthPanelOpen && (
+            <DrumSynthWorkspace
+              patch={drumSynth.kick}
+              audioReady={audioReady}
+              projectBusy={projectBusy}
+              onPatchChange={updateDrumSynthKick}
+              onPreset={applyDrumSynthPreset}
+              onTrigger={previewDrumSynth}
+              onAddToPad={addDrumKickToPad}
+              onBack={() => { setDrumSynthPanelOpen(false); setSynthPickerForced(true) }}
+            />
+          )}
+          {mainView === "synth" && !synthShowsPicker && !drumSynthPanelOpen && selectedSynthPatch && (
             <SynthWorkspace
               pad={selectedPad}
               patch={selectedSynthPatch}
@@ -1298,7 +1432,7 @@ export function App({ audioEngine }: AppProps) {
               onBack={() => setSynthPickerForced(true)}
             />
           )}
-          {mainView === "synth" && !synthShowsPicker && selectedStringsPatch && (
+          {mainView === "synth" && !synthShowsPicker && !drumSynthPanelOpen && selectedStringsPatch && (
             <StringsWorkspace
               pad={selectedPad}
               patch={selectedStringsPatch}

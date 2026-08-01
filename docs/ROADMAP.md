@@ -214,6 +214,7 @@ Exit criteria:
 - assign result to a pad or send to Chop,
 - preserve a clear resample history.
 - The offline render machinery already exists (see `DECISIONS.md` DEC-021): `renderSongToBuffer` returns an audio buffer and `encodeWav` turns one into a WAV blob, which is the format `loadSampleBlob` accepts. Resampling reuses both and differs only in where the result goes — back to a pad instead of out to a file.
+- DRUM SYNTH (see `DECISIONS.md` DEC-024) shipped ahead of this milestone as a sibling of the same render-to-buffer-then-assign shape: the source is on-the-fly kick synthesis instead of master/track capture, but "render, encode WAV, assign to a pad through `loadSampleBlob`" is the identical mechanism. M10 itself remains master/track capture, not synthesis.
 
 ### M11 — Further pattern performance and scenes
 

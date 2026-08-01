@@ -47,6 +47,12 @@
   background: color-mix(in srgb, var(--accent-strings) 7%, var(--station-raised));
 }
 
+.synth-picker-card-drumsynth {
+  color: var(--accent-drumsynth);
+  border-color: color-mix(in srgb, var(--accent-drumsynth) 45%, var(--station-line));
+  background: color-mix(in srgb, var(--accent-drumsynth) 7%, var(--station-raised));
+}
+
 .synth-picker-card-icon {
   flex: 0 0 auto;
   width: 92px;

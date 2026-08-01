@@ -1,6 +1,6 @@
 import './SynthPicker.css'
 
-export type SynthPickerInstrument = 'monopoly' | 'strings'
+export type SynthPickerInstrument = 'monopoly' | 'strings' | 'drumsynth'
 
 interface SynthPickerProps {
   onSelect: (instrument: SynthPickerInstrument) => void
@@ -9,6 +9,7 @@ interface SynthPickerProps {
 const instruments: ReadonlyArray<{ id: SynthPickerInstrument; name: string; description: string }> = [
   { id: 'monopoly', name: 'MONOPOLY', description: 'Monophonic bass, leads and short synth sounds.' },
   { id: 'strings', name: 'STRINGS', description: 'Polyphonic strings, pads and analog brass.' },
+  { id: 'drumsynth', name: 'DRUM SYNTH', description: 'Synthesized kicks for electronic drum patterns.' },
 ]
 
 export function SynthPicker({ onSelect }: SynthPickerProps) {
@@ -54,11 +55,16 @@ function SynthGlyph({ variant, className }: { variant: SynthPickerInstrument; cl
           <circle cx="22" cy="21.5" r="1.5" fill="currentColor" />
           <circle cx="27" cy="21.5" r="1.5" fill="currentColor" />
         </>
-      ) : (
+      ) : variant === 'strings' ? (
         <>
           <polyline points="9,15 13,9 17,20 21,10 25,17 29,14 33,14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           <line x1="9" y1="23" x2="16" y2="23" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
         </>
+      ) : (
+        // A percussive attack/decay envelope - a sharp spike settling back to
+        // baseline, standing in for the same "what does this instrument do"
+        // read the other two glyphs give at a glance.
+        <polyline points="9,22 12,9 15,22 18,17 21,20.5 25,21.5 29,22 33,22" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
       )}
 
       {knobCenters.map((cx) => (

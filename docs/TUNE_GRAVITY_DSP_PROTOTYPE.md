@@ -2,7 +2,26 @@
 
 ## Status
 
-**Prototyp badawczy, nie efekt produkcyjny.** Nie został dodany do FX Racka, modelu projektu ani UI. Nie przeszedł odsłuchu na rzeczywistych wokalach, testów Chrome/Edge ani testów telefonu, więc nie spełnia kryteriów akceptacji Tune Gravity.
+**Prototyp badawczy, nie efekt produkcyjny.** Repozytorium zawiera testowy TUNE Workspace do uruchamiania eksperymentów QUALITY, ale Tune Gravity nie został zaakceptowany jako efekt Station. Nie przeszedł odsłuchu na rzeczywistych wokalach, testów Chrome/Edge ani testów telefonu, więc nie spełnia kryteriów akceptacji.
+
+## TUNE Workspace
+
+Zakładka **TUNE** jest laboratoryjnym środowiskiem odsłuchowym, a nie finalnym UI Station. Pozwala wczytać WAV lub nagrać do 30 sekund wokalu, wykonać analizę i render offline w Web Workerze, porównać ORIGINAL z TUNED oraz pobrać wynik WAV. Korzysta z globalnego Project Key i udostępnia GRAVITY, SPEED oraz HUMANIZE.
+
+Workspace istnieje po to, aby zbierać dane diagnostyczne i prowadzić kontrolowane eksperymenty DSP. Jego obecność w nawigacji nie oznacza akceptacji jakości algorytmu.
+
+## Tune Gravity Product Effect
+
+Przyszły efekt produkcyjny obecnie **nie istnieje** jako:
+
+- typ efektu FX Racka,
+- `AudioWorkletProcessor`,
+- efekt Pattern Group lub mastera,
+- element persistence i migracji projektu,
+- element offline SONG render,
+- narzędzie realtime lub monitoring wokalu.
+
+Integracja produkcyjna może rozpocząć się dopiero po zaakceptowaniu QUALITY na prawdziwych wokalach. Detektor monofoniczny nie powinien działać na masterze ani innym wejściu, które może zawierać miks lub polifonię.
 
 ## Wniosek z audytu Station
 
@@ -120,6 +139,40 @@ Nie testowano prawdziwego niskiego/wyższego męskiego wokalu, kobiecego wokalu,
 4. Jeżeli TD-PSOLA ma niestabilne pitch marks, porównać pYIN + bardziej odporny GCI/peak tracking. Jeżeli barwa nadal się przesuwa, dołożyć jawny model obwiedni LPC/cepstralnej albo zbadać PSOLA z korekcją formantów.
 5. Dopiero po akceptacji QUALITY zoptymalizować analizę i zbudować minimalny AudioWorklet realtime z kontrolowanym lookahead; zmierzyć Chrome/Edge oraz telefon.
 6. Dopiero po tych testach zaprojektować parametry projektu, lifecycle workleta, migrację schematu i UI. Master pozostaje wykluczony.
+
+### Aktualny stan kryteriów akceptacji
+
+| Kryterium | Stan |
+|---|---|
+| Działanie na prawdziwym monofonicznym wokalu | Niepotwierdzone |
+| Naturalna barwa przy średniej korekcji | Niepotwierdzone; brak pełnej ochrony formantów |
+| Charakter Auto-Tune przy szybkim SPEED | Niepotwierdzone odsłuchem |
+| Brak błędów oktawowych i note chatter | Potwierdzone tylko na ograniczonych sygnałach syntetycznych |
+| Spółgłoski, oddechy i vocal fry | Nieprzetestowane na prawdziwym materiale |
+| Zachowanie vibrato | Potwierdzone tylko na harmonicznym proxy |
+| Zachowanie czasu trwania | Potwierdzone automatycznie |
+| Brak blokowania UI | Zapewnione przez Web Worker dla workflow QUALITY |
+| Stabilność i koszt mobilny | Nieprzetestowane |
+| Persistence, render SONG i realtime | Niezaimplementowane |
+| Neutralny bypass | Potwierdzony automatycznie dla GRAVITY 0 |
+| Użyteczność w gotowym bicie | Niepotwierdzona |
+
+Główne ryzyka pozostają niezmienione: potencjalne błędy oktawowe detektora, niestabilne pitch marks na trudnym materiale, przesunięcie tożsamości formantowej, niszczenie prawdziwych spółgłosek lub oddechów oraz nieznany koszt na telefonie.
+
+## Manual Pitch Correction — future architecture
+
+Manualne dostrajanie jest wymaganiem docelowym, ale nie należy do obecnego etapu. Przyszły Tune Gravity powinien przechowywać dane analizy niezależnie od Reacta i umożliwiać:
+
+- automatyczną analizę F0 wraz z confidence,
+- zapis pełnego, wersjonowanego toru pitchu,
+- segmentację materiału na edytowalne regiony lub nuty,
+- zmianę docelowej nuty dla pojedynczego regionu,
+- drobną korektę docelowego pitchu w centach,
+- zmianę siły korekcji dla pojedynczego regionu,
+- wyłączenie korekcji dla wybranego fragmentu,
+- ponowny render zawsze z oryginalnego audio.
+
+Manualne poprawki mają modyfikować docelowy tor korekcji i jego parametry, nie wielokrotnie przetwarzać już wyrenderowany WAV. Format diagnostyczny powinien zachować źródłowe F0, confidence, voiced/unvoiced, cele automatyczne i stabilne identyfikatory regionów, aby późniejszy edytor nie wymagał przebudowy analizatora.
 
 ## Uczciwa ocena
 

@@ -1,0 +1,51 @@
+{
+  "format": "station-tune-gravity-corpus-manifest",
+  "version": 1,
+  "description": "Copy this file to TUNE_GRAVITY_CORPUS_MANIFEST.local.json and replace the example with legally supplied recordings.",
+  "allowedCategories": [
+    "low-male",
+    "high-male",
+    "female",
+    "melodic-rap",
+    "adlib",
+    "sustained-note",
+    "vibrato",
+    "glissando",
+    "consonants-breaths",
+    "moderate-noise",
+    "vocal-fry"
+  ],
+  "samples": [
+    {
+      "id": "replace-with-anonymous-id",
+      "relativePath": "low-male/replace-with-licensed-sample.wav",
+      "category": "low-male",
+      "description": "Short monophonic phrase with a stable note and one transition.",
+      "approximateVoiceRange": {
+        "lowestNote": "A2",
+        "highestNote": "E4"
+      },
+      "sampleRate": 48000,
+      "durationSeconds": 8.5,
+      "projectKey": "A",
+      "projectScale": "naturalMinor",
+      "license": {
+        "status": "owner-supplied",
+        "source": "Describe who supplied or recorded the sample.",
+        "repositoryUseAllowed": false,
+        "notes": "Keep the audio local unless explicit repository permission is documented."
+      },
+      "difficultSections": [
+        {
+          "startSeconds": 2.1,
+          "endSeconds": 2.8,
+          "description": "Breathy consonant before a pitch transition."
+        }
+      ],
+      "expectedDiagnosticProblems": [
+        "low-confidence",
+        "possible-octave-error"
+      ]
+    }
+  ]
+}

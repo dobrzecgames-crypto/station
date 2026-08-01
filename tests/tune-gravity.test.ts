@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { analyzePitch, completeTuneGravityBlindSession, createDefaultTuneGravityRatings, createOriginalComparisonAudio, createTuneGravityBlindSession, createTuneGravityDiagnosticDocument, createCorrectionPlan, detectTuneGravityProblems, exportTuneGravityListeningTest, midiToFrequency, processTuneGravityOffline, revealTuneGravityBlindMapping, saveTuneGravityBlindEvaluation, tuneGravityDiagnosticFormatVersion } from '../src/audio/tuneGravity/index.ts'
+import { analyzePitch, completeTuneGravityBlindSession, createDefaultTuneGravityRatings, createOriginalComparisonAudio, createTuneGravityBenchmarkDocument, createTuneGravityBlindSession, createTuneGravityDiagnosticDocument, createCorrectionPlan, detectTuneGravityProblems, exportTuneGravityListeningTest, midiToFrequency, processTuneGravityOffline, revealTuneGravityBlindMapping, saveTuneGravityBlindEvaluation, tuneGravityBenchmarkFormatVersion, tuneGravityDiagnosticFormatVersion } from '../src/audio/tuneGravity/index.ts'
 import type { PitchFrame, TuneGravityDiagnosticFrame } from '../src/audio/tuneGravity/index.ts'
 
 const sampleRate = 48000
@@ -190,6 +190,30 @@ test('ORIGINAL comparison audio is a bit-neutral independent copy', () => {
   const original = createOriginalComparisonAudio(input)
   assert.deepEqual(original, input)
   assert.notEqual(original.buffer, input.buffer)
+})
+
+test('QUALITY benchmark export is versioned and reports processing ratio and lifecycle', () => {
+  const report = createTuneGravityBenchmarkDocument({
+    anonymousSourceId: 'tg-benchmark',
+    sampleRate: 48000,
+    durationSeconds: 2,
+    sampleCount: 96000,
+    projectKey: { root: 'G', scale: 'mixolydian' },
+    parameters: { gravity: 0.7, speed: 0.4, humanize: 0.6 },
+    timings: { yinMs: 400, mpmMs: 500, tdPsolaMs: 200, granularMs: 180, totalMs: 1400 },
+    browserLabel: 'Test Browser',
+    userAgent: 'station-test-agent',
+    backgroundedDuringRun: true,
+    measuredHeapBeforeBytes: 1000,
+    measuredHeapAfterBytes: 2000,
+    createdAt: '2026-08-01T00:00:00.000Z',
+  })
+  assert.equal(report.version, tuneGravityBenchmarkFormatVersion)
+  assert.equal(report.processingToAudioRatio, 0.7)
+  assert.equal(report.lifecycle.backgroundedDuringRun, true)
+  assert.equal(report.lifecycle.interrupted, false)
+  assert.equal(report.memory.measuredHeapAfterBytes, 2000)
+  assert.ok(report.memory.estimatedWorkingSetBytes > 0)
 })
 
 function pitchFrame(index: number, midi: number): PitchFrame {

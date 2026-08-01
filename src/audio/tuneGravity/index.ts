@@ -101,6 +101,8 @@ export {
   tuneGravityProblemFlags,
   tuneGravityRatingKeys,
 } from './listeningTest.ts'
+export { createTuneGravityBenchmarkDocument, detectTuneGravityBrowserLabel, tuneGravityBenchmarkFormatVersion } from './benchmark.ts'
+export type { CreateTuneGravityBenchmarkOptions, TuneGravityBenchmarkDocument, TuneGravityBenchmarkTimings } from './benchmark.ts'
 export type {
   TuneGravityBlindEvaluation,
   TuneGravityBlindLabel,

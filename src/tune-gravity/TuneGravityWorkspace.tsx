@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import type { AudioEngine } from '../audio/AudioEngine.ts'
-import { comparisonVariantForBlindLabel, createAnonymousTuneGravitySourceId, createOriginalComparisonAudio, createTuneGravityBlindSession } from '../audio/tuneGravity/index.ts'
-import type { PitchDetectorKind, TuneGravityBlindLabel, TuneGravityBlindSession, TuneGravityComparisonVariantId, TuneGravityDiagnosticDocument, TuneGravityShifter } from '../audio/tuneGravity/index.ts'
+import { comparisonVariantForBlindLabel, createAnonymousTuneGravitySourceId, createOriginalComparisonAudio, createTuneGravityBenchmarkDocument, createTuneGravityBlindSession, detectTuneGravityBrowserLabel } from '../audio/tuneGravity/index.ts'
+import type { PitchDetectorKind, TuneGravityBenchmarkDocument, TuneGravityBlindLabel, TuneGravityBlindSession, TuneGravityComparisonVariantId, TuneGravityDiagnosticDocument, TuneGravityShifter } from '../audio/tuneGravity/index.ts'
 import { formatProjectKey } from '../music/scales.ts'
 import type { ProjectKey } from '../music/scales.ts'
 import { ProjectKeyPanel } from '../project/ProjectKeyPanel.tsx'
 import type { TuneGravityWorkerDiagnostics, TuneGravityWorkerResponse } from './tuneGravityWorkerProtocol.ts'
 import { TuneGravityDiagnosticPanel } from './TuneGravityDiagnosticPanel.tsx'
 import { TuneGravityBlindTestPanel } from './TuneGravityBlindTestPanel.tsx'
+import { TuneGravityBenchmarkPanel } from './TuneGravityBenchmarkPanel.tsx'
+import type { TuneGravityBenchmarkWorkerResponse } from './tuneGravityBenchmarkWorkerProtocol.ts'
 import './TuneGravityWorkspace.css'
 
 const maximumTuneGravitySeconds = 30
@@ -49,6 +51,8 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
   const [diagnostics, setDiagnostics] = useState<TuneGravityWorkerDiagnostics | null>(null)
   const [diagnosticReport, setDiagnosticReport] = useState<TuneGravityDiagnosticDocument | null>(null)
   const [blindSession, setBlindSession] = useState<TuneGravityBlindSession | null>(null)
+  const [benchmarking, setBenchmarking] = useState(false)
+  const [benchmarkReport, setBenchmarkReport] = useState<TuneGravityBenchmarkDocument | null>(null)
   const [message, setMessage] = useState('Load a short mono vocal or record one with the microphone.')
   const workerRef = useRef<Worker | null>(null)
   const jobIdRef = useRef(0)
@@ -60,6 +64,7 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
     setDiagnostics(null)
     setDiagnosticReport(null)
     setBlindSession(null)
+    setBenchmarkReport(null)
     setAuditioning(null)
     audioEngine.stopPreview()
   }, [audioEngine, gravity, speed, humanize, projectKey.root, projectKey.scale])
@@ -82,6 +87,7 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
     setDiagnostics(null)
     setDiagnosticReport(null)
     setBlindSession(null)
+    setBenchmarkReport(null)
     setMessage(`${filename} ready • ${decoded.durationSeconds.toFixed(1)} sec • ${decoded.sourceChannelCount === 1 ? 'MONO' : `${decoded.sourceChannelCount}CH → MONO`}`)
   }
 
@@ -249,7 +255,96 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
     downloadJson(diagnosticReport, source.filename.replace(/\.wav$/i, '') + '-TUNE-DIAGNOSTICS.json')
   }
 
-  const busy = loading || processing || recording
+  const runBenchmark = async () => {
+    if (!source || benchmarking) return
+    setBenchmarking(true)
+    setBenchmarkReport(null)
+    setMessage('Running QUALITY benchmark. Keep this tab visible until it finishes.')
+    let backgroundedDuringRun = document.hidden
+    const markBackgrounded = () => { if (document.hidden) backgroundedDuringRun = true }
+    document.addEventListener('visibilitychange', markBackgrounded)
+    const measuredHeapBeforeBytes = readMeasuredHeapBytes()
+    try {
+      const timings = await runBenchmarkWorker()
+      const report = createTuneGravityBenchmarkDocument({
+        anonymousSourceId: source.anonymousId,
+        sampleRate: source.sampleRate,
+        durationSeconds: source.durationSeconds,
+        sampleCount: source.samples.length,
+        projectKey,
+        parameters: { gravity, speed, humanize },
+        timings,
+        browserLabel: detectTuneGravityBrowserLabel(navigator.userAgent),
+        userAgent: navigator.userAgent,
+        backgroundedDuringRun,
+        measuredHeapBeforeBytes,
+        measuredHeapAfterBytes: readMeasuredHeapBytes(),
+      })
+      setBenchmarkReport(report)
+      setMessage(`QUALITY benchmark complete: ${report.processingToAudioRatio?.toFixed(2) ?? '—'}× audio duration.`)
+    } catch (error) {
+      const errorMessage = toMessage(error)
+      setBenchmarkReport(createTuneGravityBenchmarkDocument({
+        anonymousSourceId: source.anonymousId,
+        sampleRate: source.sampleRate,
+        durationSeconds: source.durationSeconds,
+        sampleCount: source.samples.length,
+        projectKey,
+        parameters: { gravity, speed, humanize },
+        timings: { yinMs: null, mpmMs: null, tdPsolaMs: null, granularMs: null, totalMs: null },
+        browserLabel: detectTuneGravityBrowserLabel(navigator.userAgent),
+        userAgent: navigator.userAgent,
+        backgroundedDuringRun,
+        interrupted: true,
+        error: errorMessage,
+        measuredHeapBeforeBytes,
+        measuredHeapAfterBytes: readMeasuredHeapBytes(),
+      }))
+      setMessage(errorMessage)
+    } finally {
+      document.removeEventListener('visibilitychange', markBackgrounded)
+      workerRef.current?.terminate()
+      workerRef.current = null
+      setBenchmarking(false)
+    }
+  }
+
+  const runBenchmarkWorker = (): Promise<{ yinMs: number; mpmMs: number; tdPsolaMs: number; granularMs: number; totalMs: number }> => {
+    if (!source) return Promise.reject(new Error('Load a vocal before benchmarking.'))
+    workerRef.current?.terminate()
+    const worker = new Worker(new URL('./tuneGravityBenchmarkWorker.ts', import.meta.url), { type: 'module' })
+    const jobId = jobIdRef.current + 1
+    jobIdRef.current = jobId
+    workerRef.current = worker
+    return new Promise((resolve, reject) => {
+      worker.onmessage = (event: MessageEvent<TuneGravityBenchmarkWorkerResponse>) => {
+        if (event.data.jobId !== jobId) return
+        worker.terminate()
+        workerRef.current = null
+        if (event.data.ok) resolve(event.data.timings)
+        else reject(new Error(event.data.message))
+      }
+      worker.onerror = () => {
+        worker.terminate()
+        workerRef.current = null
+        reject(new Error('Tune Gravity benchmark worker failed.'))
+      }
+      const samples = new Float32Array(source.samples)
+      worker.postMessage({ jobId, samples: samples.buffer, sampleRate: source.sampleRate, projectKey, parameters: { gravity, speed, humanize } }, [samples.buffer])
+    })
+  }
+
+  const copyBenchmark = async () => {
+    if (!benchmarkReport) return
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(benchmarkReport, null, 2))
+      setMessage('Benchmark JSON copied to clipboard.')
+    } catch {
+      setMessage('Clipboard access was denied. Use EXPORT BENCHMARK JSON instead.')
+    }
+  }
+
+  const busy = loading || processing || recording || benchmarking
   const blindComplete = blindSession?.completedAt !== null && blindSession !== null
   return <section className="tune-gravity-workspace" aria-labelledby="tune-gravity-title">
     <header className="tune-gravity-heading">
@@ -312,6 +407,14 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
       <button className="clear-button tune-gravity-download" type="button" disabled={!comparisonAudio['yin-td-psola'] || busy} onClick={downloadTuned}>DOWNLOAD YIN + TD-PSOLA WAV</button>
       <button className="clear-button tune-gravity-download" type="button" disabled={!diagnosticReport || busy} onClick={downloadDiagnostics}>EXPORT DIAGNOSTIC JSON</button>
     </div>}
+    {source && <TuneGravityBenchmarkPanel
+      report={benchmarkReport}
+      running={benchmarking}
+      disabled={loading || processing || recording}
+      onRun={() => void runBenchmark()}
+      onCopy={() => void copyBenchmark()}
+      onExport={() => { if (benchmarkReport) downloadJson(benchmarkReport, `${source.anonymousId}-QUALITY-BENCHMARK.json`) }}
+    />}
     <p className="tune-gravity-warning">Listen for metallic tone, wrong octave jumps, damaged consonants and changed vocal identity. This test does not mark the effect as finished.</p>
   </section>
 }
@@ -369,4 +472,9 @@ function downloadJson(value: unknown, filename: string): void {
   link.download = filename
   link.click()
   URL.revokeObjectURL(url)
+}
+
+function readMeasuredHeapBytes(): number | null {
+  const memory = (performance as Performance & { memory?: { usedJSHeapSize?: number } }).memory
+  return typeof memory?.usedJSHeapSize === 'number' ? memory.usedJSHeapSize : null
 }

@@ -4,7 +4,7 @@ Station is a desktop-browser sampler groovebox for turning audio samples into pl
 
 ## Current status
 
-The repository contains a playable 16-track sequencer with Pattern Groups A–D and a Pattern Playlist / Song Mode, Basic Pump and mixer foundations, non-destructive sample regions, the Unified Chop Workspace, MONO-3 pad synthesis, STRINGS pad synthesis, local persistence, offline SONG rendering, and Project Key + Scale Map. Browser audio lifecycle and listening acceptance still require testing in current Chrome and Edge on Windows.
+The repository contains a playable 16-track sequencer with Pattern Groups A–D and a Pattern Playlist / Song Mode, Basic Pump and mixer foundations, non-destructive sample regions, the Unified Chop Workspace, MONO-3 pad synthesis, STRINGS pad synthesis, local persistence, offline SONG rendering, current-pattern RESAMPLE V1, and Project Key + Scale Map. Browser audio lifecycle and listening acceptance still require testing in current Chrome and Edge on Windows.
 
 ## Product principles
 
@@ -87,6 +87,8 @@ In **SEQ**, each active step has a manual **VELOCITY** value (0–100%) and a pe
 **SYNTH** sits between PADS and SEQ. Select a pad, create a MONO-3 source, then shape its two oscillators, sub oscillator, 24 dB low-pass filter, amp/filter envelopes, tempo-synced filter LFO, drive, glide and sequencer gate. MONO uses last-note priority and glide; POLY 5 plays a per-pad chord of up to five notes. Scale Map shares one Pattern Group patch across later pads while keeping their mixer, pattern, Pump and FX state independent. Pointer and computer-keyboard releases send note-off for synth pads; sample pads remain one-shots.
 
 **STRINGS** sits next to SYNTH and is a deliberately different-sounding instrument: a wide, slow, polyphonic analog string-machine pad, not a MONO-3 clone with different defaults. Each voice is two detuned sawtooths through a single gentle low-pass (BRIGHTNESS) and an amp envelope (ATTACK/RELEASE); ENSEMBLE runs the voice through a per-pad two-line modulated-delay chorus fed by free-running (not tempo-synced) engine-wide LFOs, and VIBRATO adds a shared, delayed-onset pitch wobble. STRINGS is always polyphonic (up to 8 voices per patch, no MONO mode), steals the oldest already-releasing voice before an oldest-sounding one, and force-releases a duplicate note before restacking it. Six presets (WARM STRINGS, SLOW ORCHESTRA, DISCO STRINGS, DARK PAD, SYNTH BRASS, SOFT CHOIR) apply parameter values on the same engine. A pad's source is one of sample, MONO-3 or STRINGS, never more than one at a time.
+
+**RESAMPLE** opens from MIX and renders the current Pattern Group variant offline as MASTER or SELECTED PAD for 1, 2 or 4 loops. CAPTURE TAIL can stop exactly on the loop boundary or retain a bounded effects/release tail. The ready WAV can be armed for a confirmed pad placement, opened directly as the current CHOP source or downloaded without a second render. RESAMPLE uses the same offline AudioEngine/StepSequencer path as SONG export and adds no realtime recording, normalisation or limiter.
 
 **PROJECT KEY** sets a global root and scale for future mappings. In PAD view, select a loaded pad and use **MAP TO PROJECT SCALE** to fill that pad through PAD 16 with the same asset and playback region at consecutive scale degrees. The selected pad is degree zero; map targets retain their own patterns, mute/solo state and Pump settings. Mapping never wraps to PAD 01, does not retune earlier mappings after a key change, and asks once before replacing occupied target pads.
 

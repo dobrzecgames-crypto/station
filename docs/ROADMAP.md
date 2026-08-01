@@ -8,6 +8,7 @@
 - The approved M9 Chop foundation was implemented early; equal and transient-detection auto-chop are now implemented too, with listening/UX acceptance pending.
 - The current approved task is Pattern Groups A–D + Pattern Playlist / Song Mode. It is implemented locally; acceptance, listening and Chrome/Edge validation remain pending.
 - WAV export of the SONG playlist was approved and implemented outside the milestone sequence (see `DECISIONS.md` DEC-021). Listening acceptance and Android/Chrome/Edge validation are pending.
+- M10 RESAMPLE V1 is implemented (see `DECISIONS.md` DEC-026); Chrome/Edge listening, mobile layout and lower-spec performance acceptance remain pending.
 
 ## M0 — Project Definition
 
@@ -209,12 +210,11 @@ Exit criteria:
 
 ### M10 — Resampling
 
-- capture master and selected tracks,
-- create a new SampleAsset,
-- assign result to a pad or send to Chop,
-- preserve a clear resample history.
-- The offline render machinery already exists (see `DECISIONS.md` DEC-021): `renderSongToBuffer` returns an audio buffer and `encodeWav` turns one into a WAV blob, which is the format `loadSampleBlob` accepts. Resampling reuses both and differs only in where the result goes — back to a pad instead of out to a file.
+- V1 is implemented for the current Pattern Group variant: MASTER or SELECTED PAD, 1/2/4 continuous loops and bounded CAPTURE TAIL OFF/ON.
+- The result is one ordinary SampleAsset that can be assigned through the confirmed pad-placement flow, opened as the current Unified Chop Workspace source, or downloaded from the same encoded WAV Blob.
+- The offline render machinery is shared with SONG export (see `DECISIONS.md` DEC-021 and DEC-026): both use one render `AudioEngine`, `StepSequencer`, render-clock ticker, state registration and WAV encoder; arrangement and tail policy remain thin caller-owned differences.
 - DRUM SYNTH (see `DECISIONS.md` DEC-024) shipped ahead of this milestone as a sibling of the same render-to-buffer-then-assign shape: the source is on-the-fly kick synthesis instead of master/track capture, but "render, encode WAV, assign to a pad through `loadSampleBlob`" is the identical mechanism. M10 itself remains master/track capture, not synthesis.
+- Persistent generation history, free-range capture, Playlist resampling, stems, realtime/input recording and additional formats remain outside V1.
 
 ### M11 — Further pattern performance and scenes
 

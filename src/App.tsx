@@ -39,6 +39,10 @@ import type { PumpRoute } from './project/ProjectState'
 import { ProjectDisplayButton } from './project/ProjectDisplay'
 import { renderSongToBuffer } from './project/renderSong'
 import type { RenderSongResult } from './project/renderSong'
+import { renderPatternToBuffer } from './project/renderPattern'
+import type { ResampleLoopCount, ResampleSource } from './project/renderPattern'
+import { ResamplePanel } from './resample/ResamplePanel'
+import type { ResampleReadyState } from './resample/ResamplePanel'
 import { defaultProjectKey, formatProjectKey } from './music/scales'
 import type { ProjectKey } from './music/scales'
 import { findProjectScaleMapConflicts, mapPadBankToProjectScale } from './music/scaleMapping'
@@ -73,6 +77,8 @@ interface WaveformPlayback { assetId: SampleAssetId; startedAt: number; startSec
 interface SequencerPlayhead { stepIndex: number; startsAt: number; durationSeconds: number }
 /** Anchor for quantizing a live pad hit to the nearest step - refreshed every time step 0 of a loop is scheduled. */
 interface RecordingGrid { startsAt: number; stepDurationSeconds: number }
+interface ResampleResultState extends ResampleReadyState { blob: Blob }
+interface PendingResamplePlacement { blob: Blob; filename: string; durationSeconds: number }
 
 const emptySongPlaylistNotice = 'Add at least one Pattern Clip before playing SONG.'
 
@@ -113,7 +119,16 @@ export function App({ audioEngine }: AppProps) {
   const [activePadId, setActivePadId] = useState<PadState['id'] | null>(null)
   const [selectedLibrarySample, setSelectedLibrarySample] = useState<LibrarySample | null>(null)
   const [pendingDrumSound, setPendingDrumSound] = useState<{ blob: Blob; filename: string; durationSeconds: number; instrument: DrumInstrumentType } | null>(null)
+  const [pendingResample, setPendingResample] = useState<PendingResamplePlacement | null>(null)
   const [drumSoundRenderBusy, setDrumSoundRenderBusy] = useState(false)
+  const [resampleOpen, setResampleOpen] = useState(false)
+  const [resampleSource, setResampleSource] = useState<ResampleSource>('master')
+  const [resampleLoopCount, setResampleLoopCount] = useState<ResampleLoopCount>(1)
+  const [resampleCaptureTail, setResampleCaptureTail] = useState(false)
+  const [resampleBusy, setResampleBusy] = useState(false)
+  const [resampleProgress, setResampleProgress] = useState(0)
+  const [resampleResult, setResampleResult] = useState<ResampleResultState | null>(null)
+  const [resampleError, setResampleError] = useState<string>()
   const [errorMessage, setErrorMessage] = useState<string>()
   const [pendingConfirmation, setPendingConfirmation] = useState<PendingConfirmation>()
   const [bpm, setBpm] = useState(120)
@@ -481,6 +496,92 @@ export function App({ audioEngine }: AppProps) {
     setProjectMessage(trimmed ? `Rendered with a ${formatDb(gain)} trim.` : `Rendered 1:1, ${result.clippedSampleCount.toLocaleString()} samples clipped.`)
   }
 
+  const renderCurrentPattern = async () => {
+    if (resampleBusy || projectBusy || renderBusy) return
+    if (!audioReady) { setErrorMessage('Start audio before resampling.'); return }
+    const snapshot = createCurrentProjectState()
+    const source = resampleSource
+    const loopCount = resampleLoopCount
+    const captureTail = resampleCaptureTail
+    const groupId = selectedPatternGroupId
+    const padId = selectedPadId
+    const sourceLabel = source === 'master' ? 'MASTER' : selectedPad.label
+    const filename = createResampleFilename(snapshot.patternGroups, source, padId)
+    setResampleBusy(true)
+    setResampleProgress(0)
+    setResampleResult(null)
+    setResampleError(undefined)
+    setErrorMessage(undefined)
+    try {
+      const result = await renderPatternToBuffer({
+        state: snapshot,
+        liveEngine: audioEngine,
+        groupId,
+        variant: selectedPatternVariant,
+        source,
+        selectedPadId: padId,
+        loopCount,
+        captureTail,
+        onProgress: setResampleProgress,
+      })
+      const blob = encodeWav(result.buffer, {
+        startFrame: result.startFrame,
+        endFrame: result.endFrame,
+        fadeOutSeconds: captureTail ? 0.008 : 0,
+      })
+      setResampleResult({
+        blob,
+        filename,
+        source,
+        sourceLabel,
+        loopCount,
+        durationSeconds: result.durationSeconds,
+        peak: result.peak,
+        nearlySilent: result.peak < 0.00001,
+      })
+    } catch (error) {
+      const message = toMessage(error)
+      setResampleError(message)
+      setErrorMessage(message)
+    } finally {
+      setResampleBusy(false)
+      setResampleProgress(0)
+    }
+  }
+
+  const armResampleForPad = () => {
+    if (!resampleResult) return
+    setPendingResample({ blob: resampleResult.blob, filename: resampleResult.filename, durationSeconds: resampleResult.durationSeconds })
+    setSelectedLibrarySample(null)
+    setPendingDrumSound(null)
+    setResampleResult(null)
+    setResampleOpen(false)
+    enterMainView('pad')
+    setTransportNotice('Tap a pad to place the resample.')
+  }
+
+  const sendResampleToChop = async () => {
+    if (!resampleResult || resampleBusy) return
+    const result = resampleResult
+    setResampleBusy(true)
+    try {
+      const loaded = await loadChopSourceBlob(result.blob, result.filename)
+      if (!loaded) { setResampleError('Could not open the resample in CHOP.'); return }
+      setResampleResult(null)
+      setResampleOpen(false)
+      enterMainView('chop')
+      setProjectMessage(`${result.filename} opened in CHOP.`)
+    } finally {
+      setResampleBusy(false)
+    }
+  }
+
+  const downloadResample = () => {
+    if (!resampleResult) return
+    downloadBlob(resampleResult.blob, resampleResult.filename)
+    setProjectMessage(`${resampleResult.filename} downloaded.`)
+  }
+
   const openProject = async () => {
     if (projectBusy) return
     if (!audioReady) { setErrorMessage('Start audio before opening a project.'); return }
@@ -492,6 +593,9 @@ export function App({ audioEngine }: AppProps) {
     setSourcePreviewing(false)
     setPreviewingLibrarySampleId(null)
     setWaveformPlayback(null)
+    setPendingResample(null)
+    setResampleResult(null)
+    setResampleOpen(false)
     try {
       const loadedProject = await projectRepository.loadLastProject()
       const nextWaveforms: Record<string, number[]> = {}
@@ -692,6 +796,7 @@ export function App({ audioEngine }: AppProps) {
         ? await renderKickToBuffer(drumSynth.kick, audioEngine.getSampleRate())
         : await renderSnareToBuffer(drumSynth.snare, audioEngine.getSampleRate())
       setPendingDrumSound({ blob: encodeWav(buffer), filename: instrument === 'kick' ? 'KICK.wav' : 'SNARE.wav', durationSeconds: buffer.duration, instrument })
+      setPendingResample(null)
       setSelectedLibrarySample(null)
       enterMainView('pad')
       setTransportNotice(`Tap a pad to place the ${instrument}.`)
@@ -737,9 +842,45 @@ export function App({ audioEngine }: AppProps) {
     }
   }
 
+  const dropResampleOnPad = async (targetPadId: PadState['id'], confirmed = false): Promise<boolean> => {
+    if (!audioReady || projectBusy) return false
+    const result = pendingResample
+    if (!result) return false
+    const targetPad = pads.find((pad) => pad.id === targetPadId)
+    if (!targetPad) return false
+    if ((targetPad.assetId || targetPad.synthPatchId || targetPad.stringsPatchId) && !confirmed) {
+      requestConfirmation(`Replace the sound on ${targetPad.label} with ${result.filename}?`, 'REPLACE', () => { void dropResampleOnPad(targetPadId, true) })
+      return false
+    }
+    setErrorMessage(undefined)
+    try {
+      const assetId = createAssetId(`resample-${targetPad.id}`)
+      const loadedSample = await audioEngine.loadSampleBlob(assetId, result.blob, result.filename)
+      const waveform = audioEngine.getWaveformPeaks(assetId) ?? []
+      const previousAssetId = targetPad.assetId
+      const bank = { ...selectedGroup.bank, pads: pads.map((pad) => pad.id === targetPad.id ? { ...pad, assetId, fileName: loadedSample.filename, durationSeconds: loadedSample.durationSeconds, region: { startSeconds: 0, endSeconds: loadedSample.durationSeconds }, slices: [], chopSessionId: null, synthPatchId: null, stringsPatchId: null, chordIntervals: [0] } : pad) }
+      const groups = patternGroups.map((group) => group.id === selectedPatternGroupId ? removeUnreferencedStringsPatches(removeUnreferencedSynthPatches({ ...group, bank })) : group)
+      setPatternGroups(groups)
+      setSelectedPadId(targetPad.id)
+      setWaveforms((current) => ({ ...current, [assetId]: waveform }))
+      const channelId = createChannelId({ patternGroupId: selectedPatternGroupId, padId: targetPad.id })
+      audioEngine.setChannelVolume(selectedPatternGroupId, channelId, targetPad.volume)
+      audioEngine.setChannelMuted(selectedPatternGroupId, channelId, targetPad.muted)
+      audioEngine.setChannelSolo(selectedPatternGroupId, channelId, targetPad.solo)
+      removeAssetIfUnused(previousAssetId, groups)
+      setPendingResample(null)
+      setProjectMessage(`${result.filename} placed on ${targetPad.label}.`)
+      return true
+    } catch (error) {
+      setErrorMessage(toMessage(error))
+      return false
+    }
+  }
+
   const dropArmedItemOnPad = (padId: PadState['id']) => {
     if (selectedLibrarySample) dropLibrarySampleOnPad(padId)
     else if (pendingDrumSound) void dropDrumSoundOnPad(padId)
+    else if (pendingResample) void dropResampleOnPad(padId)
   }
 
   const previewLibrarySample = async (sample: LibrarySample) => {
@@ -872,7 +1013,11 @@ export function App({ audioEngine }: AppProps) {
       setWaveforms((current) => ({ ...current, [assetId]: waveform }))
       setChopAddingSlice(false)
       removeAssetIfUnused(oldAssetId, groups)
-    } catch (error) { setErrorMessage(toMessage(error)) }
+      return true
+    } catch (error) {
+      setErrorMessage(toMessage(error))
+      return false
+    }
   }
 
   const loadChopSource = (event: ChangeEvent<HTMLInputElement>) => {
@@ -1362,7 +1507,7 @@ export function App({ audioEngine }: AppProps) {
                 selectedLibrarySample={selectedLibrarySample}
                 onUpdate={updateSelectedPad}
                 onPreviewLibrarySample={previewLibrarySample}
-                onSelectedLibrarySampleChange={(sample) => { setSelectedLibrarySample(sample); setPendingDrumSound(null) }}
+                onSelectedLibrarySampleChange={(sample) => { setSelectedLibrarySample(sample); setPendingDrumSound(null); setPendingResample(null) }}
                 onMapToProjectScale={mapSelectedPadToProjectScale}
                 onEditSample={() => setSampleEditorOpen(true)}
                 onClear={clearSelectedPad}
@@ -1374,7 +1519,7 @@ export function App({ audioEngine }: AppProps) {
                     selectedPadId={selectedPadId}
                     activePadId={activePadId}
                     audioReady={audioReady}
-                    dropSampleName={selectedLibrarySample?.filename ?? pendingDrumSound?.filename ?? null}
+                    dropSampleName={selectedLibrarySample?.filename ?? pendingDrumSound?.filename ?? pendingResample?.filename ?? null}
                     onTrigger={triggerPad}
                     onRelease={releasePad}
                     onDropSample={dropArmedItemOnPad}
@@ -1495,6 +1640,27 @@ export function App({ audioEngine }: AppProps) {
           )}
           {mainView === "mix" && (
             <>
+              <button className="resample-entry" type="button" disabled={!audioReady || projectBusy || renderBusy} onClick={() => setResampleOpen(true)}>RESAMPLE</button>
+              {resampleOpen && (
+                <ResamplePanel
+                  source={resampleSource}
+                  loopCount={resampleLoopCount}
+                  captureTail={resampleCaptureTail}
+                  selectedPadLabel={selectedPad.label}
+                  busy={resampleBusy}
+                  progress={resampleProgress}
+                  ready={resampleResult}
+                  error={resampleError}
+                  onSourceChange={(source) => { setResampleSource(source); setResampleResult(null); setResampleError(undefined) }}
+                  onLoopCountChange={(loopCount) => { setResampleLoopCount(loopCount); setResampleResult(null); setResampleError(undefined) }}
+                  onCaptureTailChange={(captureTail) => { setResampleCaptureTail(captureTail); setResampleResult(null); setResampleError(undefined) }}
+                  onRender={() => void renderCurrentPattern()}
+                  onAddToPad={armResampleForPad}
+                  onSendToChop={() => void sendResampleToChop()}
+                  onDownload={downloadResample}
+                  onClose={() => setResampleOpen(false)}
+                />
+              )}
               {/* First thing in MIX, ahead of the channel rails, so the entry
                   point into Pump's routes is never something you have to
                   scroll to find. */}
@@ -1600,6 +1766,20 @@ function createRenderFilename(bpm: number): string {
   const stamp = [now.getFullYear(), now.getMonth() + 1, now.getDate()].map((part, index) => String(part).padStart(index === 0 ? 4 : 2, '0')).join('')
   const time = [now.getHours(), now.getMinutes()].map((part) => String(part).padStart(2, '0')).join('')
   return `station-${stamp}-${time}-${Math.round(bpm)}bpm.wav`
+}
+function createResampleFilename(groups: readonly PatternGroup[], source: ResampleSource, padId: string): string {
+  const padNumber = padId.match(/(\d+)$/)?.[1]?.padStart(2, '0') ?? '00'
+  const base = source === 'master' ? 'RESAMPLE_MASTER' : `RESAMPLE_PAD_${padNumber}`
+  const names = groups.flatMap((group) => [
+    ...group.bank.pads.flatMap((pad) => pad.fileName ? [pad.fileName] : []),
+    ...(group.bank.chopSession.fileName ? [group.bank.chopSession.fileName] : []),
+  ])
+  let highest = 0
+  for (const name of names) {
+    const match = name.match(new RegExp(`^${base}_(\\d+)\\.wav$`, 'i'))
+    if (match) highest = Math.max(highest, Number(match[1]))
+  }
+  return `${base}_${highest + 1}.wav`
 }
 function formatRenderDuration(seconds: number): string {
   const whole = Math.round(seconds)

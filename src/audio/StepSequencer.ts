@@ -18,6 +18,8 @@ export interface StepSequencerConfig {
 interface StepSequencerTrackBase {
   groupId: GroupId
   channelId: ChannelId
+  /** Fires routing-side control events without creating an audible voice. */
+  controlOnly?: boolean
   steps: readonly number[]
   shifts: readonly number[]
   /** Whole steps per index; 0 means unbounded and only applies to a sample track. */
@@ -129,7 +131,9 @@ export class StepSequencer {
         return [{ track, velocity, length, when: scheduledTime + shift * stepDuration }]
       })
       for (const { track, velocity, length, when } of activeTracks.sort((left, right) => left.when - right.when)) {
-        if (track.source === 'sample') {
+        if (track.controlOnly) {
+          this.audioEngine.schedulePumpControl(track.channelId, when)
+        } else if (track.source === 'sample') {
           if (track.chokeGroupId) this.audioEngine.stopSequencerChokeGroupAt(track.chokeGroupId, when)
           const maxDurationSeconds = length > 0 ? length * stepDuration : undefined
           this.audioEngine.scheduleSample(track.groupId, track.channelId, track.assetId, when, { ...track.options, gain: (track.options.gain ?? 1) * velocity, chokeGroupId: track.chokeGroupId, maxDurationSeconds }, 'sequencer')

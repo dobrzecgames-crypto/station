@@ -6,6 +6,10 @@ const pcmFormatTag = 1
 export interface WavEncodeOptions {
   /** Skips leading frames, used to drop a render's silent processing latency. */
   startFrame?: number
+  /** Stops before this source-buffer frame. Omitted means the buffer end. */
+  endFrame?: number
+  /** Applies a short linear fade while writing the final frames. */
+  fadeOutSeconds?: number
   /**
    * Linear scale applied while quantising. A render that passed full scale is
    * brought under it by one multiplication — no dynamics, no colour, and no
@@ -20,10 +24,12 @@ export interface WavEncodeOptions {
  * and effects, quantisation noise sits near -96 dBFS, and half-size files
  * matter on a phone. See `docs/DECISIONS.md`.
  */
-export function encodeWav(buffer: AudioBuffer, { startFrame = 0, gain = 1 }: WavEncodeOptions = {}): Blob {
+export function encodeWav(buffer: AudioBuffer, { startFrame = 0, endFrame = buffer.length, fadeOutSeconds = 0, gain = 1 }: WavEncodeOptions = {}): Blob {
   const channelCount = buffer.numberOfChannels
   const firstFrame = Math.min(Math.max(0, Math.floor(startFrame)), buffer.length)
-  const frameCount = buffer.length - firstFrame
+  const lastFrame = Math.min(buffer.length, Math.max(firstFrame, Math.floor(endFrame)))
+  const frameCount = lastFrame - firstFrame
+  const fadeFrames = Math.min(frameCount, Math.max(0, Math.round(fadeOutSeconds * buffer.sampleRate)))
   const dataBytes = frameCount * channelCount * bytesPerSample
   const arrayBuffer = new ArrayBuffer(headerBytes + dataBytes)
   const view = new DataView(arrayBuffer)
@@ -44,9 +50,13 @@ export function encodeWav(buffer: AudioBuffer, { startFrame = 0, gain = 1 }: Wav
 
   const channels = Array.from({ length: channelCount }, (_unused, index) => buffer.getChannelData(index))
   let offset = headerBytes
-  for (let frame = firstFrame; frame < buffer.length; frame += 1) {
+  for (let frame = firstFrame; frame < lastFrame; frame += 1) {
+    const relativeFrame = frame - firstFrame
+    const fadeGain = fadeFrames > 0 && relativeFrame >= frameCount - fadeFrames
+      ? Math.max(0, (frameCount - 1 - relativeFrame) / fadeFrames)
+      : 1
     for (const channel of channels) {
-      view.setInt16(offset, toPcm16(channel[frame] * gain), true)
+      view.setInt16(offset, toPcm16(channel[frame] * gain * fadeGain), true)
       offset += bytesPerSample
     }
   }

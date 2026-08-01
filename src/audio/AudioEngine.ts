@@ -662,6 +662,16 @@ export class AudioEngine {
     }
   }
 
+  /**
+   * Schedules only the routing event associated with a pad trigger. Resampling
+   * uses this for inaudible source tracks that must still drive PUMP while one
+   * explicitly selected pad is isolated.
+   */
+  schedulePumpControl(channelId: ChannelId, when: number): void {
+    if (this.status !== 'ready' || !this.context) return
+    this.triggerPumpRoutesForChannel(channelId, Math.max(this.context.currentTime, when))
+  }
+
   previewAsset(assetId: SampleAssetId, options: TriggerSampleOptions = {}, onEnded?: () => void): void {
     const sampleBuffer = this.samples.get(assetId)
     if (this.status !== 'ready' || !this.context || !this.masterEffects || !sampleBuffer) return

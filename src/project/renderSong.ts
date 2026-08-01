@@ -1,11 +1,10 @@
-import { AudioEngine } from '../audio/AudioEngine'
-import { createChannelId } from '../audio/channelIdentity'
+import type { AudioEngine } from '../audio/AudioEngine'
 import { getDelayTimeSeconds } from '../audio/effects'
 import type { EffectRackState } from '../audio/effects'
-import { StepSequencer } from '../audio/StepSequencer'
-import type { SequencerTicker, StepSequencerConfig } from '../audio/StepSequencer'
 import { getLastOccupiedSlot } from '../song/songOperations'
 import { getSongTracksForSlot } from '../song/songTracks'
+import { renderOffline } from './offlineRender'
+import type { OfflineRenderResult } from './offlineRender'
 import type { ProjectState } from './ProjectState'
 
 export interface RenderSongOptions {
@@ -16,23 +15,11 @@ export interface RenderSongOptions {
   signal?: AbortSignal
 }
 
-export interface RenderSongResult {
-  buffer: AudioBuffer
-  /** Where the music starts. Earlier frames are silent processing latency. */
-  startFrame: number
-  /** Linear peak of the render. Above one means the file will clip. */
-  peak: number
-  clippedSampleCount: number
-}
+export type RenderSongResult = OfflineRenderResult
 
-const renderChannelCount = 2
-const renderLookAheadSeconds = 0.1
-const renderStepSeconds = 0.05
-const renderQuantumFrames = 128
 const maximumTailSeconds = 12
 const tailSafetySeconds = 0.25
 const maximumRenderSeconds = 10 * 60
-const maximumPrerollSeconds = 0.05
 
 /**
  * Renders the SONG playlist to an audio buffer, faster than real time.
@@ -48,171 +35,27 @@ export async function renderSongToBuffer({ state, liveEngine, onProgress, signal
   const lastSlot = getLastOccupiedSlot(state.playlist)
   if (lastSlot === null) throw new Error('Add at least one Pattern Clip before rendering.')
 
-  const sampleRate = liveEngine.getSampleRate()
-  if (!sampleRate) throw new Error('Start audio before rendering.')
-
   const totalSeconds = getRenderSeconds(state, lastSlot)
   if (totalSeconds > maximumRenderSeconds) {
     throw new Error(`This song renders to ${Math.ceil(totalSeconds / 60)} minutes, past the ${maximumRenderSeconds / 60}-minute render limit.`)
   }
 
-  const context = new OfflineAudioContext(renderChannelCount, Math.ceil(totalSeconds * sampleRate), sampleRate)
-  const engine = new AudioEngine()
-  engine.initializeForRender(context)
-  applyRenderState(engine, liveEngine, state)
-
-  const ticker = new RenderTicker(context, totalSeconds, onProgress)
-  const sequencer = new StepSequencer(engine, ticker, renderLookAheadSeconds)
-  const config: StepSequencerConfig = {
-    bpm: state.bpm,
-    swing: state.swing,
-    // A render is the song, never the click.
-    metronomeEnabled: false,
-    // LOOP SONG is a monitoring preference, so the file is one pass of the
-    // playlist regardless of how the transport is set.
-    mode: 'song',
-    loopSong: false,
-    lastSongSlot: lastSlot,
-    getTracksForSlot: (slot) => getSongTracksForSlot(state.patternGroups, state.playlist, slot, (assetId) => engine.hasSampleAsset(assetId)),
-  }
-
-  const cancelled = new Promise<never>((_resolve, reject) => {
-    if (!signal) return
-    const abort = () => {
-      // Abandoning leaves the render thread suspended instead of resuming it,
-      // so a cancelled render stops doing work immediately.
-      ticker.abandon()
-      reject(new DOMException('Render cancelled.', 'AbortError'))
-    }
-    if (signal.aborted) abort()
-    else signal.addEventListener('abort', abort, { once: true })
+  return renderOffline({
+    state,
+    liveEngine,
+    totalSeconds,
+    onProgress,
+    signal,
+    createSequencerConfig: (engine) => ({
+      bpm: state.bpm,
+      swing: state.swing,
+      metronomeEnabled: false,
+      mode: 'song',
+      loopSong: false,
+      lastSongSlot: lastSlot,
+      getTracksForSlot: (slot) => getSongTracksForSlot(state.patternGroups, state.playlist, slot, (assetId) => engine.hasSampleAsset(assetId)),
+    }),
   })
-
-  const suspendedAtStart = context.suspend(0)
-  const rendering = context.startRendering()
-  await suspendedAtStart
-  sequencer.start(() => config)
-
-  try {
-    const buffer = await Promise.race([rendering, cancelled])
-    onProgress?.(1)
-    return { buffer, ...measureRender(buffer) }
-  } finally {
-    sequencer.stop()
-    engine.dispose()
-  }
-}
-
-/**
- * Drives the sequencer from the render clock. Each pass suspends the render,
- * lets the sequencer write the next window of events, and resumes.
- */
-class RenderTicker implements SequencerTicker {
-  private stopped = false
-
-  constructor(
-    private readonly context: OfflineAudioContext,
-    private readonly totalSeconds: number,
-    private readonly onProgress?: (renderedFraction: number) => void,
-  ) {}
-
-  wake(callback: () => void): void {
-    if (this.stopped) return
-    this.onProgress?.(Math.min(1, this.context.currentTime / this.totalSeconds))
-    const next = this.quantize(this.context.currentTime + renderStepSeconds)
-    if (next >= this.totalSeconds) {
-      this.release()
-      return
-    }
-    void this.context.suspend(next).then(() => {
-      if (!this.stopped) callback()
-    }, () => undefined)
-    this.release()
-  }
-
-  cancel(): void {
-    if (this.stopped) return
-    this.stopped = true
-    this.release()
-  }
-
-  /** Stops without resuming, so a cancelled render leaves the thread parked. */
-  abandon(): void {
-    this.stopped = true
-  }
-
-  /** Scheduling is finished for now; the audio is not. Let the render run on. */
-  private release(): void {
-    void this.context.resume().catch(() => undefined)
-  }
-
-  /** A render can only be suspended on a render-quantum boundary. */
-  private quantize(seconds: number): number {
-    const quantum = renderQuantumFrames / this.context.sampleRate
-    return Math.ceil(seconds / quantum) * quantum
-  }
-}
-
-/**
- * One pass over the finished render for everything the UI needs to know: how
- * hot it is, whether quantising to PCM will clip, and where the music starts.
- *
- * A render opens with bit-exact silence while the master rack's compressor
- * lookahead fills, which would otherwise land the file a few milliseconds late
- * against a grid. Skipping exact zeros fixes that without hard-coding any
- * particular browser's latency.
- */
-function measureRender(buffer: AudioBuffer): Omit<RenderSongResult, 'buffer'> {
-  const channels = Array.from({ length: buffer.numberOfChannels }, (_unused, index) => buffer.getChannelData(index))
-  const prerollLimit = Math.min(buffer.length, Math.round(maximumPrerollSeconds * buffer.sampleRate))
-  let startFrame = 0
-  while (startFrame < prerollLimit && channels.every((channel) => channel[startFrame] === 0)) startFrame += 1
-
-  let peak = 0
-  let clippedSampleCount = 0
-  for (const channel of channels) {
-    for (let frame = startFrame; frame < channel.length; frame += 1) {
-      const magnitude = Math.abs(channel[frame])
-      if (magnitude > peak) peak = magnitude
-      if (magnitude > 1) clippedSampleCount += 1
-    }
-  }
-
-  return { startFrame, peak, clippedSampleCount }
-}
-
-function applyRenderState(engine: AudioEngine, liveEngine: AudioEngine, state: ProjectState): void {
-  engine.syncSynthPatches(state.patternGroups.flatMap((group) => group.synthPatches.map((patch) => ({ groupId: group.id, patch }))))
-  engine.syncStringsPatches(state.patternGroups.flatMap((group) => group.stringsPatches.map((patch) => ({ groupId: group.id, patch }))))
-  for (const group of state.patternGroups) {
-    for (const pad of group.bank.pads) {
-      const buffer = pad.assetId ? liveEngine.getDecodedSampleAsset(pad.assetId) : undefined
-      if (pad.assetId && buffer) engine.setDecodedSampleAsset(pad.assetId, buffer)
-      const channelId = createChannelId({ patternGroupId: group.id, padId: pad.id })
-      engine.setChannelVolume(group.id, channelId, pad.volume)
-      engine.setChannelMuted(group.id, channelId, pad.muted)
-      engine.setChannelSolo(group.id, channelId, pad.solo)
-    }
-  }
-  for (const group of state.patternGroups) {
-    engine.setGroupVolume(group.id, group.bus!.volume)
-    engine.setGroupMuted(group.id, group.bus!.muted)
-    engine.setGroupSolo(group.id, group.bus!.solo)
-  }
-  engine.setMasterVolume(state.master.volume)
-  engine.setMasterMuted(state.master.muted)
-  engine.setBpm(state.bpm)
-  engine.setMasterEffects(state.masterEffects)
-  for (const group of state.patternGroups) engine.setGroupEffects(group.id, group.effects)
-  engine.setPumpRoutes(state.pumpRoutes.map((route) => ({
-    id: route.id,
-    sourceChannelId: createChannelId(route.source),
-    targetGroupId: route.targetGroupId,
-    depth: route.depth,
-    lengthSeconds: 60 / state.bpm * route.lengthBeats,
-    curve: route.curve,
-  })))
-  engine.applyMixerStateImmediately()
 }
 
 /**

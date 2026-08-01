@@ -1,0 +1,179 @@
+.resample-entry {
+  display: grid;
+  width: 100%;
+  min-height: 44px;
+  margin: 0 0 10px;
+  place-items: center;
+  border: 1px solid var(--station-accent);
+  border-radius: 4px;
+  color: var(--station-bg);
+  background: var(--station-accent);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 22%), 0 3px 10px rgb(0 0 0 / 24%);
+  cursor: pointer;
+  font: 800 .7rem/1 var(--station-display-font);
+  letter-spacing: .14em;
+}
+
+.resample-entry:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+.resample-dialog {
+  width: min(460px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  padding: 0;
+  overflow: auto;
+  border: 1px solid var(--station-accent);
+  border-radius: 7px;
+  color: var(--station-text);
+  background: var(--station-bg);
+  box-shadow: 0 20px 70px rgb(0 0 0 / 70%), inset 0 0 0 3px rgb(255 255 255 / 3%);
+}
+
+.resample-dialog::backdrop {
+  background: rgb(6 7 7 / 78%);
+  backdrop-filter: blur(2px);
+}
+
+.resample-frame { padding: 18px; }
+
+.resample-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.resample-kicker,
+.resample-heading h2 { margin: 0; }
+
+.resample-kicker {
+  color: var(--station-text-muted);
+  font: 700 .54rem/1 var(--station-mono-font);
+  letter-spacing: .14em;
+}
+
+.resample-heading h2 {
+  margin-top: 5px;
+  color: var(--station-accent);
+  font: 800 1.15rem/1 var(--station-display-font);
+  letter-spacing: .13em;
+}
+
+.resample-close {
+  width: 36px;
+  min-height: 36px;
+  border: 1px solid var(--station-line);
+  border-radius: 4px;
+  color: var(--station-text);
+  background: var(--station-raised);
+  cursor: pointer;
+  font-size: 1.25rem;
+}
+
+.resample-control {
+  min-width: 0;
+  margin: 16px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.resample-control legend {
+  margin-bottom: 7px;
+  color: var(--station-text-muted);
+  font: 800 .58rem/1 var(--station-mono-font);
+  letter-spacing: .12em;
+}
+
+.resample-choice-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.resample-loop-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.resample-choice,
+.resample-destinations button {
+  min-width: 0;
+  min-height: 42px;
+  padding: 7px;
+  border: 1px solid var(--station-line);
+  border-radius: 4px;
+  color: var(--station-text);
+  background: var(--station-raised);
+  cursor: pointer;
+  font: 800 .62rem/1.15 var(--station-display-font);
+  letter-spacing: .07em;
+}
+
+.resample-choice-active {
+  border-color: var(--station-accent);
+  color: var(--station-bg);
+  background: var(--station-accent);
+}
+
+.resample-render {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 18px;
+  border: 1px solid var(--station-accent);
+  border-radius: 4px;
+  color: var(--station-bg);
+  background: var(--station-accent);
+  cursor: pointer;
+  font: 900 .72rem/1 var(--station-display-font);
+  letter-spacing: .14em;
+}
+
+.resample-render:disabled { cursor: wait; opacity: .72; }
+
+.resample-error {
+  margin: 10px 0 0;
+  color: var(--signal-accent);
+  font: 800 .6rem/1.35 var(--station-mono-font);
+  letter-spacing: .04em;
+}
+
+.resample-ready {
+  display: grid;
+  gap: 7px;
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid var(--station-accent);
+  border-radius: 4px;
+  background: rgb(var(--station-accent-rgb) / 8%);
+}
+
+.resample-ready-label {
+  margin: 0;
+  color: var(--station-accent);
+  font: 900 .62rem/1 var(--station-display-font);
+  letter-spacing: .12em;
+}
+
+.resample-ready strong,
+.resample-ready span,
+.resample-ready em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resample-ready strong { font: 800 .66rem/1.2 var(--station-display-font); }
+.resample-ready span { color: var(--station-text-muted); font: .58rem/1.2 var(--station-mono-font); }
+.resample-ready em { color: var(--signal-accent); font: 800 .56rem/1.2 var(--station-mono-font); font-style: normal; }
+
+.resample-destinations {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 4px;
+}
+
+@media (max-width: 480px) {
+  .resample-frame { padding: 14px; }
+  .resample-destinations { grid-template-columns: 1fr; }
+  .resample-destinations button { min-height: 44px; }
+}

@@ -11,6 +11,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
+    "test": "node --experimental-transform-types --test tests/*.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

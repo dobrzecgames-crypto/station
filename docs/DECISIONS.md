@@ -380,3 +380,26 @@ Consequences:
 - `saturatorCurve(amount)` in `drumSynthOperations.ts` is now the shared rational-saturator generator behind both KICK's user-facing DRIVE and SNARE's fixed internal amount; `dustToShape`/`dustDurationSeconds` are likewise shared, unprefixed, and used identically by both voices,
 - adding a third voice (CLAP, per the original DEC-024 sizing) repeats this shape: one more patch type, one more `drumsynth/<name>Voice.ts` + `render<Name>.ts` pair, one more segmented-control entry and controls section, zero changes to the picker, ADD TO PAD, or the persistence ladder beyond the routine schema bump,
 - CLAP, HAT, TOM, PERC, a SNARE-specific stereo width control, and any cross-voice layering (e.g. kick+snare in one hit) remain out of scope for this version.
+
+## DEC-026 — RESAMPLE V1 renders the current pattern through the shared offline engine
+
+**Status:** Accepted
+
+RESAMPLE V1 is a sampler workflow action in MIX, not a new main workspace and not a second bounce engine. It snapshots the currently selected Pattern Group and A–D variant, then renders either the full MASTER mix or one explicitly SELECTED PAD for 1, 2 or 4 continuous 16-step loops. It does not render the SONG Playlist: SONG already has its own explicit export, while resampling is intended to turn the musical idea currently being edited into material that immediately returns to a pad or CHOP.
+
+The old `renderSongToBuffer` machinery was split at its policy boundary. `offlineRender.ts` owns the common `OfflineAudioContext`, render `AudioEngine`, render-clock ticker, shared `StepSequencer`, state/asset registration, cleanup and peak measurement. SONG retains its existing playlist resolver and render-length calculation. `renderPatternToBuffer` supplies a finite repetition of the current pattern and RESAMPLE-specific tail policy. This keeps one audio graph and one scheduling path for live playback, SONG and RESAMPLE.
+
+MASTER schedules every resolved sample, MONOPOLY and STRINGS track in the active variant and preserves velocity, SHIFT, step length/gate, channel and group volume, mute/solo, Pump, group insert FX, master insert FX and master level/mute. SELECTED PAD schedules the chosen track audibly through its normal channel, group and master path. Other tracks become control-only scheduler events: they create no voice, but their channel trigger can still drive an existing Pump route. The selected pad's own mute is respected, while unrelated latched solos do not defeat an explicit isolation request.
+
+CAPTURE TAIL OFF encodes exactly the selected loop duration. ON adds a bounded tail derived from active source release/region duration, Pump recovery, delay decay and TIGHT ROOM decay, capped at four seconds, then writes an eight-millisecond final fade. Multiple loops are scheduled in one render, so delay, reverb, releases and Pump continue across loop boundaries; PCM from the first loop is never copied.
+
+The finished buffer is peak-scanned once and encoded once through the existing 16-bit `encodeWav` helper, with no normalisation, limiter, compressor, auto-gain or added dithering. The React UI retains only the resulting WAV Blob and metadata. DOWNLOAD reuses that Blob and revokes its temporary object URL. ADD TO PAD arms the existing tap-a-pad flow, confirms replacement, loads through `loadSampleBlob`, builds the normal waveform cache and assigns a full-region ordinary sample. SEND TO CHOP loads the same Blob as the current group's normal Chop Session source without assigning a pad.
+
+Consequences:
+
+- RESAMPLE is independent of live transport and may render a state snapshot while playback continues; it never changes the playhead, transport mode, selected pattern or scheduler,
+- an eventless current pattern or selected pad fails before allocating a render; a muted/zero-volume/effect-silenced result is allowed and reported by a simple near-silence peak threshold,
+- the pending render, source/length/tail controls and placement arm are ephemeral UI state and do not change the project schema,
+- stable asset IDs, runtime Blobs, waveform caches, CHOP ownership and unreferenced-asset cleanup remain the existing asset lifecycle rather than a new resample asset type,
+- exact free-range selection, Playlist resampling, stems, multitrack bounce, input/microphone recording, realtime capture, format/bit-depth/sample-rate choices, normalisation, limiter controls, waveform editing and persistent generation history remain future or out-of-scope work,
+- DRUM SYNTH, KICK/SNARE DSP and DUST are unchanged; a DRUM SYNTH result participates only after it has already become an ordinary sample pad.

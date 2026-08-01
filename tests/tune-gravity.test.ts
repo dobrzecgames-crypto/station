@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { analyzePitch, createTuneGravityDiagnosticDocument, createCorrectionPlan, detectTuneGravityProblems, midiToFrequency, processTuneGravityOffline, tuneGravityDiagnosticFormatVersion } from '../src/audio/tuneGravity/index.ts'
+import { analyzePitch, completeTuneGravityBlindSession, createDefaultTuneGravityRatings, createOriginalComparisonAudio, createTuneGravityBlindSession, createTuneGravityDiagnosticDocument, createCorrectionPlan, detectTuneGravityProblems, exportTuneGravityListeningTest, midiToFrequency, processTuneGravityOffline, revealTuneGravityBlindMapping, saveTuneGravityBlindEvaluation, tuneGravityDiagnosticFormatVersion } from '../src/audio/tuneGravity/index.ts'
 import type { PitchFrame, TuneGravityDiagnosticFrame } from '../src/audio/tuneGravity/index.ts'
 
 const sampleRate = 48000
@@ -150,6 +150,46 @@ test('diagnostics flag synthetic target-note chatter', () => {
   const targets = [60, 61, 60, 61, 60, 61, 60, 61, 60, 61, 60, 61]
   const problems = detectTuneGravityProblems(targets.map((target, index) => diagnosticFrame(index, 60 + Math.sin(index) * 0.1, target)))
   assert.ok(problems.some((problem) => problem.kind === 'note-chatter'))
+})
+
+test('blind shuffle is deterministic for a supplied seed and remains hidden before completion', () => {
+  const settings = { projectKey: { root: 'A', scale: 'naturalMinor' } as const, gravity: 0.7, speed: 0.6, humanize: 0.5 }
+  const first = createTuneGravityBlindSession('tg-blind', settings, 12345, undefined, '2026-08-01T00:00:00.000Z')
+  const second = createTuneGravityBlindSession('tg-blind', settings, 12345, undefined, '2026-08-01T00:00:00.000Z')
+  assert.deepEqual(first.mapping, second.mapping)
+  assert.equal(revealTuneGravityBlindMapping(first), null)
+  assert.equal(exportTuneGravityListeningTest(first).mapping, null)
+})
+
+test('blind ratings and flags export with mapping only after every variant is saved', () => {
+  let session = createTuneGravityBlindSession(
+    'tg-ratings',
+    { projectKey: { root: 'C', scale: 'major' }, gravity: 0.8, speed: 0.9, humanize: 0.2 },
+    77,
+    ['original', 'yin-td-psola', 'yin-granular'],
+    '2026-08-01T00:00:00.000Z',
+  )
+  for (const [index, label] of session.labels.entries()) {
+    const ratings = createDefaultTuneGravityRatings(index + 2)
+    session = saveTuneGravityBlindEvaluation(session, label, {
+      ratings,
+      flags: index === 1 ? ['metallic', 'graininess'] : [],
+      notes: `variant ${label}`,
+    }, `2026-08-01T00:00:0${index + 1}.000Z`)
+  }
+  session = completeTuneGravityBlindSession(session, '2026-08-01T00:01:00.000Z')
+  const exported = exportTuneGravityListeningTest(session)
+  assert.deepEqual(exported.mapping, session.mapping)
+  assert.equal(exported.evaluations.B?.ratings.intonationImprovement, 3)
+  assert.deepEqual(exported.evaluations.B?.flags, ['metallic', 'graininess'])
+  assert.equal('audio' in exported, false)
+})
+
+test('ORIGINAL comparison audio is a bit-neutral independent copy', () => {
+  const input = createVowelProxy(0.2, () => 220)
+  const original = createOriginalComparisonAudio(input)
+  assert.deepEqual(original, input)
+  assert.notEqual(original.buffer, input.buffer)
 })
 
 function pitchFrame(index: number, midi: number): PitchFrame {

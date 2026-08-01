@@ -56,6 +56,24 @@
 .tune-diagnostic-problems { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; margin: 10px 0 0; padding: 0; list-style: none; }
 .tune-diagnostic-problems li { display: flex; justify-content: space-between; gap: 8px; padding: 7px; border: 1px solid #4b5252; color: #d07c72; font-size: .52rem; }
 .tune-diagnostic-clear { margin: 10px 0 0; color: #b5bab5; font-size: .58rem; }
+.tune-blind-panel, .tune-labeled-comparison { margin-top: 16px; padding: 12px; border: 1px solid #4b5252; background: #17191a; }
+.tune-blind-panel > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.tune-blind-panel h3, .tune-labeled-comparison h3 { margin: 4px 0 0; font-size: .9rem; }
+.tune-blind-panel > header > span { color: var(--station-phosphor); font-family: var(--station-mono-font); font-size: .56rem; }
+.tune-blind-message { margin: 10px 0; color: #b5bab5; font-size: .62rem; }
+.tune-blind-players, .tune-labeled-players { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.tune-blind-players button, .tune-labeled-players button { min-width: 0; min-height: 38px; padding: 0 5px; }
+.tune-blind-form { margin-top: 12px; padding-top: 12px; border-top: 1px solid #343a3a; }
+.tune-blind-selected { color: #b5bab5; font-size: .58rem; }.tune-blind-selected strong { color: var(--station-accent); }
+.tune-blind-ratings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-top: 9px; }
+.tune-blind-ratings label { display: grid; grid-template-columns: 1fr auto; gap: 5px; padding: 8px; border: 1px solid #4b5252; color: #e3e5df; font-size: .54rem; font-weight: 800; }
+.tune-blind-ratings input { grid-column: 1 / -1; width: 100%; }.tune-blind-ratings output { color: var(--station-accent); }
+.tune-blind-flags { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; padding: 10px; border: 1px solid #4b5252; }
+.tune-blind-flags legend { color: #949b98; font-size: .52rem; font-weight: 800; }.tune-blind-flags label { display: flex; align-items: center; gap: 4px; color: #c6cbc5; font-size: .5rem; font-weight: 800; }.tune-blind-flags input { accent-color: var(--station-accent); }
+.tune-blind-notes { display: grid; gap: 5px; margin-top: 10px; color: #949b98; font-size: .52rem; font-weight: 800; }.tune-blind-notes textarea { width: 100%; resize: vertical; border: 1px solid #606767; padding: 8px; color: #eef0e8; background: #101212; font: inherit; }
+.tune-blind-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 10px; }.tune-blind-actions button { min-width: 0; }
+.tune-blind-reveal { margin-top: 12px; padding-top: 12px; border-top: 1px solid #343a3a; }.tune-blind-reveal h4 { margin: 0; color: var(--station-accent); font-size: .62rem; }.tune-blind-reveal ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 8px 0; padding: 0; list-style: none; }.tune-blind-reveal li { display: flex; justify-content: space-between; gap: 8px; padding: 8px; border: 1px solid #4b5252; color: #c6cbc5; font-size: .56rem; }.tune-blind-reveal li strong { color: var(--station-phosphor); }.tune-blind-reveal .clear-button { margin-top: 4px; }
+.tune-labeled-comparison .eyebrow { margin-bottom: 8px; }
 
 @media (max-width: 620px) {
   .tune-gravity-heading { align-items: flex-start; }
@@ -65,4 +83,7 @@
   .tune-gravity-audition button:last-child { grid-column: 1 / -1; }
   .tune-gravity-diagnostics { grid-template-columns: 1fr 1fr; }
   .tune-gravity-downloads, .tune-diagnostic-problems { grid-template-columns: 1fr; }
+  .tune-blind-players, .tune-labeled-players { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tune-blind-players button:last-child, .tune-labeled-players button:last-child { grid-column: 1 / -1; }
+  .tune-blind-ratings, .tune-blind-actions, .tune-blind-reveal ul { grid-template-columns: 1fr; }
 }

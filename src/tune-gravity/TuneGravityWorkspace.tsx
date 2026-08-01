@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import type { AudioEngine } from '../audio/AudioEngine.ts'
-import { createAnonymousTuneGravitySourceId } from '../audio/tuneGravity/index.ts'
-import type { TuneGravityDiagnosticDocument } from '../audio/tuneGravity/index.ts'
+import { comparisonVariantForBlindLabel, createAnonymousTuneGravitySourceId, createOriginalComparisonAudio, createTuneGravityBlindSession } from '../audio/tuneGravity/index.ts'
+import type { PitchDetectorKind, TuneGravityBlindLabel, TuneGravityBlindSession, TuneGravityComparisonVariantId, TuneGravityDiagnosticDocument, TuneGravityShifter } from '../audio/tuneGravity/index.ts'
 import { formatProjectKey } from '../music/scales.ts'
 import type { ProjectKey } from '../music/scales.ts'
 import { ProjectKeyPanel } from '../project/ProjectKeyPanel.tsx'
 import type { TuneGravityWorkerDiagnostics, TuneGravityWorkerResponse } from './tuneGravityWorkerProtocol.ts'
 import { TuneGravityDiagnosticPanel } from './TuneGravityDiagnosticPanel.tsx'
+import { TuneGravityBlindTestPanel } from './TuneGravityBlindTestPanel.tsx'
 import './TuneGravityWorkspace.css'
 
 const maximumTuneGravitySeconds = 30
@@ -28,9 +29,15 @@ interface TuneGravityWorkspaceProps {
   onProjectKeyChange: (projectKey: ProjectKey) => void
 }
 
+interface ProcessedTuneGravityVariant {
+  samples: Float32Array<ArrayBuffer>
+  diagnostics: TuneGravityWorkerDiagnostics
+  report: TuneGravityDiagnosticDocument
+}
+
 export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onProjectKeyChange }: TuneGravityWorkspaceProps) {
   const [source, setSource] = useState<TuneGravitySource | null>(null)
-  const [tuned, setTuned] = useState<Float32Array<ArrayBuffer> | null>(null)
+  const [comparisonAudio, setComparisonAudio] = useState<Partial<Record<TuneGravityComparisonVariantId, Float32Array<ArrayBuffer>>>>({})
   const [gravity, setGravity] = useState(0.72)
   const [speed, setSpeed] = useState(0.7)
   const [humanize, setHumanize] = useState(0.48)
@@ -38,9 +45,10 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
   const [processing, setProcessing] = useState(false)
   const [recording, setRecording] = useState(false)
   const [microphoneLevel, setMicrophoneLevel] = useState(0)
-  const [auditioning, setAuditioning] = useState<'original' | 'tuned' | null>(null)
+  const [auditioning, setAuditioning] = useState<TuneGravityComparisonVariantId | TuneGravityBlindLabel | null>(null)
   const [diagnostics, setDiagnostics] = useState<TuneGravityWorkerDiagnostics | null>(null)
   const [diagnosticReport, setDiagnosticReport] = useState<TuneGravityDiagnosticDocument | null>(null)
+  const [blindSession, setBlindSession] = useState<TuneGravityBlindSession | null>(null)
   const [message, setMessage] = useState('Load a short mono vocal or record one with the microphone.')
   const workerRef = useRef<Worker | null>(null)
   const jobIdRef = useRef(0)
@@ -48,9 +56,10 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
   const recordingTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
-    setTuned(null)
+    setComparisonAudio({})
     setDiagnostics(null)
     setDiagnosticReport(null)
+    setBlindSession(null)
     setAuditioning(null)
     audioEngine.stopPreview()
   }, [audioEngine, gravity, speed, humanize, projectKey.root, projectKey.scale])
@@ -69,9 +78,10 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
     if (decoded.durationSeconds > maximumTuneGravitySeconds) throw new Error(`Use a vocal phrase no longer than ${maximumTuneGravitySeconds} seconds.`)
     if (decoded.durationSeconds < 0.12) throw new Error('The vocal is too short to analyse.')
     setSource({ filename, ...decoded, anonymousId: createAnonymousTuneGravitySourceId(decoded.samples, decoded.sampleRate) })
-    setTuned(null)
+    setComparisonAudio({})
     setDiagnostics(null)
     setDiagnosticReport(null)
+    setBlindSession(null)
     setMessage(`${filename} ready • ${decoded.durationSeconds.toFixed(1)} sec • ${decoded.sourceChannelCount === 1 ? 'MONO' : `${decoded.sourceChannelCount}CH → MONO`}`)
   }
 
@@ -126,55 +136,94 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
     }
   }
 
-  const processVocal = () => {
+  const processVocal = async () => {
     if (!source || processing) return
+    setProcessing(true)
+    setComparisonAudio({})
+    setDiagnostics(null)
+    setDiagnosticReport(null)
+    setBlindSession(null)
+    setAuditioning(null)
+    audioEngine.stopPreview()
+    try {
+      const configurations: ReadonlyArray<{ id: TuneGravityComparisonVariantId; detector: PitchDetectorKind; shifter: TuneGravityShifter }> = [
+        { id: 'yin-td-psola', detector: 'yin', shifter: 'tdPsola' },
+        { id: 'yin-granular', detector: 'yin', shifter: 'granular' },
+        { id: 'mpm-td-psola', detector: 'mpm', shifter: 'tdPsola' },
+      ]
+      const rendered: Partial<Record<TuneGravityComparisonVariantId, Float32Array<ArrayBuffer>>> = {
+        original: createOriginalComparisonAudio(source.samples) as Float32Array<ArrayBuffer>,
+      }
+      let primary: ProcessedTuneGravityVariant | null = null
+      for (const [index, configuration] of configurations.entries()) {
+        setMessage(`Generating blind test variant ${index + 1} of ${configurations.length} for ${formatProjectKey(projectKey)}…`)
+        const result = await processVariant(configuration.detector, configuration.shifter)
+        rendered[configuration.id] = result.samples
+        if (configuration.id === 'yin-td-psola') primary = result
+      }
+      if (!primary) throw new Error('The primary Tune Gravity diagnostic variant was not generated.')
+      setComparisonAudio(rendered)
+      setDiagnostics(primary.diagnostics)
+      setDiagnosticReport(primary.report)
+      setBlindSession(createTuneGravityBlindSession(
+        source.anonymousId,
+        { projectKey, gravity, speed, humanize },
+        Date.now() >>> 0,
+      ))
+      setMessage('Blind comparison ready. Rate A–D before revealing the algorithms.')
+    } catch (error) {
+      setMessage(toMessage(error))
+    } finally {
+      workerRef.current?.terminate()
+      workerRef.current = null
+      setProcessing(false)
+    }
+  }
+
+  const processVariant = (detector: PitchDetectorKind, shifter: TuneGravityShifter): Promise<ProcessedTuneGravityVariant> => {
+    if (!source) return Promise.reject(new Error('Load a vocal before processing.'))
     workerRef.current?.terminate()
     const worker = new Worker(new URL('./tuneGravityWorker.ts', import.meta.url), { type: 'module' })
     const jobId = jobIdRef.current + 1
     jobIdRef.current = jobId
     workerRef.current = worker
-    setProcessing(true)
-    setTuned(null)
-    setDiagnostics(null)
-    setMessage(`Analysing pitch and applying ${formatProjectKey(projectKey)}…`)
-    worker.onmessage = (event: MessageEvent<TuneGravityWorkerResponse>) => {
-      if (event.data.jobId !== jobId) return
-      worker.terminate()
-      workerRef.current = null
-      setProcessing(false)
-      if (!event.data.ok) {
-        setMessage(event.data.message)
-        return
+    return new Promise((resolve, reject) => {
+      worker.onmessage = (event: MessageEvent<TuneGravityWorkerResponse>) => {
+        if (event.data.jobId !== jobId) return
+        worker.terminate()
+        workerRef.current = null
+        if (!event.data.ok) {
+          reject(new Error(event.data.message))
+          return
+        }
+        resolve({ samples: new Float32Array(event.data.output), diagnostics: event.data.diagnostics, report: event.data.report })
       }
-      setTuned(new Float32Array(event.data.output))
-      setDiagnostics(event.data.diagnostics)
-      setDiagnosticReport(event.data.report)
-      setMessage('Tuned version ready. Compare ORIGINAL and TUNED by ear.')
-    }
-    worker.onerror = () => {
-      worker.terminate()
-      workerRef.current = null
-      setProcessing(false)
-      setMessage('Tune Gravity worker failed. Try a shorter WAV file.')
-    }
-    const samples = new Float32Array(source.samples)
-    worker.postMessage({
-      jobId,
-      samples: samples.buffer,
-      sampleRate: source.sampleRate,
-      sourceChannelCount: source.sourceChannelCount,
-      durationSeconds: source.durationSeconds,
-      anonymousSourceId: source.anonymousId,
-      projectKey,
-      parameters: { gravity, speed, humanize },
-    }, [samples.buffer])
+      worker.onerror = () => {
+        worker.terminate()
+        workerRef.current = null
+        reject(new Error('Tune Gravity worker failed. Try a shorter WAV file.'))
+      }
+      const samples = new Float32Array(source.samples)
+      worker.postMessage({
+        jobId,
+        samples: samples.buffer,
+        sampleRate: source.sampleRate,
+        sourceChannelCount: source.sourceChannelCount,
+        durationSeconds: source.durationSeconds,
+        anonymousSourceId: source.anonymousId,
+        projectKey,
+        parameters: { gravity, speed, humanize },
+        detector,
+        shifter,
+      }, [samples.buffer])
+    })
   }
 
-  const audition = (version: 'original' | 'tuned') => {
+  const auditionVariant = (variant: TuneGravityComparisonVariantId, displayId: TuneGravityComparisonVariantId | TuneGravityBlindLabel = variant) => {
     if (!source || !audioReady) return
-    const samples = version === 'original' ? source.samples : tuned
+    const samples = comparisonAudio[variant]
     if (!samples) return
-    setAuditioning(version)
+    setAuditioning(displayId)
     audioEngine.previewMonoSamples(samples, source.sampleRate, () => setAuditioning(null))
   }
 
@@ -184,6 +233,7 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
   }
 
   const downloadTuned = () => {
+    const tuned = comparisonAudio['yin-td-psola']
     if (!source || !tuned) return
     const blob = encodeMonoWav(tuned, source.sampleRate)
     const url = URL.createObjectURL(blob)
@@ -200,6 +250,7 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
   }
 
   const busy = loading || processing || recording
+  const blindComplete = blindSession?.completedAt !== null && blindSession !== null
   return <section className="tune-gravity-workspace" aria-labelledby="tune-gravity-title">
     <header className="tune-gravity-heading">
       <div>
@@ -229,13 +280,24 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
       <TuneSlider label="HUMANIZE" value={humanize} disabled={busy} onChange={setHumanize} low="TIGHT" high="VIBRATO" />
     </div>
 
-    <button className="transport-button tune-gravity-process" type="button" disabled={!source || busy} onClick={processVocal}>{processing ? 'PROCESSING OFFLINE…' : 'APPLY TUNE GRAVITY'}</button>
+    <button className="transport-button tune-gravity-process" type="button" disabled={!source || busy} onClick={() => void processVocal()}>{processing ? 'GENERATING VARIANTS…' : 'GENERATE BLIND TEST SET'}</button>
 
-    <div className="tune-gravity-audition" aria-label="A/B vocal comparison">
-      <button className={auditioning === 'original' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" disabled={!source || busy} onClick={() => audition('original')}>▶ ORIGINAL</button>
-      <button className={auditioning === 'tuned' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" disabled={!tuned || busy} onClick={() => audition('tuned')}>▶ TUNED</button>
-      <button className="mixer-toggle" type="button" disabled={!auditioning} onClick={stopAudition}>■ STOP</button>
-    </div>
+    {blindSession && <TuneGravityBlindTestPanel
+      session={blindSession}
+      auditioningLabel={auditioning === 'A' || auditioning === 'B' || auditioning === 'C' || auditioning === 'D' ? auditioning : null}
+      disabled={busy}
+      onAudition={(label) => auditionVariant(comparisonVariantForBlindLabel(blindSession, label), label)}
+      onStop={stopAudition}
+      onChange={setBlindSession}
+    />}
+
+    {blindComplete && <div className="tune-labeled-comparison" aria-label="Revealed algorithm comparison">
+      <p className="eyebrow">REVEALED ALGORITHM PLAYBACK</p>
+      <div className="tune-labeled-players">
+        {(['original', 'yin-td-psola', 'yin-granular', 'mpm-td-psola'] as const).map((variant) => <button key={variant} className={auditioning === variant ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" disabled={!comparisonAudio[variant] || busy} onClick={() => auditionVariant(variant)}>▶ {comparisonVariantLabel(variant)}</button>)}
+        <button className="mixer-toggle" type="button" disabled={!auditioning} onClick={stopAudition}>■ STOP</button>
+      </div>
+    </div>}
 
     {diagnostics && <dl className="tune-gravity-diagnostics">
       <div><dt>PROCESS</dt><dd>{(diagnostics.processingMs / 1000).toFixed(2)} s</dd></div>
@@ -244,14 +306,21 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
       <div><dt>LOOKAHEAD</dt><dd>{diagnostics.lookaheadMs.toFixed(1)} ms</dd></div>
     </dl>}
 
-    {source && diagnosticReport && <TuneGravityDiagnosticPanel samples={source.samples} report={diagnosticReport} />}
+    {source && diagnosticReport && blindComplete && <TuneGravityDiagnosticPanel samples={source.samples} report={diagnosticReport} />}
 
-    <div className="tune-gravity-downloads">
-      <button className="clear-button tune-gravity-download" type="button" disabled={!tuned || busy} onClick={downloadTuned}>DOWNLOAD TUNED WAV</button>
+    {blindComplete && <div className="tune-gravity-downloads">
+      <button className="clear-button tune-gravity-download" type="button" disabled={!comparisonAudio['yin-td-psola'] || busy} onClick={downloadTuned}>DOWNLOAD YIN + TD-PSOLA WAV</button>
       <button className="clear-button tune-gravity-download" type="button" disabled={!diagnosticReport || busy} onClick={downloadDiagnostics}>EXPORT DIAGNOSTIC JSON</button>
-    </div>
+    </div>}
     <p className="tune-gravity-warning">Listen for metallic tone, wrong octave jumps, damaged consonants and changed vocal identity. This test does not mark the effect as finished.</p>
   </section>
+}
+
+function comparisonVariantLabel(variant: TuneGravityComparisonVariantId): string {
+  if (variant === 'original') return 'ORIGINAL'
+  if (variant === 'yin-td-psola') return 'YIN + TD-PSOLA'
+  if (variant === 'yin-granular') return 'YIN + GRANULAR'
+  return 'MPM + TD-PSOLA'
 }
 
 function TuneSlider({ label, value, disabled, onChange, low, high }: { label: string; value: number; disabled: boolean; onChange: (value: number) => void; low: string; high: string }) {

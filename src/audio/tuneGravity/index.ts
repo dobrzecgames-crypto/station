@@ -87,3 +87,28 @@ export type {
   TuneGravityDiagnosticRegionKind,
   TuneGravityDiagnosticSkipReason,
 } from './diagnostics.ts'
+export {
+  comparisonVariantForBlindLabel,
+  completeTuneGravityBlindSession,
+  createDefaultTuneGravityRatings,
+  createOriginalComparisonAudio,
+  createTuneGravityBlindSession,
+  exportTuneGravityListeningTest,
+  revealTuneGravityBlindMapping,
+  saveTuneGravityBlindEvaluation,
+  tuneGravityComparisonVariantIds,
+  tuneGravityListeningTestFormatVersion,
+  tuneGravityProblemFlags,
+  tuneGravityRatingKeys,
+} from './listeningTest.ts'
+export type {
+  TuneGravityBlindEvaluation,
+  TuneGravityBlindLabel,
+  TuneGravityBlindSession,
+  TuneGravityComparisonVariantId,
+  TuneGravityListeningProblemFlag,
+  TuneGravityListeningSettings,
+  TuneGravityListeningTestExport,
+  TuneGravityRatingKey,
+  TuneGravityRatings,
+} from './listeningTest.ts'

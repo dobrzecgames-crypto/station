@@ -42,7 +42,7 @@ export function analyzePitch(
   sampleRate: number,
   overrides: Partial<PitchDetectorOptions> = {},
 ): PitchFrame[] {
-  const options = normalizeOptions(sampleRate, overrides)
+  const options = resolvePitchDetectorOptions(sampleRate, overrides)
   if (input.length === 0) return []
 
   const frameCount = Math.max(1, Math.ceil(Math.max(0, input.length - options.frameSize) / options.hopSize) + 1)
@@ -74,7 +74,7 @@ export function analyzePitch(
   return frames
 }
 
-function normalizeOptions(sampleRate: number, overrides: Partial<PitchDetectorOptions>): PitchDetectorOptions {
+export function resolvePitchDetectorOptions(sampleRate: number, overrides: Partial<PitchDetectorOptions>): PitchDetectorOptions {
   const options = { ...defaultPitchDetectorOptions, ...overrides }
   if (!Number.isFinite(sampleRate) || sampleRate <= 0) throw new Error('Tune Gravity requires a positive sample rate.')
   if (!Number.isInteger(options.frameSize) || options.frameSize < 256) throw new Error('Tune Gravity frameSize must be an integer of at least 256 samples.')

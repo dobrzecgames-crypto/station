@@ -17,6 +17,9 @@ export interface CorrectionFrame extends PitchFrame {
   targetMidi: number | null
   correctionCents: number
   pitchRatio: number
+  hysteresisState: 'inactive' | 'released' | 'stable' | 'candidate'
+  pendingTargetMidi: number | null
+  targetHoldMs: number
 }
 
 export const defaultTuneGravityParameters: TuneGravityParameters = {
@@ -41,7 +44,7 @@ export function createCorrectionPlan(
   hopSize: number,
   overrides: Partial<TuneGravityParameters> = {},
 ): CorrectionFrame[] {
-  const parameters = normalizeParameters(overrides)
+  const parameters = resolveTuneGravityParameters(overrides)
   const hopSeconds = hopSize / sampleRate
   const minimumHoldFrames = Math.max(1, Math.ceil(parameters.minimumTargetHoldMs / 1000 / hopSeconds))
   const releaseFrames = Math.max(1, Math.ceil(0.12 / hopSeconds))
@@ -53,6 +56,7 @@ export function createCorrectionPlan(
   let pendingTarget: number | null = null
   let pendingFrames = 0
   let stableFrames = 0
+  let targetHoldFrames = 0
   let unvoicedFrames = releaseFrames
   let pitchCenter: number | null = null
   let smoothedCorrection = 0
@@ -67,22 +71,35 @@ export function createCorrectionPlan(
         pendingTarget = null
         pendingFrames = 0
         stableFrames = 0
+        targetHoldFrames = 0
         pitchCenter = null
       }
-      return { ...frame, sourceMidi: null, targetMidi: null, correctionCents: 0, pitchRatio: 1 }
+      return {
+        ...frame,
+        sourceMidi: null,
+        targetMidi: null,
+        correctionCents: 0,
+        pitchRatio: 1,
+        hysteresisState: activeTarget === null ? 'inactive' : 'released',
+        pendingTargetMidi: null,
+        targetHoldMs: targetHoldFrames * hopSeconds * 1000,
+      }
     }
 
     unvoicedFrames = 0
     const sourceMidi = frequencyToMidi(frame.frequencyHz)
     const nearestTarget = nearestScaleMidi(sourceMidi, projectKey)
+    const previousActiveTarget = activeTarget
     if (activeTarget === null) {
       activeTarget = nearestTarget
       stableFrames = 1
+      targetHoldFrames = 1
       pitchCenter = sourceMidi
     } else if (nearestTarget === activeTarget) {
       pendingTarget = null
       pendingFrames = 0
       stableFrames += 1
+      targetHoldFrames += 1
     } else {
       const currentDistance = Math.abs(sourceMidi - activeTarget) * 100
       const candidateDistance = Math.abs(sourceMidi - nearestTarget) * 100
@@ -98,6 +115,7 @@ export function createCorrectionPlan(
           pendingTarget = null
           pendingFrames = 0
           stableFrames = 1
+          targetHoldFrames = 1
           pitchCenter = sourceMidi
         }
       } else {
@@ -105,6 +123,8 @@ export function createCorrectionPlan(
         pendingFrames = 0
       }
     }
+
+    if (activeTarget !== null && activeTarget === previousActiveTarget && nearestTarget !== activeTarget) targetHoldFrames += 1
 
     pitchCenter = pitchCenter === null ? sourceMidi : pitchCenter + (sourceMidi - pitchCenter) * centerAlpha
     const stableSeconds = stableFrames * hopSeconds
@@ -122,6 +142,9 @@ export function createCorrectionPlan(
       targetMidi: activeTarget,
       correctionCents,
       pitchRatio: 2 ** (correctionCents / 1200),
+      hysteresisState: pendingTarget === null ? 'stable' : 'candidate',
+      pendingTargetMidi: pendingTarget,
+      targetHoldMs: targetHoldFrames * hopSeconds * 1000,
     }
   })
 }
@@ -165,7 +188,7 @@ function applyGravity(errorCents: number, parameters: TuneGravityParameters): nu
   return Math.sign(errorCents) * Math.min(parameters.maximumCorrectionCents, correctedMagnitude)
 }
 
-function normalizeParameters(overrides: Partial<TuneGravityParameters>): TuneGravityParameters {
+export function resolveTuneGravityParameters(overrides: Partial<TuneGravityParameters>): TuneGravityParameters {
   const parameters = { ...defaultTuneGravityParameters, ...overrides }
   parameters.gravity = clamp(parameters.gravity, 0, 1)
   parameters.speed = clamp(parameters.speed, 0, 1)

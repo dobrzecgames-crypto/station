@@ -41,8 +41,21 @@
 .tune-gravity-diagnostics div { padding: 9px; border: 1px solid #4b5252; background: #17191a; text-align: center; }
 .tune-gravity-diagnostics dt { color: #949b98; font-size: .5rem; letter-spacing: .08em; }
 .tune-gravity-diagnostics dd { margin: 4px 0 0; color: var(--station-phosphor); font-family: var(--station-mono-font); font-size: .7rem; }
-.tune-gravity-download { width: 100%; margin-top: 12px; }
+.tune-gravity-downloads { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.tune-gravity-download { width: 100%; margin-top: 0; }
 .tune-gravity-warning { margin: 14px 0 0; color: #b5bab5; font-size: .62rem; line-height: 1.45; }
+.tune-diagnostic-panel { margin-top: 16px; padding: 12px; border: 1px solid #4b5252; background: #17191a; }
+.tune-diagnostic-panel header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.tune-diagnostic-panel h3 { margin: 4px 0 0; font-size: .82rem; }
+.tune-diagnostic-panel header > span { color: #949b98; font-family: var(--station-mono-font); font-size: .54rem; }
+.tune-diagnostic-scroll { margin-top: 10px; overflow-x: auto; border: 1px solid #343a3a; background: #101212; }
+.tune-diagnostic-scroll canvas { display: block; width: 100%; min-width: 640px; height: 260px; }
+.tune-diagnostic-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; font-size: .5rem; font-weight: 800; }
+.tune-diagnostic-legend span::before { display: inline-block; width: 8px; height: 8px; margin-right: 4px; background: currentColor; content: ''; }
+.tune-diagnostic-legend .waveform { color: #777f7d; }.tune-diagnostic-legend .pitch { color: #87cdd0; }.tune-diagnostic-legend .target { color: #d7d69b; }.tune-diagnostic-legend .confidence { color: #b5c776; }.tune-diagnostic-legend .problem { color: #d07c72; }
+.tune-diagnostic-problems { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; margin: 10px 0 0; padding: 0; list-style: none; }
+.tune-diagnostic-problems li { display: flex; justify-content: space-between; gap: 8px; padding: 7px; border: 1px solid #4b5252; color: #d07c72; font-size: .52rem; }
+.tune-diagnostic-clear { margin: 10px 0 0; color: #b5bab5; font-size: .58rem; }
 
 @media (max-width: 620px) {
   .tune-gravity-heading { align-items: flex-start; }
@@ -51,4 +64,5 @@
   .tune-gravity-audition { grid-template-columns: 1fr 1fr; }
   .tune-gravity-audition button:last-child { grid-column: 1 / -1; }
   .tune-gravity-diagnostics { grid-template-columns: 1fr 1fr; }
+  .tune-gravity-downloads, .tune-diagnostic-problems { grid-template-columns: 1fr; }
 }

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { analyzePitch, createCorrectionPlan, midiToFrequency, processTuneGravityOffline } from '../src/audio/tuneGravity/index.ts'
-import type { PitchFrame } from '../src/audio/tuneGravity/index.ts'
+import { analyzePitch, createTuneGravityDiagnosticDocument, createCorrectionPlan, detectTuneGravityProblems, midiToFrequency, processTuneGravityOffline, tuneGravityDiagnosticFormatVersion } from '../src/audio/tuneGravity/index.ts'
+import type { PitchFrame, TuneGravityDiagnosticFrame } from '../src/audio/tuneGravity/index.ts'
 
 const sampleRate = 48000
 
@@ -94,6 +94,64 @@ test('unvoiced middle region is passed without pitch correction', () => {
   assert.ok(rmsDifference(input.subarray(middleStart + 1024, middleEnd - 1024), result.output.subarray(middleStart + 1024, middleEnd - 1024)) < 0.005)
 })
 
+test('diagnostic JSON is versioned, time-aligned and exports the resolved analysis settings', () => {
+  const input = createVowelProxy(0.45, () => 226)
+  const result = processTuneGravityOffline(input, sampleRate, {
+    projectKey: { root: 'D', scale: 'dorian' },
+    detector: 'mpm',
+    shifter: 'granular',
+    parameters: { gravity: 0.64, speed: 0.37, humanize: 0.82 },
+  })
+  const report = createTuneGravityDiagnosticDocument(result, {
+    anonymousSourceId: 'tg-test',
+    sampleRate,
+    sourceChannelCount: 2,
+    durationSeconds: input.length / sampleRate,
+    sampleCount: input.length,
+    createdAt: '2026-08-01T00:00:00.000Z',
+  })
+  assert.equal(report.version, tuneGravityDiagnosticFormatVersion)
+  assert.equal(report.frames.length, result.pitchFrames.length)
+  assert.equal(report.frames.length, result.correctionPlan.length)
+  assert.equal(report.frames.every((frame, index) => frame.frameIndex === index && frame.timestampSeconds === result.pitchFrames[index]!.timeSeconds), true)
+  assert.deepEqual(report.source, { anonymousId: 'tg-test', sampleRate, sourceChannelCount: 2, durationSeconds: input.length / sampleRate, sampleCount: input.length })
+  assert.equal(report.analysis.detector, 'mpm')
+  assert.equal(report.analysis.shifter, 'granular')
+  assert.equal(report.analysis.projectKey, 'D')
+  assert.equal(report.analysis.projectScale, 'dorian')
+  assert.equal(report.analysis.gravity, 0.64)
+  assert.equal(report.analysis.speed, 0.37)
+  assert.equal(report.analysis.humanize, 0.82)
+  assert.equal(report.analysis.frameSize, 2048)
+  assert.equal(report.analysis.hopSize, 256)
+})
+
+test('diagnostic JSON preserves voiced and unvoiced decisions and skip reasons', () => {
+  const voiced = createVowelProxy(0.3, () => 226)
+  const silence = new Float32Array(Math.round(sampleRate * 0.2))
+  const input = concatenate(voiced, silence, voiced)
+  const result = processTuneGravityOffline(input, sampleRate, { projectKey: { root: 'A', scale: 'naturalMinor' } })
+  const report = createTuneGravityDiagnosticDocument(result, {
+    anonymousSourceId: 'tg-voicing', sampleRate, sourceChannelCount: 1, durationSeconds: input.length / sampleRate, sampleCount: input.length,
+  })
+  assert.ok(report.frames.some((frame) => frame.voiced && !frame.correctionSkipped))
+  assert.ok(report.frames.some((frame) => !frame.voiced && frame.correctionSkipped && frame.skipReason === 'low-rms'))
+  assert.ok(report.regions.some((region) => region.kind === 'unvoiced'))
+  assert.ok(report.regions.some((region) => region.kind === 'voiced' || region.kind === 'stable-note'))
+})
+
+test('diagnostics flag a short synthetic octave error', () => {
+  const frames = Array.from({ length: 9 }, (_, index) => diagnosticFrame(index, index === 4 ? 72 : 60, 60))
+  const problems = detectTuneGravityProblems(frames)
+  assert.ok(problems.some((problem) => problem.kind === 'possible-octave-error' && problem.frameIndex === 4))
+})
+
+test('diagnostics flag synthetic target-note chatter', () => {
+  const targets = [60, 61, 60, 61, 60, 61, 60, 61, 60, 61, 60, 61]
+  const problems = detectTuneGravityProblems(targets.map((target, index) => diagnosticFrame(index, 60 + Math.sin(index) * 0.1, target)))
+  assert.ok(problems.some((problem) => problem.kind === 'note-chatter'))
+})
+
 function pitchFrame(index: number, midi: number): PitchFrame {
   const centerSample = 1024 + index * 256
   return {
@@ -104,6 +162,30 @@ function pitchFrame(index: number, midi: number): PitchFrame {
     confidence: 0.98,
     rms: 0.2,
     voiced: true,
+  }
+}
+
+function diagnosticFrame(index: number, detectedMidi: number, targetMidi: number): TuneGravityDiagnosticFrame {
+  return {
+    frameIndex: index,
+    timestampSeconds: index * 256 / sampleRate,
+    centerSample: index * 256,
+    rms: 0.2,
+    detectedFrequencyHz: midiToFrequency(detectedMidi),
+    confidence: 0.96,
+    voiced: true,
+    detectedMidi,
+    detectedCents: (detectedMidi - Math.round(detectedMidi)) * 100,
+    targetMidi,
+    targetNote: null,
+    targetFrequencyHz: midiToFrequency(targetMidi),
+    correctionCents: (targetMidi - detectedMidi) * 100,
+    correctionRatio: 2 ** ((targetMidi - detectedMidi) / 12),
+    correctionSkipped: false,
+    skipReason: null,
+    hysteresisState: 'stable',
+    pendingTargetMidi: null,
+    targetHoldMs: index * 256 / sampleRate * 1000,
   }
 }
 

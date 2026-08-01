@@ -1,12 +1,17 @@
 import type { ProjectKey } from '../music/scales.ts'
-import type { TuneGravityParameters } from '../audio/tuneGravity/index.ts'
+import type { PitchDetectorKind, TuneGravityDiagnosticDocument, TuneGravityParameters, TuneGravityShifter } from '../audio/tuneGravity/index.ts'
 
 export interface TuneGravityWorkerRequest {
   jobId: number
   samples: ArrayBuffer
   sampleRate: number
+  sourceChannelCount: number
+  durationSeconds: number
+  anonymousSourceId: string
   projectKey: ProjectKey
   parameters: Pick<TuneGravityParameters, 'gravity' | 'speed' | 'humanize'>
+  detector?: PitchDetectorKind
+  shifter?: TuneGravityShifter
 }
 
 export interface TuneGravityWorkerDiagnostics {
@@ -21,6 +26,7 @@ export type TuneGravityWorkerResponse = {
   ok: true
   output: ArrayBuffer
   diagnostics: TuneGravityWorkerDiagnostics
+  report: TuneGravityDiagnosticDocument
 } | {
   jobId: number
   ok: false

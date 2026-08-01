@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import type { AudioEngine } from '../audio/AudioEngine.ts'
+import { createAnonymousTuneGravitySourceId } from '../audio/tuneGravity/index.ts'
+import type { TuneGravityDiagnosticDocument } from '../audio/tuneGravity/index.ts'
 import { formatProjectKey } from '../music/scales.ts'
 import type { ProjectKey } from '../music/scales.ts'
 import { ProjectKeyPanel } from '../project/ProjectKeyPanel.tsx'
 import type { TuneGravityWorkerDiagnostics, TuneGravityWorkerResponse } from './tuneGravityWorkerProtocol.ts'
+import { TuneGravityDiagnosticPanel } from './TuneGravityDiagnosticPanel.tsx'
 import './TuneGravityWorkspace.css'
 
 const maximumTuneGravitySeconds = 30
@@ -15,6 +18,7 @@ interface TuneGravitySource {
   sampleRate: number
   durationSeconds: number
   sourceChannelCount: number
+  anonymousId: string
 }
 
 interface TuneGravityWorkspaceProps {
@@ -36,6 +40,7 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
   const [microphoneLevel, setMicrophoneLevel] = useState(0)
   const [auditioning, setAuditioning] = useState<'original' | 'tuned' | null>(null)
   const [diagnostics, setDiagnostics] = useState<TuneGravityWorkerDiagnostics | null>(null)
+  const [diagnosticReport, setDiagnosticReport] = useState<TuneGravityDiagnosticDocument | null>(null)
   const [message, setMessage] = useState('Load a short mono vocal or record one with the microphone.')
   const workerRef = useRef<Worker | null>(null)
   const jobIdRef = useRef(0)
@@ -45,6 +50,7 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
   useEffect(() => {
     setTuned(null)
     setDiagnostics(null)
+    setDiagnosticReport(null)
     setAuditioning(null)
     audioEngine.stopPreview()
   }, [audioEngine, gravity, speed, humanize, projectKey.root, projectKey.scale])
@@ -62,9 +68,10 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
     const decoded = await audioEngine.decodeMonoAudioBlob(blob)
     if (decoded.durationSeconds > maximumTuneGravitySeconds) throw new Error(`Use a vocal phrase no longer than ${maximumTuneGravitySeconds} seconds.`)
     if (decoded.durationSeconds < 0.12) throw new Error('The vocal is too short to analyse.')
-    setSource({ filename, ...decoded })
+    setSource({ filename, ...decoded, anonymousId: createAnonymousTuneGravitySourceId(decoded.samples, decoded.sampleRate) })
     setTuned(null)
     setDiagnostics(null)
+    setDiagnosticReport(null)
     setMessage(`${filename} ready • ${decoded.durationSeconds.toFixed(1)} sec • ${decoded.sourceChannelCount === 1 ? 'MONO' : `${decoded.sourceChannelCount}CH → MONO`}`)
   }
 
@@ -141,6 +148,7 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
       }
       setTuned(new Float32Array(event.data.output))
       setDiagnostics(event.data.diagnostics)
+      setDiagnosticReport(event.data.report)
       setMessage('Tuned version ready. Compare ORIGINAL and TUNED by ear.')
     }
     worker.onerror = () => {
@@ -154,6 +162,9 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
       jobId,
       samples: samples.buffer,
       sampleRate: source.sampleRate,
+      sourceChannelCount: source.sourceChannelCount,
+      durationSeconds: source.durationSeconds,
+      anonymousSourceId: source.anonymousId,
       projectKey,
       parameters: { gravity, speed, humanize },
     }, [samples.buffer])
@@ -181,6 +192,11 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
     link.download = source.filename.replace(/\.wav$/i, '') + '-TUNE-GRAVITY.wav'
     link.click()
     URL.revokeObjectURL(url)
+  }
+
+  const downloadDiagnostics = () => {
+    if (!source || !diagnosticReport) return
+    downloadJson(diagnosticReport, source.filename.replace(/\.wav$/i, '') + '-TUNE-DIAGNOSTICS.json')
   }
 
   const busy = loading || processing || recording
@@ -228,7 +244,12 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
       <div><dt>LOOKAHEAD</dt><dd>{diagnostics.lookaheadMs.toFixed(1)} ms</dd></div>
     </dl>}
 
-    <button className="clear-button tune-gravity-download" type="button" disabled={!tuned || busy} onClick={downloadTuned}>DOWNLOAD TUNED WAV</button>
+    {source && diagnosticReport && <TuneGravityDiagnosticPanel samples={source.samples} report={diagnosticReport} />}
+
+    <div className="tune-gravity-downloads">
+      <button className="clear-button tune-gravity-download" type="button" disabled={!tuned || busy} onClick={downloadTuned}>DOWNLOAD TUNED WAV</button>
+      <button className="clear-button tune-gravity-download" type="button" disabled={!diagnosticReport || busy} onClick={downloadDiagnostics}>EXPORT DIAGNOSTIC JSON</button>
+    </div>
     <p className="tune-gravity-warning">Listen for metallic tone, wrong octave jumps, damaged consonants and changed vocal identity. This test does not mark the effect as finished.</p>
   </section>
 }
@@ -270,4 +291,13 @@ function writeAscii(view: DataView, offset: number, value: string): void {
 
 function toMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Tune Gravity could not complete that action.'
+}
+
+function downloadJson(value: unknown, filename: string): void {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
 }

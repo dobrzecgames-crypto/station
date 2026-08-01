@@ -1,7 +1,7 @@
 import type { ProjectKey } from '../../music/scales.ts'
-import { createCorrectionPlan } from './correctionPlan.ts'
+import { createCorrectionPlan, resolveTuneGravityParameters } from './correctionPlan.ts'
 import type { CorrectionFrame, TuneGravityParameters } from './correctionPlan.ts'
-import { analyzePitch, defaultPitchDetectorOptions } from './pitchDetection.ts'
+import { analyzePitch, defaultPitchDetectorOptions, resolvePitchDetectorOptions } from './pitchDetection.ts'
 import type { PitchDetectorOptions, PitchFrame } from './pitchDetection.ts'
 import { shiftPitchGranular, shiftPitchTdPsola } from './pitchShifting.ts'
 import type { TuneGravityShifter } from './pitchShifting.ts'
@@ -19,6 +19,11 @@ export interface TuneGravityPrototypeResult {
   pitchFrames: PitchFrame[]
   correctionPlan: CorrectionFrame[]
   algorithmicLookaheadSamples: number
+  detectorOptions: PitchDetectorOptions
+  parameters: TuneGravityParameters
+  detector: PitchDetectorOptions['detector']
+  shifter: TuneGravityShifter
+  projectKey: ProjectKey
 }
 
 /**
@@ -31,23 +36,24 @@ export function processTuneGravityOffline(
   sampleRate: number,
   options: TuneGravityPrototypeOptions,
 ): TuneGravityPrototypeResult {
-  const detectorOptions = {
-    ...defaultPitchDetectorOptions,
+  const detectorOptions = resolvePitchDetectorOptions(sampleRate, {
     ...options.detectorOptions,
     detector: options.detector ?? options.detectorOptions?.detector ?? defaultPitchDetectorOptions.detector,
-  }
+  })
+  const parameters = resolveTuneGravityParameters(options.parameters ?? {})
   const pitchFrames = analyzePitch(input, sampleRate, detectorOptions)
   const correctionPlan = createCorrectionPlan(
     pitchFrames,
     options.projectKey,
     sampleRate,
     detectorOptions.hopSize,
-    options.parameters,
+    parameters,
   )
-  const gravity = options.parameters?.gravity ?? 0.65
+  const gravity = parameters.gravity
+  const shifter = options.shifter ?? 'tdPsola'
   const output = gravity <= 0
     ? new Float32Array(input)
-    : options.shifter === 'granular'
+    : shifter === 'granular'
       ? shiftPitchGranular(input, sampleRate, correctionPlan, detectorOptions)
       : shiftPitchTdPsola(input, sampleRate, correctionPlan, detectorOptions)
   const maximumPeriodSamples = Math.ceil(sampleRate / detectorOptions.minimumFrequencyHz)
@@ -56,12 +62,28 @@ export function processTuneGravityOffline(
     pitchFrames,
     correctionPlan,
     algorithmicLookaheadSamples: Math.ceil(detectorOptions.frameSize / 2) + maximumPeriodSamples,
+    detectorOptions,
+    parameters,
+    detector: detectorOptions.detector,
+    shifter,
+    projectKey: { ...options.projectKey },
   }
 }
 
-export { analyzePitch, defaultPitchDetectorOptions } from './pitchDetection.ts'
+export { analyzePitch, defaultPitchDetectorOptions, resolvePitchDetectorOptions } from './pitchDetection.ts'
 export type { PitchDetectorKind, PitchDetectorOptions, PitchFrame } from './pitchDetection.ts'
-export { createCorrectionPlan, defaultTuneGravityParameters, frequencyToMidi, midiToFrequency, nearestScaleMidi } from './correctionPlan.ts'
+export { createCorrectionPlan, defaultTuneGravityParameters, frequencyToMidi, midiToFrequency, nearestScaleMidi, resolveTuneGravityParameters } from './correctionPlan.ts'
 export type { CorrectionFrame, TuneGravityParameters } from './correctionPlan.ts'
 export { shiftPitchGranular, shiftPitchTdPsola } from './pitchShifting.ts'
 export type { PitchShiftOptions, TuneGravityShifter } from './pitchShifting.ts'
+export { createAnonymousTuneGravitySourceId, createTuneGravityDiagnosticDocument, detectTuneGravityProblems, tuneGravityDiagnosticFormatVersion } from './diagnostics.ts'
+export type {
+  CreateTuneGravityDiagnosticOptions,
+  TuneGravityDiagnosticDocument,
+  TuneGravityDiagnosticFrame,
+  TuneGravityDiagnosticProblem,
+  TuneGravityDiagnosticProblemKind,
+  TuneGravityDiagnosticRegion,
+  TuneGravityDiagnosticRegionKind,
+  TuneGravityDiagnosticSkipReason,
+} from './diagnostics.ts'

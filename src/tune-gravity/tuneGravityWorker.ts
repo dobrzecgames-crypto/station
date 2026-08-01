@@ -1,4 +1,4 @@
-import { processTuneGravityOffline } from '../audio/tuneGravity/index.ts'
+import { createTuneGravityDiagnosticDocument, processTuneGravityOffline } from '../audio/tuneGravity/index.ts'
 import type { TuneGravityWorkerRequest, TuneGravityWorkerResponse } from './tuneGravityWorkerProtocol.ts'
 
 interface WorkerScope {
@@ -14,8 +14,8 @@ workerScope.onmessage = (event) => {
     const startedAt = performance.now()
     const result = processTuneGravityOffline(new Float32Array(request.samples), request.sampleRate, {
       projectKey: request.projectKey,
-      detector: 'yin',
-      shifter: 'tdPsola',
+      detector: request.detector ?? 'yin',
+      shifter: request.shifter ?? 'tdPsola',
       parameters: request.parameters,
     })
     const voiced = result.pitchFrames.filter((frame) => frame.voiced)
@@ -27,6 +27,13 @@ workerScope.onmessage = (event) => {
         ? (confidences[middle - 1]! + confidences[middle]!) / 2
         : confidences[middle]!
     const output = new Float32Array(result.output)
+    const report = createTuneGravityDiagnosticDocument(result, {
+      anonymousSourceId: request.anonymousSourceId,
+      sampleRate: request.sampleRate,
+      sourceChannelCount: request.sourceChannelCount,
+      durationSeconds: request.durationSeconds,
+      sampleCount: output.length,
+    })
     workerScope.postMessage({
       jobId: request.jobId,
       ok: true,
@@ -37,6 +44,7 @@ workerScope.onmessage = (event) => {
         medianConfidence,
         lookaheadMs: result.algorithmicLookaheadSamples / request.sampleRate * 1000,
       },
+      report,
     }, [output.buffer])
   } catch (error) {
     workerScope.postMessage({

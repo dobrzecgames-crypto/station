@@ -39,6 +39,13 @@ export interface LoadedSampleInfo {
   durationSeconds: number
 }
 
+export interface DecodedMonoAudio {
+  samples: Float32Array<ArrayBuffer>
+  sampleRate: number
+  durationSeconds: number
+  sourceChannelCount: number
+}
+
 export interface RuntimeSampleAsset {
   filename: string
   blob: Blob
@@ -615,6 +622,27 @@ export class AudioEngine {
     }
   }
 
+  /**
+   * Decodes an audition-only source without registering it as a project asset.
+   * The channel fold-down and AudioBuffer stay inside the audio layer; React
+   * receives plain sample data for the isolated Tune Gravity QUALITY worker.
+   */
+  async decodeMonoAudioBlob(blob: Blob): Promise<DecodedMonoAudio> {
+    if (this.status !== 'ready' || !this.context) throw new Error('Start audio before loading a vocal.')
+    const decoded = await this.context.decodeAudioData(await blob.arrayBuffer())
+    const samples = new Float32Array(decoded.length)
+    for (let channel = 0; channel < decoded.numberOfChannels; channel += 1) {
+      const channelData = decoded.getChannelData(channel)
+      for (let index = 0; index < samples.length; index += 1) samples[index] += channelData[index]! / decoded.numberOfChannels
+    }
+    return {
+      samples,
+      sampleRate: decoded.sampleRate,
+      durationSeconds: decoded.duration,
+      sourceChannelCount: decoded.numberOfChannels,
+    }
+  }
+
   async startMicrophoneRecording(onLevel: (level: number) => void): Promise<void> {
     if (this.status !== 'ready' || !this.liveContext) throw new Error('Start audio before recording with the microphone.')
     if (this.microphoneRecorder) throw new Error('Microphone recording is already active.')
@@ -769,6 +797,31 @@ export class AudioEngine {
     this.activeVoices.add(voice)
     this.previewVoices.add(voice)
     source.start(when, region.startSeconds, region.durationSeconds)
+  }
+
+  /** Auditions worker-produced mono data through the same master path as every other preview. */
+  previewMonoSamples(samples: Float32Array, sampleRate: number, onEnded?: () => void): void {
+    if (this.status !== 'ready' || !this.context || !this.masterEffects || samples.length === 0) return
+    this.stopPreview()
+    const buffer = this.context.createBuffer(1, samples.length, sampleRate)
+    buffer.copyToChannel(new Float32Array(samples), 0)
+    const when = this.context.currentTime
+    const source = this.context.createBufferSource()
+    const gain = this.context.createGain()
+    const duration = samples.length / sampleRate
+    const fadeDuration = Math.min(0.006, duration / 2)
+    const voice: ActiveVoice = { source, gain, cleanedUp: false, origin: 'preview', isSample: true, startsAt: when, onEnded }
+    source.buffer = buffer
+    gain.gain.setValueAtTime(0, when)
+    gain.gain.linearRampToValueAtTime(1, when + fadeDuration)
+    gain.gain.setValueAtTime(1, when + Math.max(fadeDuration, duration - fadeDuration))
+    gain.gain.linearRampToValueAtTime(0, when + duration)
+    source.connect(gain)
+    gain.connect(this.masterEffects.input)
+    source.addEventListener('ended', () => this.cleanUpVoice(voice), { once: true })
+    this.activeVoices.add(voice)
+    this.previewVoices.add(voice)
+    source.start(when)
   }
 
   stopPreview(): void {

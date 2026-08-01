@@ -9,7 +9,8 @@
   },
   "scripts": {
     "dev": "vite",
-    "test": "node --experimental-strip-types --test tests/tape.test.ts tests/chords.test.ts tests/microphone.test.ts",
+    "test": "node --experimental-strip-types --test tests/tape.test.ts tests/chords.test.ts tests/microphone.test.ts tests/tune-gravity.test.ts",
+    "tune-gravity:prototype": "node --experimental-strip-types tools/tune-gravity-prototype.ts",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
     "preview": "vite preview"

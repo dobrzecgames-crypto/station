@@ -57,6 +57,7 @@ import { addPatternClip, getLastOccupiedSlot, removeClipsForGroup, removeClipsFo
 import type { PatternClip, TransportMode } from './song/songTypes'
 import { getPatternTracks, getSongTracksForSlot } from './song/songTracks'
 import { SongWorkspace } from './song/SongWorkspace'
+import { TuneGravityWorkspace } from './tune-gravity/TuneGravityWorkspace'
 import type { SliceRegion } from './chop/autoChopOperations'
 import { chopTestSamples } from './chop/chopTestSamples'
 import type { ChopTestSample } from './chop/chopTestSamples'
@@ -1543,6 +1544,14 @@ export function App({ audioEngine }: AppProps) {
                 onApplyAutoChop={applyAutoChopRegions}
               />
             </>
+          )}
+          {mainView === "tune" && (
+            <TuneGravityWorkspace
+              audioEngine={audioEngine}
+              audioReady={controlsAwake}
+              projectKey={projectKey}
+              onProjectKeyChange={changeProjectKey}
+            />
           )}
           {mainView === "pad" && (
             <>

@@ -2,8 +2,9 @@ import { createDefaultMasterEffectRack, createEmptyEffectRack, createMigratedMas
 import type { EffectRackState } from '../audio/effects'
 import type { PumpCurve, SampleAssetId } from '../audio/AudioEngine'
 import type { GroupPadReference } from '../audio/channelIdentity'
-import { cloneDrumKickPatch, createDefaultDrumKickPatch, createDefaultDrumSynthState } from '../drumsynth/drumSynthOperations'
-import type { DrumKickPatch, DrumSynthState } from '../drumsynth/drumSynthTypes'
+import { cloneDrumKickPatch, cloneDrumSnarePatch, createDefaultDrumKickPatch, createDefaultDrumSnarePatch, createDefaultDrumSynthState } from '../drumsynth/drumSynthOperations'
+import { drumInstrumentTypes } from '../drumsynth/drumSynthTypes'
+import type { DrumKickPatch, DrumSnarePatch, DrumSynthState } from '../drumsynth/drumSynthTypes'
 import { defaultProjectKey, isNoteName, isScaleId } from '../music/scales'
 import type { ProjectKey } from '../music/scales'
 import { createEmptyChopSession, createPadBankState } from '../pads/padBank'
@@ -20,8 +21,9 @@ import { maximumStringsVoices, resolveStringsPadMidiNotes } from '../strings/str
 import { stringsCharacters, stringsOctaveLayers, stringsOctaves } from '../strings/stringsTypes'
 import type { StringsPatch } from '../strings/stringsTypes'
 
-export const projectSchemaVersion = 15
-export const previousProjectSchemaVersion = 14
+export const projectSchemaVersion = 16
+export const previousProjectSchemaVersion = 15
+export const v14ProjectSchemaVersion = 14
 export const v13ProjectSchemaVersion = 13
 export const v12ProjectSchemaVersion = 12
 export const v11ProjectSchemaVersion = 11
@@ -112,7 +114,7 @@ export function createProjectState(state: ProjectState): ProjectState {
     master: { ...state.master },
     masterEffects: cloneEffectRackState(state.masterEffects),
     pumpRoutes: state.pumpRoutes.map((route) => ({ ...route, source: { ...route.source } })),
-    drumSynth: { selectedInstrument: state.drumSynth.selectedInstrument, kick: cloneDrumKickPatch(state.drumSynth.kick) },
+    drumSynth: { selectedInstrument: state.drumSynth.selectedInstrument, kick: cloneDrumKickPatch(state.drumSynth.kick), snare: cloneDrumSnarePatch(state.drumSynth.snare) },
   }
 }
 
@@ -226,6 +228,11 @@ export function migrateV14ProjectState(previous: { [key: string]: unknown }): Pr
   return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
 }
 
+/** v15 predates SNARE, DRUM SYNTH's second voice; normalization backfills a default SNARE patch alongside the existing KICK one. See docs/DECISIONS.md DEC-025. */
+export function migrateV15ProjectState(previous: { [key: string]: unknown }): ProjectState {
+  return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
+}
+
 export function collectReferencedAssetIds(project: ProjectState): Set<SampleAssetId> {
   const ids = new Set<SampleAssetId>()
   for (const group of project.patternGroups) {
@@ -331,8 +338,9 @@ export function validateProjectState(project: ProjectState): string[] {
   if (!Number.isFinite(project.swing) || project.swing < 0 || project.swing > 0.5) errors.push('Swing must be between 0 and 0.5.')
   if (!Number.isFinite(project.master?.volume) || project.master.volume < 0 || project.master.volume > 1 || typeof project.master.muted !== 'boolean') errors.push('Master mixer state is invalid.')
   if (!isEffectRackState(project.masterEffects, 'master')) errors.push('Master effects are invalid.')
-  if (project.drumSynth?.selectedInstrument !== 'kick') errors.push('DRUM SYNTH selected instrument is invalid.')
+  if (!project.drumSynth || !drumInstrumentTypes.includes(project.drumSynth.selectedInstrument)) errors.push('DRUM SYNTH selected instrument is invalid.')
   validateDrumKickPatch(project.drumSynth?.kick, 'DRUM SYNTH KICK', errors)
+  validateDrumSnarePatch(project.drumSynth?.snare, 'DRUM SYNTH SNARE', errors)
   const pumpRouteIds = new Set<string>()
   for (const route of project.pumpRoutes) {
     if (pumpRouteIds.has(route.id)) errors.push('Pump route IDs must be unique.')
@@ -459,20 +467,33 @@ function normalizeStringsPatch(patch: StringsPatch): StringsPatch {
  */
 function normalizeDrumSynthState(state: DrumSynthState | undefined): DrumSynthState {
   if (!state) return createDefaultDrumSynthState()
-  const defaults = createDefaultDrumKickPatch()
+  const kickDefaults = createDefaultDrumKickPatch()
   const legacyKick = state.kick as Partial<DrumKickPatch> | undefined
+  const snareDefaults = createDefaultDrumSnarePatch()
+  const legacySnare = state.snare as Partial<DrumSnarePatch> | undefined
   return {
-    selectedInstrument: 'kick',
+    selectedInstrument: drumInstrumentTypes.includes(state.selectedInstrument) ? state.selectedInstrument : 'kick',
     kick: {
       instrument: 'kick',
-      tune: legacyKick?.tune === undefined ? defaults.tune : legacyKick.tune,
-      punch: legacyKick?.punch === undefined ? defaults.punch : legacyKick.punch,
-      body: legacyKick?.body === undefined ? defaults.body : legacyKick.body,
-      click: legacyKick?.click === undefined ? defaults.click : legacyKick.click,
-      decay: legacyKick?.decay === undefined ? defaults.decay : legacyKick.decay,
-      tone: legacyKick?.tone === undefined ? defaults.tone : legacyKick.tone,
-      drive: legacyKick?.drive === undefined ? defaults.drive : legacyKick.drive,
-      dust: legacyKick?.dust === undefined ? defaults.dust : legacyKick.dust,
+      tune: legacyKick?.tune === undefined ? kickDefaults.tune : legacyKick.tune,
+      punch: legacyKick?.punch === undefined ? kickDefaults.punch : legacyKick.punch,
+      body: legacyKick?.body === undefined ? kickDefaults.body : legacyKick.body,
+      click: legacyKick?.click === undefined ? kickDefaults.click : legacyKick.click,
+      decay: legacyKick?.decay === undefined ? kickDefaults.decay : legacyKick.decay,
+      tone: legacyKick?.tone === undefined ? kickDefaults.tone : legacyKick.tone,
+      drive: legacyKick?.drive === undefined ? kickDefaults.drive : legacyKick.drive,
+      dust: legacyKick?.dust === undefined ? kickDefaults.dust : legacyKick.dust,
+    },
+    snare: {
+      instrument: 'snare',
+      tune: legacySnare?.tune === undefined ? snareDefaults.tune : legacySnare.tune,
+      body: legacySnare?.body === undefined ? snareDefaults.body : legacySnare.body,
+      snap: legacySnare?.snap === undefined ? snareDefaults.snap : legacySnare.snap,
+      rattle: legacySnare?.rattle === undefined ? snareDefaults.rattle : legacySnare.rattle,
+      bodyDecay: legacySnare?.bodyDecay === undefined ? snareDefaults.bodyDecay : legacySnare.bodyDecay,
+      rattleDecay: legacySnare?.rattleDecay === undefined ? snareDefaults.rattleDecay : legacySnare.rattleDecay,
+      tone: legacySnare?.tone === undefined ? snareDefaults.tone : legacySnare.tone,
+      dust: legacySnare?.dust === undefined ? snareDefaults.dust : legacySnare.dust,
     },
   }
 }
@@ -536,6 +557,18 @@ function validateDrumKickPatch(patch: DrumKickPatch | undefined, label: string, 
   if (!isFiniteInRange(patch.decay, 0, 1)) errors.push(`${label} has an invalid DECAY.`)
   if (!isFiniteInRange(patch.tone, 0, 1)) errors.push(`${label} has an invalid TONE.`)
   if (!isFiniteInRange(patch.drive, 0, 1)) errors.push(`${label} has an invalid DRIVE.`)
+  if (!isFiniteInRange(patch.dust, 0, 1)) errors.push(`${label} has an invalid DUST.`)
+}
+
+function validateDrumSnarePatch(patch: DrumSnarePatch | undefined, label: string, errors: string[]): void {
+  if (patch?.instrument !== 'snare') { errors.push(`${label} has an invalid instrument.`); return }
+  if (!isFiniteInRange(patch.tune, 0, 1)) errors.push(`${label} has an invalid TUNE.`)
+  if (!isFiniteInRange(patch.body, 0, 1)) errors.push(`${label} has an invalid BODY.`)
+  if (!isFiniteInRange(patch.snap, 0, 1)) errors.push(`${label} has an invalid SNAP.`)
+  if (!isFiniteInRange(patch.rattle, 0, 1)) errors.push(`${label} has an invalid RATTLE.`)
+  if (!isFiniteInRange(patch.bodyDecay, 0, 1)) errors.push(`${label} has an invalid BODY DECAY.`)
+  if (!isFiniteInRange(patch.rattleDecay, 0, 1)) errors.push(`${label} has an invalid RATTLE DECAY.`)
+  if (!isFiniteInRange(patch.tone, 0, 1)) errors.push(`${label} has an invalid TONE.`)
   if (!isFiniteInRange(patch.dust, 0, 1)) errors.push(`${label} has an invalid DUST.`)
 }
 

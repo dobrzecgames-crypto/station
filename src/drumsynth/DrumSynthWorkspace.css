@@ -61,6 +61,37 @@
   opacity: .45;
 }
 
+.drumsynth-instrument-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.drumsynth-instrument-button {
+  min-height: 34px;
+  border: 1px solid var(--station-line);
+  border-radius: 4px;
+  color: var(--station-text-muted);
+  background: var(--station-raised);
+  font-family: var(--station-mono-font);
+  font-size: .58rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  cursor: pointer;
+}
+
+.drumsynth-instrument-button[aria-pressed='true'] {
+  color: var(--station-bg);
+  border-color: color-mix(in srgb, var(--station-accent) 55%, var(--station-line));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--station-accent) 88%, #000), var(--station-accent) 60%, color-mix(in srgb, var(--station-accent) 88%, #fff));
+}
+
+.drumsynth-instrument-button:focus-visible {
+  outline: none;
+  border-color: var(--station-accent);
+}
+
 .drumsynth-preset-row {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));

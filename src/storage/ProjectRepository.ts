@@ -1,5 +1,5 @@
 import type { RuntimeSampleAsset, SampleAssetId } from '../audio/AudioEngine'
-import { createProjectState, legacyProjectSchemaVersion, migrateLegacyProjectState, migrateV2ProjectState, migrateV3ProjectState, migrateV4ProjectState, migrateV5ProjectState, migrateV6ProjectState, migrateV7ProjectState, migrateV8ProjectState, migrateV9ProjectState, migrateV10ProjectState, migrateV11ProjectState, migrateV12ProjectState, migrateV13ProjectState, migrateV14ProjectState, normalizeProjectState, previousProjectSchemaVersion, projectSchemaVersion, v2ProjectSchemaVersion, v3ProjectSchemaVersion, v4ProjectSchemaVersion, v5ProjectSchemaVersion, v6ProjectSchemaVersion, v7ProjectSchemaVersion, v8ProjectSchemaVersion, v9ProjectSchemaVersion, v10ProjectSchemaVersion, v11ProjectSchemaVersion, v12ProjectSchemaVersion, v13ProjectSchemaVersion, validateProjectState } from '../project/ProjectState'
+import { createProjectState, legacyProjectSchemaVersion, migrateLegacyProjectState, migrateV2ProjectState, migrateV3ProjectState, migrateV4ProjectState, migrateV5ProjectState, migrateV6ProjectState, migrateV7ProjectState, migrateV8ProjectState, migrateV9ProjectState, migrateV10ProjectState, migrateV11ProjectState, migrateV12ProjectState, migrateV13ProjectState, migrateV14ProjectState, migrateV15ProjectState, normalizeProjectState, previousProjectSchemaVersion, projectSchemaVersion, v2ProjectSchemaVersion, v3ProjectSchemaVersion, v4ProjectSchemaVersion, v5ProjectSchemaVersion, v6ProjectSchemaVersion, v7ProjectSchemaVersion, v8ProjectSchemaVersion, v9ProjectSchemaVersion, v10ProjectSchemaVersion, v11ProjectSchemaVersion, v12ProjectSchemaVersion, v13ProjectSchemaVersion, v14ProjectSchemaVersion, validateProjectState } from '../project/ProjectState'
 import { defaultProjectKey } from '../music/scales'
 import { assetStoreName, metadataStoreName, openStationDatabase, projectStoreName, requestResult, transactionComplete } from './StationDatabase'
 import { defaultProjectId } from './storageTypes'
@@ -75,7 +75,7 @@ export const projectRepository = new ProjectRepository()
 function readProjectState(record: unknown): ReturnType<typeof createProjectState> {
   if (!isRecord(record) || !isRecord(record.state)) throw new Error('Saved project manifest is corrupted.')
   const schemaVersion = record.state.schemaVersion
-  if (schemaVersion !== projectSchemaVersion && schemaVersion !== previousProjectSchemaVersion && schemaVersion !== v13ProjectSchemaVersion && schemaVersion !== v12ProjectSchemaVersion && schemaVersion !== v11ProjectSchemaVersion && schemaVersion !== v10ProjectSchemaVersion && schemaVersion !== v9ProjectSchemaVersion && schemaVersion !== v8ProjectSchemaVersion && schemaVersion !== v7ProjectSchemaVersion && schemaVersion !== v6ProjectSchemaVersion && schemaVersion !== v5ProjectSchemaVersion && schemaVersion !== v4ProjectSchemaVersion && schemaVersion !== v3ProjectSchemaVersion && schemaVersion !== v2ProjectSchemaVersion && schemaVersion !== legacyProjectSchemaVersion) throw new Error(`Unsupported project schema version: ${String(schemaVersion)}.`)
+  if (schemaVersion !== projectSchemaVersion && schemaVersion !== previousProjectSchemaVersion && schemaVersion !== v14ProjectSchemaVersion && schemaVersion !== v13ProjectSchemaVersion && schemaVersion !== v12ProjectSchemaVersion && schemaVersion !== v11ProjectSchemaVersion && schemaVersion !== v10ProjectSchemaVersion && schemaVersion !== v9ProjectSchemaVersion && schemaVersion !== v8ProjectSchemaVersion && schemaVersion !== v7ProjectSchemaVersion && schemaVersion !== v6ProjectSchemaVersion && schemaVersion !== v5ProjectSchemaVersion && schemaVersion !== v4ProjectSchemaVersion && schemaVersion !== v3ProjectSchemaVersion && schemaVersion !== v2ProjectSchemaVersion && schemaVersion !== legacyProjectSchemaVersion) throw new Error(`Unsupported project schema version: ${String(schemaVersion)}.`)
   const baseState = {
     ...record.state,
     // Schema v1 projects written before Project Key used the same stable fields;
@@ -108,9 +108,11 @@ function readProjectState(record: unknown): ReturnType<typeof createProjectState
                           ? migrateV12ProjectState(baseState)
                           : schemaVersion === v13ProjectSchemaVersion
                             ? migrateV13ProjectState(baseState)
-                            : schemaVersion === previousProjectSchemaVersion
+                            : schemaVersion === v14ProjectSchemaVersion
                               ? migrateV14ProjectState(baseState)
-                              : baseState as ReturnType<typeof createProjectState>
+                              : schemaVersion === previousProjectSchemaVersion
+                                ? migrateV15ProjectState(baseState)
+                                : baseState as ReturnType<typeof createProjectState>
   const state = normalizeProjectState(migratedState)
   const errors = validateProjectState(state)
   if (errors.length > 0) throw new Error(`Saved project manifest is corrupted: ${errors[0]}`)

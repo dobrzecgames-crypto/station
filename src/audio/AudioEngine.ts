@@ -1,8 +1,8 @@
 import { createDefaultMasterEffectRack, createEmptyEffectRack, defaultCompressorConfig, defaultDelayConfig, getDelayTimeSeconds, normalizeEffectRackState } from './effects'
 import type { EffectRackState, EffectSlotState, EffectType, TightRoomMode } from './effects'
-import type { DrumKickPatch } from '../drumsynth/drumSynthTypes'
+import type { DrumPatch, DrumVoiceHandle } from '../drumsynth/drumSynthTypes'
 import { playKickVoice } from '../drumsynth/kickVoice'
-import type { KickVoiceHandle } from '../drumsynth/kickVoice'
+import { playSnareVoice } from '../drumsynth/snareVoice'
 import { createRandomSeed } from '../drumsynth/seededRandom'
 import { cloneSynthPatch, lfoFrequencyHz, maximumSynthVoices } from '../synth/synthOperations'
 import type { SynthPatch } from '../synth/synthTypes'
@@ -319,8 +319,8 @@ export class AudioEngine {
   private stringsNoiseBuffer?: AudioBuffer
   /** WARMTH's saturation curve - fixed and generated once, ever. A WaveShaper's `.curve` cannot be smoothly ramped, so WARMTH moves a dry/wet blend instead of regenerating this. */
   private stringsWarmthCurve?: Float32Array<ArrayBuffer>
-  /** DRUM SYNTH preview voices only - the rendered-to-pad kick plays back as an ordinary sample through `scheduleSample`/`activeVoices`, never through this set. See docs/DECISIONS.md DEC-024. */
-  private readonly drumKickPreviewVoices = new Set<KickVoiceHandle>()
+  /** DRUM SYNTH preview voices only, any instrument - a rendered-to-pad kick or snare plays back as an ordinary sample through `scheduleSample`/`activeVoices`, never through this set. See docs/DECISIONS.md DEC-024/DEC-025. */
+  private readonly drumPreviewVoices = new Set<DrumVoiceHandle>()
   private status: AudioEngineStatus = 'inactive'
   private readonly statusListeners = new Set<(status: AudioEngineStatus) => void>()
   private lifecycleRecoveryInstalled = false
@@ -697,20 +697,23 @@ export class AudioEngine {
       }
       this.cleanUpVoice(voice)
     }
-    for (const voice of [...this.drumKickPreviewVoices]) voice.stop()
+    for (const voice of [...this.drumPreviewVoices]) voice.stop()
   }
 
   /**
    * Plays the current DRUM SYNTH patch straight through master, bypassing
    * channel/group routing exactly like `previewAsset` - this is an audition,
    * not a sequenced pad source. A fresh seed on every call is intentional:
-   * DUST is meant to vary hit to hit during live preview (see kickVoice.ts).
+   * DUST (and, for SNARE, RATTLE/SNAP too) is meant to vary hit to hit during
+   * live preview - see kickVoice.ts/snareVoice.ts and DEC-025's determinism note.
    */
-  previewDrumKick(patch: DrumKickPatch): void {
+  previewDrumSound(patch: DrumPatch): void {
     if (this.status !== 'ready' || !this.context || !this.masterEffects) return
     const when = this.context.currentTime
-    const voice: KickVoiceHandle = playKickVoice(this.context, this.masterEffects.input, patch, when, createRandomSeed(), () => this.drumKickPreviewVoices.delete(voice))
-    this.drumKickPreviewVoices.add(voice)
+    const voice: DrumVoiceHandle = patch.instrument === 'kick'
+      ? playKickVoice(this.context, this.masterEffects.input, patch, when, createRandomSeed(), () => this.drumPreviewVoices.delete(voice))
+      : playSnareVoice(this.context, this.masterEffects.input, patch, when, createRandomSeed(), () => this.drumPreviewVoices.delete(voice))
+    this.drumPreviewVoices.add(voice)
   }
 
   scheduleSample(groupId: GroupId, channelId: ChannelId, assetId: SampleAssetId, when: number, options: TriggerSampleOptions = {}, origin: 'manual' | 'sequencer' = 'manual'): void {
@@ -775,7 +778,7 @@ export class AudioEngine {
     }
     for (const voice of [...this.activeSynthVoices]) this.stopSynthVoiceImmediately(voice)
     for (const voice of [...this.activeStringsVoices]) this.stopStringsVoiceImmediately(voice)
-    for (const voice of [...this.drumKickPreviewVoices]) voice.stop()
+    for (const voice of [...this.drumPreviewVoices]) voice.stop()
   }
 
   stopSequencerVoices(): void {

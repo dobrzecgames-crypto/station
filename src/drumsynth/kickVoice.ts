@@ -1,23 +1,18 @@
 import {
+  dustDurationSeconds as sharedDustDurationSeconds,
+  dustToShape,
   kickBodyToMainGain,
   kickBodyToSubGain,
   kickClickToGain,
   kickDecayToSeconds,
   kickDriveCompensationGain,
   kickDriveCurve,
-  kickDustDurationSeconds,
-  kickDustToShape,
   kickPunchToPitchEnvelope,
   kickToneToShape,
   kickTuneToHz,
 } from './drumSynthOperations'
-import type { DrumKickPatch } from './drumSynthTypes'
+import type { DrumKickPatch, DrumVoiceHandle } from './drumSynthTypes'
 import { createSeededRandom } from './seededRandom'
-
-export interface KickVoiceHandle {
-  /** Stops every scheduled node at or after `when` and disconnects the graph. Idempotent - safe to call again after the voice has already ended naturally. */
-  stop(when?: number): void
-}
 
 /**
  * Final safety trim. `kickDriveCurve` always evaluates to exactly +/-1 at its
@@ -41,7 +36,7 @@ const dustHighpassQ = 1.3
  * the offline bounce (renderKick.ts) call this same function so they can
  * never drift apart in sound.
  */
-export function playKickVoice(context: BaseAudioContext, destination: AudioNode, patch: DrumKickPatch, when: number, seed: number, onEnded?: () => void): KickVoiceHandle {
+export function playKickVoice(context: BaseAudioContext, destination: AudioNode, patch: DrumKickPatch, when: number, seed: number, onEnded?: () => void): DrumVoiceHandle {
   const tuneHz = kickTuneToHz(patch.tune)
   const pitchEnvelope = kickPunchToPitchEnvelope(patch.punch)
   const decaySeconds = kickDecayToSeconds(patch.decay)
@@ -127,9 +122,9 @@ export function playKickVoice(context: BaseAudioContext, destination: AudioNode,
   let dustAmp: GainNode | undefined
   let dustDurationSeconds = 0
   if (patch.dust > 0.001) {
-    const dust = kickDustToShape(patch.dust)
+    const dust = dustToShape(patch.dust)
     const random = createSeededRandom(seed)
-    dustDurationSeconds = kickDustDurationSeconds(decaySeconds)
+    dustDurationSeconds = sharedDustDurationSeconds(decaySeconds)
     const dustBuffer = context.createBuffer(1, Math.max(1, Math.ceil(context.sampleRate * dustDurationSeconds)), context.sampleRate)
     const dustData = dustBuffer.getChannelData(0)
     // Surface noise floor: continuous and low-level, with its own gentle taper

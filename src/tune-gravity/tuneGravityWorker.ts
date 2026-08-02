@@ -26,6 +26,16 @@ workerScope.onmessage = (event) => {
       : confidences.length % 2 === 0
         ? (confidences[middle - 1]! + confidences[middle]!) / 2
         : confidences[middle]!
+    const absoluteCorrections = result.correctionPlan
+      .filter((frame) => frame.voiced && frame.targetMidi !== null)
+      .map((frame) => Math.abs(frame.correctionCents))
+      .sort((first, second) => first - second)
+    const correctionMiddle = Math.floor(absoluteCorrections.length / 2)
+    const medianAbsoluteCorrectionCents = absoluteCorrections.length === 0
+      ? null
+      : absoluteCorrections.length % 2 === 0
+        ? (absoluteCorrections[correctionMiddle - 1]! + absoluteCorrections[correctionMiddle]!) / 2
+        : absoluteCorrections[correctionMiddle]!
     const output = new Float32Array(result.output)
     const report = createTuneGravityDiagnosticDocument(result, {
       anonymousSourceId: request.anonymousSourceId,
@@ -42,6 +52,8 @@ workerScope.onmessage = (event) => {
         processingMs: performance.now() - startedAt,
         voicedFrameFraction: result.pitchFrames.length > 0 ? voiced.length / result.pitchFrames.length : 0,
         medianConfidence,
+        medianAbsoluteCorrectionCents,
+        maximumAbsoluteCorrectionCents: absoluteCorrections.at(-1) ?? null,
         lookaheadMs: result.algorithmicLookaheadSamples / request.sampleRate * 1000,
       },
       report,

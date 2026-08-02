@@ -32,11 +32,15 @@ export const defaultTuneGravityParameters: TuneGravityParameters = {
   minimumTargetHoldMs: 45,
 }
 
-/** Fixed user-facing preset for the deliberately simple TUNE workflow. */
-export const simpleAutoTuneParameters: Pick<TuneGravityParameters, 'gravity' | 'speed' | 'humanize'> = {
+/** Fixed user-facing preset for an intentionally obvious, zero-latency hard tune. */
+export const simpleAutoTuneParameters: Partial<TuneGravityParameters> = {
   gravity: 1,
-  speed: 0.95,
-  humanize: 0.08,
+  speed: 1,
+  humanize: 0,
+  maximumCorrectionCents: 400,
+  confidenceThreshold: 0.6,
+  switchHysteresisCents: 0,
+  minimumTargetHoldMs: 0,
 }
 
 /**
@@ -55,8 +59,8 @@ export function createCorrectionPlan(
   const hopSeconds = hopSize / sampleRate
   const minimumHoldFrames = Math.max(1, Math.ceil(parameters.minimumTargetHoldMs / 1000 / hopSeconds))
   const releaseFrames = Math.max(1, Math.ceil(0.12 / hopSeconds))
-  const speedTimeConstant = 0.008 + 0.22 * (1 - parameters.speed) ** 2
-  const correctionAlpha = 1 - Math.exp(-hopSeconds / speedTimeConstant)
+  const speedTimeConstant = parameters.speed >= 1 ? 0 : 0.008 + 0.22 * (1 - parameters.speed) ** 2
+  const correctionAlpha = speedTimeConstant === 0 ? 1 : 1 - Math.exp(-hopSeconds / speedTimeConstant)
   const centerAlpha = 1 - Math.exp(-hopSeconds / 0.18)
 
   let activeTarget: number | null = null

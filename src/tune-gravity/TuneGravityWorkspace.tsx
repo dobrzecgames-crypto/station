@@ -128,9 +128,11 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
       const response = await processInWorker(source, projectKey)
       setTunedAudio(new Float32Array(response.output))
       const voicedPercent = Math.round(response.diagnostics.voicedFrameFraction * 100)
+      const medianCorrection = Math.round(response.diagnostics.medianAbsoluteCorrectionCents ?? 0)
+      const maximumCorrection = Math.round(response.diagnostics.maximumAbsoluteCorrectionCents ?? 0)
       setMessage(voicedPercent < 10
         ? 'AutoTune finished, but very little stable vocal pitch was detected. Try a cleaner solo vocal.'
-        : `AutoTune ready • ${voicedPercent}% of the phrase detected as pitched vocal.`)
+        : `HARD AUTOTUNE ready • ${voicedPercent}% vocal locked • pitch moved ${medianCorrection} cents typically, up to ${maximumCorrection} cents.`)
     } catch (error) {
       setMessage(toMessage(error))
     } finally {

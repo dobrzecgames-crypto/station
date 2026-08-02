@@ -79,7 +79,7 @@ test('both prototype shifters preserve duration and move a detuned voiced signal
   }
 })
 
-test('the simple AUTOTUNE preset is a strong correction rather than a bypass', () => {
+test('the simple AUTOTUNE preset locks a detuned note tightly to the scale', () => {
   const sourceMidi = 57.42
   const sourceFrequency = midiToFrequency(sourceMidi)
   const input = createVowelProxy(0.9, () => sourceFrequency)
@@ -88,8 +88,16 @@ test('the simple AUTOTUNE preset is a strong correction rather than a bypass', (
     parameters: simpleAutoTuneParameters,
   })
   const appliedCorrections = result.correctionPlan.filter((frame) => frame.voiced).map((frame) => Math.abs(frame.correctionCents))
-  assert.ok(median(appliedCorrections) > 20, 'the fixed preset should apply an audible-size correction to a detuned stable note')
+  assert.ok(median(appliedCorrections) > 40, 'the fixed preset should apply the full audible correction')
   assert.notDeepEqual(result.output, input)
+  const outputFrequencies = analyzePitch(result.output, sampleRate).slice(12, -8)
+    .filter((frame) => frame.frequencyHz !== null)
+    .map((frame) => frame.frequencyHz!)
+  const outputMidi = 69 + 12 * Math.log2(median(outputFrequencies) / 440)
+  assert.ok(Math.abs(outputMidi - 57) < 0.1, 'the rendered result should land within ten cents of A3')
+  assert.equal(simpleAutoTuneParameters.humanize, 0)
+  assert.equal(simpleAutoTuneParameters.minimumTargetHoldMs, 0)
+  assert.equal(simpleAutoTuneParameters.switchHysteresisCents, 0)
 })
 
 test('unvoiced middle region is passed without pitch correction', () => {

@@ -9,7 +9,7 @@ export interface TuneGravityWorkerRequest {
   durationSeconds: number
   anonymousSourceId: string
   projectKey: ProjectKey
-  parameters: Pick<TuneGravityParameters, 'gravity' | 'speed' | 'humanize'>
+  parameters: Partial<TuneGravityParameters>
   detector?: PitchDetectorKind
   shifter?: TuneGravityShifter
 }
@@ -18,6 +18,8 @@ export interface TuneGravityWorkerDiagnostics {
   processingMs: number
   voicedFrameFraction: number
   medianConfidence: number | null
+  medianAbsoluteCorrectionCents: number | null
+  maximumAbsoluteCorrectionCents: number | null
   lookaheadMs: number
 }
 

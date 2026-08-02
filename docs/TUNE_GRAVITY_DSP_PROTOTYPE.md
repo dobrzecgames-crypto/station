@@ -6,7 +6,7 @@
 
 ## TUNE Workspace
 
-Zakładka **TUNE** jest laboratoryjnym środowiskiem odsłuchowym, a nie finalnym UI Station. Pozwala wczytać WAV lub nagrać do 30 sekund wokalu, wykonać analizę i render offline w Web Workerze, porównać ORIGINAL z TUNED oraz pobrać wynik WAV. Korzysta z globalnego Project Key i udostępnia GRAVITY, SPEED oraz HUMANIZE.
+Zakładka **TUNE** jest laboratoryjnym środowiskiem odsłuchowym, a nie finalnym UI Station. Pozwala wczytać WAV lub nagrać do 30 sekund wokalu, wykonać analizę i sekwencyjne rendery offline w Web Workerze, przeprowadzić ślepe porównanie wariantów, obejrzeć zsynchronizowaną diagnostykę oraz pobrać wynik WAV i raporty JSON. Korzysta z globalnego Project Key i udostępnia GRAVITY, SPEED oraz HUMANIZE.
 
 Workspace istnieje po to, aby zbierać dane diagnostyczne i prowadzić kontrolowane eksperymenty DSP. Jego obecność w nawigacji nie oznacza akceptacji jakości algorytmu.
 
@@ -58,6 +58,45 @@ output/tune-gravity-report.json
 ```
 
 Raport liczbowy nie zastępuje odsłuchu.
+
+## Laboratoryjny workflow oceny
+
+Po użyciu **GENERATE BLIND TEST SET** workspace tworzy te same ustawienia dla czterech wariantów:
+
+1. ORIGINAL,
+2. YIN + TD-PSOLA,
+3. YIN + granular,
+4. MPM + TD-PSOLA.
+
+Kolejność A–D jest losowana deterministycznie z zapisanym seedem. Mapowanie pozostaje ukryte do czasu zapisania oceny wszystkich wariantów. Formularz obejmuje osiem ocen 1–5, notatki i flagi problemów. Eksport wyniku zawiera anonimowy identyfikator źródła, ustawienia, oceny i ujawnione mapowanie, ale nigdy audio.
+
+Po ujawnieniu dostępne są nazwane odsłuchy oraz panel osi czasu pokazujący waveform, F0, confidence, target note, granice regionów i heurystyczne ostrzeżenia. Panel jest diagnostyką deweloperską, nie edytorem pitchu.
+
+### Diagnostyczny JSON
+
+Format `station-tune-gravity-diagnostic`, wersja 1, zawiera:
+
+- anonimowe metadane źródła i timestamp analizy,
+- dokładne ustawienia detektora, shiftera, Project Key i parametrów,
+- jedną pozycję dla każdej ramki DSP z F0, MIDI float, cents, RMS, confidence, voiced/unvoiced, targetem, correction cents, ratio, skip reason, stanem histerezy i czasem utrzymania celu,
+- heurystyczne regiony voiced, unvoiced, stable-note, transition i uncertain,
+- ostrzeżenia possible-octave-error, sudden-f0-jump, note-chatter, large-correction, low-confidence i voiced-unvoiced-chatter.
+
+Ostrzeżenia nie naprawiają automatycznie toru pitchu. Ich celem jest wskazanie miejsc wymagających odsłuchu.
+
+### Corpus prawdziwych wokali
+
+Pusta struktura znajduje się w `test-data/tune-gravity-corpus/`. Skopiuj `TUNE_GRAVITY_CORPUS_MANIFEST.example.json` do lokalnego manifestu, uzupełnij informacje o licencji i dodaj legalnie dostarczone WAV do właściwych kategorii. Audio oraz lokalny manifest są ignorowane przez Git; nie należy zmieniać tej reguły bez udokumentowanej zgody właściciela materiału.
+
+### Benchmark QUALITY na telefonie
+
+1. Otwórz lokalny lub zatwierdzony deployment Station przez HTTPS.
+2. Wybierz START AUDIO i TUNE.
+3. Wczytaj lub nagraj krótki materiał.
+4. Użyj **RUN QUALITY BENCHMARK** i nie przełączaj aplikacji, jeśli chcesz czysty pomiar.
+5. Skopiuj lub wyeksportuj JSON.
+
+Raport zawiera user agent, sample rate, długość, osobne czasy YIN, MPM, TD-PSOLA i granular, czas całkowity, proporcję do długości audio, przybliżony working set, opcjonalny pomiar sterty oraz informację o przejściu aplikacji w tło lub błędzie. Benchmark dotyczy wyłącznie workflow offline; nie mierzy deadline'ów AudioWorkleta.
 
 ## Detekcja pitchu
 

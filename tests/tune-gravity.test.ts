@@ -98,6 +98,20 @@ test('the simple AUTOTUNE preset locks a detuned note tightly to the scale', () 
   assert.equal(simpleAutoTuneParameters.humanize, 0)
   assert.equal(simpleAutoTuneParameters.minimumTargetHoldMs, 0)
   assert.equal(simpleAutoTuneParameters.switchHysteresisCents, 0)
+  assert.equal(result.detectorOptions.confidenceThreshold, simpleAutoTuneParameters.confidenceThreshold)
+})
+
+test('the simple AUTOTUNE preset covers an initial aperiodic vocal onset with offline look-ahead', () => {
+  const onset = createNoise(Math.round(sampleRate * 0.3), 0.04)
+  const voiced = createVowelProxy(0.6, () => 226)
+  const result = processTuneGravityOffline(concatenate(onset, voiced), sampleRate, {
+    projectKey: { root: 'A', scale: 'naturalMinor' },
+    parameters: simpleAutoTuneParameters,
+  })
+  const firstDetectedPitch = result.pitchFrames.find((frame) => frame.voiced)?.timeSeconds ?? Number.POSITIVE_INFINITY
+  const firstCorrection = result.correctionPlan.find((frame) => Math.abs(frame.correctionCents) > 0.05)?.timeSeconds ?? Number.POSITIVE_INFINITY
+  assert.ok(firstDetectedPitch > 0.2, 'the noise onset should remain unpitched during analysis')
+  assert.ok(firstCorrection < 0.08, 'offline hard tune should cover the audible phrase onset')
 })
 
 test('unvoiced middle region is passed without pitch correction', () => {

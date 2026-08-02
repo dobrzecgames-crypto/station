@@ -6,7 +6,7 @@
 
 ## TUNE Workspace
 
-Zakładka **TUNE** jest prostym środowiskiem odsłuchowym, a nie finalnym efektem racka. Pozwala wczytać WAV/M4A lub nagrać do 30 sekund wokalu, wybrać globalny Project Key i Scale, wykonać jeden agresywny render offline YIN + TD-PSOLA w Web Workerze, porównać podpisane odtwarzacze ORIGINAL i AUTOTUNE oraz pobrać wynik WAV. Wbudowany tryb hard tune natychmiast blokuje wykryty wokal na nutach skali, bez humanizacji, histerezy i zwłoki przy zmianie celu, aby użytkownik nie musiał obsługiwać laboratorium DSP.
+Zakładka **TUNE** jest prostym środowiskiem odsłuchowym, a nie finalnym efektem racka. Pozwala wczytać WAV/M4A lub nagrać do 30 sekund wokalu, wybrać globalny Project Key i Scale, wykonać jeden agresywny render offline YIN + TD-PSOLA w Web Workerze, porównać podpisane odtwarzacze ORIGINAL i AUTOTUNE oraz pobrać wynik WAV. Wbudowany tryb hard tune natychmiast blokuje wykryty wokal na nutach skali, bez humanizacji, histerezy i zwłoki przy zmianie celu. Ponieważ render jest offline, pierwsza wiarygodna nuta może objąć do 750 ms wcześniejszego, ciągłego początku frazy; cisza, późniejsze oddechy i przerwy pozostają bez zmian.
 
 Infrastruktura blind testów, diagnostyki i benchmarku pozostaje w niezależnych modułach DSP oraz testach, ale nie jest eksponowana w podstawowym ekranie TUNE. Obecność workspace'u w nawigacji nie oznacza jeszcze akceptacji jakości algorytmu.
 

@@ -36,19 +36,23 @@ export function processTuneGravityOffline(
   sampleRate: number,
   options: TuneGravityPrototypeOptions,
 ): TuneGravityPrototypeResult {
+  const parameters = resolveTuneGravityParameters(options.parameters ?? {})
   const detectorOptions = resolvePitchDetectorOptions(sampleRate, {
+    confidenceThreshold: parameters.confidenceThreshold,
     ...options.detectorOptions,
     detector: options.detector ?? options.detectorOptions?.detector ?? defaultPitchDetectorOptions.detector,
   })
-  const parameters = resolveTuneGravityParameters(options.parameters ?? {})
   const pitchFrames = analyzePitch(input, sampleRate, detectorOptions)
-  const correctionPlan = createCorrectionPlan(
+  const rawCorrectionPlan = createCorrectionPlan(
     pitchFrames,
     options.projectKey,
     sampleRate,
     detectorOptions.hopSize,
     parameters,
   )
+  const correctionPlan = isSimpleHardTune(parameters)
+    ? backfillInitialHardTuneOnset(rawCorrectionPlan, detectorOptions.rmsThreshold, sampleRate, detectorOptions.hopSize)
+    : rawCorrectionPlan
   const gravity = parameters.gravity
   const shifter = options.shifter ?? 'tdPsola'
   const output = gravity <= 0
@@ -68,6 +72,63 @@ export function processTuneGravityOffline(
     shifter,
     projectKey: { ...options.projectKey },
   }
+}
+
+/**
+ * The TUNE workspace renders offline, so the first reliable pitch observation
+ * can safely cover a short aperiodic vocal onset that realtime detection would
+ * otherwise pass through dry. The look-ahead is deliberately bounded and only
+ * used by the fixed hard-tune preset; silence and later breaths stay untouched.
+ */
+function backfillInitialHardTuneOnset(
+  plan: readonly CorrectionFrame[],
+  rmsThreshold: number,
+  sampleRate: number,
+  hopSize: number,
+): CorrectionFrame[] {
+  const firstCorrectionIndex = plan.findIndex((frame) => frame.voiced && frame.frequencyHz !== null && Math.abs(frame.correctionCents) > 0.05)
+  if (firstCorrectionIndex <= 0) return [...plan]
+
+  const maximumLookAheadFrames = Math.ceil(0.75 * sampleRate / hopSize)
+  const maximumQuietFrames = Math.max(1, Math.ceil(0.025 * sampleRate / hopSize))
+  const earliestIndex = Math.max(0, firstCorrectionIndex - maximumLookAheadFrames)
+  let onsetIndex = firstCorrectionIndex
+  let quietFrames = 0
+  for (let index = firstCorrectionIndex - 1; index >= earliestIndex; index -= 1) {
+    if (plan[index]!.rms >= rmsThreshold) {
+      onsetIndex = index
+      quietFrames = 0
+      continue
+    }
+    quietFrames += 1
+    if (quietFrames > maximumQuietFrames) break
+  }
+  if (onsetIndex === firstCorrectionIndex) return [...plan]
+
+  const anchor = plan[firstCorrectionIndex]!
+  return plan.map((frame, index) => index >= onsetIndex && index < firstCorrectionIndex
+    ? {
+        ...frame,
+        frequencyHz: anchor.frequencyHz,
+        confidence: anchor.confidence,
+        voiced: true,
+        sourceMidi: anchor.sourceMidi,
+        targetMidi: anchor.targetMidi,
+        correctionCents: anchor.correctionCents,
+        pitchRatio: anchor.pitchRatio,
+        hysteresisState: 'stable',
+        pendingTargetMidi: null,
+        targetHoldMs: 0,
+      }
+    : frame)
+}
+
+function isSimpleHardTune(parameters: TuneGravityParameters): boolean {
+  return parameters.gravity === 1
+    && parameters.speed === 1
+    && parameters.humanize === 0
+    && parameters.switchHysteresisCents === 0
+    && parameters.minimumTargetHoldMs === 0
 }
 
 export { analyzePitch, defaultPitchDetectorOptions, resolvePitchDetectorOptions } from './pitchDetection.ts'

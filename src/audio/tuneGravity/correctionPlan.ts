@@ -32,7 +32,7 @@ export const defaultTuneGravityParameters: TuneGravityParameters = {
   minimumTargetHoldMs: 45,
 }
 
-/** Fixed user-facing preset for an intentionally obvious, zero-latency hard tune. */
+/** Fixed user-facing preset for an intentionally obvious, immediate hard tune. */
 export const simpleAutoTuneParameters: Partial<TuneGravityParameters> = {
   gravity: 1,
   speed: 1,

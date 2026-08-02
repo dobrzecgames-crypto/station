@@ -72,7 +72,7 @@ export function processTuneGravityOffline(
 
 export { analyzePitch, defaultPitchDetectorOptions, resolvePitchDetectorOptions } from './pitchDetection.ts'
 export type { PitchDetectorKind, PitchDetectorOptions, PitchFrame } from './pitchDetection.ts'
-export { createCorrectionPlan, defaultTuneGravityParameters, frequencyToMidi, midiToFrequency, nearestScaleMidi, resolveTuneGravityParameters } from './correctionPlan.ts'
+export { createCorrectionPlan, defaultTuneGravityParameters, frequencyToMidi, midiToFrequency, nearestScaleMidi, resolveTuneGravityParameters, simpleAutoTuneParameters } from './correctionPlan.ts'
 export type { CorrectionFrame, TuneGravityParameters } from './correctionPlan.ts'
 export { shiftPitchGranular, shiftPitchTdPsola } from './pitchShifting.ts'
 export type { PitchShiftOptions, TuneGravityShifter } from './pitchShifting.ts'

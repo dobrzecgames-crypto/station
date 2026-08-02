@@ -1,20 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import type { AudioEngine } from '../audio/AudioEngine.ts'
-import { comparisonVariantForBlindLabel, createAnonymousTuneGravitySourceId, createOriginalComparisonAudio, createTuneGravityBenchmarkDocument, createTuneGravityBlindSession, detectTuneGravityBrowserLabel } from '../audio/tuneGravity/index.ts'
-import type { PitchDetectorKind, TuneGravityBenchmarkDocument, TuneGravityBlindLabel, TuneGravityBlindSession, TuneGravityComparisonVariantId, TuneGravityDiagnosticDocument, TuneGravityShifter } from '../audio/tuneGravity/index.ts'
-import { formatProjectKey } from '../music/scales.ts'
+import { simpleAutoTuneParameters } from '../audio/tuneGravity/index.ts'
 import type { ProjectKey } from '../music/scales.ts'
+import { formatProjectKey } from '../music/scales.ts'
 import { ProjectKeyPanel } from '../project/ProjectKeyPanel.tsx'
-import type { TuneGravityWorkerDiagnostics, TuneGravityWorkerResponse } from './tuneGravityWorkerProtocol.ts'
-import { TuneGravityDiagnosticPanel } from './TuneGravityDiagnosticPanel.tsx'
-import { TuneGravityBlindTestPanel } from './TuneGravityBlindTestPanel.tsx'
-import { TuneGravityBenchmarkPanel } from './TuneGravityBenchmarkPanel.tsx'
-import type { TuneGravityBenchmarkWorkerResponse } from './tuneGravityBenchmarkWorkerProtocol.ts'
+import type { TuneGravityWorkerResponse } from './tuneGravityWorkerProtocol.ts'
 import './TuneGravityWorkspace.css'
 
 const maximumTuneGravitySeconds = 30
-
 interface TuneGravitySource {
   filename: string
   samples: Float32Array<ArrayBuffer>
@@ -31,43 +25,19 @@ interface TuneGravityWorkspaceProps {
   onProjectKeyChange: (projectKey: ProjectKey) => void
 }
 
-interface ProcessedTuneGravityVariant {
-  samples: Float32Array<ArrayBuffer>
-  diagnostics: TuneGravityWorkerDiagnostics
-  report: TuneGravityDiagnosticDocument
-}
-
 export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onProjectKeyChange }: TuneGravityWorkspaceProps) {
   const [source, setSource] = useState<TuneGravitySource | null>(null)
-  const [comparisonAudio, setComparisonAudio] = useState<Partial<Record<TuneGravityComparisonVariantId, Float32Array<ArrayBuffer>>>>({})
-  const [gravity, setGravity] = useState(0.72)
-  const [speed, setSpeed] = useState(0.7)
-  const [humanize, setHumanize] = useState(0.48)
+  const [tunedAudio, setTunedAudio] = useState<Float32Array<ArrayBuffer> | null>(null)
   const [loading, setLoading] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [recording, setRecording] = useState(false)
   const [microphoneLevel, setMicrophoneLevel] = useState(0)
-  const [auditioning, setAuditioning] = useState<TuneGravityComparisonVariantId | TuneGravityBlindLabel | null>(null)
-  const [diagnostics, setDiagnostics] = useState<TuneGravityWorkerDiagnostics | null>(null)
-  const [diagnosticReport, setDiagnosticReport] = useState<TuneGravityDiagnosticDocument | null>(null)
-  const [blindSession, setBlindSession] = useState<TuneGravityBlindSession | null>(null)
-  const [benchmarking, setBenchmarking] = useState(false)
-  const [benchmarkReport, setBenchmarkReport] = useState<TuneGravityBenchmarkDocument | null>(null)
-  const [message, setMessage] = useState('Load a short mono vocal or record one with the microphone.')
+  const [auditioning, setAuditioning] = useState<'original' | 'autotune' | null>(null)
+  const [message, setMessage] = useState('Load a short vocal or record one with the microphone.')
   const workerRef = useRef<Worker | null>(null)
   const jobIdRef = useRef(0)
   const recordingRef = useRef(false)
   const recordingTimerRef = useRef<number | null>(null)
-
-  useEffect(() => {
-    setComparisonAudio({})
-    setDiagnostics(null)
-    setDiagnosticReport(null)
-    setBlindSession(null)
-    setBenchmarkReport(null)
-    setAuditioning(null)
-    audioEngine.stopPreview()
-  }, [audioEngine, gravity, speed, humanize, projectKey.root, projectKey.scale])
 
   useEffect(() => () => {
     workerRef.current?.terminate()
@@ -76,19 +46,27 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
     if (recordingRef.current) audioEngine.cancelMicrophoneRecording()
   }, [audioEngine])
 
+  const resetResult = () => {
+    setTunedAudio(null)
+    setAuditioning(null)
+    audioEngine.stopPreview()
+  }
+
   const loadVocal = async (blob: Blob, filename: string) => {
     if (!audioReady) throw new Error('Press START AUDIO before loading a vocal.')
-    if (!/\.wav$/i.test(filename) && blob.type !== 'audio/wav' && blob.type !== 'audio/x-wav') throw new Error('Tune Gravity currently accepts WAV files only.')
+    const supportedExtension = /\.(wav|m4a)$/i.test(filename)
+    const supportedMime = ['audio/wav', 'audio/x-wav', 'audio/mp4', 'audio/x-m4a', 'audio/m4a'].includes(blob.type)
+    if (!supportedExtension && !supportedMime) throw new Error('TUNE accepts WAV and M4A voice recordings.')
     const decoded = await audioEngine.decodeMonoAudioBlob(blob)
     if (decoded.durationSeconds > maximumTuneGravitySeconds) throw new Error(`Use a vocal phrase no longer than ${maximumTuneGravitySeconds} seconds.`)
     if (decoded.durationSeconds < 0.12) throw new Error('The vocal is too short to analyse.')
-    setSource({ filename, ...decoded, anonymousId: createAnonymousTuneGravitySourceId(decoded.samples, decoded.sampleRate) })
-    setComparisonAudio({})
-    setDiagnostics(null)
-    setDiagnosticReport(null)
-    setBlindSession(null)
-    setBenchmarkReport(null)
-    setMessage(`${filename} ready • ${decoded.durationSeconds.toFixed(1)} sec • ${decoded.sourceChannelCount === 1 ? 'MONO' : `${decoded.sourceChannelCount}CH → MONO`}`)
+    setSource({
+      filename,
+      ...decoded,
+      anonymousId: createAnonymousSourceId(decoded.samples, decoded.sampleRate),
+    })
+    resetResult()
+    setMessage(`${filename} ready • ${decoded.durationSeconds.toFixed(1)} sec. Choose the key, then press AUTOTUNE.`)
   }
 
   const chooseFile = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -129,8 +107,7 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
       setMessage('Press START AUDIO before recording.')
       return
     }
-    audioEngine.stopPreview()
-    setAuditioning(null)
+    resetResult()
     try {
       await audioEngine.startMicrophoneRecording(setMicrophoneLevel)
       recordingRef.current = true
@@ -145,38 +122,15 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
   const processVocal = async () => {
     if (!source || processing) return
     setProcessing(true)
-    setComparisonAudio({})
-    setDiagnostics(null)
-    setDiagnosticReport(null)
-    setBlindSession(null)
-    setAuditioning(null)
-    audioEngine.stopPreview()
+    resetResult()
+    setMessage(`Applying AutoTune in ${formatProjectKey(projectKey)}…`)
     try {
-      const configurations: ReadonlyArray<{ id: TuneGravityComparisonVariantId; detector: PitchDetectorKind; shifter: TuneGravityShifter }> = [
-        { id: 'yin-td-psola', detector: 'yin', shifter: 'tdPsola' },
-        { id: 'yin-granular', detector: 'yin', shifter: 'granular' },
-        { id: 'mpm-td-psola', detector: 'mpm', shifter: 'tdPsola' },
-      ]
-      const rendered: Partial<Record<TuneGravityComparisonVariantId, Float32Array<ArrayBuffer>>> = {
-        original: createOriginalComparisonAudio(source.samples) as Float32Array<ArrayBuffer>,
-      }
-      let primary: ProcessedTuneGravityVariant | null = null
-      for (const [index, configuration] of configurations.entries()) {
-        setMessage(`Generating blind test variant ${index + 1} of ${configurations.length} for ${formatProjectKey(projectKey)}…`)
-        const result = await processVariant(configuration.detector, configuration.shifter)
-        rendered[configuration.id] = result.samples
-        if (configuration.id === 'yin-td-psola') primary = result
-      }
-      if (!primary) throw new Error('The primary Tune Gravity diagnostic variant was not generated.')
-      setComparisonAudio(rendered)
-      setDiagnostics(primary.diagnostics)
-      setDiagnosticReport(primary.report)
-      setBlindSession(createTuneGravityBlindSession(
-        source.anonymousId,
-        { projectKey, gravity, speed, humanize },
-        Date.now() >>> 0,
-      ))
-      setMessage('Blind comparison ready. Rate A–D before revealing the algorithms.')
+      const response = await processInWorker(source, projectKey)
+      setTunedAudio(new Float32Array(response.output))
+      const voicedPercent = Math.round(response.diagnostics.voicedFrameFraction * 100)
+      setMessage(voicedPercent < 10
+        ? 'AutoTune finished, but very little stable vocal pitch was detected. Try a cleaner solo vocal.'
+        : `AutoTune ready • ${voicedPercent}% of the phrase detected as pitched vocal.`)
     } catch (error) {
       setMessage(toMessage(error))
     } finally {
@@ -186,8 +140,7 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
     }
   }
 
-  const processVariant = (detector: PitchDetectorKind, shifter: TuneGravityShifter): Promise<ProcessedTuneGravityVariant> => {
-    if (!source) return Promise.reject(new Error('Load a vocal before processing.'))
+  const processInWorker = (currentSource: TuneGravitySource, currentKey: ProjectKey): Promise<Extract<TuneGravityWorkerResponse, { ok: true }>> => {
     workerRef.current?.terminate()
     const worker = new Worker(new URL('./tuneGravityWorker.ts', import.meta.url), { type: 'module' })
     const jobId = jobIdRef.current + 1
@@ -202,34 +155,34 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
           reject(new Error(event.data.message))
           return
         }
-        resolve({ samples: new Float32Array(event.data.output), diagnostics: event.data.diagnostics, report: event.data.report })
+        resolve(event.data)
       }
       worker.onerror = () => {
         worker.terminate()
         workerRef.current = null
-        reject(new Error('Tune Gravity worker failed. Try a shorter WAV file.'))
+        reject(new Error('AutoTune processing failed. Try a shorter WAV file.'))
       }
-      const samples = new Float32Array(source.samples)
+      const samples = new Float32Array(currentSource.samples)
       worker.postMessage({
         jobId,
         samples: samples.buffer,
-        sampleRate: source.sampleRate,
-        sourceChannelCount: source.sourceChannelCount,
-        durationSeconds: source.durationSeconds,
-        anonymousSourceId: source.anonymousId,
-        projectKey,
-        parameters: { gravity, speed, humanize },
-        detector,
-        shifter,
+        sampleRate: currentSource.sampleRate,
+        sourceChannelCount: currentSource.sourceChannelCount,
+        durationSeconds: currentSource.durationSeconds,
+        anonymousSourceId: currentSource.anonymousId,
+        projectKey: currentKey,
+        parameters: simpleAutoTuneParameters,
+        detector: 'yin',
+        shifter: 'tdPsola',
       }, [samples.buffer])
     })
   }
 
-  const auditionVariant = (variant: TuneGravityComparisonVariantId, displayId: TuneGravityComparisonVariantId | TuneGravityBlindLabel = variant) => {
+  const audition = (kind: 'original' | 'autotune') => {
     if (!source || !audioReady) return
-    const samples = comparisonAudio[variant]
+    const samples = kind === 'original' ? source.samples : tunedAudio
     if (!samples) return
-    setAuditioning(displayId)
+    setAuditioning(kind)
     audioEngine.previewMonoSamples(samples, source.sampleRate, () => setAuditioning(null))
   }
 
@@ -238,119 +191,28 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
     setAuditioning(null)
   }
 
+  const changeProjectKey = (nextKey: ProjectKey) => {
+    onProjectKeyChange(nextKey)
+    resetResult()
+    if (source) setMessage(`Key changed to ${formatProjectKey(nextKey)}. Press AUTOTUNE again.`)
+  }
+
   const downloadTuned = () => {
-    const tuned = comparisonAudio['yin-td-psola']
-    if (!source || !tuned) return
-    const blob = encodeMonoWav(tuned, source.sampleRate)
-    const url = URL.createObjectURL(blob)
+    if (!source || !tunedAudio) return
+    const url = URL.createObjectURL(encodeMonoWav(tunedAudio, source.sampleRate))
     const link = document.createElement('a')
     link.href = url
-    link.download = source.filename.replace(/\.wav$/i, '') + '-TUNE-GRAVITY.wav'
+    link.download = source.filename.replace(/\.(wav|m4a)$/i, '') + '-AUTOTUNE.wav'
     link.click()
     URL.revokeObjectURL(url)
   }
 
-  const downloadDiagnostics = () => {
-    if (!source || !diagnosticReport) return
-    downloadJson(diagnosticReport, source.filename.replace(/\.wav$/i, '') + '-TUNE-DIAGNOSTICS.json')
-  }
-
-  const runBenchmark = async () => {
-    if (!source || benchmarking) return
-    setBenchmarking(true)
-    setBenchmarkReport(null)
-    setMessage('Running QUALITY benchmark. Keep this tab visible until it finishes.')
-    let backgroundedDuringRun = document.hidden
-    const markBackgrounded = () => { if (document.hidden) backgroundedDuringRun = true }
-    document.addEventListener('visibilitychange', markBackgrounded)
-    const measuredHeapBeforeBytes = readMeasuredHeapBytes()
-    try {
-      const timings = await runBenchmarkWorker()
-      const report = createTuneGravityBenchmarkDocument({
-        anonymousSourceId: source.anonymousId,
-        sampleRate: source.sampleRate,
-        durationSeconds: source.durationSeconds,
-        sampleCount: source.samples.length,
-        projectKey,
-        parameters: { gravity, speed, humanize },
-        timings,
-        browserLabel: detectTuneGravityBrowserLabel(navigator.userAgent),
-        userAgent: navigator.userAgent,
-        backgroundedDuringRun,
-        measuredHeapBeforeBytes,
-        measuredHeapAfterBytes: readMeasuredHeapBytes(),
-      })
-      setBenchmarkReport(report)
-      setMessage(`QUALITY benchmark complete: ${report.processingToAudioRatio?.toFixed(2) ?? '—'}× audio duration.`)
-    } catch (error) {
-      const errorMessage = toMessage(error)
-      setBenchmarkReport(createTuneGravityBenchmarkDocument({
-        anonymousSourceId: source.anonymousId,
-        sampleRate: source.sampleRate,
-        durationSeconds: source.durationSeconds,
-        sampleCount: source.samples.length,
-        projectKey,
-        parameters: { gravity, speed, humanize },
-        timings: { yinMs: null, mpmMs: null, tdPsolaMs: null, granularMs: null, totalMs: null },
-        browserLabel: detectTuneGravityBrowserLabel(navigator.userAgent),
-        userAgent: navigator.userAgent,
-        backgroundedDuringRun,
-        interrupted: true,
-        error: errorMessage,
-        measuredHeapBeforeBytes,
-        measuredHeapAfterBytes: readMeasuredHeapBytes(),
-      }))
-      setMessage(errorMessage)
-    } finally {
-      document.removeEventListener('visibilitychange', markBackgrounded)
-      workerRef.current?.terminate()
-      workerRef.current = null
-      setBenchmarking(false)
-    }
-  }
-
-  const runBenchmarkWorker = (): Promise<{ yinMs: number; mpmMs: number; tdPsolaMs: number; granularMs: number; totalMs: number }> => {
-    if (!source) return Promise.reject(new Error('Load a vocal before benchmarking.'))
-    workerRef.current?.terminate()
-    const worker = new Worker(new URL('./tuneGravityBenchmarkWorker.ts', import.meta.url), { type: 'module' })
-    const jobId = jobIdRef.current + 1
-    jobIdRef.current = jobId
-    workerRef.current = worker
-    return new Promise((resolve, reject) => {
-      worker.onmessage = (event: MessageEvent<TuneGravityBenchmarkWorkerResponse>) => {
-        if (event.data.jobId !== jobId) return
-        worker.terminate()
-        workerRef.current = null
-        if (event.data.ok) resolve(event.data.timings)
-        else reject(new Error(event.data.message))
-      }
-      worker.onerror = () => {
-        worker.terminate()
-        workerRef.current = null
-        reject(new Error('Tune Gravity benchmark worker failed.'))
-      }
-      const samples = new Float32Array(source.samples)
-      worker.postMessage({ jobId, samples: samples.buffer, sampleRate: source.sampleRate, projectKey, parameters: { gravity, speed, humanize } }, [samples.buffer])
-    })
-  }
-
-  const copyBenchmark = async () => {
-    if (!benchmarkReport) return
-    try {
-      await navigator.clipboard.writeText(JSON.stringify(benchmarkReport, null, 2))
-      setMessage('Benchmark JSON copied to clipboard.')
-    } catch {
-      setMessage('Clipboard access was denied. Use EXPORT BENCHMARK JSON instead.')
-    }
-  }
-
-  const busy = loading || processing || recording || benchmarking
-  const blindComplete = blindSession?.completedAt !== null && blindSession !== null
+  const busy = loading || processing || recording
   return <section className="tune-gravity-workspace" aria-labelledby="tune-gravity-title">
     <header className="tune-gravity-heading">
       <div>
-        <p className="eyebrow">VOCAL PITCH • QUALITY PROTOTYPE</p>
-        <h2 id="tune-gravity-title">TUNE GRAVITY</h2>
+        <p className="eyebrow">VOCAL PITCH</p>
+        <h2 id="tune-gravity-title">AUTOTUNE</h2>
       </div>
       <span className="tune-gravity-badge">MONO • MAX {maximumTuneGravitySeconds} SEC</span>
     </header>
@@ -359,79 +221,43 @@ export function TuneGravityWorkspace({ audioEngine, audioReady, projectKey, onPr
 
     <div className="tune-gravity-source-actions">
       <label className="file-picker-button tune-gravity-file-button">
-        {loading ? 'LOADING…' : 'LOAD VOCAL WAV'}
-        <input type="file" accept=".wav,audio/wav,audio/x-wav" disabled={busy || !audioReady} onChange={(event) => void chooseFile(event)} />
+        {loading ? 'LOADING…' : 'LOAD VOCAL'}
+        <input type="file" accept=".wav,.m4a,audio/wav,audio/x-wav,audio/mp4,audio/x-m4a" disabled={busy || !audioReady} onChange={(event) => void chooseFile(event)} />
       </label>
       <button className={recording ? 'transport-button tune-record-active' : 'transport-button'} type="button" disabled={loading || processing || !audioReady} onClick={() => recording ? void stopRecording() : void startRecording()}>{recording ? 'STOP & USE TAKE' : 'RECORD VOCAL'}</button>
     </div>
 
     {recording && <div className="tune-record-meter" aria-label="Microphone input level"><span style={{ width: `${Math.round(microphoneLevel * 100)}%` }} /></div>}
 
-    <ProjectKeyPanel projectKey={projectKey} disabled={busy} onChange={onProjectKeyChange} />
+    <ProjectKeyPanel projectKey={projectKey} disabled={busy} onChange={changeProjectKey} />
 
-    <div className="tune-gravity-controls">
-      <TuneSlider label="GRAVITY" value={gravity} disabled={busy} onChange={setGravity} low="SUBTLE" high="HARD" />
-      <TuneSlider label="SPEED" value={speed} disabled={busy} onChange={setSpeed} low="NATURAL" high="FAST" />
-      <TuneSlider label="HUMANIZE" value={humanize} disabled={busy} onChange={setHumanize} low="TIGHT" high="VIBRATO" />
-    </div>
+    <button className="transport-button tune-gravity-process" type="button" disabled={!source || busy} onClick={() => void processVocal()}>{processing ? 'TUNING…' : 'AUTOTUNE'}</button>
 
-    <button className="transport-button tune-gravity-process" type="button" disabled={!source || busy} onClick={() => void processVocal()}>{processing ? 'GENERATING VARIANTS…' : 'GENERATE BLIND TEST SET'}</button>
-
-    {blindSession && <TuneGravityBlindTestPanel
-      session={blindSession}
-      auditioningLabel={auditioning === 'A' || auditioning === 'B' || auditioning === 'C' || auditioning === 'D' ? auditioning : null}
-      disabled={busy}
-      onAudition={(label) => auditionVariant(comparisonVariantForBlindLabel(blindSession, label), label)}
-      onStop={stopAudition}
-      onChange={setBlindSession}
-    />}
-
-    {blindComplete && <div className="tune-labeled-comparison" aria-label="Revealed algorithm comparison">
-      <p className="eyebrow">REVEALED ALGORITHM PLAYBACK</p>
+    {source && <div className="tune-labeled-comparison" aria-label="Original and AutoTune playback">
+      <p className="eyebrow">LISTEN</p>
       <div className="tune-labeled-players">
-        {(['original', 'yin-td-psola', 'yin-granular', 'mpm-td-psola'] as const).map((variant) => <button key={variant} className={auditioning === variant ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" disabled={!comparisonAudio[variant] || busy} onClick={() => auditionVariant(variant)}>▶ {comparisonVariantLabel(variant)}</button>)}
+        <button className={auditioning === 'original' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" disabled={busy} onClick={() => audition('original')}>▶ ORIGINAL</button>
+        <button className={auditioning === 'autotune' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" disabled={!tunedAudio || busy} onClick={() => audition('autotune')}>▶ AUTOTUNE</button>
         <button className="mixer-toggle" type="button" disabled={!auditioning} onClick={stopAudition}>■ STOP</button>
       </div>
     </div>}
 
-    {diagnostics && <dl className="tune-gravity-diagnostics">
-      <div><dt>PROCESS</dt><dd>{(diagnostics.processingMs / 1000).toFixed(2)} s</dd></div>
-      <div><dt>VOICED</dt><dd>{Math.round(diagnostics.voicedFrameFraction * 100)}%</dd></div>
-      <div><dt>CONF</dt><dd>{diagnostics.medianConfidence === null ? '—' : Math.round(diagnostics.medianConfidence * 100) + '%'}</dd></div>
-      <div><dt>LOOKAHEAD</dt><dd>{diagnostics.lookaheadMs.toFixed(1)} ms</dd></div>
-    </dl>}
-
-    {source && diagnosticReport && blindComplete && <TuneGravityDiagnosticPanel samples={source.samples} report={diagnosticReport} />}
-
-    {blindComplete && <div className="tune-gravity-downloads">
-      <button className="clear-button tune-gravity-download" type="button" disabled={!comparisonAudio['yin-td-psola'] || busy} onClick={downloadTuned}>DOWNLOAD YIN + TD-PSOLA WAV</button>
-      <button className="clear-button tune-gravity-download" type="button" disabled={!diagnosticReport || busy} onClick={downloadDiagnostics}>EXPORT DIAGNOSTIC JSON</button>
-    </div>}
-    {source && <TuneGravityBenchmarkPanel
-      report={benchmarkReport}
-      running={benchmarking}
-      disabled={loading || processing || recording}
-      onRun={() => void runBenchmark()}
-      onCopy={() => void copyBenchmark()}
-      onExport={() => { if (benchmarkReport) downloadJson(benchmarkReport, `${source.anonymousId}-QUALITY-BENCHMARK.json`) }}
-    />}
-    <p className="tune-gravity-warning">Listen for metallic tone, wrong octave jumps, damaged consonants and changed vocal identity. This test does not mark the effect as finished.</p>
+    {tunedAudio && <button className="clear-button tune-gravity-download" type="button" disabled={busy} onClick={downloadTuned}>DOWNLOAD AUTOTUNE WAV</button>}
   </section>
 }
 
-function comparisonVariantLabel(variant: TuneGravityComparisonVariantId): string {
-  if (variant === 'original') return 'ORIGINAL'
-  if (variant === 'yin-td-psola') return 'YIN + TD-PSOLA'
-  if (variant === 'yin-granular') return 'YIN + GRANULAR'
-  return 'MPM + TD-PSOLA'
-}
-
-function TuneSlider({ label, value, disabled, onChange, low, high }: { label: string; value: number; disabled: boolean; onChange: (value: number) => void; low: string; high: string }) {
-  return <label className="tune-gravity-slider">
-    <span>{label}</span><output>{Math.round(value * 100)}%</output>
-    <input type="range" min="0" max="1" step="0.01" value={value} disabled={disabled} onChange={(event) => onChange(Number(event.target.value))} />
-    <small><span>{low}</span><span>{high}</span></small>
-  </label>
+function createAnonymousSourceId(samples: Float32Array, sampleRate: number): string {
+  let hash = 2166136261
+  const stride = Math.max(1, Math.floor(samples.length / 4096))
+  for (let index = 0; index < samples.length; index += stride) {
+    const quantized = Math.round((samples[index] ?? 0) * 32767)
+    hash ^= quantized & 0xffff
+    hash = Math.imul(hash, 16777619)
+  }
+  hash ^= samples.length
+  hash = Math.imul(hash, 16777619)
+  hash ^= sampleRate
+  return `tg-${(hash >>> 0).toString(16).padStart(8, '0')}`
 }
 
 function encodeMonoWav(samples: Float32Array, sampleRate: number): Blob {
@@ -462,19 +288,5 @@ function writeAscii(view: DataView, offset: number, value: string): void {
 }
 
 function toMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Tune Gravity could not complete that action.'
-}
-
-function downloadJson(value: unknown, filename: string): void {
-  const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' }))
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  link.click()
-  URL.revokeObjectURL(url)
-}
-
-function readMeasuredHeapBytes(): number | null {
-  const memory = (performance as Performance & { memory?: { usedJSHeapSize?: number } }).memory
-  return typeof memory?.usedJSHeapSize === 'number' ? memory.usedJSHeapSize : null
+  return error instanceof Error ? error.message : 'AutoTune could not complete that action.'
 }

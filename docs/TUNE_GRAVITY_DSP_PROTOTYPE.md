@@ -6,9 +6,9 @@
 
 ## TUNE Workspace
 
-Zakładka **TUNE** jest laboratoryjnym środowiskiem odsłuchowym, a nie finalnym UI Station. Pozwala wczytać WAV lub nagrać do 30 sekund wokalu, wykonać analizę i sekwencyjne rendery offline w Web Workerze, przeprowadzić ślepe porównanie wariantów, obejrzeć zsynchronizowaną diagnostykę oraz pobrać wynik WAV i raporty JSON. Korzysta z globalnego Project Key i udostępnia GRAVITY, SPEED oraz HUMANIZE.
+Zakładka **TUNE** jest prostym środowiskiem odsłuchowym, a nie finalnym efektem racka. Pozwala wczytać WAV/M4A lub nagrać do 30 sekund wokalu, wybrać globalny Project Key i Scale, wykonać jeden mocny render offline YIN + TD-PSOLA w Web Workerze, porównać podpisane odtwarzacze ORIGINAL i AUTOTUNE oraz pobrać wynik WAV. Parametry GRAVITY, SPEED i HUMANIZE są ustawione wewnętrznie jako jeden tryb hard tune, aby użytkownik nie musiał obsługiwać laboratorium DSP.
 
-Workspace istnieje po to, aby zbierać dane diagnostyczne i prowadzić kontrolowane eksperymenty DSP. Jego obecność w nawigacji nie oznacza akceptacji jakości algorytmu.
+Infrastruktura blind testów, diagnostyki i benchmarku pozostaje w niezależnych modułach DSP oraz testach, ale nie jest eksponowana w podstawowym ekranie TUNE. Obecność workspace'u w nawigacji nie oznacza jeszcze akceptacji jakości algorytmu.
 
 ## Tune Gravity Product Effect
 
@@ -61,16 +61,16 @@ Raport liczbowy nie zastępuje odsłuchu.
 
 ## Laboratoryjny workflow oceny
 
-Po użyciu **GENERATE BLIND TEST SET** workspace tworzy te same ustawienia dla czterech wariantów:
+Narzędzia programistyczne i testy automatyczne nadal potrafią utworzyć cztery warianty badawcze:
 
 1. ORIGINAL,
 2. YIN + TD-PSOLA,
 3. YIN + granular,
 4. MPM + TD-PSOLA.
 
-Kolejność A–D jest losowana deterministycznie z zapisanym seedem. Mapowanie pozostaje ukryte do czasu zapisania oceny wszystkich wariantów. Formularz obejmuje osiem ocen 1–5, notatki i flagi problemów. Eksport wyniku zawiera anonimowy identyfikator źródła, ustawienia, oceny i ujawnione mapowanie, ale nigdy audio.
+Kolejność A–D może być losowana deterministycznie z zapisanym seedem. Mechanizm, formularz ocen i eksport wyniku pozostają kodem badawczym, ale zostały usunięte z prostego ekranu użytkownika.
 
-Po ujawnieniu dostępne są nazwane odsłuchy oraz panel osi czasu pokazujący waveform, F0, confidence, target note, granice regionów i heurystyczne ostrzeżenia. Panel jest diagnostyką deweloperską, nie edytorem pitchu.
+Raporty nadal można generować z warstwy DSP i narzędzi programistycznych. Panel osi czasu nie jest eksponowany w prostym przepływie AUTOTUNE.
 
 ### Diagnostyczny JSON
 
@@ -90,11 +90,7 @@ Pusta struktura znajduje się w `test-data/tune-gravity-corpus/`. Skopiuj `TUNE_
 
 ### Benchmark QUALITY na telefonie
 
-1. Otwórz lokalny lub zatwierdzony deployment Station przez HTTPS.
-2. Wybierz START AUDIO i TUNE.
-3. Wczytaj lub nagraj krótki materiał.
-4. Użyj **RUN QUALITY BENCHMARK** i nie przełączaj aplikacji, jeśli chcesz czysty pomiar.
-5. Skopiuj lub wyeksportuj JSON.
+Benchmark pozostaje wewnętrznym modułem badawczym i testem automatycznym. Nie jest widoczny w prostym ekranie TUNE; ponowne wystawienie go wymaga osobnego narzędzia deweloperskiego zamiast dokładania opcji do użytkowego przepływu AUTOTUNE.
 
 Raport zawiera user agent, sample rate, długość, osobne czasy YIN, MPM, TD-PSOLA i granular, czas całkowity, proporcję do długości audio, przybliżony working set, opcjonalny pomiar sterty oraz informację o przejściu aplikacji w tło lub błędzie. Benchmark dotyczy wyłącznie workflow offline; nie mierzy deadline'ów AudioWorkleta.
 

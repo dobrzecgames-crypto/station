@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { analyzePitch, completeTuneGravityBlindSession, createDefaultTuneGravityRatings, createOriginalComparisonAudio, createTuneGravityBenchmarkDocument, createTuneGravityBlindSession, createTuneGravityDiagnosticDocument, createCorrectionPlan, detectTuneGravityProblems, exportTuneGravityListeningTest, midiToFrequency, processTuneGravityOffline, revealTuneGravityBlindMapping, saveTuneGravityBlindEvaluation, tuneGravityBenchmarkFormatVersion, tuneGravityDiagnosticFormatVersion } from '../src/audio/tuneGravity/index.ts'
+import { analyzePitch, completeTuneGravityBlindSession, createDefaultTuneGravityRatings, createOriginalComparisonAudio, createTuneGravityBenchmarkDocument, createTuneGravityBlindSession, createTuneGravityDiagnosticDocument, createCorrectionPlan, detectTuneGravityProblems, exportTuneGravityListeningTest, midiToFrequency, processTuneGravityOffline, revealTuneGravityBlindMapping, saveTuneGravityBlindEvaluation, simpleAutoTuneParameters, tuneGravityBenchmarkFormatVersion, tuneGravityDiagnosticFormatVersion } from '../src/audio/tuneGravity/index.ts'
 import type { PitchFrame, TuneGravityDiagnosticFrame } from '../src/audio/tuneGravity/index.ts'
 
 const sampleRate = 48000
@@ -77,6 +77,19 @@ test('both prototype shifters preserve duration and move a detuned voiced signal
     assert.ok(outputFrequency < sourceFrequency, `${shifter} should shift this note down`)
     assert.ok(Math.abs(outputFrequency - 220) / 220 < 0.06, `${shifter} should approach A3 without changing duration`)
   }
+})
+
+test('the simple AUTOTUNE preset is a strong correction rather than a bypass', () => {
+  const sourceMidi = 57.42
+  const sourceFrequency = midiToFrequency(sourceMidi)
+  const input = createVowelProxy(0.9, () => sourceFrequency)
+  const result = processTuneGravityOffline(input, sampleRate, {
+    projectKey: { root: 'A', scale: 'naturalMinor' },
+    parameters: simpleAutoTuneParameters,
+  })
+  const appliedCorrections = result.correctionPlan.filter((frame) => frame.voiced).map((frame) => Math.abs(frame.correctionCents))
+  assert.ok(median(appliedCorrections) > 20, 'the fixed preset should apply an audible-size correction to a detuned stable note')
+  assert.notDeepEqual(result.output, input)
 })
 
 test('unvoiced middle region is passed without pitch correction', () => {

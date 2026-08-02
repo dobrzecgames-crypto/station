@@ -32,6 +32,13 @@ export const defaultTuneGravityParameters: TuneGravityParameters = {
   minimumTargetHoldMs: 45,
 }
 
+/** Fixed user-facing preset for the deliberately simple TUNE workflow. */
+export const simpleAutoTuneParameters: Pick<TuneGravityParameters, 'gravity' | 'speed' | 'humanize'> = {
+  gravity: 1,
+  speed: 0.95,
+  humanize: 0.08,
+}
+
 /**
  * Turns pitch observations into a conservative correction trajectory. GRAVITY
  * controls actual pull/capture rather than a wet/dry mix; HUMANIZE preserves

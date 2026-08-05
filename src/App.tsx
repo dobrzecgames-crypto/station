@@ -29,6 +29,7 @@ import { SequencerControls } from './sequencer/SequencerControls'
 import { MainNavigation } from './shell/MainNavigation'
 import type { MainView } from './shell/MainNavigation'
 import { StationConfirm } from './shell/StationConfirm'
+import { SliderMagnifier } from './shell/SliderMagnifier'
 import { TransportBar } from './shell/TransportBar'
 import { formatRecordingDuration } from './shell/RecordControl'
 import type { MicrophoneRecordState, RecordMode } from './shell/RecordControl'
@@ -1778,6 +1779,7 @@ export function App({ audioEngine }: AppProps) {
           onCancel={() => setPendingConfirmation(undefined)}
         />
       )}
+      <SliderMagnifier />
     </main>
     </SystemDisplayProvider>
   );

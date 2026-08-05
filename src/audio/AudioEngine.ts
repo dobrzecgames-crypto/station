@@ -1,5 +1,6 @@
 import { createDefaultMasterEffectRack, createEmptyEffectRack, defaultCompressorConfig, defaultDelayConfig, getDelayTimeSeconds, normalizeEffectRackState } from './effects'
 import type { EffectRackState, EffectSlotState, EffectType, TightRoomMode } from './effects'
+import { createTapeNoiseData, createTapePitchProfile, createTapeSaturationCurve, isTapeBypassed, mapTapeParameters } from './tape'
 import type { DrumPatch, DrumVoiceHandle } from '../drumsynth/drumSynthTypes'
 import { playKickVoice } from '../drumsynth/kickVoice'
 import { playSnareVoice } from '../drumsynth/snareVoice'
@@ -23,6 +24,8 @@ import {
   stringsWidthToPan,
 } from '../strings/stringsOperations'
 import type { StringsPatch } from '../strings/stringsTypes'
+import { MicrophoneRecorder } from './MicrophoneRecorder'
+import { encodeWav } from './wavEncoder'
 
 export type SampleId = string
 export type SampleAssetId = string
@@ -104,6 +107,7 @@ interface ActiveSynthVoice {
   drive: WaveShaperNode
   amp: GainNode
   origin: 'manual' | 'sequencer'
+  groupId: GroupId
   patchKey: string
   channelId: ChannelId
   midiNote: number
@@ -157,6 +161,7 @@ interface ActiveStringsVoice {
   /** BOW's shared-buffer noise layer. Always present (unlike `layer`) since BOW must update smoothly on an already-sounding voice; its fade-out rides the same shared `amp` envelope as the oscillators rather than having one of its own. */
   bow: { source: AudioBufferSourceNode; gain: GainNode }
   origin: 'manual' | 'sequencer'
+  groupId: GroupId
   patchKey: string
   channelId: ChannelId
   midiNote: number
@@ -240,7 +245,7 @@ interface RuntimeEffectSlot {
 interface RuntimeEffectRack {
   input: GainNode
   output: GainNode
-  slots: [RuntimeEffectSlot, RuntimeEffectSlot]
+  slots: [RuntimeEffectSlot, RuntimeEffectSlot, RuntimeEffectSlot, RuntimeEffectSlot]
 }
 
 interface TightRoomModeBias {
@@ -299,6 +304,7 @@ export class AudioEngine {
   private samples = new Map<SampleId, AudioBuffer>()
   private waveforms = new Map<SampleId, number[]>()
   private runtimeAssets = new Map<SampleAssetId, RuntimeSampleAsset>()
+  private microphoneRecorder: MicrophoneRecorder | null = null
   private activeVoices = new Set<ActiveVoice>()
   private previewVoices = new Set<ActiveVoice>()
   private readonly synthPatches = new Map<string, SynthPatchRegistration>()
@@ -596,6 +602,57 @@ export class AudioEngine {
     }
   }
 
+  /** Pattern CHORDS ignores the patch-level MONO switch: the Pattern Group is
+      the monophonic unit, while the notes inside its one chord are polyphonic. */
+  triggerSynthChord(groupId: GroupId, channelId: ChannelId, patch: SynthPatch, midiNotes: readonly number[], velocity = 1, manualToken = channelId): void {
+    if (this.status !== 'ready' || !this.context) return
+    const runtime = this.ensureSynthRuntime(groupId, patch)
+    const when = this.context.currentTime
+    this.triggerPumpRoutesForChannel(channelId, when)
+    this.releaseSynthPad(manualToken)
+    for (const midiNote of midiNotes.slice(0, maximumSynthVoices)) {
+      if (Number.isFinite(midiNote)) this.startSynthVoice(runtime, groupId, channelId, midiNote, velocity * 0.42, when, 'manual', manualToken)
+    }
+  }
+
+  async startMicrophoneRecording(onLevel: (level: number) => void): Promise<void> {
+    if (this.status !== 'ready' || !this.liveContext) throw new Error('Start audio before recording with the microphone.')
+    if (this.microphoneRecorder) throw new Error('Microphone recording is already active.')
+    const recorder = new MicrophoneRecorder(this.liveContext)
+    this.microphoneRecorder = recorder
+    try {
+      await recorder.start({ onLevel })
+    } catch (error) {
+      this.microphoneRecorder = null
+      throw error
+    }
+  }
+
+  async stopMicrophoneRecording(): Promise<Blob> {
+    const recorder = this.microphoneRecorder
+    if (!recorder) throw new Error('Microphone recording is not active.')
+    try {
+      return await recorder.stop()
+    } finally {
+      this.microphoneRecorder = null
+    }
+  }
+
+  cancelMicrophoneRecording(): void {
+    this.microphoneRecorder?.cancel()
+    this.microphoneRecorder = null
+  }
+
+  async microphoneRecordingToWav(recording: Blob): Promise<Blob> {
+    if (this.status !== 'ready' || !this.liveContext) throw new Error('Start audio before processing a microphone recording.')
+    try {
+      const buffer = await this.liveContext.decodeAudioData(await recording.arrayBuffer())
+      return encodeWav(buffer)
+    } catch (error) {
+      throw this.toError(error, 'Could not decode the microphone recording.')
+    }
+  }
+
   releaseSynthPad(manualToken: string): void {
     if (!this.context) return
     const when = this.context.currentTime
@@ -625,6 +682,19 @@ export class AudioEngine {
     for (const midiNote of midiNotes.slice(0, maximumSynthVoices)) {
       if (!Number.isFinite(midiNote)) continue
       const voice = this.startSynthVoice(runtime, groupId, channelId, midiNote, velocity, scheduledWhen, 'sequencer')
+      if (voice) this.releaseSynthVoice(runtime, voice, scheduledOff)
+    }
+  }
+
+  scheduleSynthChord(groupId: GroupId, channelId: ChannelId, patch: SynthPatch, midiNotes: readonly number[], when: number, noteOffWhen: number, velocity: number): void {
+    if (this.status !== 'ready' || !this.context) return
+    const runtime = this.ensureSynthRuntime(groupId, patch)
+    const scheduledWhen = Math.max(this.context.currentTime, when)
+    const scheduledOff = Math.max(scheduledWhen + 0.005, noteOffWhen)
+    this.triggerPumpRoutesForChannel(channelId, scheduledWhen)
+    for (const midiNote of midiNotes.slice(0, maximumSynthVoices)) {
+      if (!Number.isFinite(midiNote)) continue
+      const voice = this.startSynthVoice(runtime, groupId, channelId, midiNote, velocity * 0.42, scheduledWhen, 'sequencer')
       if (voice) this.releaseSynthVoice(runtime, voice, scheduledOff)
     }
   }
@@ -659,6 +729,19 @@ export class AudioEngine {
       if (!Number.isFinite(midiNote)) continue
       const voice = this.startStringsVoice(runtime, channelId, midiNote, velocity, scheduledWhen, 'sequencer')
       if (voice) this.releaseStringsVoice(runtime, voice, scheduledOff)
+    }
+  }
+
+  /** Releases only the predecessor in this CHORDS Pattern Group. A later
+      note-off still owns only its old voice, so it cannot mute the newer chord. */
+  releaseSequencerChordAt(groupId: GroupId, when: number): void {
+    if (!this.context) return
+    const releaseAt = Math.max(this.context.currentTime, when)
+    for (const runtime of this.synthRuntimes.values()) {
+      for (const voice of runtime.voices) if (voice.origin === 'sequencer' && voice.groupId === groupId && voice.startsAt < releaseAt && (voice.stopAt === undefined || voice.stopAt > releaseAt)) this.releaseSynthVoice(runtime, voice, releaseAt, 0.008)
+    }
+    for (const runtime of this.stringsRuntimes.values()) {
+      for (const voice of runtime.voices) if (voice.origin === 'sequencer' && voice.groupId === groupId && voice.startsAt < releaseAt && (voice.stopAt === undefined || voice.stopAt > releaseAt)) this.releaseStringsVoice(runtime, voice, releaseAt, 0.008)
     }
   }
 
@@ -835,6 +918,7 @@ export class AudioEngine {
   }
 
   dispose(): void {
+    this.cancelMicrophoneRecording()
     this.stopAll()
     this.samples.clear()
     this.waveforms.clear()
@@ -1044,6 +1128,7 @@ export class AudioEngine {
       drive,
       amp,
       origin,
+      groupId,
       patchKey: this.synthPatchKey(groupId, runtime.patch.id),
       channelId,
       midiNote,
@@ -1491,6 +1576,7 @@ export class AudioEngine {
       vibratoOnset,
       bow: { source: bowSource, gain: bowGain },
       origin,
+      groupId: runtime.groupId,
       patchKey: this.stringsPatchKey(runtime.groupId, runtime.patch.id),
       channelId,
       midiNote,
@@ -1844,10 +1930,14 @@ export class AudioEngine {
     const context = this.context!
     const first = this.createRuntimeEffectSlot()
     const second = this.createRuntimeEffectSlot()
-    const rack = { input: context.createGain(), output: context.createGain(), slots: [first, second] as [RuntimeEffectSlot, RuntimeEffectSlot] }
+    const third = this.createRuntimeEffectSlot()
+    const fourth = this.createRuntimeEffectSlot()
+    const rack = { input: context.createGain(), output: context.createGain(), slots: [first, second, third, fourth] as RuntimeEffectRack['slots'] }
     rack.input.connect(first.input)
     first.output.connect(second.input)
-    second.output.connect(rack.output)
+    second.output.connect(third.input)
+    third.output.connect(fourth.input)
+    fourth.output.connect(rack.output)
     this.applyRuntimeEffectRack(rack, state, true)
     return rack
   }
@@ -1862,32 +1952,39 @@ export class AudioEngine {
 
   private applyRuntimeEffectRack(rack: RuntimeEffectRack | undefined, state: EffectRackState, immediately = false): void {
     if (!rack) return
-    this.applyRuntimeEffectSlot(rack.slots[0], state.slots[0], immediately)
-    this.applyRuntimeEffectSlot(rack.slots[1], state.slots[1], immediately)
+    rack.slots.forEach((slot, index) => this.applyRuntimeEffectSlot(slot, state.slots[index]!, immediately))
   }
 
   private applyRuntimeEffectSlot(runtime: RuntimeEffectSlot, state: EffectSlotState, immediately: boolean): void {
-    if (runtime.type !== state.type) this.replaceRuntimeEffect(runtime, state.type)
+    if (runtime.type !== state.type) this.replaceRuntimeEffect(runtime, state)
     runtime.effect?.applyConfig(state, immediately)
   }
 
-  private replaceRuntimeEffect(runtime: RuntimeEffectSlot, type: EffectType): void {
+  private replaceRuntimeEffect(runtime: RuntimeEffectSlot, state: EffectSlotState): void {
     runtime.input.disconnect()
     runtime.effect?.dispose()
     runtime.effect = undefined
-    runtime.type = type
-    if (type === 'none') {
+    runtime.type = state.type
+    if (state.type === 'none') {
       runtime.input.connect(runtime.output)
       return
     }
-    const effect = this.createRuntimeEffect(type)
+    const effect = this.createRuntimeEffect(state.type, state.id)
     runtime.effect = effect
     runtime.input.connect(effect.input)
     effect.output.connect(runtime.output)
   }
 
-  private createRuntimeEffect(type: Exclude<EffectType, 'none'>): RuntimeEffect {
-    return type === 'compressor' ? this.createCompressorEffect() : type === 'delay' ? this.createDelayEffect() : type === 'eq' ? this.createEQEffect() : this.createTightRoomEffect()
+  private createRuntimeEffect(type: Exclude<EffectType, 'none'>, seedKey: string): RuntimeEffect {
+    return type === 'compressor'
+      ? this.createCompressorEffect()
+      : type === 'delay'
+        ? this.createDelayEffect()
+        : type === 'eq'
+          ? this.createEQEffect()
+          : type === 'tightRoom'
+            ? this.createTightRoomEffect()
+            : this.createTapeEffect(seedKey)
   }
 
   private createCompressorEffect(): RuntimeEffect {
@@ -1974,6 +2071,173 @@ export class AudioEngine {
         lowShelf.disconnect()
         mid.disconnect()
         highShelf.disconnect()
+      },
+    }
+  }
+
+  /**
+   * Station's one-knob tape macro. Native Web Audio nodes keep it light: a
+   * parallel soft saturator rounds peaks, two biquads provide head bump and
+   * progressive top loss, a sub-two-millisecond modulated delay supplies
+   * wow/flutter/drift, and one precomputed seeded buffer supplies shaped hiss.
+   * The direct bypass is a separate path so disabled and TAPE 0 are genuinely
+   * transparent; all transitions use the engine's AudioParam ramps.
+   */
+  private createTapeEffect(seedKey: string): RuntimeEffect {
+    const context = this.context!
+    const now = context.currentTime
+    const input = context.createGain()
+    const dry = context.createGain()
+    const dcBlock = context.createBiquadFilter()
+    dcBlock.type = 'highpass'
+    dcBlock.frequency.setValueAtTime(18, now)
+    dcBlock.Q.setValueAtTime(0.5, now)
+    const headBump = context.createBiquadFilter()
+    headBump.type = 'lowshelf'
+    headBump.frequency.setValueAtTime(145, now)
+    const cleanSaturation = context.createGain()
+    const drive = context.createGain()
+    const shaper = context.createWaveShaper()
+    shaper.curve = createTapeSaturationCurve()
+    shaper.oversample = '2x'
+    const saturationMakeup = context.createGain()
+    const saturated = context.createGain()
+    const saturationSum = context.createGain()
+    const topLoss = context.createBiquadFilter()
+    topLoss.type = 'lowpass'
+    topLoss.Q.setValueAtTime(0.5, now)
+    const pitchDelay = context.createDelay(0.01)
+    const irregularLevel = context.createGain()
+    const compensation = context.createGain()
+    const wet = context.createGain()
+    const output = context.createGain()
+    dry.gain.setValueAtTime(1, now)
+    wet.gain.setValueAtTime(0, now)
+    saturated.gain.setValueAtTime(0, now)
+    topLoss.frequency.setValueAtTime(Math.min(20000, context.sampleRate * 0.45), now)
+
+    input.connect(dry)
+    dry.connect(output)
+    input.connect(dcBlock)
+    dcBlock.connect(headBump)
+    headBump.connect(cleanSaturation)
+    cleanSaturation.connect(saturationSum)
+    headBump.connect(drive)
+    drive.connect(shaper)
+    shaper.connect(saturationMakeup)
+    saturationMakeup.connect(saturated)
+    saturated.connect(saturationSum)
+    saturationSum.connect(topLoss)
+    topLoss.connect(pitchDelay)
+    pitchDelay.connect(irregularLevel)
+    irregularLevel.connect(compensation)
+    compensation.connect(wet)
+    wet.connect(output)
+
+    const pitchProfile = createTapePitchProfile(seedKey)
+    const pitchOscillators = pitchProfile.lfos.map((lfo) => {
+      const oscillator = context.createOscillator()
+      const depth = context.createGain()
+      oscillator.type = 'sine'
+      oscillator.frequency.setValueAtTime(lfo.frequencyHz, now)
+      depth.gain.setValueAtTime(0, now)
+      oscillator.connect(depth)
+      depth.connect(pitchDelay.delayTime)
+      oscillator.start(now)
+      return { oscillator, depth, maximumDepthSeconds: lfo.delayDepthSeconds }
+    })
+
+    // Two unrelated rates make the high-wear level movement meander rather
+    // than pump in an obvious cycle. The seeded offsets prevent rack lockstep.
+    const levelProfile = createTapePitchProfile(`${seedKey}:level`)
+    const levelOscillators = [0.13, 0.71].map((baseFrequency, index) => {
+      const oscillator = context.createOscillator()
+      const depth = context.createGain()
+      oscillator.type = 'sine'
+      oscillator.frequency.setValueAtTime(baseFrequency * (0.94 + levelProfile.lfos[index].frequencyHz % 0.12), now)
+      depth.gain.setValueAtTime(0, now)
+      oscillator.connect(depth)
+      depth.connect(irregularLevel.gain)
+      oscillator.start(now)
+      return { oscillator, depth, share: index === 0 ? 0.65 : 0.35 }
+    })
+
+    const noiseData = createTapeNoiseData(context.sampleRate, 4.096, `${seedKey}:hiss`, 2)
+    const noiseBuffer = context.createBuffer(2, noiseData[0].length, context.sampleRate)
+    noiseData.forEach((channel, index) => noiseBuffer.copyToChannel(channel, index))
+    const noiseSource = context.createBufferSource()
+    noiseSource.buffer = noiseBuffer
+    noiseSource.loop = true
+    const noiseHighpass = context.createBiquadFilter()
+    noiseHighpass.type = 'highpass'
+    noiseHighpass.frequency.setValueAtTime(240, now)
+    noiseHighpass.Q.setValueAtTime(0.5, now)
+    const noiseLowpass = context.createBiquadFilter()
+    noiseLowpass.type = 'lowpass'
+    noiseLowpass.frequency.setValueAtTime(7200, now)
+    noiseLowpass.Q.setValueAtTime(0.5, now)
+    const noiseGain = context.createGain()
+    noiseGain.gain.setValueAtTime(0, now)
+    noiseSource.connect(noiseHighpass)
+    noiseHighpass.connect(noiseLowpass)
+    noiseLowpass.connect(noiseGain)
+    noiseGain.connect(compensation)
+    noiseSource.start(now)
+
+    return {
+      input,
+      output,
+      applyConfig: (slot, immediately) => {
+        const parameters = mapTapeParameters(slot.tape.amount)
+        const bypassed = isTapeBypassed(slot.enabled && slot.tape.enabled, parameters.amount)
+        const maximumFilterHz = Math.max(1000, context.sampleRate * 0.45)
+        this.applyEffectParameter(dry.gain, bypassed ? 1 : 0, immediately, 0.02)
+        this.applyEffectParameter(wet.gain, bypassed ? 0 : 1, immediately, 0.02)
+        this.applyEffectParameter(cleanSaturation.gain, 1 - parameters.saturationMix, immediately, 0.025)
+        this.applyEffectParameter(drive.gain, parameters.drive, immediately, 0.025)
+        this.applyEffectParameter(saturationMakeup.gain, 1 / parameters.drive, immediately, 0.025)
+        this.applyEffectParameter(saturated.gain, parameters.saturationMix, immediately, 0.025)
+        this.applyEffectParameter(headBump.gain, parameters.headBumpDb, immediately, 0.03)
+        this.applyEffectParameter(topLoss.frequency, Math.min(maximumFilterHz, parameters.lowpassHz), immediately, 0.04)
+        this.applyEffectParameter(pitchDelay.delayTime, pitchProfile.baseDelaySeconds * parameters.pitchWear, immediately, 0.05)
+        pitchOscillators.forEach(({ depth, maximumDepthSeconds }) => this.applyEffectParameter(depth.gain, maximumDepthSeconds * parameters.pitchWear, immediately, 0.05))
+        this.applyEffectParameter(irregularLevel.gain, 1 - parameters.levelIrregularity * 0.35, immediately, 0.05)
+        levelOscillators.forEach(({ depth, share }) => this.applyEffectParameter(depth.gain, parameters.levelIrregularity * share, immediately, 0.05))
+        this.applyEffectParameter(noiseGain.gain, bypassed ? 0 : parameters.noiseGain, immediately, 0.05)
+        this.applyEffectParameter(compensation.gain, parameters.outputGain, immediately, 0.03)
+      },
+      dispose: () => {
+        try { noiseSource.stop() } catch { /* May already be stopped. */ }
+        noiseSource.disconnect()
+        noiseHighpass.disconnect()
+        noiseLowpass.disconnect()
+        noiseGain.disconnect()
+        for (const { oscillator, depth } of pitchOscillators) {
+          try { oscillator.stop() } catch { /* May already be stopped. */ }
+          oscillator.disconnect()
+          depth.disconnect()
+        }
+        for (const { oscillator, depth } of levelOscillators) {
+          try { oscillator.stop() } catch { /* May already be stopped. */ }
+          oscillator.disconnect()
+          depth.disconnect()
+        }
+        input.disconnect()
+        dry.disconnect()
+        dcBlock.disconnect()
+        headBump.disconnect()
+        cleanSaturation.disconnect()
+        drive.disconnect()
+        shaper.disconnect()
+        saturationMakeup.disconnect()
+        saturated.disconnect()
+        saturationSum.disconnect()
+        topLoss.disconnect()
+        pitchDelay.disconnect()
+        irregularLevel.disconnect()
+        compensation.disconnect()
+        wet.disconnect()
+        output.disconnect()
       },
     }
   }

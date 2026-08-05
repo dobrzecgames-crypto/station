@@ -12,9 +12,10 @@ interface PadGridProps {
   onRelease?: (padId: PadState['id']) => void
   onDropSample?: (padId: PadState['id']) => void
   onFeedbackEnd: (padId: PadState['id']) => void
+  chordLabels?: Readonly<Record<string, { name: string; root: string }>>
 }
 
-export function PadGrid({ pads, selectedPadId, activePadId, audioReady, dropSampleName = null, onTrigger, onRelease = () => undefined, onDropSample = () => undefined, onFeedbackEnd }: PadGridProps) {
+export function PadGrid({ pads, selectedPadId, activePadId, audioReady, dropSampleName = null, onTrigger, onRelease = () => undefined, onDropSample = () => undefined, onFeedbackEnd, chordLabels = {} }: PadGridProps) {
   return (
     <div className="pad-grid" aria-label="16 pad bank">
       {pads.map((pad) => (
@@ -29,6 +30,8 @@ export function PadGrid({ pads, selectedPadId, activePadId, audioReady, dropSamp
           onRelease={onRelease}
           onDropSample={onDropSample}
           onFeedbackEnd={onFeedbackEnd}
+          chordName={chordLabels[pad.id]?.name}
+          chordRoot={chordLabels[pad.id]?.root}
         />
       ))}
     </div>

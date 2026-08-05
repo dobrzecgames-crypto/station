@@ -130,15 +130,16 @@ this is the first thing to re-check.
 
 ## 3. Channels
 
-Four kinds of content compete for the line. They are listed in priority order —
+Five kinds of content compete for the line. They are listed in priority order —
 higher always wins.
 
 | Priority | Channel | Lifetime | Source today |
 | --- | --- | --- | --- |
 | 1 | **Error** | 2 s, then releases | `errorMessage` |
-| 2 | **Confirmation** | 4 s, then releases | `projectMessage` |
-| 3 | **Focus** *(proposed)* | While a control is held or focused | — |
-| 4 | **Readout** | Always, as the floor | `bpm` / `swing` |
+| 2 | **Activity** | While an operation is running | microphone elapsed time |
+| 3 | **Confirmation** | Briefly, then releases | `projectMessage` / `transportNotice` |
+| 4 | **Focus** *(proposed)* | While a control is held or focused | — |
+| 5 | **Readout** | Always, as the floor | `bpm` / `swing` |
 
 Errors outrank everything on purpose while they are visible. They release after
 two seconds so a minor blocked action does not leave the instrument looking
@@ -162,6 +163,7 @@ together instead of the message line changing alone.
 | --- | --- | --- |
 | idle | `226 232 220` | 20% |
 | status | `181 199 118` | 38% |
+| activity | `221 98 92` | 28% |
 | error | `183 120 120` | 38% |
 
 ## 5. Ownership contract *(proposed)*

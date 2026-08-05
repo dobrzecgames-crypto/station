@@ -104,6 +104,10 @@ CHOP owns a source-asset reference and serializable slice boundaries; pads own t
 
 At import time, AudioEngine retains the original WAV `Blob` alongside its decoded AudioBuffer and generated waveform peaks. The Blob is available only through a small engine API for persistence; the audio graph, scheduling, voices and waveform cache remain runtime-only. On OPEN, the engine decodes stored Blobs again and recreates waveform peaks before React receives the replacement project state.
 
+## Microphone capture boundary
+
+Microphone field capture is a CHOP source path, not multitrack recording. AudioEngine owns the `MediaStream`, `MediaRecorder`, analyser and silent monitoring graph; React receives only presentation-level meter snapshots and the completed encoded Blob. The browser's supported recording container is decoded by the live audio context and immediately converted to the same 16-bit WAV asset shape used by file import, waveform generation, CHOP mapping and project persistence. Captures are limited to two minutes to bound decoded memory on mobile devices.
+
 ## Event flow example
 
 1. User presses a pad.

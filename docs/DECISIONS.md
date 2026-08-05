@@ -380,3 +380,20 @@ Consequences:
 - `saturatorCurve(amount)` in `drumSynthOperations.ts` is now the shared rational-saturator generator behind both KICK's user-facing DRIVE and SNARE's fixed internal amount; `dustToShape`/`dustDurationSeconds` are likewise shared, unprefixed, and used identically by both voices,
 - adding a third voice (CLAP, per the original DEC-024 sizing) repeats this shape: one more patch type, one more `drumsynth/<name>Voice.ts` + `render<Name>.ts` pair, one more segmented-control entry and controls section, zero changes to the picker, ADD TO PAD, or the persistence ladder beyond the routine schema bump,
 - CLAP, HAT, TOM, PERC, a SNARE-specific stereo width control, and any cross-voice layering (e.g. kick+snare in one hit) remain out of scope for this version.
+
+## DEC-026 — Microphone recording is field capture into CHOP, not a track type
+
+**Status:** Accepted
+
+Holding the transport REC control opens a non-layout-shifting action sheet that selects PATTERN or MICROPHONE. A short tap keeps the existing PATTERN count-in/punch workflow when PATTERN is selected. In MICROPHONE mode it acquires the device input, records at most two minutes, displays a presentation-only level meter, and sends the stopped take directly to the selected Bank's CHOP source.
+
+The input path uses the browser's `MediaRecorder` because field capture is necessarily real-time and must follow the device's supported input codec. This does not reverse DEC-021's rejection of MediaRecorder for SONG export: the completed microphone Blob is immediately decoded and encoded to the same 16-bit WAV asset shape as every other Station sample, whereas offline SONG rendering remains deterministic and never passes through a lossy real-time recording.
+
+Consequences:
+
+- microphone takes use the existing CHOP session, waveform, slicing, pad mapping, IndexedDB asset and project-save paths; there is no new persisted track type or schema version,
+- `AudioEngine` owns the `MediaStream`, recorder, analyser and silent monitoring nodes, while React owns only action-sheet state, elapsed presentation time and meter snapshots,
+- input requests mono and disables echo cancellation, noise suppression and automatic gain where browsers honour those preferences; the actual device channel layout remains acceptable,
+- WebM/Opus is preferred, with MP4 and Ogg fallbacks, then the browser default; the take is converted to WAV before becoming a project asset,
+- capture is capped at 120 seconds to bound mobile memory, and all tracks/nodes are stopped on completion, cancellation or engine disposal,
+- the first version has no overdubbing, multitrack audio, input monitoring, punch editing, denoising, automatic gain, cloud upload or background/locked-screen guarantee.

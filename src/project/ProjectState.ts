@@ -20,9 +20,13 @@ import type { SynthOscillatorState, SynthPatch } from '../synth/synthTypes'
 import { maximumStringsVoices, resolveStringsPadMidiNotes } from '../strings/stringsOperations'
 import { stringsCharacters, stringsOctaveLayers, stringsOctaves } from '../strings/stringsTypes'
 import type { StringsPatch } from '../strings/stringsTypes'
+import { isChordType } from '../music/chords'
 
-export const projectSchemaVersion = 16
-export const previousProjectSchemaVersion = 15
+export const projectSchemaVersion = 19
+export const previousProjectSchemaVersion = 18
+export const v17ProjectSchemaVersion = 17
+export const v16ProjectSchemaVersion = 16
+export const v15ProjectSchemaVersion = 15
 export const v14ProjectSchemaVersion = 14
 export const v13ProjectSchemaVersion = 13
 export const v12ProjectSchemaVersion = 12
@@ -233,6 +237,21 @@ export function migrateV15ProjectState(previous: { [key: string]: unknown }): Pr
   return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
 }
 
+/** v16 predates TAPE; normalization adds its bypassed 32% default config to every slot without changing the selected effect or sound. */
+export function migrateV16ProjectState(previous: { [key: string]: unknown }): ProjectState {
+  return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
+}
+
+/** v17 had two FX slots per rack; normalization preserves slots 1-2 and appends empty slots 3-4 for every Pattern Group and the master. */
+export function migrateV17ProjectState(previous: { [key: string]: unknown }): ProjectState {
+  return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
+}
+
+/** v18 predates per-Pattern NOTES/CHORDS state. */
+export function migrateV18ProjectState(previous: { [key: string]: unknown }): ProjectState {
+  return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
+}
+
 export function collectReferencedAssetIds(project: ProjectState): Set<SampleAssetId> {
   const ids = new Set<SampleAssetId>()
   for (const group of project.patternGroups) {
@@ -259,6 +278,12 @@ export function validateProjectState(project: ProjectState): string[] {
   const stringsPatchIds = new Set<string>()
   for (const group of project.patternGroups) {
     if (!group.id || !group.name || !group.variants.A) errors.push('Every Pattern Group requires variant A.')
+    if (group.padMode !== 'notes' && group.padMode !== 'chords') errors.push(`${group.name} has an invalid pad mode.`)
+    if (!Array.isArray(group.chordAssignments) || group.chordAssignments.length !== padCount) errors.push(`${group.name} must contain exactly ${padCount} chord assignments.`)
+    else {
+      for (const assignment of group.chordAssignments) if (assignment !== null && (typeof assignment !== 'object' || !isChordType(assignment.type))) errors.push(`${group.name} has an invalid chord assignment.`)
+      if (group.padMode === 'chords' && group.chordAssignments.some((assignment) => assignment === null)) errors.push(`${group.name} CHORDS mode requires an assignment for every pad.`)
+    }
     if (!group.bus || !Number.isFinite(group.bus.volume) || group.bus.volume < 0 || group.bus.volume > 1 || typeof group.bus.muted !== 'boolean' || typeof group.bus.solo !== 'boolean') errors.push(`${group.name} has an invalid Group Bus.`)
     if (!isEffectRackState(group.effects, group.id)) errors.push(`${group.name} has invalid effects.`)
     if (!group.bank || group.bank.pads.length !== padCount) errors.push(`${group.name} must contain exactly ${padCount} bank pads.`)

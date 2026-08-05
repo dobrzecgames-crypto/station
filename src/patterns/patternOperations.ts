@@ -5,6 +5,11 @@ import { patternVariantNames, maximumPatternGroups } from './patternTypes'
 import type { GroupBusState, PatternGroup, PatternVariantName, StepPattern, StepShiftPattern, StepLengthPattern } from './patternTypes'
 import { cloneSynthPatch } from '../synth/synthOperations'
 import { cloneStringsPatch } from '../strings/stringsOperations'
+import type { ChordAssignment } from '../music/chords'
+import type { ProjectKey } from '../music/scales'
+import { remapScalarChordBank } from '../music/scaleMapping'
+import type { PadMode } from './patternTypes'
+import { chordFieldsForMode, chordFieldsWithAssignment, normalizePatternChordFields, repairedChordFields } from './patternChordState'
 
 export const patternStepCount = 16
 
@@ -38,7 +43,7 @@ export function cloneStepLengthPattern(pattern: StepLengthPattern): StepLengthPa
 }
 
 export function createPatternGroup(id: string, groupNumber: number, padIds: readonly SampleId[]): PatternGroup {
-  return { id, name: `Pattern ${groupNumber}`, bank: createPadBankState(), bus: createGroupBusState(), effects: createEmptyEffectRack(id), synthPatches: [], stringsPatches: [], variants: { A: createEmptyStepPattern(padIds) }, shifts: { A: createEmptyStepShiftPattern(padIds) }, lengths: { A: createEmptyStepLengthPattern(padIds) } }
+  return { id, name: `Pattern ${groupNumber}`, bank: createPadBankState(), bus: createGroupBusState(), effects: createEmptyEffectRack(id), synthPatches: [], stringsPatches: [], padMode: 'notes', chordAssignments: Array(padIds.length).fill(null), variants: { A: createEmptyStepPattern(padIds) }, shifts: { A: createEmptyStepShiftPattern(padIds) }, lengths: { A: createEmptyStepLengthPattern(padIds) } }
 }
 
 export function createInitialPatternGroups(padIds: readonly SampleId[]): PatternGroup[] {
@@ -146,7 +151,34 @@ function updateVariantPatternValue(groups: readonly PatternGroup[], groupId: str
 }
 
 export function clonePatternGroup(group: PatternGroup): PatternGroup {
-  return { ...group, bank: clonePadBank(group.bank), bus: group.bus ? { ...group.bus } : createGroupBusState(), effects: cloneEffectRackState(group.effects ?? createEmptyEffectRack(group.id)), synthPatches: (group.synthPatches ?? []).map(cloneSynthPatch), stringsPatches: (group.stringsPatches ?? []).map(cloneStringsPatch), variants: Object.fromEntries(patternVariantNames.flatMap((variant) => group.variants[variant] ? [[variant, cloneStepPattern(group.variants[variant]!)] as const] : [])), shifts: Object.fromEntries(patternVariantNames.flatMap((variant) => group.shifts?.[variant] ? [[variant, cloneStepShiftPattern(group.shifts[variant]!)] as const] : [])), lengths: Object.fromEntries(patternVariantNames.flatMap((variant) => group.lengths?.[variant] ? [[variant, cloneStepLengthPattern(group.lengths[variant]!)] as const] : [])) }
+  const legacy = group as PatternGroup & { padMode?: unknown; chordAssignments?: unknown }
+  const chordFields = normalizePatternChordFields(legacy, group.bank.pads.length)
+  return { ...group, bank: clonePadBank(group.bank), bus: group.bus ? { ...group.bus } : createGroupBusState(), effects: cloneEffectRackState(group.effects ?? createEmptyEffectRack(group.id)), synthPatches: (group.synthPatches ?? []).map(cloneSynthPatch), stringsPatches: (group.stringsPatches ?? []).map(cloneStringsPatch), ...chordFields, variants: Object.fromEntries(patternVariantNames.flatMap((variant) => group.variants[variant] ? [[variant, cloneStepPattern(group.variants[variant]!)] as const] : [])), shifts: Object.fromEntries(patternVariantNames.flatMap((variant) => group.shifts?.[variant] ? [[variant, cloneStepShiftPattern(group.shifts[variant]!)] as const] : [])), lengths: Object.fromEntries(patternVariantNames.flatMap((variant) => group.lengths?.[variant] ? [[variant, cloneStepLengthPattern(group.lengths[variant]!)] as const] : [])) }
+}
+
+export function setPatternGroupPadMode(groups: readonly PatternGroup[], groupId: string, mode: PadMode, projectKey: ProjectKey): PatternGroup[] {
+  return groups.map((group) => {
+    if (group.id !== groupId) return clonePatternGroup(group)
+    const cloned = clonePatternGroup(group)
+    const prepared = mode === 'chords' ? remapScalarChordBank(cloned, projectKey) : cloned
+    return { ...prepared, ...chordFieldsForMode(prepared.bank.pads, prepared, mode, projectKey) }
+  })
+}
+
+export function setPatternGroupChordAssignment(groups: readonly PatternGroup[], groupId: string, padIndex: number, assignment: ChordAssignment): PatternGroup[] {
+  return groups.map((group) => {
+    const cloned = clonePatternGroup(group)
+    if (group.id !== groupId) return cloned
+    return { ...cloned, ...chordFieldsWithAssignment(cloned, padIndex, assignment) }
+  })
+}
+
+export function repairPatternGroupChords(groups: readonly PatternGroup[], projectKey: ProjectKey): PatternGroup[] {
+  return groups.map((group) => {
+    const cloned = clonePatternGroup(group)
+    const prepared = cloned.padMode === 'chords' ? remapScalarChordBank(cloned, projectKey) : cloned
+    return { ...prepared, ...repairedChordFields(prepared.bank.pads, prepared, projectKey) }
+  })
 }
 
 export function getVariant(groups: readonly PatternGroup[], groupId: string, variant: PatternVariantName): StepPattern | undefined {

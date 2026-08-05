@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { patternVariantNames, maximumPatternGroups } from '../patterns/patternTypes'
 import type { PatternGroup, PatternVariantName } from '../patterns/patternTypes'
 import { SystemDisplay } from './SystemDisplay'
@@ -8,6 +8,8 @@ import { tempoTenant } from './TempoPanel'
 import { bankTenant } from './BankPanel'
 import { useSystemDisplay } from './systemDisplayContext'
 import type { AudioEngineStatus } from '../audio/AudioEngine'
+import { RecordControl } from './RecordControl'
+import type { MicrophoneRecordState, RecordMode } from './RecordControl'
 
 interface TransportBarProps {
   bpm: number
@@ -17,12 +19,18 @@ interface TransportBarProps {
   recording: boolean
   /** The four metronome clicks before recording arms. Nothing is written yet. */
   countingIn: boolean
+  recordMode: RecordMode
+  microphoneState: MicrophoneRecordState
+  microphoneElapsedSeconds: number
+  microphoneLevel: number
   mode: 'pattern' | 'song'
   loopSong: boolean
   metronomeEnabled: boolean
   settingsOpen: boolean
   /** Confirmation shown on the display; clears itself after a few seconds. */
   statusMessage?: string
+  /** Persistent non-live readout while an operation is active. */
+  activityMessage?: string
   /** Failure or blocked action; holds the display until the next action. */
   errorMessage?: string
   /** Whoever has claimed the display, or null when nobody has and tempo holds
@@ -44,6 +52,7 @@ interface TransportBarProps {
   onMetronomeEnabledChange: (enabled: boolean) => void
   /** Starts the count-in, punches in on a running transport, or punches out. */
   onRecordToggle: () => void
+  onRecordModeChange: (mode: RecordMode) => void
   onGroupChange: (groupId: string) => void
   onVariantChange: (variant: PatternVariantName) => void
   onGroupCreate: () => void
@@ -59,7 +68,7 @@ interface TransportBarProps {
   onStop: () => void
 }
 
-export function TransportBar({ bpm, swing, isPlaying, recording, countingIn, mode, loopSong, metronomeEnabled, settingsOpen, onSettingsOpenChange, groups, selectedGroupId, selectedVariant, statusMessage, errorMessage, displayOwner, audioStatus, audioDisabled, controlsAwake, onStartAudio, onBpmChange, onSwingChange, onModeChange, onLoopSongChange, onMetronomeEnabledChange, onRecordToggle, onGroupChange, onVariantChange, onGroupCreate, onVariantCreate, onVariantDuplicate, onVariantClear, onGroupDelete, projectControl, onPlay, onStop }: TransportBarProps) {
+export function TransportBar({ bpm, swing, isPlaying, recording, countingIn, recordMode, microphoneState, microphoneElapsedSeconds, microphoneLevel, mode, loopSong, metronomeEnabled, settingsOpen, onSettingsOpenChange, groups, selectedGroupId, selectedVariant, statusMessage, activityMessage, errorMessage, displayOwner, audioStatus, audioDisabled, controlsAwake, onStartAudio, onBpmChange, onSwingChange, onModeChange, onLoopSongChange, onMetronomeEnabledChange, onRecordToggle, onRecordModeChange, onGroupChange, onVariantChange, onGroupCreate, onVariantCreate, onVariantDuplicate, onVariantClear, onGroupDelete, projectControl, onPlay, onStop }: TransportBarProps) {
   const groupIndex = groups.findIndex((group) => group.id === selectedGroupId)
   const selectedGroup = groups[groupIndex]
   const audioRecovering = audioStatus === 'suspended' || audioStatus === 'interrupted'
@@ -108,22 +117,23 @@ export function TransportBar({ bpm, swing, isPlaying, recording, countingIn, mod
         <span className={`status-dot status-${audioStatus}`} aria-hidden="true" />
         <span className="system-power-label">{audioStatus === 'ready' ? 'ON' : audioRecovering ? 'WAIT' : 'OFF'}</span>
       </button>
-      <button className="transport-button transport-icon-button transport-play-button" type="button" disabled={!controlsAwake || isPlaying} aria-label="Play" onClick={onPlay} />
-      <button className="mixer-toggle transport-icon-button transport-stop-button" type="button" disabled={!isPlaying && !countingIn} aria-label="Stop" onClick={onStop} />
+      <button className="transport-button transport-icon-button transport-play-button" type="button" disabled={!controlsAwake || isPlaying || microphoneState !== 'idle'} aria-label="Play" onClick={onPlay} />
+      <button className="mixer-toggle transport-icon-button transport-stop-button" type="button" disabled={!isPlaying && !countingIn && microphoneState !== 'recording'} aria-label="Stop" onClick={onStop} />
       {/* Recording writes pad hits into the current pattern as steps - it is a way of
           filling the same grid SEQ edits by hand, never an audio capture. It therefore
           targets one bank and variant, which is why SONG mode locks it out. */}
-      <button
-        className={`mixer-toggle transport-icon-button transport-record-button${recording ? ' transport-record-active' : ''}${countingIn ? ' transport-record-counting' : ''}`}
-        type="button"
-        disabled={!controlsAwake || mode === 'song'}
-        aria-pressed={recording || countingIn}
-        aria-label={countingIn ? 'Counting in, tap to cancel' : recording ? 'Stop recording' : 'Record'}
-        title={mode === 'song' ? 'Recording targets one pattern, so switch to PATTERN mode first.' : undefined}
-        // The lamp beats the count-in, so its period is the beat itself rather than a
-        // fixed rate - at 70 BPM and at 180 the blink is what you are counting along to.
-        style={countingIn ? { '--count-in-beat': `${60 / bpm}s` } as CSSProperties : undefined}
-        onClick={onRecordToggle}
+      <RecordControl
+        mode={recordMode}
+        bpm={bpm}
+        patternActive={recording}
+        countingIn={countingIn}
+        microphoneState={microphoneState}
+        microphoneElapsedSeconds={microphoneElapsedSeconds}
+        microphoneLevel={microphoneLevel}
+        patternModeAvailable={mode === 'pattern'}
+        toggleDisabled={!controlsAwake || (recordMode === 'pattern' && mode === 'song')}
+        onToggle={onRecordToggle}
+        onModeChange={onRecordModeChange}
       />
       <div className="transport-modes" aria-label="Transport mode"><button className={mode === 'pattern' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" disabled={!controlsAwake} onClick={() => onModeChange('pattern')}>PATTERN</button><button className={mode === 'song' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" disabled={!controlsAwake} onClick={() => onModeChange('song')}>SONG</button></div>
       {/* The system display. Every message in the app lands here rather than in
@@ -134,6 +144,7 @@ export function TransportBar({ bpm, swing, isPlaying, recording, countingIn, mod
       <SystemDisplay
         owner={displayOwner ?? tempoTenant({ bpm, swing, mode, loopSong, metronomeEnabled, onBpmChange, onSwingChange, onLoopSongChange, onMetronomeEnabledChange })}
         statusMessage={statusMessage}
+        activityMessage={activityMessage}
         errorMessage={errorMessage}
         open={settingsOpen}
         onOpenChange={onSettingsOpenChange}

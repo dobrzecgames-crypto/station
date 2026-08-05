@@ -57,6 +57,10 @@ Initial playback requirements:
 - deterministic cleanup after playback,
 - no AudioNode ownership in React.
 
+### Microphone field capture
+
+The live engine owns microphone permission acquisition, the input stream, browser `MediaRecorder`, a silent analyser path for the UI meter, and cleanup of every track and node. Capture requests mono input and disables browser speech processing where supported, but accepts the device's actual channel layout when a browser cannot honour that preference. The browser-selected WebM/Opus, MP4 or Ogg recording is decoded by the same live context, converted to 16-bit WAV, and passed through the ordinary CHOP asset loader. Recording duration and the level meter are presentation concerns; neither is a source of sequencer timing.
+
 Time-stretching is explicitly outside the MVP.
 
 ### Playback regions and waveform snapshots
@@ -87,10 +91,10 @@ Do not build a complex voice allocator before measurements justify it.
 The engine defines a predictable path:
 
 ```text
-AudioBufferSourceNode -> voice gain -> channel gain -> Pump gain -> Pattern Group bus -> Group FX slot 1 -> Group FX slot 2 -> Master FX slot 1 -> Master FX slot 2 -> master gain -> destination
+AudioBufferSourceNode -> voice gain -> channel gain -> Pump gain -> Pattern Group bus -> Group FX slots 1-4 -> Master FX slots 1-4 -> master gain -> destination
 ```
 
-There are 16 channels per Pattern Group bank, keyed by a stable group-and-pad identity. Channel volume, mute and solo act at the channel gain, so they affect active as well as future voices. Mute takes precedence over solo. Pump has a dedicated gain after the channel gain, so its envelope remains active when a target is muted and source-trigger events still fire even when the source channel is not audible. Every group has two independent serial insert slots; group outputs and source previews then pass through the two serial master slots before the final master gain.
+There are 16 channels per Pattern Group bank, keyed by a stable group-and-pad identity. Channel volume, mute and solo act at the channel gain, so they affect active as well as future voices. Mute takes precedence over solo. Pump has a dedicated gain after the channel gain, so its envelope remains active when a target is muted and source-trigger events still fire even when the source channel is not audible. Every group has four independent serial insert slots; group outputs and source previews then pass through the four serial master slots before the final master gain.
 
 The MVP should leave sensible headroom. Avoid adding saturation, soft clipping or machine-character processing until the clean engine is stable and measured.
 

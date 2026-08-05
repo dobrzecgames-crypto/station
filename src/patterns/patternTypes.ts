@@ -3,11 +3,13 @@ import type { EffectRackState } from '../audio/effects'
 import type { PadBankState } from '../pads/padBank'
 import type { SynthPatch } from '../synth/synthTypes'
 import type { StringsPatch } from '../strings/stringsTypes'
+import type { ChordAssignment } from '../music/chords'
 
 export const patternVariantNames = ['A', 'B', 'C', 'D'] as const
 export const maximumPatternGroups = 8
 
 export type PatternVariantName = typeof patternVariantNames[number]
+export type PadMode = 'notes' | 'chords'
 export type StepPattern = Record<SampleId, number[]>
 export type StepShiftPattern = Record<SampleId, number[]>
 /**
@@ -32,6 +34,8 @@ export interface PatternGroup {
   effects: EffectRackState
   synthPatches: SynthPatch[]
   stringsPatches: StringsPatch[]
+  padMode: PadMode
+  chordAssignments: Array<ChordAssignment | null>
   variants: Partial<Record<PatternVariantName, StepPattern>>
   shifts: Partial<Record<PatternVariantName, StepShiftPattern>>
   lengths: Partial<Record<PatternVariantName, StepLengthPattern>>

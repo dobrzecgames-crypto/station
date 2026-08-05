@@ -39,13 +39,6 @@ export interface LoadedSampleInfo {
   durationSeconds: number
 }
 
-export interface DecodedMonoAudio {
-  samples: Float32Array<ArrayBuffer>
-  sampleRate: number
-  durationSeconds: number
-  sourceChannelCount: number
-}
-
 export interface RuntimeSampleAsset {
   filename: string
   blob: Blob
@@ -619,27 +612,6 @@ export class AudioEngine {
     this.releaseSynthPad(manualToken)
     for (const midiNote of midiNotes.slice(0, maximumSynthVoices)) {
       if (Number.isFinite(midiNote)) this.startSynthVoice(runtime, groupId, channelId, midiNote, velocity * 0.42, when, 'manual', manualToken)
-    }
-  }
-
-  /**
-   * Decodes an audition-only source without registering it as a project asset.
-   * The channel fold-down and AudioBuffer stay inside the audio layer; React
-   * receives plain sample data for the isolated Tune Gravity QUALITY worker.
-   */
-  async decodeMonoAudioBlob(blob: Blob): Promise<DecodedMonoAudio> {
-    if (this.status !== 'ready' || !this.context) throw new Error('Start audio before loading a vocal.')
-    const decoded = await this.context.decodeAudioData(await blob.arrayBuffer())
-    const samples = new Float32Array(decoded.length)
-    for (let channel = 0; channel < decoded.numberOfChannels; channel += 1) {
-      const channelData = decoded.getChannelData(channel)
-      for (let index = 0; index < samples.length; index += 1) samples[index] += channelData[index]! / decoded.numberOfChannels
-    }
-    return {
-      samples,
-      sampleRate: decoded.sampleRate,
-      durationSeconds: decoded.duration,
-      sourceChannelCount: decoded.numberOfChannels,
     }
   }
 

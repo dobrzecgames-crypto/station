@@ -23,8 +23,9 @@ interface SequencerControlsProps {
 }
 
 const displayId = 'seq-step-controls'
-/** A stationary tap still drifts a few pixels on a touch screen - only movement past this counts as a drag, not a tap that should fall through to toggle-off. */
-const dragThresholdPx = 10
+/** A second tap landing on the same cell within this window counts as a
+    double-tap; anything slower is two unrelated single taps, each a no-op. */
+const doubleTapThresholdMs = 350
 
 function isDimBeatGroup(stepIndex: number): boolean {
   return Math.floor(stepIndex / 4) % 2 === 1
@@ -32,7 +33,7 @@ function isDimBeatGroup(stepIndex: number): boolean {
 
 /**
  * Which head (if any) owns each step - itself if active, an earlier step's
- * drag-extended span if covered, else none. A length of 0 (sample, still
+ * stretched span if covered, else none. A length of 0 (sample, still
  * unbounded from before this feature existed) never visually spans past its
  * own cell - there's no cell count to draw for "play to the end".
  */
@@ -58,24 +59,22 @@ function maxAvailableLength(steps: readonly number[], headIndex: number): number
   return span
 }
 
-interface NoteDrag {
+interface LengthDialogTarget {
   padId: PadState['id']
-  headIndex: number
-  pointerId: number
-  startClientX: number
-  cellWidthPx: number
-  startLength: number
-  maxLength: number
-  dragging: boolean
+  stepIndex: number
 }
 
 export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadId, group, selectedVariant, playingStep, onSelectPad, onReleasePad, onToggleStep, onVelocityChange, onShiftChange, onLengthChange }: SequencerControlsProps) {
   const [editedStep, setEditedStep] = useState({ padId: selectedPadId, stepIndex: 0 })
   const [stepPage, setStepPage] = useState<0 | 1>(0)
+  const [lengthDialogTarget, setLengthDialogTarget] = useState<LengthDialogTarget | null>(null)
   const { claim, release, ownerId } = useSystemDisplay()
   const [displayActive, setDisplayActive] = useState(true)
   const hasOwnedDisplayRef = useRef(false)
-  const dragRef = useRef<NoteDrag | null>(null)
+  /** Identity + timestamp of the last tap on any cell, so the next pointerdown
+      can tell a double-tap on the same cell from an unrelated single tap
+      elsewhere - see handleStepPointerDown. */
+  const lastTapRef = useRef<{ padId: PadState['id']; stepIndex: number; time: number } | null>(null)
   const editedPad = pads.find((pad) => pad.id === editedStep.padId) ?? pads[0]
   const velocity = pattern[editedPad.id][editedStep.stepIndex]
   const shift = shifts[editedPad.id][editedStep.stepIndex]
@@ -102,63 +101,42 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
     onVelocityChange: (padId, stepIndex, nextVelocity) => onVelocityChangeRef.current(padId, stepIndex, nextVelocity),
     onShiftChange: (padId, stepIndex, nextShift) => onShiftChangeRef.current(padId, stepIndex, nextShift),
   }), [editedPad, editedStep.stepIndex, velocity, shift, length])
-  const selectStep = (padId: PadState['id'], stepIndex: number) => { setDisplayActive(true); setEditedStep({ padId, stepIndex }); onToggleStep(padId, stepIndex) }
-  const selectOnly = (padId: PadState['id'], stepIndex: number) => { setDisplayActive(true); setEditedStep({ padId, stepIndex }) }
+  const selectStep = (padId: PadState['id'], stepIndex: number) => { setDisplayActive(true); setEditedStep({ padId, stepIndex }) }
   const pageStartStep = stepPage * 8
   const pageSteps = Array.from({ length: 8 }, (_, offset) => pageStartStep + offset)
 
   /**
-   * Every step cell - empty or already a note - is a single pointer-event
-   * target; there's no separate onClick branch, because a native click still
-   * fires after pointerup even with preventDefault (that only suppresses the
-   * mouse-compatibility events on touch), and an onClick sitting on the empty
-   * rendering would catch that stray click the instant a toggle-off swaps a
-   * cell onto it, undoing the toggle. Pressing an empty cell places a
-   * one-step note. Pressing a note that isn't already selected just selects
-   * it - the matching pointerup is a no-op without an armed drag. Only a
-   * second press, on a note that's already `editedStep`, arms one: release
-   * with no movement falls through to the ordinary toggle-off, and any
-   * horizontal movement past a whole cell resizes it instead, clamped to the
-   * run of free cells ahead of it.
+   * A single tap does nothing. That is deliberate: a finger grazing a step
+   * while scrolling past the matrix used to toggle or start resizing a note
+   * by accident, and the run of ~40px cells a resize drag needed was exactly
+   * as imprecise a target. Only a second tap landing on the same cell within
+   * doubleTapThresholdMs counts as a real action:
+   * - on an empty cell it places a one-step note and immediately opens the
+   *   length dialog to dial in the exact length right there;
+   * - on an existing note, anywhere across its span, it selects the note
+   *   (so VELOCITY/SHIFT stay reachable from the system display exactly as
+   *   before) and opens the same dialog to change its length or remove it.
+   * There is no separate drag-to-resize gesture anymore - the dialog is the
+   * only way to set a length now, on a new note or an existing one alike.
    */
-  const beginNotePress = (event: ReactPointerEvent<HTMLButtonElement>, padId: PadState['id'], stepIndex: number, headIndex: number | null) => {
+  const handleStepPointerDown = (event: ReactPointerEvent<HTMLButtonElement>, padId: PadState['id'], stepIndex: number, headIndex: number | null) => {
     event.preventDefault()
+    const now = event.timeStamp
+    const last = lastTapRef.current
+    const isDoubleTap = last !== null && last.padId === padId && last.stepIndex === stepIndex && now - last.time < doubleTapThresholdMs
+    if (!isDoubleTap) {
+      lastTapRef.current = { padId, stepIndex, time: now }
+      return
+    }
+    lastTapRef.current = null
     if (headIndex === null) {
+      onToggleStep(padId, stepIndex)
       selectStep(padId, stepIndex)
+      setLengthDialogTarget({ padId, stepIndex })
       return
     }
-    if (editedStep.padId !== padId || editedStep.stepIndex !== headIndex) {
-      selectOnly(padId, headIndex)
-      return
-    }
-    event.currentTarget.setPointerCapture(event.pointerId)
-    dragRef.current = {
-      padId,
-      headIndex,
-      pointerId: event.pointerId,
-      startClientX: event.clientX,
-      cellWidthPx: event.currentTarget.getBoundingClientRect().width || 1,
-      startLength: Math.max(1, lengths[padId][headIndex] || 1),
-      maxLength: maxAvailableLength(pattern[padId], headIndex),
-      dragging: false,
-    }
-  }
-
-  const moveNotePress = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    const drag = dragRef.current
-    if (!drag || drag.pointerId !== event.pointerId) return
-    const rawDeltaPx = event.clientX - drag.startClientX
-    if (!drag.dragging && Math.abs(rawDeltaPx) < dragThresholdPx) return
-    drag.dragging = true
-    const deltaCells = Math.round(rawDeltaPx / drag.cellWidthPx)
-    onLengthChange(drag.padId, drag.headIndex, Math.min(drag.maxLength, Math.max(1, drag.startLength + deltaCells)))
-  }
-
-  const endNotePress = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    const drag = dragRef.current
-    if (!drag || drag.pointerId !== event.pointerId) return
-    dragRef.current = null
-    if (!drag.dragging) onToggleStep(drag.padId, drag.headIndex)
+    selectStep(padId, headIndex)
+    setLengthDialogTarget({ padId, stepIndex: headIndex })
   }
 
   useEffect(() => {
@@ -179,6 +157,10 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
     }
     if (hasOwnedDisplayRef.current && ownerId !== null) setDisplayActive(false)
   }, [displayActive, ownerId])
+
+  const dialogPad = lengthDialogTarget ? pads.find((pad) => pad.id === lengthDialogTarget.padId) : undefined
+  const dialogMaxLength = lengthDialogTarget ? maxAvailableLength(pattern[lengthDialogTarget.padId], lengthDialogTarget.stepIndex) : 1
+  const dialogLength = lengthDialogTarget ? Math.max(1, Math.min(dialogMaxLength, lengths[lengthDialogTarget.padId][lengthDialogTarget.stepIndex] || 1)) : 1
 
   // SEQ is deliberately just the pattern matrix. The selected step owns the
   // system display, where its musical detail stays next to playback controls.
@@ -221,19 +203,29 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
                 key={stepIndex}
                 className={className}
                 type="button"
-                aria-label={`${pad.label}, step ${stepIndex + 1}`}
+                aria-label={`${pad.label}, step ${stepIndex + 1}${headIndex !== null ? ', double-tap to edit length' : ', double-tap to add'}`}
                 aria-pressed={headIndex !== null}
-                onPointerDown={(event) => beginNotePress(event, pad.id, stepIndex, headIndex)}
-                onPointerMove={moveNotePress}
-                onPointerUp={endNotePress}
-                onPointerCancel={endNotePress}
-                onLostPointerCapture={endNotePress}
+                onPointerDown={(event) => handleStepPointerDown(event, pad.id, stepIndex, headIndex)}
               ><small>{headIndex !== null && !isTail ? `${Math.round(headVelocity * 100)}%` : ''}</small></button>
             )
           })}
         </div>
       })}
     </div>
+    {lengthDialogTarget && dialogPad && (
+      <StepLengthDialog
+        padLabel={dialogPad.label}
+        stepIndex={lengthDialogTarget.stepIndex}
+        length={dialogLength}
+        maxLength={dialogMaxLength}
+        onLengthChange={(nextLength) => onLengthChange(lengthDialogTarget.padId, lengthDialogTarget.stepIndex, nextLength)}
+        onRemove={() => {
+          onToggleStep(lengthDialogTarget.padId, lengthDialogTarget.stepIndex)
+          setLengthDialogTarget(null)
+        }}
+        onClose={() => setLengthDialogTarget(null)}
+      />
+    )}
   </section>
 }
 
@@ -266,4 +258,58 @@ function stepTenant({ pad, stepIndex, velocity, shift, length, onVelocityChange,
       </label>
     </>,
   }
+}
+
+interface StepLengthDialogProps {
+  padLabel: string
+  stepIndex: number
+  length: number
+  maxLength: number
+  onLengthChange: (length: number) => void
+  onRemove: () => void
+  onClose: () => void
+}
+
+/** Same enlarged-dialog language as SliderMagnifier (shell/SliderMagnifier.tsx)
+    for the one thing on the step grid a native range input can't stand in
+    for by itself - dragging a note across a run of ~40px cells asked for
+    more precision than a touch screen gives. This drives onLengthChange
+    directly rather than mirroring a hidden native slider: there is no small
+    length input anywhere else for it to stay in sync with. */
+function StepLengthDialog({ padLabel, stepIndex, length, maxLength, onLengthChange, onRemove, onClose }: StepLengthDialogProps) {
+  const dialogRef = useRef<HTMLDialogElement>(null)
+
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog?.open) dialog?.showModal()
+    return () => { if (dialog?.open) dialog.close() }
+  }, [])
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className="slider-magnifier-dialog"
+      aria-labelledby="seq-length-dialog-label"
+      onCancel={(event) => { event.preventDefault(); onClose() }}
+    >
+      <div className="slider-magnifier-frame">
+        <p className="slider-magnifier-kicker">SEQ / {padLabel} / STEP {stepIndex + 1}</p>
+        <h2 id="seq-length-dialog-label">LENGTH</h2>
+        <output className="slider-magnifier-value">{length} STEP{length === 1 ? '' : 'S'}</output>
+        <input
+          type="range"
+          autoFocus
+          min={1}
+          max={maxLength}
+          step={1}
+          value={length}
+          onChange={(event) => onLengthChange(Number(event.target.value))}
+        />
+        <div className="slider-magnifier-actions">
+          <button className="slider-magnifier-done slider-magnifier-remove" type="button" onClick={onRemove}>REMOVE</button>
+          <button className="slider-magnifier-done" type="button" onClick={onClose}>DONE</button>
+        </div>
+      </div>
+    </dialog>
+  )
 }

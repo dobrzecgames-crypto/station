@@ -1,0 +1,152 @@
+/* Same card as StationConfirm (stationConfirm.css) - a native <dialog> in the
+   browser's top layer, so this sits above everything, including an open FX
+   panel, without a z-index rule anywhere. The only job specific to this
+   dialog is the range input inside it: thumb and track sized for a finger
+   instead of the app's usual 10x18px cap, per the 44px comfortable touch
+   floor already used for the step matrix (lab-interface.css). */
+
+.slider-magnifier-dialog {
+  width: min(calc(100vw - 32px), 340px);
+  max-width: none;
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #575269;
+  border-radius: 5px;
+  color: var(--station-text);
+  background:
+    radial-gradient(120% 80% at 50% -20%, rgb(var(--station-accent-rgb) / 13%), transparent 58%),
+    linear-gradient(180deg, #201d25, #121217 72%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 10%),
+    0 3px 0 #07070a,
+    0 20px 54px rgb(0 0 0 / 70%);
+  font-family: var(--station-mono-font);
+}
+
+.slider-magnifier-dialog::backdrop {
+  background: rgb(4 4 7 / 76%);
+  backdrop-filter: blur(2px);
+}
+
+.slider-magnifier-frame {
+  padding: 22px 20px;
+  border-top: 3px solid var(--station-accent);
+  text-align: center;
+}
+
+.slider-magnifier-kicker {
+  margin: 0 0 10px;
+  color: var(--station-accent);
+  font-size: .52rem;
+  letter-spacing: .16em;
+}
+
+.slider-magnifier-dialog h2 {
+  margin: 0;
+  color: var(--station-text);
+  font-size: .74rem;
+  letter-spacing: .1em;
+}
+
+.slider-magnifier-value {
+  display: block;
+  margin: 10px 0 22px;
+  color: var(--station-text);
+  font-size: 2rem;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 16px rgb(var(--station-accent-rgb) / 45%);
+}
+
+/* Overrides the app-wide input[type="range"] rule (lab-interface.css), which
+   otherwise wins on equal specificity by also carrying an attribute selector -
+   scoped through the dialog class the same way .mixer-strip-fader does. */
+.slider-magnifier-dialog input[type="range"] {
+  width: 100%;
+  height: 44px;
+  margin: 0 0 20px;
+  background: none;
+  cursor: pointer;
+}
+
+.slider-magnifier-dialog input[type="range"]::-webkit-slider-runnable-track {
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #100f13, #1c1a20);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 55%);
+}
+
+.slider-magnifier-dialog input[type="range"]::-moz-range-track {
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #100f13, #1c1a20);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 55%);
+}
+
+/* Centres the 44px thumb on the 10px track: (10 - 44) / 2. */
+.slider-magnifier-dialog input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 44px;
+  height: 44px;
+  margin-top: -17px;
+  border-radius: 50%;
+  background: var(--station-accent);
+  box-shadow: 0 2px 0 rgb(0 0 0 / 45%), 0 0 10px rgb(var(--station-accent-rgb) / 55%);
+  cursor: pointer;
+}
+
+.slider-magnifier-dialog input[type="range"]::-moz-range-thumb {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--station-accent);
+  box-shadow: 0 2px 0 rgb(0 0 0 / 45%), 0 0 10px rgb(var(--station-accent-rgb) / 55%);
+  cursor: pointer;
+}
+
+.slider-magnifier-done {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid color-mix(in srgb, var(--station-accent) 72%, #fff 8%);
+  border-radius: 3px;
+  color: #17131d;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--station-accent) 84%, #fff), var(--station-accent));
+  font: inherit;
+  font-size: .6rem;
+  letter-spacing: .12em;
+  cursor: pointer;
+}
+
+.slider-magnifier-done:active { transform: translateY(1px); }
+
+.slider-magnifier-done:focus-visible {
+  outline: 2px solid var(--signal-blue-bright);
+  outline-offset: 2px;
+}
+
+/* A dialog that can also delete the thing it edits (see SequencerControls'
+   step-length dialog) needs a second, non-primary action beside DONE -
+   the original slider magnifier only ever had the one. */
+.slider-magnifier-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.slider-magnifier-actions .slider-magnifier-done {
+  width: auto;
+  flex: 1;
+}
+
+/* Same destructive tone as .display-action-danger elsewhere in the app. */
+.slider-magnifier-remove {
+  color: var(--status-recording);
+  background: transparent;
+  border-color: color-mix(in srgb, var(--status-recording) 55%, transparent);
+}
+
+.slider-magnifier-remove:hover:not(:disabled),
+.slider-magnifier-remove:focus-visible {
+  border-color: var(--status-recording);
+}

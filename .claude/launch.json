@@ -4,32 +4,14 @@
     {
       "name": "station-dev",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": ["dev"],
       "port": 5173
     },
     {
-      "name": "station-dev-lan",
-      "runtimeExecutable": "C:\\Users\\T470\\Documents\\station\\node_modules\\.bin\\vite.CMD",
-      "runtimeArgs": ["--host", "0.0.0.0", "--port", "5182", "--strictPort"],
-      "port": 5182
-    },
-    {
-      "name": "station-verify",
-      "runtimeExecutable": "C:\\Users\\T470\\Documents\\station\\node_modules\\.bin\\vite.CMD",
-      "runtimeArgs": [],
-      "autoPort": true
-    },
-    {
-      "name": "station-history",
+      "name": "station-dev-verify",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--dir", "C:\\Users\\T470\\Documents\\station-history", "exec", "vite", "--port", "4180", "--strictPort"],
-      "port": 4180
-    },
-    {
-      "name": "portfolio-case-study",
-      "runtimeExecutable": "C:\\Users\\T470\\Documents\\station-portfolio-prototype\\node_modules\\.bin\\vite.CMD",
-      "runtimeArgs": ["C:\\Users\\T470\\Documents\\station-portfolio-prototype\\portfolio-case-study", "--port", "4190", "--strictPort"],
-      "port": 4190
+      "runtimeArgs": ["dev", "--", "--port", "5174"],
+      "port": 5174
     }
   ]
 }

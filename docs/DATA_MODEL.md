@@ -56,6 +56,7 @@ Suggested fields:
 - display name,
 - channel volume,
 - pitch in semitones,
+- reverse (plays its region back to front, from a lazily-cached time-reversed copy of the shared asset - see AudioEngine),
 - mute and solo state,
 - future playback mode and choke-group fields.
 
@@ -82,11 +83,11 @@ The region is bounded by the decoded sample duration and has a small positive mi
 
 ### SampleSlice
 
-A manual slice is another non-destructive region of one shared SampleAsset. It has a stable ID, source asset ID, start seconds and end seconds. Slice boundaries are ordered, do not overlap and are capped at 16 slices per source pad. Assigning slices to pads copies only the asset reference and per-pad region settings.
+A manual slice is another non-destructive region of one shared SampleAsset. It has a stable ID, source asset ID, start seconds, end seconds and a reverse flag. Slice boundaries are ordered, do not overlap and are capped at 32 per Chop Session (`maxChopSliceCount`); a pad's own `slices` field keeps the historical 16-slice cap but is unused in practice - see the ChopSession note below. Assigning slices to pads copies the asset reference, the per-pad region and the reverse flag.
 
 ### ChopSession
 
-The active Chop Workspace has one independent source asset, filename, duration, cached waveform peaks, ordered slices and an active slice selection. The source asset is not assigned to a pad merely by loading it. Live mapping assigns slice 1–16 to pad 1–16 by sharing that source asset and updating only each mapped pad's region.
+The active Chop Workspace has one independent source asset, filename, duration, cached waveform peaks, ordered slices (up to `maxChopSliceCount`, 32) and an active slice selection. The source asset is not assigned to a pad merely by loading it. Live mapping assigns slice 1-16 to pad 1-16 by sharing that source asset and updating each mapped pad's region and reverse flag; a session may hold more slices than there are pads, in which case slice 17 onward stays editable and previewable in the Chop Workspace only, with no pad of its own. A slice's reverse flag overwrites its mapped pad's on every re-slice, the same as region; toggling reverse directly on an already-mapped pad (in the Sample Editor) is a one-way override that survives until the next time that session is re-sliced, exactly like a hand-tuned region.
 
 Each pad has an optional `chopSessionId`. It marks a pad currently managed by the active session; it is not an audio object or a copy of source data. When the slice count shrinks, only pads bearing the current session ID are cleared. Loading a new source detaches existing mapped pads into ordinary working snapshots, preserving their old asset references. A manually occupied target pad requires user confirmation before live mapping replaces it.
 
@@ -104,6 +105,17 @@ Suggested fields:
 - pad ID,
 - Pump enabled state,
 - future mute/solo or sequencing configuration.
+
+### AudioTrack and AudioClip (TRACKS)
+
+Added by DEC-027, deliberately not called `Track`/`Clip` bare because the plain "Track" above already names something else - see that section. An `AudioTrack` is a real linear mixer bus (own `gain`, `muted`, `solo`, two-slot `effects`, structurally identical to a Pattern Group's bus+FX) holding an ordered list of `AudioClip`s. Up to `maximumAudioTracks` (8) may exist.
+
+An `AudioClip` references a shared `SampleAssetId` - the same asset pool pads and CHOP already draw from - and separates two coordinate spaces, mirroring how a Pad already separates its region from its pattern placement:
+
+- a non-destructive source region (`sourceOffsetSeconds`, `sourceEndSeconds`), the same shape as `SamplePlaybackRegion`, and
+- a timeline placement (`startBeat`, `lengthBeats`) in beats at the project BPM, not wall-clock seconds, so TRACKS stays on the same clock as the pattern/song grid.
+
+For a non-looped clip `lengthBeats` tracks the source region's natural (rate-1) duration; a looped clip's `lengthBeats` is independently set, since looping tiles the region to fill whatever timeline space it is given. `gain`, `fadeInSeconds`/`fadeOutSeconds`, `loop`, `reversed`, `pitchSemitones` and `tempoMatch` are all per-clip and non-destructive - trimming or cutting a clip never touches the underlying `SampleAsset`. Clip/track selection is UI-only, never persisted, matching Pad/Chop selection.
 
 ### Pattern Group and variants
 

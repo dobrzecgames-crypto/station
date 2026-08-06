@@ -8,6 +8,7 @@
 - The approved M9 Chop foundation was implemented early; equal and transient-detection auto-chop are now implemented too, with listening/UX acceptance pending.
 - The current approved task is Pattern Groups A–D + Pattern Playlist / Song Mode. It is implemented locally; acceptance, listening and Chrome/Edge validation remain pending.
 - WAV export of the SONG playlist was approved and implemented outside the milestone sequence (see `DECISIONS.md` DEC-021). Listening acceptance and Android/Chrome/Edge validation are pending.
+- TRACKS, a real linear multitrack audio timeline, was approved and implemented outside the milestone sequence as a deliberate, scoped extension of DEC-002/DEC-018 (see `DECISIONS.md` DEC-027): a compact all-tracks view, a fullscreen single-track editor, per-track mixer buses, and a new `TimelineScheduler` alongside the pattern sequencer. RENDER does not yet include TRACKS audio, and per-clip tempo-match has no BPM-detection UI wired up yet. Listening acceptance and real-device touch-gesture validation are pending.
 
 ## M0 — Project Definition
 
@@ -202,9 +203,10 @@ Exit criteria:
 
 ### M9 — Chop
 
-- The explicitly approved Unified Chop Workspace foundation is available earlier: independent source asset, manual live slice 1–16 mapping and shared-asset pad regions.
-- Equal and transient-detection auto-chop are implemented (see `DECISIONS.md` DEC-020): EQUAL divides the source into an even slice count, SMART detects transient candidates from the cached waveform peaks and previews a chosen count before committing. Both share the existing live slice-to-pad mapping and confirmation behavior.
-- reverse and gate/loop decisions,
+- The explicitly approved Unified Chop Workspace foundation is available earlier: independent source asset, manual live slice mapping and shared-asset pad regions.
+- Equal and transient-detection auto-chop are implemented (see `DECISIONS.md` DEC-020): EQUAL divides the source into an even slice count, SMART detects transient candidates and previews a chosen count before committing. Both share the existing live slice-to-pad mapping and confirmation behavior.
+- Per-slice REVERSE, a 32-slice ceiling decoupled from the fixed 16-pad grid, real-buffer SMART analysis with adaptive thresholding and a zero-crossing snap, and onset-based tempo detection with a manual apply step are implemented (see `DECISIONS.md` DEC-026).
+- gate/loop decisions, per-slice pitch, slice banks/paging and any time-stretching remain,
 - further chop workflows only after a dedicated approval.
 
 ### M10 — Resampling

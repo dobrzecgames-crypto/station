@@ -65,6 +65,12 @@ Each pad supplies a non-destructive start and end time for new voices. The engin
 
 After WAV decoding, the engine reduces the decoded buffer to cached amplitude peaks per stable sample ID. React receives only a copied peak snapshot for canvas drawing, never an `AudioBuffer` or an audio node. The cache is removed with its sample and is not rebuilt during triggers or scheduling.
 
+A separate, finer RMS envelope for CHOP's own transient/tempo analysis is available on demand (`getAnalysisEnvelope`) from the real decoded buffer rather than this drawing cache, and is not itself cached - CHOP analyzes one loaded source at a time.
+
+### Reverse playback
+
+A trigger may ask for its region played back to front. `AudioBufferSourceNode.playbackRate` has no reliable negative-rate support in any browser, so the engine instead lazily builds and caches one whole-asset time-reversed `AudioBuffer` per sample ID the first time any reversed playback is requested for it - never a second buffer per region - and mirrors the requested start/end into that buffer's own coordinate space before scheduling. Non-reversed playback is unaffected: same buffer, same region math.
+
 ### Shared sample assets
 
 Decoded buffers and waveform caches are keyed by `SampleAssetId`, while channel routing and Pump source events use a group-aware channel identity (`patternGroupId:padId`). A trigger supplies both IDs: the engine reads the shared asset while routing the resulting voice through the requesting group pad channel. Several pads can therefore use different regions of one decoded asset without duplicating the `AudioBuffer`.

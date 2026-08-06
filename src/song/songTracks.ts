@@ -63,7 +63,7 @@ function toTracks(variants: readonly (ResolvedVariant | undefined)[], hasSampleA
         source: 'sample',
         assetId: samplePad.assetId,
         chokeGroupId: pad.chopSessionId ?? undefined,
-        options: { pitchSemitones: pad.pitchSemitones, startSeconds: pad.region.startSeconds, endSeconds: pad.region.endSeconds, attackMs: pad.attackMs, releaseMs: pad.releaseMs },
+        options: { pitchSemitones: pad.pitchSemitones, startSeconds: pad.region.startSeconds, endSeconds: pad.region.endSeconds, attackMs: pad.attackMs, releaseMs: pad.releaseMs, reversed: pad.reversed },
       }]
     })
   })

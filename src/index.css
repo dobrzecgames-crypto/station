@@ -119,6 +119,9 @@
   /* PROJECT is a settings surface, not a seventh instrument - desaturated so it
      reads as system chrome. */
   --accent-project: #9aa5af;
+  /* TRACKS is a teal, deliberately distinct from every warm (chop/pads/
+     drumsynth/song) and blue/violet (strings/seq/mix) accent already in use. */
+  --accent-tracks: #5fa88f;
 
   /* Status. Fixed across every module. --station-amber is the old name for the
      warning slot and stays warm everywhere, which is why the audio lamp does not

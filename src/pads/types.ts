@@ -17,6 +17,9 @@ export interface SamplePlaybackRegion {
 export interface SampleSlice extends SamplePlaybackRegion {
   id: string
   sourceAssetId: SampleAssetId
+  /** Plays this slice's audio back to front. A property of this exact slice,
+      not of the source sample - other slices of the same asset are unaffected. */
+  reversed: boolean
 }
 
 export interface ChopSessionState {
@@ -37,6 +40,10 @@ export interface PadState extends ChannelState {
   fileName: string | null
   durationSeconds: number | null
   region: SamplePlaybackRegion
+  /** Plays this pad's region back to front. Mirrors the CHOP slice it was
+      mapped from (see applyChopMapping) but can also be set directly on a
+      pad with no live slice at all, the same way region can. */
+  reversed: boolean
   slices: SampleSlice[]
   chopSessionId: string | null
   pitchSemitones: number

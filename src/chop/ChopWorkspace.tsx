@@ -1,12 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { PadGrid } from '../pads/PadGrid'
 import type { PadState, SampleSlice } from '../pads/types'
 import { AutoChopControls } from '../sample-editor/AutoChopControls'
 import { ChopControls } from '../sample-editor/ChopControls'
 import { Waveform } from '../sample-editor/Waveform'
-import { detectTransientCandidates, equalSliceRegions, maxSmartSliceCount, smartSliceRegions } from './autoChopOperations'
-import type { SliceRegion } from './autoChopOperations'
+import { equalSliceRegions, maxChopSliceCount, maxSmartSliceCount, smartSliceRegions } from './autoChopOperations'
+import type { SliceRegion, TransientCandidate } from './autoChopOperations'
 import type { ChopTestSample } from './chopTestSamples'
 
 interface ChopWorkspaceProps {
@@ -21,6 +21,10 @@ interface ChopWorkspaceProps {
   slices: readonly SampleSlice[]
   activeSliceId: string | null
   addingSlice: boolean
+  /** Computed off the render path (see App.tsx's chop-analysis effect), not
+      here - a real-buffer scan is too heavy to redo on every render. */
+  candidates: readonly TransientCandidate[]
+  analyzing: boolean
   onLoadSource: (event: ChangeEvent<HTMLInputElement>) => void
   testSamples: readonly ChopTestSample[]
   loadingTestId: string | null
@@ -35,20 +39,17 @@ interface ChopWorkspaceProps {
   onMoveCut: (cutIndex: number, timeSeconds: number) => void
   onSelectSlice: (sliceId: string) => void
   onPreviewSlice: (slice: SampleSlice) => void
+  onToggleSliceReversed: (sliceId: string) => void
   onToggleAdding: () => void
   onRemoveActiveCut: () => void
   onClearSlices: () => void
   onApplyAutoChop: (regions: readonly SliceRegion[], onApplied?: () => void) => boolean
 }
 
-export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, sourceFileName, sourceDurationSeconds, peaks, playheadSeconds, slices, activeSliceId, addingSlice, onLoadSource, testSamples, loadingTestId, onLoadTestSample, sourcePreviewing, onPreviewSource, onStopPreviewSource, onTriggerPad, onReleasePad, onFeedbackEnd, onAddSlice, onMoveCut, onSelectSlice, onPreviewSlice, onToggleAdding, onRemoveActiveCut, onClearSlices, onApplyAutoChop }: ChopWorkspaceProps) {
+export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, sourceFileName, sourceDurationSeconds, peaks, playheadSeconds, slices, activeSliceId, addingSlice, candidates, analyzing, onLoadSource, testSamples, loadingTestId, onLoadTestSample, sourcePreviewing, onPreviewSource, onStopPreviewSource, onTriggerPad, onReleasePad, onFeedbackEnd, onAddSlice, onMoveCut, onSelectSlice, onPreviewSlice, onToggleSliceReversed, onToggleAdding, onRemoveActiveCut, onClearSlices, onApplyAutoChop }: ChopWorkspaceProps) {
   const hasSource = sourceFileName !== null && sourceDurationSeconds !== null
   const [previewCount, setPreviewCount] = useState<number | null>(null)
 
-  const candidates = useMemo(
-    () => (hasSource ? detectTransientCandidates(peaks, sourceDurationSeconds) : []),
-    [hasSource, peaks, sourceDurationSeconds],
-  )
   const maxSmartCount = maxSmartSliceCount(candidates.length)
   const isPreviewing = previewCount !== null
   // Starts at the low end rather than defaulting to every detected transient,
@@ -100,12 +101,13 @@ export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, so
         maxSmartCount={maxSmartCount}
         smartCount={smartCount}
         isPreviewing={isPreviewing}
+        analyzing={analyzing}
         onEqualChop={handleEqualChop}
         onSmartCountChange={setPreviewCount}
         onApplySmart={handleApplySmart}
         onCancelSmart={() => setPreviewCount(null)}
       />
-      <ChopControls slices={slices} activeSliceId={activeSliceId} addingSlice={addingSlice} disabled={isPreviewing} onStartAdding={onToggleAdding} onSelectSlice={onSelectSlice} onPreviewSlice={onPreviewSlice} onRemoveActiveCut={onRemoveActiveCut} onClearSlices={onClearSlices} onAssignSlices={() => undefined} showAssign={false} />
+      <ChopControls slices={slices} activeSliceId={activeSliceId} addingSlice={addingSlice} disabled={isPreviewing} maxSliceCount={maxChopSliceCount} mappedSliceCount={pads.length} onStartAdding={onToggleAdding} onSelectSlice={onSelectSlice} onPreviewSlice={onPreviewSlice} onToggleReversed={onToggleSliceReversed} onRemoveActiveCut={onRemoveActiveCut} onClearSlices={onClearSlices} onAssignSlices={() => undefined} showAssign={false} />
     </>}
     <div className="chop-pad-heading"><p className="eyebrow">LIVE SLICE MAP</p></div>
     <PadGrid pads={pads} selectedPadId={selectedPadId} activePadId={activePadId} audioReady={audioReady} onTrigger={onTriggerPad} onRelease={onReleasePad} onFeedbackEnd={onFeedbackEnd} />

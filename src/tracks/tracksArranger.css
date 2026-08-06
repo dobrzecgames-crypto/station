@@ -1,0 +1,380 @@
+/* TRACKS' wide layout - phone landscape, tablet, desktop. Fixed full-viewport
+   sibling of .station-panel (same escape from the 430px phone-width cap
+   TrackEditor already uses), so width here is real screen width, not capped.
+   z-index sits below TrackEditor's (40) so the single-track editor can still
+   open on top of this. */
+.tracks-arranger {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  background: #0d0e0e;
+  color: var(--station-text, #eee4d6);
+}
+
+.tracks-arranger-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--station-line, #4b5252);
+  background: #17191a;
+}
+
+.tracks-arranger-toolbar .mixer-toggle {
+  /* Overrides the app-wide .mixer-toggle{flex:1 1 0%} baseline (App.css) -
+     fine when many buttons share a row and split the remainder evenly, but
+     whichever one is left alone on a wrapped line at a narrow viewport
+     would otherwise stretch to fill it end to end. */
+  flex: 0 0 auto;
+  min-height: 32px;
+  min-width: 0;
+  padding: 0 8px;
+  font-size: 0.62rem;
+}
+
+.tracks-arranger-toolbar .transport-play-button,
+.tracks-arranger-toolbar .transport-stop-button {
+  min-width: 36px;
+}
+
+.tracks-arranger-position {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  min-width: 74px;
+  padding: 0 6px;
+  color: var(--station-accent);
+  font-family: var(--station-mono-font, monospace);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.tracks-arranger-bpm {
+  color: var(--station-text-muted, #b5bab5);
+  font-size: 0.6rem;
+  font-weight: 700;
+}
+
+.tracks-arranger-zoom,
+.tracks-arranger-history {
+  display: flex;
+  gap: 3px;
+}
+
+.tracks-arranger-zoom .mixer-toggle,
+.tracks-arranger-history .mixer-toggle {
+  min-width: 32px;
+  padding: 0;
+  font-size: 0.85rem;
+}
+
+/* ---- SNAP selector: closed-by-default trigger + single-column popover ----
+   Replaces six always-visible division buttons, only one of which was ever
+   active. See SnapGridSelect.tsx and docs/DECISIONS.md DEC-027's third
+   addendum. */
+.tracks-snap-select {
+  position: relative;
+}
+
+.tracks-snap-select-caret {
+  margin-left: 2px;
+  opacity: 0.7;
+}
+
+.tracks-snap-select-menu {
+  position: absolute;
+  /* Positioned elements with z-index:auto paint in DOM order within the
+     nearest ancestor stacking context (.tracks-arranger{position:fixed}
+     establishes one) - since .tracks-arranger-toolbar comes before
+     .tracks-arranger-body in the DOM, an auto z-index here would let a
+     scrolled-up clip paint over this menu. An explicit value avoids that. */
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: max-content;
+  min-width: 100%;
+  padding: 5px;
+  border: 1px solid var(--station-line, #4b5252);
+  border-radius: 8px;
+  background: #202325;
+  box-shadow: 0 8px 20px rgb(0 0 0 / 45%);
+}
+
+.tracks-snap-select-menu .mixer-toggle {
+  min-height: 36px;
+  padding: 0 10px;
+  text-align: left;
+}
+
+/* ---- Overflow menu: houses the rarer horizontal time-zoom control ----
+   Always tucked away regardless of viewport width - one lone control group
+   is too small to justify a responsive width-measurement show/hide system,
+   and it is the one item conspicuously absent from the toolbar's own
+   priority order. Its contents are the existing .tracks-arranger-zoom
+   markup, unchanged - only where it renders moves. */
+.tracks-arranger-overflow {
+  position: relative;
+}
+
+.tracks-arranger-overflow-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--station-line, #4b5252);
+  border-radius: 8px;
+  background: #202325;
+  box-shadow: 0 8px 20px rgb(0 0 0 / 45%);
+}
+
+.tracks-arranger-overflow-menu .tracks-arranger-zoom {
+  justify-content: center;
+}
+
+/* ---- TRACK SIZE: a second, independent +/- pair -----
+   Deliberately not .tracks-arranger-zoom - that group is the EXISTING
+   horizontal time-zoom (pixelsPerBeat), relocated into the overflow menu
+   above. This one changes lane/waveform/clip visual height instead, never
+   the time axis - see tracksTypes.ts's TrackHeightLevel. */
+.tracks-arranger-track-size {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.tracks-arranger-track-size-value {
+  min-width: 30px;
+  color: var(--station-accent);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+.tracks-arranger-track-size .mixer-toggle {
+  min-width: 32px;
+  padding: 0;
+  font-size: 0.85rem;
+}
+
+.tracks-arranger-add-track,
+.tracks-arranger-toolbar .tracks-add-track-button {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 0.6rem;
+}
+
+.tracks-arranger-exit {
+  margin-left: auto;
+  color: #efe2df;
+  border-color: #74515a;
+  background: #462e34;
+}
+
+.tracks-arranger-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* The rail's own ruler-height spacer (see TracksArranger.tsx) needs the
+   same flex-shrink:0 pin its .tracks-arranger-rail-row siblings already
+   carry - without it, the empty, childless spacer is the one flex item
+   with no explicit flex-basis/shrink of its own, so as soon as the rail's
+   content overflows its container (i.e. exactly when vertical scrolling is
+   actually needed - the case this spacer exists for) the flex algorithm
+   shrinks it toward its content-based automatic minimum, which for an
+   empty div is ~0, not the 7 pinned rows beside it. Caught live: it
+   rendered at 1px (its own border-bottom) instead of 28px the moment a
+   7-track LARGE-level project needed to scroll, silently reintroducing the
+   exact row/lane misalignment this spacer was added to prevent. */
+.tracks-arranger-rail > .tracks-ruler {
+  flex: 0 0 28px;
+}
+
+.tracks-arranger-rail {
+  display: flex;
+  flex: 0 0 160px;
+  /* Without this, a flex item's automatic min-width is its content's
+     min-content size, which can override flex-basis/flex-shrink:0 and let
+     a long, otherwise-elided track name force the whole rail wider than
+     160px - the same bug the compact view's header column had (see
+     tracksWorkspace.css's .tracks-card-list docs), just less visible here
+     since 160px is a smaller fraction of a wide viewport. */
+  min-width: 0;
+  flex-direction: column;
+  overflow-y: auto;
+  border-right: 1px solid var(--station-line, #4b5252);
+  background: #17191a;
+}
+
+/* Row/lane height is a custom property, not a hardcoded number, precisely so
+   the @media(max-height:420px) safety net below can keep working as a CAP
+   ("never taller than 88px") rather than a forced value once a level system
+   exists. A plain per-level compound selector targeting `height` directly
+   (e.g. .tracks-arranger[data-track-height="large"] .tracks-arranger-lane)
+   would have specificity (0,3,0), which beats that media query's (0,1,0)
+   regardless of source order or which one is inside the narrower query -
+   CSS resolves conflicts by specificity first, source order only breaks
+   ties between equal specificity. Routing just this one property pair
+   through a custom property sidesteps the fight entirely: both the base
+   rule here and the media query rule below keep their original (0,1,0)
+   selectors, only the values they compute from change. See
+   docs/DECISIONS.md DEC-027's third addendum. */
+.tracks-arranger-rail-row {
+  display: flex;
+  height: var(--tracks-row-height, 112px);
+  flex: 0 0 var(--tracks-row-height, 112px);
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--station-line, #4b5252);
+  border-left: 3px solid var(--tracks-row-accent, transparent);
+}
+
+/* No rule for [data-track-height="medium"] - the var() fallback above and
+   below already evaluates to today's exact 112px, so MEDIUM (the default)
+   is byte-identical to the pre-level-system layout. */
+.tracks-arranger[data-track-height="mini"] { --tracks-row-height: 48px; }
+.tracks-arranger[data-track-height="small"] { --tracks-row-height: 76px; }
+.tracks-arranger[data-track-height="large"] { --tracks-row-height: 168px; }
+
+.tracks-arranger-rail-name {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  color: var(--station-text, #e3e5df);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tracks-arranger-scroll {
+  flex: 1;
+  min-width: 0;
+  /* Overrides the shared .tracks-timeline-scroll's overflow-y:hidden
+     (tracksWorkspace.css) - correct there (each compact-view card holds
+     exactly one lane, so it never needs to scroll vertically) but wrong
+     here, where this one pane holds every track's lane stacked. Without
+     this, a project with enough tracks/height to exceed the pane's
+     flex-stretched height (.tracks-arranger-body has no explicit height,
+     so this pane is bounded by its flex container, not free to grow) had
+     its lower lanes silently clipped - not scrollable, and not in sync with
+     .tracks-arranger-rail's own independent overflow-y:auto beside it, a
+     pre-existing gap a taller LARGE level would only make worse. Same
+     cascade mechanism .tracks-arranger-lane already relies on to win over
+     its own shared base rule (equal specificity, later in source order) -
+     confirmed working today, so no specificity trick needed here. Synced
+     scrollTop with the rail via TracksArranger.tsx's handleTimelineScroll/
+     handleRailScroll, the same two-way idea TracksWorkspace.tsx already
+     uses horizontally across N strips, just vertical and between exactly 2
+     elements. See docs/DECISIONS.md DEC-027's third addendum. */
+  overflow-y: auto;
+  /* Same tick pattern as a track lane (.tracks-track-lane), so a short
+     track list doesn't end in a flat black void below the last lane - the
+     grid just keeps going. `local` attachment keeps it scrolling in step
+     with the timeline underneath instead of staying put as a mismatched
+     backdrop. */
+  background: repeating-linear-gradient(90deg, rgb(255 255 255 / 3%) 0 1px, transparent 1px calc(4 * 24px));
+  background-attachment: local;
+}
+
+/* Bigger scale than the compact view's rows, per the brief - more room is
+   the whole point of the wide layout. */
+.tracks-arranger-lane {
+  height: var(--tracks-row-height, 112px);
+}
+
+/* ---- Per-level layout details ----
+   Row/lane HEIGHT is handled above via --tracks-row-height (needed there,
+   and only there, to coexist with the short-viewport safety net). Every
+   other per-level property below has no competing rule anywhere in this
+   codebase, so a plain compound selector is enough - no specificity fight,
+   no custom property needed. MEDIUM has no rules in this section at all:
+   it IS today's unscoped defaults (.tracks-arranger-rail-row's own
+   padding/gap, .tracks-arranger-rail-name's own font-size, the shared
+   .tracks-controls-row .mixer-toggle's own 32x32/.7rem from
+   tracksWorkspace.css, .tracks-clip's own 6px inset) - nothing to
+   override, so the default level is guaranteed byte-identical to the
+   pre-level-system layout. See docs/DECISIONS.md DEC-027's third
+   addendum. */
+
+.tracks-arranger[data-track-height="small"] .tracks-arranger-rail-row {
+  padding: 6px 10px;
+  gap: 4px;
+}
+
+.tracks-arranger[data-track-height="mini"] .tracks-arranger-rail-row {
+  /* One low row - name and M/S/⋮ side by side - instead of the default
+     stacked layout, per the brief's own suggested MINI header. */
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 4px 8px;
+}
+
+.tracks-arranger[data-track-height="large"] .tracks-arranger-rail-row {
+  padding: 10px 12px;
+  gap: 8px;
+}
+
+.tracks-arranger[data-track-height="mini"] .tracks-arranger-rail-name {
+  /* Flipping the row to flex-direction:row moves the cross axis from
+     height to width - without an explicit flex-basis here the name would
+     shrink-to-content instead of filling the space left by M/S/⋮ and
+     eliding into it, the same class of bug tracksWorkspace.css's own
+     .tracks-track-name comment already warns about. */
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.66rem;
+}
+
+.tracks-arranger[data-track-height="small"] .tracks-arranger-rail-name { font-size: 0.72rem; }
+.tracks-arranger[data-track-height="large"] .tracks-arranger-rail-name { font-size: 0.82rem; }
+
+.tracks-arranger[data-track-height="mini"] .tracks-controls-row .mixer-toggle { min-height: 24px; min-width: 24px; }
+.tracks-arranger[data-track-height="small"] .tracks-controls-row .mixer-toggle { min-height: 28px; min-width: 28px; }
+.tracks-arranger[data-track-height="large"] .tracks-controls-row .mixer-toggle { min-height: 36px; min-width: 36px; }
+
+/* .tracks-clip's own top/bottom:6px (tracksWorkspace.css) is the vertical
+   inset between a lane's edge and its clips - shrinks with the lane so a
+   MINI clip isn't drowned in padding a 48px lane can't spare, and grows for
+   LARGE where a 168px lane has room to give a clip more breathing room. */
+.tracks-arranger[data-track-height="mini"] .tracks-clip { top: 3px; bottom: 3px; }
+.tracks-arranger[data-track-height="small"] .tracks-clip { top: 5px; bottom: 5px; }
+.tracks-arranger[data-track-height="large"] .tracks-clip { top: 9px; bottom: 9px; }
+
+@media (max-height: 420px) {
+  .tracks-arranger-toolbar { padding: 4px 6px; gap: 4px; }
+  .tracks-arranger-toolbar .mixer-toggle { min-height: 28px; }
+  /* A CAP, not a forced value - see the --tracks-row-height docs above.
+     MEDIUM/LARGE (112/168px) get clamped down to 88px same as always;
+     MINI/SMALL (48/76px), already shorter than that, are left alone
+     instead of being wrongly pulled UP to 88px, which a plain override
+     would have done and which would have defeated offering MINI at all on
+     exactly the short viewports where it matters most. */
+  .tracks-arranger-rail-row,
+  .tracks-arranger-lane {
+    height: min(88px, var(--tracks-row-height, 112px));
+    flex-basis: min(88px, var(--tracks-row-height, 112px));
+  }
+}

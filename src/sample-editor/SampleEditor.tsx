@@ -9,10 +9,11 @@ interface SampleEditorProps {
   onPreview: () => void
   onRegionChange: (region: SamplePlaybackRegion) => void
   onResetRegion: () => void
+  onToggleReversed: () => void
   onClose?: () => void
 }
 
-export function SampleEditor({ pad, peaks, playheadSeconds, audioReady, onPreview, onRegionChange, onResetRegion, onClose }: SampleEditorProps) {
+export function SampleEditor({ pad, peaks, playheadSeconds, audioReady, onPreview, onRegionChange, onResetRegion, onToggleReversed, onClose }: SampleEditorProps) {
   if (!pad.fileName || !pad.durationSeconds) {
     return (
       <section className="sample-editor" aria-labelledby="sample-editor-title">
@@ -38,7 +39,7 @@ export function SampleEditor({ pad, peaks, playheadSeconds, audioReady, onPrevie
         <div className="sample-editor-actions"><button className="transport-button" type="button" disabled={!audioReady} onClick={onPreview}>PREVIEW</button>{onClose && <button className="mixer-toggle" type="button" onClick={onClose}>CLOSE</button>}</div>
       </div>
       <p className="sample-editor-file" title={pad.fileName}>{pad.fileName} - {durationSeconds.toFixed(3)} s</p>
-      {pad.chopSessionId && <p className="chop-managed-note">Linked to a CHOP slice — edits there update this region too.</p>}
+      {pad.chopSessionId && <p className="chop-managed-note">Linked to a CHOP slice — edits there update this region and reverse state too.</p>}
       <Waveform peaks={peaks} durationSeconds={durationSeconds} region={pad.region} slices={[]} activeSliceId={null} addingSlice={false} playheadSeconds={playheadSeconds} onRegionChange={onRegionChange} onAddSlice={() => undefined} onMoveCut={() => undefined} onSelectSlice={() => undefined} />
       <div className="region-controls">
         <label htmlFor="region-start">START <output>{pad.region.startSeconds.toFixed(3)} s</output>
@@ -48,6 +49,7 @@ export function SampleEditor({ pad, peaks, playheadSeconds, audioReady, onPrevie
           <input id="region-end" type="range" min="0" max={durationSeconds} step="0.001" value={pad.region.endSeconds} onChange={(event) => updateEnd(Number(event.target.value))} />
         </label>
         <p className="region-length">REGION LENGTH <output>{(pad.region.endSeconds - pad.region.startSeconds).toFixed(3)} s</output></p>
+        <button className={pad.reversed ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" aria-pressed={pad.reversed} onClick={onToggleReversed}>REVERSE</button>
         <button className="clear-button" type="button" onClick={onResetRegion}>RESET REGION</button>
       </div>
     </section>

@@ -7,13 +7,16 @@ import { drumInstrumentTypes } from '../drumsynth/drumSynthTypes'
 import type { DrumKickPatch, DrumSnarePatch, DrumSynthState } from '../drumsynth/drumSynthTypes'
 import { defaultProjectKey, isNoteName, isScaleId } from '../music/scales'
 import type { ProjectKey } from '../music/scales'
-import { createEmptyChopSession, createPadBankState } from '../pads/padBank'
+import { createEmptyChopSession, createPadBankState, normalizeSampleSlice } from '../pads/padBank'
 import type { ChopSessionState, PadState, SampleSlice } from '../pads/types'
+import { maxChopSliceCount } from '../chop/autoChopOperations'
 import { clonePatternGroup, createGroupBusState, createInitialPatternGroups, ensurePatternGroupLengths, ensurePatternGroupShifts } from '../patterns/patternOperations'
 import { maximumPatternGroups, patternVariantNames } from '../patterns/patternTypes'
 import type { PatternGroup, PatternVariantName } from '../patterns/patternTypes'
 import { validatePatternClipReferences } from '../song/songOperations'
 import type { PatternClip, TransportMode } from '../song/songTypes'
+import { cloneAudioTrack, collectAudioTrackAssetIds, validateAudioTracks } from '../tracks/tracksOperations'
+import type { AudioTrack } from '../tracks/tracksTypes'
 import { maximumChordInterval, maximumSynthMidiNote, maximumSynthVoices, minimumChordInterval, minimumSynthMidiNote, resolveSynthPadMidiNotes } from '../synth/synthOperations'
 import { subWaveforms, synthLfoDivisions, synthVoiceModes, synthWaveforms } from '../synth/synthTypes'
 import type { SynthOscillatorState, SynthPatch } from '../synth/synthTypes'
@@ -21,8 +24,10 @@ import { maximumStringsVoices, resolveStringsPadMidiNotes } from '../strings/str
 import { stringsCharacters, stringsOctaveLayers, stringsOctaves } from '../strings/stringsTypes'
 import type { StringsPatch } from '../strings/stringsTypes'
 
-export const projectSchemaVersion = 16
-export const previousProjectSchemaVersion = 15
+export const projectSchemaVersion = 18
+export const previousProjectSchemaVersion = 17
+export const v16ProjectSchemaVersion = 16
+export const v15ProjectSchemaVersion = 15
 export const v14ProjectSchemaVersion = 14
 export const v13ProjectSchemaVersion = 13
 export const v12ProjectSchemaVersion = 12
@@ -72,6 +77,7 @@ export interface ProjectState {
   selectedPatternGroupId: string
   selectedPatternVariant: PatternVariantName
   playlist: PatternClip[]
+  audioTracks: AudioTrack[]
   transportMode: TransportMode
   loopSong: boolean
   bpm: number
@@ -93,6 +99,7 @@ export function createEmptyProjectState(): ProjectState {
     selectedPatternGroupId: 'pattern-group-1',
     selectedPatternVariant: 'A',
     playlist: [],
+    audioTracks: [],
     transportMode: 'pattern',
     loopSong: false,
     bpm: 120,
@@ -111,6 +118,7 @@ export function createProjectState(state: ProjectState): ProjectState {
     assets: state.assets.map((asset) => ({ ...asset })),
     patternGroups: state.patternGroups.map(clonePatternGroup),
     playlist: state.playlist.map((clip) => ({ ...clip })),
+    audioTracks: state.audioTracks.map(cloneAudioTrack),
     master: { ...state.master },
     masterEffects: cloneEffectRackState(state.masterEffects),
     pumpRoutes: state.pumpRoutes.map((route) => ({ ...route, source: { ...route.source } })),
@@ -121,7 +129,7 @@ export function createProjectState(state: ProjectState): ProjectState {
 export function normalizeProjectState(state: ProjectState): ProjectState {
   const padIds = state.patternGroups[0]?.bank?.pads.map((pad) => pad.id)
   if (!padIds) throw new Error('Project has no Pattern Group bank.')
-  return createProjectState({ ...state, schemaVersion: projectSchemaVersion, master: state.master ? { ...state.master } : { volume: 1, muted: false }, masterEffects: normalizeEffectRackState(state.masterEffects, 'master', createDefaultMasterEffectRack()), drumSynth: normalizeDrumSynthState(state.drumSynth), patternGroups: ensurePatternGroupLengths(ensurePatternGroupShifts(state.patternGroups, padIds)).map((group) => ({ ...group, synthPatches: group.synthPatches ?? [], stringsPatches: (group.stringsPatches ?? []).map(normalizeStringsPatch), bank: { ...group.bank, pads: group.bank.pads.map(normalizePadState) }, bus: group.bus ? { ...group.bus } : createGroupBusState(), effects: normalizeEffectRackState(group.effects, group.id) })) })
+  return createProjectState({ ...state, schemaVersion: projectSchemaVersion, master: state.master ? { ...state.master } : { volume: 1, muted: false }, masterEffects: normalizeEffectRackState(state.masterEffects, 'master', createDefaultMasterEffectRack()), drumSynth: normalizeDrumSynthState(state.drumSynth), audioTracks: normalizeAudioTracks(state.audioTracks), patternGroups: ensurePatternGroupLengths(ensurePatternGroupShifts(state.patternGroups, padIds)).map((group) => ({ ...group, synthPatches: group.synthPatches ?? [], stringsPatches: (group.stringsPatches ?? []).map(normalizeStringsPatch), bank: { ...group.bank, pads: group.bank.pads.map(normalizePadState) }, bus: group.bus ? { ...group.bus } : createGroupBusState(), effects: normalizeEffectRackState(group.effects, group.id) })) })
 }
 
 export function migrateLegacyProjectState(legacy: { pads: ReturnType<typeof createPadBankState>['pads']; patterns?: unknown; [key: string]: unknown }): ProjectState {
@@ -233,12 +241,25 @@ export function migrateV15ProjectState(previous: { [key: string]: unknown }): Pr
   return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
 }
 
+/** v16 predates per-slice REVERSE and the 16->32 CHOP slice ceiling; normalization backfills `reversed: false` on every pad and slice, reproducing prior playback exactly. No pad/slice count above 16 can exist in a v16-or-earlier project, so nothing else changes shape. */
+export function migrateV16ProjectState(previous: { [key: string]: unknown }): ProjectState {
+  return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
+}
+
+/** v17 predates TRACKS; normalization backfills an empty audioTracks list -
+    no existing pad, pattern, CHOP, synth, FX or Pump data changes. See
+    docs/DECISIONS.md DEC-027. */
+export function migrateV17ProjectState(previous: { [key: string]: unknown }): ProjectState {
+  return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
+}
+
 export function collectReferencedAssetIds(project: ProjectState): Set<SampleAssetId> {
   const ids = new Set<SampleAssetId>()
   for (const group of project.patternGroups) {
     for (const pad of group.bank.pads) if (pad.assetId) ids.add(pad.assetId)
     if (group.bank.chopSession.assetId) ids.add(group.bank.chopSession.assetId)
   }
+  for (const assetId of collectAudioTrackAssetIds(project.audioTracks)) ids.add(assetId)
   return ids
 }
 
@@ -249,6 +270,7 @@ export function validateProjectState(project: ProjectState): string[] {
   const assets = new Map(project.assets.map((asset) => [asset.id, asset]))
   if (assets.size !== project.assets.length) errors.push('Asset IDs must be unique.')
   for (const asset of project.assets) if (!asset.id || !Number.isFinite(asset.durationSeconds) || asset.durationSeconds <= 0) errors.push('Asset has an invalid duration.')
+  errors.push(...validateAudioTracks(project.audioTracks, new Set(assets.keys())))
   if (project.patternGroups.length < 1 || project.patternGroups.length > maximumPatternGroups) errors.push(`Project must contain between 1 and ${maximumPatternGroups} Pattern Groups.`)
   const groupIds = new Set(project.patternGroups.map((group) => group.id))
   if (groupIds.size !== project.patternGroups.length) errors.push('Pattern Group IDs must be unique.')
@@ -320,7 +342,7 @@ export function validateProjectState(project: ProjectState): string[] {
       if (!Number.isFinite(pad.attackMs) || pad.attackMs < 0 || pad.attackMs > 250) errors.push(`${group.name} ${pad.id} has an invalid attack.`)
       if (!Number.isFinite(pad.releaseMs) || pad.releaseMs < 4 || pad.releaseMs > 120) errors.push(`${group.name} ${pad.id} has an invalid release.`)
       if (pad.assetId || pad.region.startSeconds !== 0 || pad.region.endSeconds !== 0) validateRegion(pad.region.startSeconds, pad.region.endSeconds, pad.assetId ? assets.get(pad.assetId)?.durationSeconds : undefined, `${group.name} ${pad.id} region`, errors)
-      validateSlices(pad.slices, assets, `${group.name} ${pad.id} slices`, errors)
+      validateSlices(pad.slices, assets, `${group.name} ${pad.id} slices`, errors, padCount)
     }
     const chop = group.bank?.chopSession
     if (!chop) errors.push(`${group.name} is missing its Chop Session.`)
@@ -329,7 +351,7 @@ export function validateProjectState(project: ProjectState): string[] {
       if (chop.id) chopSessionIds.add(chop.id)
       if (chop.assetId && !assets.has(chop.assetId)) errors.push(`${group.name} Chop Session references a missing asset.`)
       if (chop.slices.length > 0 && !chop.assetId) errors.push(`${group.name} Chop Session slices require a source asset.`)
-      validateSlices(chop.slices, assets, `${group.name} Chop Session slices`, errors)
+      validateSlices(chop.slices, assets, `${group.name} Chop Session slices`, errors, maxChopSliceCount)
       if (chop.activeSliceId && !chop.slices.some((slice) => slice.id === chop.activeSliceId)) errors.push(`${group.name} Chop Session active slice is missing.`)
       for (const pad of group.bank.pads) if (pad.chopSessionId && pad.chopSessionId !== chop.id) errors.push(`${group.name} ${pad.id} references a missing CHOP session.`)
     }
@@ -404,6 +426,14 @@ function migratePumpRoutes(pump: unknown, legacyGroupId?: string): PumpRoute[] {
   }))
 }
 
+/** Only absent lists are migrated (see migrateV17ProjectState) - a project
+    with no audioTracks field at all defaults to an empty timeline. There is
+    no per-field legacy shape to backfill within a track/clip yet, unlike
+    Pad/StringsPatch, since AudioTrack/AudioClip are new in this schema. */
+function normalizeAudioTracks(value: unknown): AudioTrack[] {
+  return Array.isArray(value) ? value.map(cloneAudioTrack) : []
+}
+
 function isChopSessionState(value: unknown): value is ChopSessionState {
   return typeof value === 'object' && value !== null && Array.isArray((value as ChopSessionState).slices)
 }
@@ -414,21 +444,23 @@ function cloneChopSession(session: ChopSessionState): ChopSessionState {
   return {
     ...session,
     pitchSemitones: legacySession.pitchSemitones === undefined ? 0 : legacySession.pitchSemitones as number,
-    slices: session.slices.map((slice) => ({ ...slice })),
+    slices: session.slices.map(normalizeSampleSlice),
   }
 }
 
 function normalizePadState(pad: PadState): PadState {
   // Only absent fields are migrated. Present malformed values remain for
   // validation to reject rather than being silently changed on project load.
-  const legacyPad = pad as PadState & { attackMs?: unknown; releaseMs?: unknown; synthPatchId?: unknown; stringsPatchId?: unknown; chordIntervals?: unknown }
+  const legacyPad = pad as PadState & { reversed?: unknown; attackMs?: unknown; releaseMs?: unknown; synthPatchId?: unknown; stringsPatchId?: unknown; chordIntervals?: unknown }
   return {
     ...pad,
+    reversed: legacyPad.reversed === undefined ? false : legacyPad.reversed as boolean,
     attackMs: legacyPad.attackMs === undefined ? 0 : legacyPad.attackMs as number,
     releaseMs: legacyPad.releaseMs === undefined ? 4 : legacyPad.releaseMs as number,
     synthPatchId: legacyPad.synthPatchId === undefined ? null : legacyPad.synthPatchId as PadState['synthPatchId'],
     stringsPatchId: legacyPad.stringsPatchId === undefined ? null : legacyPad.stringsPatchId as PadState['stringsPatchId'],
     chordIntervals: legacyPad.chordIntervals === undefined ? [0] : legacyPad.chordIntervals as number[],
+    slices: pad.slices.map(normalizeSampleSlice),
   }
 }
 
@@ -585,8 +617,8 @@ function validateRegion(start: number, end: number, duration: number | undefined
   if (duration !== undefined && (start < 0 || end > duration)) errors.push(label + ' is outside its asset duration.')
 }
 
-function validateSlices(slices: readonly SampleSlice[], assets: ReadonlyMap<SampleAssetId, ProjectAssetReference>, label: string, errors: string[]): void {
-  if (slices.length > padCount) errors.push(label + ' cannot contain more than ' + padCount + ' slices.')
+function validateSlices(slices: readonly SampleSlice[], assets: ReadonlyMap<SampleAssetId, ProjectAssetReference>, label: string, errors: string[], maxCount: number): void {
+  if (slices.length > maxCount) errors.push(label + ' cannot contain more than ' + maxCount + ' slices.')
   let previousEnd = -Infinity
   for (const slice of slices) {
     const asset = assets.get(slice.sourceAssetId)

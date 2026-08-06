@@ -6,6 +6,8 @@ import type { EffectRackState } from './audio/effects'
 import { createChannelId } from './audio/channelIdentity'
 import { StepSequencer } from './audio/StepSequencer'
 import type { StepSequencerConfig } from './audio/StepSequencer'
+import { TimelineScheduler } from './audio/TimelineScheduler'
+import type { TimelineSchedulerConfig } from './audio/TimelineScheduler'
 import { encodeWav } from './audio/wavEncoder'
 import { ChopDisplayLauncher } from './chop/ChopDisplay'
 import { ChopWorkspace } from './chop/ChopWorkspace'
@@ -51,9 +53,12 @@ import { addPatternClip, getLastOccupiedSlot, removeClipsForGroup, removeClipsFo
 import type { PatternClip, TransportMode } from './song/songTypes'
 import { getPatternTracks, getSongTracksForSlot } from './song/songTracks'
 import { SongWorkspace } from './song/SongWorkspace'
-import type { SliceRegion } from './chop/autoChopOperations'
+import { detectTransientCandidates, maxChopSliceCount } from './chop/autoChopOperations'
+import type { SliceRegion, TransientCandidate } from './chop/autoChopOperations'
 import { chopTestSamples } from './chop/chopTestSamples'
 import type { ChopTestSample } from './chop/chopTestSamples'
+import { detectTempo } from './chop/tempoDetection'
+import type { TempoDetectionResult } from './chop/tempoDetection'
 import { assignSynthSource, clearPadSource, createDefaultSynthPatch, getSynthPatch, maximumSynthMidiNote, minimumSynthMidiNote, removeUnreferencedSynthPatches, resolveSynthPadMidiNotes } from './synth/synthOperations'
 import type { SynthPatch, SynthVoiceMode } from './synth/synthTypes'
 import { SynthWorkspace } from './synth/SynthWorkspace'
@@ -62,13 +67,30 @@ import type { SynthPickerInstrument } from './synth/SynthPicker'
 import { assignStringsSource, createDefaultStringsPatch, getStringsPatch, maximumStringsVoices, removeUnreferencedStringsPatches, resolveStringsPadMidiNotes } from './strings/stringsOperations'
 import type { StringsPatch } from './strings/stringsTypes'
 import { StringsWorkspace } from './strings/StringsWorkspace'
+import {
+  addAudioClip, addAudioTrack, collectAudioTrackAssetIds, createAudioClipFromImport, createAudioTrack,
+  duplicateAudioClip, maximumClipFadeSeconds, moveAudioClip, moveAudioTrack, removeAudioClip, removeAudioTrack,
+  setAudioTrackEffects, setAudioTrackGain, setAudioTrackMuted, setAudioTrackSolo, splitAudioClipAt,
+  trimAudioClipEnd, trimAudioClipStart, updateAudioClip,
+} from './tracks/tracksOperations'
+import { toTimelineSchedulerClips } from './tracks/tracksScheduling'
+import { snapBeatToGrid, secondsToBeats } from './tracks/timelineGrid'
+import { maximumAudioTracks } from './tracks/tracksTypes'
+import type { AudioTrack, TimelineGridDivision } from './tracks/tracksTypes'
+import { TracksWorkspace } from './tracks/TracksWorkspace'
+import { TracksArranger } from './tracks/TracksArranger'
+import { TrackEditor } from './tracks/TrackEditor'
+import type { TrackMonitorMode } from './tracks/TrackEditor'
+import { useTracksViewState } from './tracks/useTracksViewState'
+import { useTracksLayoutMode } from './tracks/useTracksLayoutMode'
+import { useTracksHistory } from './tracks/useTracksHistory'
 import './App.css'
 // Loaded after App.css on purpose - the Lab Interface layer overrides the older
 // visual passes wholesale. See docs/DESIGN_SYSTEM.md.
 import './lab-interface.css'
 
 interface AppProps { audioEngine: AudioEngine }
-interface FxContext { scope: 'group' | 'master'; slotIndex: 0 | 1 }
+interface FxContext { scope: 'group' | 'track' | 'master'; slotIndex: 0 | 1 }
 interface PendingConfirmation { message: string; confirmLabel: string; onConfirm: () => void }
 interface WaveformPlayback { assetId: SampleAssetId; startedAt: number; startSeconds: number; endSeconds: number }
 interface SequencerPlayhead { stepIndex: number; startsAt: number; durationSeconds: number }
@@ -99,6 +121,8 @@ function createPatternClipId(): string { return `pattern-clip-${createRuntimeId(
 function createPumpRouteId(): string { return `pump-route-${createRuntimeId()}` }
 function createSynthPatchId(): string { return `synth-patch-${createRuntimeId()}` }
 function createStringsPatchId(): string { return `strings-patch-${createRuntimeId()}` }
+function createAudioTrackId(): string { return `audio-track-${createRuntimeId()}` }
+function createAudioClipId(): string { return `audio-clip-${createRuntimeId()}` }
 function clearPadAssignment(pad: PadState): PadState {
   return clearPadSource(pad)
 }
@@ -110,6 +134,13 @@ export function App({ audioEngine }: AppProps) {
   // no useful empty state until a source is loaded, while the pad deck still
   // reads immediately as an instrument.
   const [mainView, setMainView] = useState<MainView>('pad')
+  /** Which tab was active before TRACKS, so the wide arranger's manual exit
+      button (a locked-orientation phone, a tablet, or a desktop has no
+      "rotate back" to rely on) returns to it instead of a fixed default. */
+  const previousMainViewRef = useRef<MainView>('pad')
+  useEffect(() => {
+    if (mainView !== 'tracks') previousMainViewRef.current = mainView
+  }, [mainView])
   const [selectedPadId, setSelectedPadId] = useState<PadState['id']>('pad-01')
   const [activePadId, setActivePadId] = useState<PadState['id'] | null>(null)
   const [selectedLibrarySample, setSelectedLibrarySample] = useState<LibrarySample | null>(null)
@@ -128,6 +159,7 @@ export function App({ audioEngine }: AppProps) {
   const [masterEffects, setMasterEffects] = useState<EffectRackState>(() => createDefaultMasterEffectRack())
   const [activeFxContext, setActiveFxContext] = useState<FxContext | null>(null)
   const [mixScope, setMixScope] = useState<MixScope>('group')
+  const [mixTrackId, setMixTrackId] = useState<string | null>(null)
   const [mixClaimNonce, setMixClaimNonce] = useState(0)
   const [sampleEditorOpen, setSampleEditorOpen] = useState(false)
   /* Forces the SYNTH tab back to the instrument picker even though the selected pad
@@ -144,6 +176,32 @@ export function App({ audioEngine }: AppProps) {
   const [selectedPatternGroupId, setSelectedPatternGroupId] = useState('pattern-group-1')
   const [selectedPatternVariant, setSelectedPatternVariant] = useState<PatternVariantName>('A')
   const [playlist, setPlaylist] = useState<PatternClip[]>([])
+  const [audioTracks, setAudioTracks] = useState<AudioTrack[]>([])
+  /** Paused/scrub position in beats - the live position while playing is
+      derived from tracksPlaybackAnchorRef + visualAudioTime instead (see
+      tracksLivePlayheadBeat below), and this is what stopPlayback freezes it
+      into so PLAY resumes from where it left off. */
+  const [tracksPlayheadBeat, setTracksPlayheadBeat] = useState(0)
+  const [tracksSnapDivision, setTracksSnapDivision] = useState<TimelineGridDivision>('1/4')
+  const [openTrackEditorId, setOpenTrackEditorId] = useState<string | null>(null)
+  const [trackMonitorMode, setTrackMonitorMode] = useState<TrackMonitorMode>('all')
+  /** Selection/zoom/scroll shared by TracksWorkspace (compact) and
+      TracksArranger (wide) - lifted here so a device rotation swapping
+      which one is mounted does not lose it. See docs/DECISIONS.md DEC-027. */
+  const tracksViewState = useTracksViewState()
+  /** 'compact' only for a phone-class viewport in portrait; every other
+      case (phone landscape, tablet, desktop) is 'wide'. Only acted on below
+      while mainView === 'tracks' - this hook itself never changes tabs. */
+  const tracksLayoutMode = useTracksLayoutMode()
+  const tracksHistory = useTracksHistory()
+  /** Always-current mirror of audioTracks, assigned fresh every render (same
+      shape as sequenceConfigRef/tracksSchedulerConfigRef below) - lets
+      updateAudioTracks read the latest value imperatively without a nested
+      setState-inside-setState (calling tracksHistory's setters from inside
+      a setAudioTracks updater callback would run them during React's render
+      phase instead of a plain event-handler call). */
+  const audioTracksRef = useRef(audioTracks)
+  audioTracksRef.current = audioTracks
   const [transportMode, setTransportMode] = useState<TransportMode>('pattern')
   const [loopSong, setLoopSong] = useState(false)
   const [metronomeEnabled, setMetronomeEnabled] = useState(false)
@@ -157,6 +215,11 @@ export function App({ audioEngine }: AppProps) {
   const [sourcePreviewing, setSourcePreviewing] = useState(false)
   const [cutOnPadTrigger, setCutOnPadTrigger] = useState(true)
   const [loadingChopTestId, setLoadingChopTestId] = useState<string | null>(null)
+  /** The real-buffer transient/tempo scan for the currently loaded CHOP
+      source (see the analysis effect below) - null until it finishes, and
+      keyed by assetId so a stale result from a source the user has since
+      replaced is never mistaken for the current one. */
+  const [chopAnalysis, setChopAnalysis] = useState<{ assetId: SampleAssetId; candidates: TransientCandidate[]; tempo: TempoDetectionResult } | null>(null)
   const [projectMessage, setProjectMessage] = useState<string>()
   const [transportNotice, setTransportNotice] = useState<string>()
   const [projectBusy, setProjectBusy] = useState(false)
@@ -169,6 +232,13 @@ export function App({ audioEngine }: AppProps) {
   const [sequencerPlayhead, setSequencerPlayhead] = useState<SequencerPlayhead | null>(null)
   const [visualAudioTime, setVisualAudioTime] = useState(0)
   const sequencerRef = useRef(new StepSequencer(audioEngine))
+  const timelineSchedulerRef = useRef(new TimelineScheduler(audioEngine))
+  /** Where TRACKS playback last began, in (timeline beat, AudioContext time)
+      terms - lets the live playhead be derived each render (visualAudioTime
+      already re-renders during playback, see DEC-004) instead of a second
+      rAF loop, and lets stopPlayback freeze tracksPlayheadBeat at the right
+      spot instead of resetting it. */
+  const tracksPlaybackAnchorRef = useRef<{ startBeat: number; startedAt: number } | null>(null)
   const recordingGridRef = useRef<RecordingGrid | null>(null)
   /** Set right before a count-in's `start()` call, consumed by the first `onStepScheduled(0, ...)` that follows - the signal that recording should actually arm now that step 0 is truly about to sound. While it is set, the count-in is still running. */
   const pendingRecordingStartRef = useRef(false)
@@ -244,6 +314,46 @@ export function App({ audioEngine }: AppProps) {
     setWaveforms((current) => current[chopSession.assetId!] ? current : { ...current, [chopSession.assetId!]: waveform })
   }, [audioEngine, chopSession.assetId])
 
+  /**
+   * The real-buffer transient scan (and the tempo reading built from its
+   * onsets) is real work - a linear pass over the decoded source plus an
+   * O(onsetCount^2) interval histogram - so it runs here, off the render path,
+   * instead of in a useMemo during ChopWorkspace's render. requestIdleCallback
+   * (falling back to setTimeout for Safari, which lacks it) keeps it from
+   * competing with anything time-critical; `cancelled` stops a slow run for a
+   * source the user has since replaced from clobbering the new one's result.
+   */
+  useEffect(() => {
+    const assetId = chopSession.assetId
+    const durationSeconds = chopSession.durationSeconds
+    if (!assetId || !durationSeconds) return
+    let cancelled = false
+    const run = () => {
+      if (cancelled) return
+      const buffer = audioEngine.getDecodedSampleAsset(assetId)
+      const envelope = audioEngine.getAnalysisEnvelope(assetId)
+      if (cancelled || !buffer || !envelope) return
+      const candidates = detectTransientCandidates(envelope, buffer.duration, buffer.getChannelData(0), buffer.sampleRate)
+      const tempo = detectTempo(candidates, buffer.duration)
+      setChopAnalysis({ assetId, candidates, tempo })
+    }
+    const hasIdleCallback = 'requestIdleCallback' in window
+    const idleHandle = hasIdleCallback ? window.requestIdleCallback(run) : window.setTimeout(run, 0)
+    return () => {
+      cancelled = true
+      if (hasIdleCallback) window.cancelIdleCallback(idleHandle as number)
+      else window.clearTimeout(idleHandle as number)
+    }
+  }, [audioEngine, chopSession.assetId, chopSession.durationSeconds])
+
+  const chopAnalysisReady = chopAnalysis?.assetId === chopSession.assetId
+  const chopCandidates = chopAnalysisReady ? chopAnalysis!.candidates : []
+  const chopTempo = chopAnalysisReady ? chopAnalysis!.tempo : null
+  // The one and only thing that ever changes the project's own tempo from a
+  // detected reading - detectTempo itself never calls setBpm, only this does,
+  // and only on an explicit APPLY click (see ChopDisplay.tsx).
+  const applyDetectedTempo = () => { if (chopTempo?.bpm) setBpm(chopTempo.bpm) }
+
   useEffect(() => {
     if (!isPlaying && !waveformPlayback) return
     let frameId = 0
@@ -293,6 +403,16 @@ export function App({ audioEngine }: AppProps) {
     },
   }
 
+  /** Same "assign a fresh object into a ref during render" shape as
+      sequenceConfigRef just above - TimelineScheduler reads this through a
+      stable closure, so it always sees the current audioTracks/bpm even
+      though start() was called once, long before the latest edit. */
+  const tracksSchedulerConfigRef = useRef<TimelineSchedulerConfig>({ bpm, getClips: () => [] })
+  tracksSchedulerConfigRef.current = { bpm, getClips: () => toTimelineSchedulerClips(audioTracks, {}, bpm) }
+  const tracksLivePlayheadBeat = isPlaying && tracksPlaybackAnchorRef.current
+    ? Math.max(0, tracksPlaybackAnchorRef.current.startBeat + secondsToBeats(visualAudioTime - tracksPlaybackAnchorRef.current.startedAt, bpm))
+    : tracksPlayheadBeat
+
   const showWaveformPlayback = (assetId: SampleAssetId, startSeconds: number, endSeconds: number, startedAt = audioEngine.getCurrentTime()) => {
     setWaveformPlayback({ assetId, startedAt, startSeconds, endSeconds })
   }
@@ -339,7 +459,7 @@ export function App({ audioEngine }: AppProps) {
     if (!pad.assetId || !audioEngine.hasSampleAsset(pad.assetId)) return
     if (cutOnPadTrigger) audioEngine.stopManualVoices()
     const startedAt = audioEngine.getCurrentTime()
-    audioEngine.triggerSample(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), pad.assetId, { pitchSemitones: pad.pitchSemitones, startSeconds: pad.region.startSeconds, endSeconds: pad.region.endSeconds, attackMs: pad.attackMs, releaseMs: pad.releaseMs })
+    audioEngine.triggerSample(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), pad.assetId, { pitchSemitones: pad.pitchSemitones, startSeconds: pad.region.startSeconds, endSeconds: pad.region.endSeconds, attackMs: pad.attackMs, releaseMs: pad.releaseMs, reversed: pad.reversed })
     showWaveformPlayback(pad.assetId, pad.region.startSeconds, pad.region.endSeconds, startedAt)
     setActivePadId(padId)
     recordPadHit(padId, startedAt)
@@ -401,6 +521,7 @@ export function App({ audioEngine }: AppProps) {
       const source = group.bank.chopSession
       if (source.assetId && source.fileName && source.durationSeconds) assetReferences.set(source.assetId, { filename: source.fileName, durationSeconds: source.durationSeconds })
     }
+    for (const track of audioTracks) for (const clip of track.clips) if (!assetReferences.has(clip.assetId)) assetReferences.set(clip.assetId, { filename: clip.fileName, durationSeconds: clip.assetDurationSeconds })
     return createProjectState({
       schemaVersion: projectSchemaVersion,
       projectKey,
@@ -409,6 +530,7 @@ export function App({ audioEngine }: AppProps) {
       selectedPatternGroupId,
       selectedPatternVariant,
       playlist,
+      audioTracks,
       transportMode,
       loopSong,
       bpm,
@@ -519,6 +641,10 @@ export function App({ audioEngine }: AppProps) {
       audioEngine.setBpm(state.bpm)
       audioEngine.setMasterEffects(state.masterEffects)
       for (const group of state.patternGroups) audioEngine.setGroupEffects(group.id, group.effects)
+      // A track is its own bus (groupId === channelId === track.id, see
+      // tracks/tracksTypes.ts) - no per-channel loop needed, only the bus/FX
+      // restoration Pattern Groups already get above.
+      for (const track of state.audioTracks) syncTrackBusToEngine(track)
       audioEngine.syncSynthPatches(state.patternGroups.flatMap((group) => group.synthPatches.map((patch) => ({ groupId: group.id, patch }))))
       audioEngine.syncStringsPatches(state.patternGroups.flatMap((group) => group.stringsPatches.map((patch) => ({ groupId: group.id, patch }))))
       audioEngine.setPumpRoutes(state.pumpRoutes.map((route) => ({ id: route.id, sourceChannelId: createChannelId(route.source), targetGroupId: route.targetGroupId, depth: route.depth, lengthSeconds: 60 / state.bpm * route.lengthBeats, curve: route.curve })))
@@ -526,6 +652,7 @@ export function App({ audioEngine }: AppProps) {
       setSelectedPatternGroupId(state.selectedPatternGroupId)
       setSelectedPatternVariant(state.selectedPatternVariant)
       setPlaylist(state.playlist)
+      setAudioTracks(state.audioTracks)
       setTransportMode(state.transportMode)
       setLoopSong(state.loopSong)
       setPlayingSongSlot(null)
@@ -627,7 +754,7 @@ export function App({ audioEngine }: AppProps) {
   }
   const groupsWithActiveBank = (bank: PadBankState) => patternGroups.map((group) => group.id === selectedPatternGroupId ? { ...group, bank } : group)
   const removeAssetIfUnused = (assetId: SampleAssetId | null, groups: readonly PatternGroup[]) => {
-    if (!assetId || assetIsReferencedByGroups(groups, assetId)) return
+    if (!assetId || assetIsReferencedByGroups(groups, audioTracks, assetId)) return
     audioEngine.removeSampleAsset(assetId)
     setWaveforms((current) => { const { [assetId]: _, ...remaining } = current; return remaining })
   }
@@ -653,7 +780,7 @@ export function App({ audioEngine }: AppProps) {
       const loadedSample = await audioEngine.loadSampleBlob(assetId, await response.blob(), sample.filename)
       const waveform = audioEngine.getWaveformPeaks(assetId) ?? []
       const previousAssetId = targetPad.assetId
-      const bank = { ...selectedGroup.bank, pads: pads.map((pad) => pad.id === targetPad.id ? { ...pad, assetId, fileName: loadedSample.filename, durationSeconds: loadedSample.durationSeconds, region: { startSeconds: 0, endSeconds: loadedSample.durationSeconds }, slices: [], chopSessionId: null, synthPatchId: null, stringsPatchId: null, chordIntervals: [0] } : pad) }
+      const bank = { ...selectedGroup.bank, pads: pads.map((pad) => pad.id === targetPad.id ? { ...pad, assetId, fileName: loadedSample.filename, durationSeconds: loadedSample.durationSeconds, region: { startSeconds: 0, endSeconds: loadedSample.durationSeconds }, reversed: false, slices: [], chopSessionId: null, synthPatchId: null, stringsPatchId: null, chordIntervals: [0] } : pad) }
       const groups = patternGroups.map((group) => group.id === selectedPatternGroupId ? removeUnreferencedStringsPatches(removeUnreferencedSynthPatches({ ...group, bank })) : group)
       setPatternGroups(groups)
       setSelectedPadId(targetPad.id)
@@ -719,7 +846,7 @@ export function App({ audioEngine }: AppProps) {
       const loadedSample = await audioEngine.loadSampleBlob(assetId, sound.blob, sound.filename)
       const waveform = audioEngine.getWaveformPeaks(assetId) ?? []
       const previousAssetId = targetPad.assetId
-      const bank = { ...selectedGroup.bank, pads: pads.map((pad) => pad.id === targetPad.id ? { ...pad, assetId, fileName: loadedSample.filename, durationSeconds: loadedSample.durationSeconds, region: { startSeconds: 0, endSeconds: loadedSample.durationSeconds }, slices: [], chopSessionId: null, synthPatchId: null, stringsPatchId: null, chordIntervals: [0] } : pad) }
+      const bank = { ...selectedGroup.bank, pads: pads.map((pad) => pad.id === targetPad.id ? { ...pad, assetId, fileName: loadedSample.filename, durationSeconds: loadedSample.durationSeconds, region: { startSeconds: 0, endSeconds: loadedSample.durationSeconds }, reversed: false, slices: [], chopSessionId: null, synthPatchId: null, stringsPatchId: null, chordIntervals: [0] } : pad) }
       const groups = patternGroups.map((group) => group.id === selectedPatternGroupId ? removeUnreferencedStringsPatches(removeUnreferencedSynthPatches({ ...group, bank })) : group)
       setPatternGroups(groups)
       setSelectedPadId(targetPad.id)
@@ -808,6 +935,15 @@ export function App({ audioEngine }: AppProps) {
     replaceActiveBank({ ...selectedGroup.bank, pads: pads.map((pad) => pad.id === selectedPadId ? { ...pad, region: { startSeconds, endSeconds } } : pad) })
   }
   const resetSelectedRegion = () => { if (selectedPad.durationSeconds) updateSelectedRegion({ startSeconds: 0, endSeconds: selectedPad.durationSeconds }) }
+  /** A standalone, one-way override - the same shape as updateSelectedRegion
+      above, and for the same reason: a pad with no live CHOP slice at all
+      (a library sample, a rendered drum hit) still needs its own reverse
+      toggle, and a pad that DOES come from a slice simply keeps this until the
+      next time that slice's session is re-mapped, exactly like a hand-tuned
+      region would. */
+  const toggleSelectedPadReversed = () => {
+    replaceActiveBank({ ...selectedGroup.bank, pads: pads.map((pad) => pad.id === selectedPadId ? { ...pad, reversed: !pad.reversed } : pad) })
+  }
 
   const applyChopMapping = (nextSlices: SampleSlice[], nextSession: ChopSessionState, confirmed = false, onApplied?: () => void): boolean => {
     if (!chopSession.assetId || !chopSession.durationSeconds) return false
@@ -823,7 +959,10 @@ export function App({ audioEngine }: AppProps) {
       // A pad already on this session keeps whatever pitch it has - re-slicing
       // must not undo a pad the user has since tuned by hand. A pad newly
       // joining starts from the session's current official pitch instead of 0.
-      if (slice) return { ...pad, assetId: chopSession.assetId!, fileName: chopSession.fileName, durationSeconds: chopSession.durationSeconds, region: { startSeconds: slice.startSeconds, endSeconds: slice.endSeconds }, slices: [], chopSessionId: chopSession.id, pitchSemitones: pad.chopSessionId === chopSession.id ? pad.pitchSemitones : chopSession.pitchSemitones, synthPatchId: null, stringsPatchId: null, chordIntervals: [0] }
+      // Unlike pitch, reverse has no session-wide default to fall back to - it
+      // is always this exact slice's own value, so it overwrites unconditionally
+      // on every re-slice, the same way region does.
+      if (slice) return { ...pad, assetId: chopSession.assetId!, fileName: chopSession.fileName, durationSeconds: chopSession.durationSeconds, region: { startSeconds: slice.startSeconds, endSeconds: slice.endSeconds }, reversed: slice.reversed, slices: [], chopSessionId: chopSession.id, pitchSemitones: pad.chopSessionId === chopSession.id ? pad.pitchSemitones : chopSession.pitchSemitones, synthPatchId: null, stringsPatchId: null, chordIntervals: [0] }
       return pad.chopSessionId === chopSession.id ? clearPadAssignment(pad) : pad
     }), chopSession: nextSession }
     setPatternGroups((groups) => groups.map((group) => group.id === selectedPatternGroupId ? removeUnreferencedStringsPatches(removeUnreferencedSynthPatches({ ...group, bank })) : group))
@@ -837,6 +976,10 @@ export function App({ audioEngine }: AppProps) {
       sourceAssetId: chopSession.assetId!,
       startSeconds: region.startSeconds,
       endSeconds: region.endSeconds,
+      // EQUAL/SMART always start fresh - neither attempts to preserve reverse
+      // state across a full re-slice, matching how they already discard every
+      // other prior per-slice detail.
+      reversed: false,
     }))
     return applyChopMapping(nextSlices, { ...chopSession, slices: nextSlices, activeSliceId: nextSlices[0]?.id ?? null }, false, onApplied)
   }
@@ -899,12 +1042,13 @@ export function App({ audioEngine }: AppProps) {
   const addChopSlice = (timeSeconds: number) => {
     if (!chopSession.assetId || !chopSession.durationSeconds) return
     const minimumLength = Math.min(0.01, chopSession.durationSeconds)
-    const currentSlices = chopSession.slices.length > 0 ? chopSession.slices : [{ id: createSliceId(chopSession.id), sourceAssetId: chopSession.assetId, startSeconds: 0, endSeconds: chopSession.durationSeconds }]
-    if (currentSlices.length >= 16) return
+    const currentSlices = chopSession.slices.length > 0 ? chopSession.slices : [{ id: createSliceId(chopSession.id), sourceAssetId: chopSession.assetId, startSeconds: 0, endSeconds: chopSession.durationSeconds, reversed: false }]
+    if (currentSlices.length >= maxChopSliceCount) return
     const splitIndex = currentSlices.findIndex((slice) => timeSeconds > slice.startSeconds + minimumLength && timeSeconds < slice.endSeconds - minimumLength)
     if (splitIndex < 0) return
     const slice = currentSlices[splitIndex]
-    const newSlice: SampleSlice = { id: createSliceId(chopSession.id), sourceAssetId: chopSession.assetId, startSeconds: timeSeconds, endSeconds: slice.endSeconds }
+    // Both halves of a reversed slice are still reversed audio.
+    const newSlice: SampleSlice = { id: createSliceId(chopSession.id), sourceAssetId: chopSession.assetId, startSeconds: timeSeconds, endSeconds: slice.endSeconds, reversed: slice.reversed }
     const nextSlices = currentSlices.flatMap((currentSlice, index) => index === splitIndex ? [{ ...currentSlice, endSeconds: timeSeconds }, newSlice] : [currentSlice])
     applyChopMapping(nextSlices, { ...chopSession, slices: nextSlices, activeSliceId: newSlice.id })
   }
@@ -916,6 +1060,14 @@ export function App({ audioEngine }: AppProps) {
     const minimumLength = Math.min(0.01, chopSession.durationSeconds ?? 0.01)
     const cutTime = Math.min(right.endSeconds - minimumLength, Math.max(left.startSeconds + minimumLength, timeSeconds))
     const nextSlices = chopSession.slices.map((slice, index) => index === cutIndex ? { ...slice, endSeconds: cutTime } : index === cutIndex + 1 ? { ...slice, startSeconds: cutTime } : slice)
+    applyChopMapping(nextSlices, { ...chopSession, slices: nextSlices })
+  }
+
+  /** Flips one CHOP-session slice's reverse and re-runs the standard mapping,
+      the same shape as moveChopCut - so a slice that's already on the pad
+      grid picks the change up immediately, exactly like a moved boundary would. */
+  const toggleChopSliceReversed = (sliceId: string) => {
+    const nextSlices = chopSession.slices.map((slice) => slice.id === sliceId ? { ...slice, reversed: !slice.reversed } : slice)
     applyChopMapping(nextSlices, { ...chopSession, slices: nextSlices })
   }
 
@@ -945,12 +1097,14 @@ export function App({ audioEngine }: AppProps) {
   const previewChopSlice = (slice: SampleSlice) => {
     if (audioReady) {
       const startedAt = audioEngine.getCurrentTime()
-      audioEngine.previewAsset(slice.sourceAssetId, { startSeconds: slice.startSeconds, endSeconds: slice.endSeconds })
+      audioEngine.previewAsset(slice.sourceAssetId, { startSeconds: slice.startSeconds, endSeconds: slice.endSeconds, reversed: slice.reversed })
       showWaveformPlayback(slice.sourceAssetId, slice.startSeconds, slice.endSeconds, startedAt)
     }
     replaceActiveBank({ ...selectedGroup.bank, chopSession: { ...chopSession, activeSliceId: slice.id } })
   }
-  const selectChopSlice = (sliceId: string) => { const index = chopSession.slices.findIndex((slice) => slice.id === sliceId); replaceActiveBank({ ...selectedGroup.bank, chopSession: { ...chopSession, activeSliceId: sliceId } }); if (index >= 0) setSelectedPadId(pads[index].id) }
+  // A slice beyond the pad grid (see maxChopSliceCount) has no pad to select -
+  // it stays editable/previewable in the CHOP list only.
+  const selectChopSlice = (sliceId: string) => { const index = chopSession.slices.findIndex((slice) => slice.id === sliceId); replaceActiveBank({ ...selectedGroup.bank, chopSession: { ...chopSession, activeSliceId: sliceId } }); if (index >= 0 && index < pads.length) setSelectedPadId(pads[index].id) }
 
   const selectedPattern = getVariant(patternGroups, selectedPatternGroupId, selectedPatternVariant)!
   const selectedPatternShifts = getVariantShifts(patternGroups, selectedPatternGroupId, selectedPatternVariant)!
@@ -1029,13 +1183,27 @@ export function App({ audioEngine }: AppProps) {
     if (isPlaying) return
     if (!audioReady) { setErrorMessage('Start audio before playing the sequencer.'); return }
     if (transportMode === 'song' && playlist.length === 0) { setTransportNotice(emptySongPlaylistNotice); return }
-    if (sequenceConfigRef.current.getTracksForSlot(1).length === 0 && !pads.some((pad) => (pad.assetId && audioEngine.hasSampleAsset(pad.assetId)) || pad.synthPatchId || pad.stringsPatchId) && !metronomeEnabled) { setErrorMessage('Load a sample or create a MONOPOLY or STRINGS patch first.'); return }
+    const hasTrackContent = audioTracks.some((track) => track.clips.length > 0)
+    if (sequenceConfigRef.current.getTracksForSlot(1).length === 0 && !pads.some((pad) => (pad.assetId && audioEngine.hasSampleAsset(pad.assetId)) || pad.synthPatchId || pad.stringsPatchId) && !metronomeEnabled && !hasTrackContent) { setErrorMessage('Load a sample or create a MONOPOLY or STRINGS patch first.'); return }
     sequencerRef.current.start(() => sequenceConfigRef.current)
+    // TRACKS plays independently of PATTERN/SONG mode - it is arrangement
+    // content, not another pattern to pick, so both schedulers always start
+    // together from the same audio-clock instant. See docs/DECISIONS.md DEC-027.
+    const tracksStartAt = audioEngine.getCurrentTime()
+    tracksPlaybackAnchorRef.current = { startBeat: tracksPlayheadBeat, startedAt: tracksStartAt }
+    timelineSchedulerRef.current.start(() => tracksSchedulerConfigRef.current, tracksPlayheadBeat, tracksStartAt)
     setIsPlaying(true)
   }
   const stopPlayback = () => {
     sequencerRef.current.stop()
     audioEngine.stopSequencerVoices()
+    timelineSchedulerRef.current.stop()
+    audioEngine.stopTimelineVoices()
+    if (tracksPlaybackAnchorRef.current) {
+      const anchor = tracksPlaybackAnchorRef.current
+      setTracksPlayheadBeat(Math.max(0, anchor.startBeat + secondsToBeats(audioEngine.getCurrentTime() - anchor.startedAt, bpm)))
+      tracksPlaybackAnchorRef.current = null
+    }
     recordingArmedRef.current = false
     pendingRecordingStartRef.current = false
     recordingGridRef.current = null
@@ -1044,6 +1212,187 @@ export function App({ audioEngine }: AppProps) {
     setSequencerPlayhead(null)
     setCountingIn(false)
     setRecording(false)
+  }
+
+  /* ---- TRACKS ----
+     A track is its own live engine bus (AudioEngine.setGroupVolume/Muted/
+     Solo/Effects keyed by the track's own id - see tracks/tracksTypes.ts),
+     so mute/solo/effects handlers push to the engine directly, the same
+     shape as updateChannelVolume/updateGroupBus above. Clip edits (move,
+     trim, gain, fade, pitch, reverse, loop) are not live engine state - like
+     a Pad's region/pitch, they only matter the next time that clip is
+     scheduled - so those only update audioTracks. */
+
+  /** The one place that pushes a track's live engine bus state - used by
+      every direct mute/solo/gain/effects handler below and by undo/redo,
+      which need the exact same push after restoring an older/newer
+      audioTracks snapshot. Previously inlined only in openProject. */
+  const syncTrackBusToEngine = (track: AudioTrack) => {
+    audioEngine.setGroupVolume(track.id, track.gain)
+    audioEngine.setGroupMuted(track.id, track.muted)
+    audioEngine.setGroupSolo(track.id, track.solo)
+    audioEngine.setGroupEffects(track.id, track.effects)
+  }
+
+  /** Undo-tracked audioTracks updates - every clip/track edit that never
+      touches asset decode/eviction (move, trim, split, duplicate, loop,
+      reverse, gain, fade, pitch, mute, solo, reorder) goes through this
+      instead of setAudioTracks directly. Reads the current value from
+      audioTracksRef (not a setAudioTracks functional updater) specifically
+      so recording history is a plain, top-level call, not nested inside
+      another setState's callback. Import and delete deliberately call
+      setAudioTracks directly and stay outside history - see
+      useTracksHistory's docs. */
+  const updateAudioTracks = (updater: (current: AudioTrack[]) => AudioTrack[]) => {
+    const current = audioTracksRef.current
+    const next = updater(current)
+    tracksHistory.record(current)
+    setAudioTracks(next)
+  }
+
+  const undoTracks = () => {
+    const restored = tracksHistory.undo(audioTracksRef.current)
+    if (!restored) return
+    setAudioTracks(restored)
+    for (const track of restored) syncTrackBusToEngine(track)
+  }
+  const redoTracks = () => {
+    const restored = tracksHistory.redo(audioTracksRef.current)
+    if (!restored) return
+    setAudioTracks(restored)
+    for (const track of restored) syncTrackBusToEngine(track)
+  }
+
+  const applyTrackMonitorMode = (track: AudioTrack, mode: TrackMonitorMode) => {
+    if (mode === 'solo') { audioEngine.setGroupSolo(track.id, true); audioEngine.setGroupMuted(track.id, false) }
+    else if (mode === 'mute') { audioEngine.setGroupMuted(track.id, true); audioEngine.setGroupSolo(track.id, false) }
+    else { audioEngine.setGroupSolo(track.id, track.solo); audioEngine.setGroupMuted(track.id, track.muted) }
+  }
+  const openTrackEditor = (trackId: string) => { setOpenTrackEditorId(trackId); setTrackMonitorMode('all') }
+  const closeTrackEditor = () => {
+    const track = audioTracks.find((candidate) => candidate.id === openTrackEditorId)
+    if (track) applyTrackMonitorMode(track, 'all')
+    setOpenTrackEditorId(null)
+    setTrackMonitorMode('all')
+  }
+  const changeTrackMonitorMode = (mode: TrackMonitorMode) => {
+    const track = audioTracks.find((candidate) => candidate.id === openTrackEditorId)
+    if (track) applyTrackMonitorMode(track, mode)
+    setTrackMonitorMode(mode)
+  }
+
+  const seekTracksPlayhead = (beat: number) => {
+    if (isPlaying) return
+    setTracksPlayheadBeat(Math.max(0, beat))
+  }
+
+  const evictUnusedTrackAssets = (nextTracks: readonly AudioTrack[], candidateAssetIds: ReadonlySet<SampleAssetId>) => {
+    for (const assetId of candidateAssetIds) {
+      if (assetIsReferencedByGroups(patternGroups, nextTracks, assetId)) continue
+      audioEngine.removeSampleAsset(assetId)
+      setWaveforms((current) => { const { [assetId]: _removed, ...remaining } = current; return remaining })
+    }
+  }
+
+  const importNewAudioTrack = async (file: File) => {
+    if (audioTracks.length >= maximumAudioTracks) return
+    setErrorMessage(undefined)
+    try {
+      const assetId = createAssetId('track')
+      const loaded = await audioEngine.loadSampleBlob(assetId, file, file.name)
+      const waveform = audioEngine.getWaveformPeaks(assetId) ?? []
+      const trackId = createAudioTrackId()
+      const name = (file.name.replace(/\.[^./]+$/, '') || `TRACK ${audioTracks.length + 1}`).toUpperCase()
+      const track = { ...createAudioTrack(trackId, name, audioTracks.length), clips: [createAudioClipFromImport(createAudioClipId(), assetId, loaded.filename, loaded.durationSeconds, 0, bpm)] }
+      setAudioTracks((current) => addAudioTrack(current, track))
+      setWaveforms((current) => ({ ...current, [assetId]: waveform }))
+      audioEngine.setGroupVolume(trackId, track.gain)
+      audioEngine.setGroupMuted(trackId, track.muted)
+      audioEngine.setGroupSolo(trackId, track.solo)
+      audioEngine.setGroupEffects(trackId, track.effects)
+    } catch (error) { setErrorMessage(toMessage(error)) }
+  }
+
+  const importClipToTrack = async (trackId: string, file: File) => {
+    setErrorMessage(undefined)
+    try {
+      const assetId = createAssetId('track')
+      const loaded = await audioEngine.loadSampleBlob(assetId, file, file.name)
+      const waveform = audioEngine.getWaveformPeaks(assetId) ?? []
+      const track = audioTracks.find((candidate) => candidate.id === trackId)
+      const appendBeat = snapBeatToGrid(track ? track.clips.reduce((max, clip) => Math.max(max, clip.startBeat + clip.lengthBeats), 0) : 0, tracksSnapDivision)
+      const clip = createAudioClipFromImport(createAudioClipId(), assetId, loaded.filename, loaded.durationSeconds, appendBeat, bpm)
+      setAudioTracks((current) => addAudioClip(current, trackId, clip))
+      setWaveforms((current) => ({ ...current, [assetId]: waveform }))
+    } catch (error) { setErrorMessage(toMessage(error)) }
+  }
+
+  const requestRemoveTrack = (trackId: string) => {
+    const track = audioTracks.find((candidate) => candidate.id === trackId)
+    if (!track) return
+    requestConfirmation(`Remove ${track.name}? Its clips will be deleted.`, 'REMOVE', () => {
+      const removedAssetIds = new Set(track.clips.map((clip) => clip.assetId))
+      const nextTracks = removeAudioTrack(audioTracks, trackId)
+      setAudioTracks(nextTracks)
+      if (openTrackEditorId === trackId) closeTrackEditor()
+      evictUnusedTrackAssets(nextTracks, removedAssetIds)
+    })
+  }
+
+  const moveTrackOrder = (trackId: string, direction: 'up' | 'down') => updateAudioTracks((current) => moveAudioTrack(current, trackId, direction))
+
+  const setTrackMuted = (trackId: string, muted: boolean) => {
+    updateAudioTracks((current) => setAudioTrackMuted(current, trackId, muted))
+    audioEngine.setGroupMuted(trackId, muted)
+  }
+  const setTrackSolo = (trackId: string, solo: boolean) => {
+    updateAudioTracks((current) => setAudioTrackSolo(current, trackId, solo))
+    audioEngine.setGroupSolo(trackId, solo)
+  }
+  const setTrackGain = (trackId: string, gain: number) => {
+    updateAudioTracks((current) => setAudioTrackGain(current, trackId, gain))
+    audioEngine.setGroupVolume(trackId, gain)
+  }
+  /* Effects are not undo-tracked, matching every other FX rack in the app
+     (Pattern Group/master FX have no undo either) - only clip/track
+     arrangement edits are. */
+  const setTrackEffects = (trackId: string, effects: EffectRackState) => {
+    setAudioTracks((current) => setAudioTrackEffects(current, trackId, effects))
+    audioEngine.setGroupEffects(trackId, effects)
+  }
+
+  const moveClip = (trackId: string, clipId: string, startBeat: number) => updateAudioTracks((current) => moveAudioClip(current, trackId, clipId, startBeat))
+  const trimClipStart = (trackId: string, clipId: string, startBeat: number) => updateAudioTracks((current) => trimAudioClipStart(current, trackId, clipId, startBeat, bpm))
+  const trimClipEnd = (trackId: string, clipId: string, endBeat: number) => {
+    const track = audioTracks.find((candidate) => candidate.id === trackId)
+    const clip = track?.clips.find((candidate) => candidate.id === clipId)
+    if (!clip) return
+    updateAudioTracks((current) => trimAudioClipEnd(current, trackId, clipId, endBeat, bpm, clip.assetDurationSeconds))
+  }
+  const splitClipAtPlayhead = (trackId: string, clipId: string) => updateAudioTracks((current) => splitAudioClipAt(current, trackId, clipId, tracksLivePlayheadBeat, createAudioClipId(), bpm))
+  const duplicateClip = (trackId: string, clipId: string) => updateAudioTracks((current) => duplicateAudioClip(current, trackId, clipId, createAudioClipId()))
+  const toggleClipLoop = (trackId: string, clipId: string) => updateAudioTracks((current) => {
+    const clip = current.find((candidate) => candidate.id === trackId)?.clips.find((candidate) => candidate.id === clipId)
+    return clip ? updateAudioClip(current, trackId, clipId, { loop: !clip.loop }) : current
+  })
+  const toggleClipReversed = (trackId: string, clipId: string) => updateAudioTracks((current) => {
+    const clip = current.find((candidate) => candidate.id === trackId)?.clips.find((candidate) => candidate.id === clipId)
+    return clip ? updateAudioClip(current, trackId, clipId, { reversed: !clip.reversed }) : current
+  })
+  const setClipGain = (trackId: string, clipId: string, gain: number) => updateAudioTracks((current) => updateAudioClip(current, trackId, clipId, { gain: Math.min(1, Math.max(0, gain)) }))
+  const setClipFadeIn = (trackId: string, clipId: string, seconds: number) => updateAudioTracks((current) => updateAudioClip(current, trackId, clipId, { fadeInSeconds: Math.min(maximumClipFadeSeconds, Math.max(0, seconds)) }))
+  const setClipFadeOut = (trackId: string, clipId: string, seconds: number) => updateAudioTracks((current) => updateAudioClip(current, trackId, clipId, { fadeOutSeconds: Math.min(maximumClipFadeSeconds, Math.max(0, seconds)) }))
+  const setClipPitch = (trackId: string, clipId: string, semitones: number) => updateAudioTracks((current) => updateAudioClip(current, trackId, clipId, { pitchSemitones: semitones }))
+
+  const requestRemoveClip = (trackId: string, clipId: string) => {
+    const track = audioTracks.find((candidate) => candidate.id === trackId)
+    const clip = track?.clips.find((candidate) => candidate.id === clipId)
+    if (!track || !clip) return
+    requestConfirmation(`Delete this clip from ${track.name}?`, 'DELETE', () => {
+      const nextTracks = removeAudioClip(audioTracks, trackId, clipId)
+      setAudioTracks(nextTracks)
+      evictUnusedTrackAssets(nextTracks, new Set([clip.assetId]))
+    })
   }
   /* Quantizes a live pad hit onto the pattern grid rather than recording audio - the
      step it lands on is whichever is nearest in real time to the loop's last step 0,
@@ -1197,9 +1546,11 @@ export function App({ audioEngine }: AppProps) {
     setProjectMessage(mappedPadCount > 1 ? `${label} created and mapped across ${mappedPadCount} pads.` : `${label} created on a new pattern.`)
     enterMainView('synth')
   }
-  const activeFxRack = activeFxContext?.scope === 'group' ? selectedGroup.effects : activeFxContext?.scope === 'master' ? masterEffects : undefined
+  const selectedMixTrack = mixTrackId ? audioTracks.find((track) => track.id === mixTrackId) : undefined
+  const activeFxRack = activeFxContext?.scope === 'group' ? selectedGroup.effects : activeFxContext?.scope === 'track' ? selectedMixTrack?.effects : activeFxContext?.scope === 'master' ? masterEffects : undefined
   const updateActiveFxRack = (effects: EffectRackState) => {
     if (activeFxContext?.scope === 'group') updateGroupEffects(selectedPatternGroupId, effects)
+    if (activeFxContext?.scope === 'track' && mixTrackId) setTrackEffects(mixTrackId, effects)
     if (activeFxContext?.scope === 'master') setMasterEffects(effects)
   }
   /* Which bus MIX is looking at. It used to be local state inside the BUS & FX
@@ -1207,12 +1558,15 @@ export function App({ audioEngine }: AppProps) {
      here. */
   const mixBus = mixScope === 'master'
     ? { volume: master.volume, muted: master.muted }
-    : { volume: selectedGroup.bus!.volume, muted: selectedGroup.bus!.muted, solo: selectedGroup.bus!.solo }
-  const mixBusLabel = mixScope === 'master' ? 'MASTER' : `G${patternGroups.findIndex((group) => group.id === selectedPatternGroupId) + 1}`
+    : mixScope === 'track'
+      ? { volume: selectedMixTrack?.gain ?? 1, muted: selectedMixTrack?.muted ?? false, solo: selectedMixTrack?.solo ?? false }
+      : { volume: selectedGroup.bus!.volume, muted: selectedGroup.bus!.muted, solo: selectedGroup.bus!.solo }
+  const mixBusLabel = mixScope === 'master' ? 'MASTER' : mixScope === 'track' ? `T${audioTracks.findIndex((track) => track.id === mixTrackId) + 1}` : `G${patternGroups.findIndex((group) => group.id === selectedPatternGroupId) + 1}`
   const synthShowsPicker = synthPickerForced || (!drumSynthPanelOpen && !selectedSynthPatch && !selectedStringsPatch)
   // The SYNTH tab keeps STRINGS'/DRUM SYNTH's own accent colour while their editor is
   // actually on screen, and falls back to the shared SYNTH accent for the picker and MONOPOLY.
   const accentView = mainView === 'synth' && !synthShowsPicker && drumSynthPanelOpen ? 'drumsynth' : mainView === 'synth' && !synthShowsPicker && selectedStringsPatch ? 'strings' : mainView
+  const editingTrack = openTrackEditorId ? audioTracks.find((track) => track.id === openTrackEditorId) : undefined
   return (
     <SystemDisplayProvider api={displayApi}>
     <main
@@ -1305,6 +1659,8 @@ export function App({ audioEngine }: AppProps) {
                 onCutOnPadTriggerChange={setCutOnPadTrigger}
                 sourcePitchSemitones={chopSession.pitchSemitones}
                 onSourcePitchChange={setSourcePitch}
+                tempo={chopTempo}
+                onApplyTempo={applyDetectedTempo}
               />
               <ChopWorkspace
                 pads={pads}
@@ -1326,6 +1682,8 @@ export function App({ audioEngine }: AppProps) {
                 slices={chopSession.slices}
                 activeSliceId={chopSession.activeSliceId}
                 addingSlice={chopAddingSlice}
+                candidates={chopCandidates}
+                analyzing={!chopAnalysisReady}
                 onLoadSource={loadChopSource}
                 testSamples={chopTestSamples}
                 loadingTestId={loadingChopTestId}
@@ -1344,6 +1702,7 @@ export function App({ audioEngine }: AppProps) {
                 onMoveCut={moveChopCut}
                 onSelectSlice={selectChopSlice}
                 onPreviewSlice={previewChopSlice}
+                onToggleSliceReversed={toggleChopSliceReversed}
                 onToggleAdding={() => setChopAddingSlice((current) => !current)}
                 onRemoveActiveCut={removeActiveChopCut}
                 onClearSlices={clearChopSlices}
@@ -1399,6 +1758,7 @@ export function App({ audioEngine }: AppProps) {
                     onPreview={() => triggerPad(selectedPad.id)}
                     onRegionChange={updateSelectedRegion}
                     onResetRegion={resetSelectedRegion}
+                    onToggleReversed={toggleSelectedPadReversed}
                     onClose={() => setSampleEditorOpen(false)}
                   />
                 </div>
@@ -1494,6 +1854,34 @@ export function App({ audioEngine }: AppProps) {
               onPaintSlot={paintPlaylistSlot}
             />
           )}
+          {mainView === "tracks" && tracksLayoutMode === "compact" && (
+            <TracksWorkspace
+              tracks={audioTracks}
+              waveforms={waveforms}
+              audioReady={audioReady}
+              isPlaying={isPlaying}
+              playheadBeat={tracksLivePlayheadBeat}
+              snapDivision={tracksSnapDivision}
+              maximumTracks={maximumAudioTracks}
+              viewState={tracksViewState}
+              onSnapDivisionChange={setTracksSnapDivision}
+              onSeekPlayhead={seekTracksPlayhead}
+              onImportNewTrack={(file) => void importNewAudioTrack(file)}
+              onImportClipToTrack={(trackId, file) => void importClipToTrack(trackId, file)}
+              onRequestRemoveTrack={requestRemoveTrack}
+              onMoveTrackOrder={moveTrackOrder}
+              onSetTrackMuted={setTrackMuted}
+              onSetTrackSolo={setTrackSolo}
+              onMoveClip={moveClip}
+              onTrimClipStart={trimClipStart}
+              onTrimClipEnd={trimClipEnd}
+              onSplitClipAtPlayhead={splitClipAtPlayhead}
+              onDuplicateClip={duplicateClip}
+              onToggleClipLoop={toggleClipLoop}
+              onRequestRemoveClip={requestRemoveClip}
+              onOpenTrackEditor={openTrackEditor}
+            />
+          )}
           {mainView === "mix" && (
             <>
               {/* First thing in MIX, ahead of the channel rails, so the entry
@@ -1522,10 +1910,14 @@ export function App({ audioEngine }: AppProps) {
               <MixTargetSelector
                 groups={patternGroups}
                 selectedGroup={selectedGroup}
+                tracks={audioTracks}
+                selectedTrackId={mixTrackId}
                 scope={mixScope}
                 onSelectGroup={selectPatternGroup}
+                onSelectTrack={setMixTrackId}
                 onScopeChange={(scope) => {
                   setMixScope(scope)
+                  if (scope === "track" && !mixTrackId) setMixTrackId(audioTracks[0]?.id ?? null)
                   setActiveFxContext(null)
                   setMixClaimNonce((nonce) => nonce + 1)
                 }}
@@ -1533,31 +1925,39 @@ export function App({ audioEngine }: AppProps) {
               {/* Replaces the MIX readout that only ever held the line. The bus
                   stands down while an FX slot is open, so opening a slot from
                   here is not immediately undone by its own parent. */}
-              <BusDisplayLauncher
-                scopeLabel={mixBusLabel}
-                bus={mixBus}
-                rack={mixScope === "master" ? masterEffects : selectedGroup.effects}
-                suspended={activeFxContext !== null}
-                claimNonce={mixClaimNonce}
-                onVolumeChange={(volume) =>
-                  mixScope === "master"
-                    ? updateMaster({ volume })
-                    : updateGroupBus(selectedPatternGroupId, { volume })
-                }
-                onMutedChange={(muted) =>
-                  mixScope === "master"
-                    ? updateMaster({ muted })
-                    : updateGroupBus(selectedPatternGroupId, { muted })
-                }
-                onSoloChange={
-                  mixScope === "master"
-                    ? undefined
-                    : (solo) => updateGroupBus(selectedPatternGroupId, { solo })
-                }
-                onOpenSlot={(slotIndex) =>
-                  setActiveFxContext({ scope: mixScope, slotIndex })
-                }
-              />
+              {(mixScope !== "track" || selectedMixTrack) && (
+                <BusDisplayLauncher
+                  scopeLabel={mixBusLabel}
+                  bus={mixBus}
+                  rack={mixScope === "master" ? masterEffects : mixScope === "track" ? selectedMixTrack!.effects : selectedGroup.effects}
+                  suspended={activeFxContext !== null}
+                  claimNonce={mixClaimNonce}
+                  onVolumeChange={(volume) =>
+                    mixScope === "master"
+                      ? updateMaster({ volume })
+                      : mixScope === "track"
+                        ? setTrackGain(mixTrackId!, volume)
+                        : updateGroupBus(selectedPatternGroupId, { volume })
+                  }
+                  onMutedChange={(muted) =>
+                    mixScope === "master"
+                      ? updateMaster({ muted })
+                      : mixScope === "track"
+                        ? setTrackMuted(mixTrackId!, muted)
+                        : updateGroupBus(selectedPatternGroupId, { muted })
+                  }
+                  onSoloChange={
+                    mixScope === "master"
+                      ? undefined
+                      : mixScope === "track"
+                        ? (solo) => setTrackSolo(mixTrackId!, solo)
+                        : (solo) => updateGroupBus(selectedPatternGroupId, { solo })
+                  }
+                  onOpenSlot={(slotIndex) =>
+                    setActiveFxContext({ scope: mixScope, slotIndex })
+                  }
+                />
+              )}
               <EffectDisplayLauncher
                 context={activeFxContext}
                 scopeLabel={activeFxContext ? mixBusLabel : undefined}
@@ -1570,6 +1970,78 @@ export function App({ audioEngine }: AppProps) {
           )}
         </div>
       </section>
+      {/* TRACKS' wide layout - a fixed, full-viewport sibling of
+          .station-panel, escaping the app-wide phone-width cap the same way
+          TrackEditor already does. Orientation only ever picks between this
+          and the compact TracksWorkspace above while mainView === 'tracks' -
+          it never changes mainView itself. See docs/DECISIONS.md DEC-027. */}
+      {mainView === "tracks" && tracksLayoutMode === "wide" && (
+        <TracksArranger
+          tracks={audioTracks}
+          waveforms={waveforms}
+          audioReady={audioReady}
+          isPlaying={isPlaying}
+          playheadBeat={tracksLivePlayheadBeat}
+          bpm={bpm}
+          snapDivision={tracksSnapDivision}
+          maximumTracks={maximumAudioTracks}
+          viewState={tracksViewState}
+          canUndo={tracksHistory.canUndo}
+          canRedo={tracksHistory.canRedo}
+          onUndo={undoTracks}
+          onRedo={redoTracks}
+          onSnapDivisionChange={setTracksSnapDivision}
+          onSeekPlayhead={seekTracksPlayhead}
+          onPlay={startPlayback}
+          onStop={stopPlayback}
+          onImportNewTrack={(file) => void importNewAudioTrack(file)}
+          onImportClipToTrack={(trackId, file) => void importClipToTrack(trackId, file)}
+          onRequestRemoveTrack={requestRemoveTrack}
+          onMoveTrackOrder={moveTrackOrder}
+          onSetTrackMuted={setTrackMuted}
+          onSetTrackSolo={setTrackSolo}
+          onMoveClip={moveClip}
+          onTrimClipStart={trimClipStart}
+          onTrimClipEnd={trimClipEnd}
+          onSplitClipAtPlayhead={splitClipAtPlayhead}
+          onDuplicateClip={duplicateClip}
+          onToggleClipLoop={toggleClipLoop}
+          onRequestRemoveClip={requestRemoveClip}
+          onOpenTrackEditor={openTrackEditor}
+          onExit={() => setMainView(previousMainViewRef.current)}
+        />
+      )}
+      {/* A fixed, full-viewport sibling of .station-panel, not a replacement
+          for it - TracksWorkspace above stays mounted underneath the whole
+          time this is open, which is what lets closing return to its exact
+          prior scroll/zoom/selection state for free. See tracks/TrackEditor.tsx. */}
+      {editingTrack && (
+        <TrackEditor
+          track={editingTrack}
+          waveforms={waveforms}
+          bpm={bpm}
+          isPlaying={isPlaying}
+          playheadBeat={tracksLivePlayheadBeat}
+          snapDivision={tracksSnapDivision}
+          onSnapDivisionChange={setTracksSnapDivision}
+          monitorMode={trackMonitorMode}
+          onMonitorModeChange={changeTrackMonitorMode}
+          onMoveClip={(clipId, startBeat) => moveClip(editingTrack.id, clipId, startBeat)}
+          onTrimClipStart={(clipId, startBeat) => trimClipStart(editingTrack.id, clipId, startBeat)}
+          onTrimClipEnd={(clipId, endBeat) => trimClipEnd(editingTrack.id, clipId, endBeat)}
+          onSplitClipAtPlayhead={(clipId) => splitClipAtPlayhead(editingTrack.id, clipId)}
+          onDuplicateClip={(clipId) => duplicateClip(editingTrack.id, clipId)}
+          onRequestRemoveClip={(clipId) => requestRemoveClip(editingTrack.id, clipId)}
+          onToggleClipLoop={(clipId) => toggleClipLoop(editingTrack.id, clipId)}
+          onSetClipGain={(clipId, gain) => setClipGain(editingTrack.id, clipId, gain)}
+          onSetClipFadeIn={(clipId, seconds) => setClipFadeIn(editingTrack.id, clipId, seconds)}
+          onSetClipFadeOut={(clipId, seconds) => setClipFadeOut(editingTrack.id, clipId, seconds)}
+          onSetClipPitch={(clipId, semitones) => setClipPitch(editingTrack.id, clipId, semitones)}
+          onToggleClipReversed={(clipId) => toggleClipReversed(editingTrack.id, clipId)}
+          onSeekPlayhead={seekTracksPlayhead}
+          onClose={closeTrackEditor}
+        />
+      )}
       {pendingConfirmation && (
         <StationConfirm
           message={pendingConfirmation.message}
@@ -1625,8 +2097,8 @@ function trimGainFor(peak: number): number {
   return 10 ** (-0.3 / 20) / peak
 }
 function toMessage(error: unknown): string { return error instanceof Error ? error.message : 'An unexpected audio error occurred.' }
-function assetIsReferencedByGroups(groups: readonly PatternGroup[], assetId: SampleAssetId): boolean {
-  return groups.some((group) => group.bank.pads.some((pad) => pad.assetId === assetId) || group.bank.chopSession.assetId === assetId)
+function assetIsReferencedByGroups(groups: readonly PatternGroup[], tracks: readonly AudioTrack[], assetId: SampleAssetId): boolean {
+  return groups.some((group) => group.bank.pads.some((pad) => pad.assetId === assetId) || group.bank.chopSession.assetId === assetId) || collectAudioTrackAssetIds(tracks).has(assetId)
 }
 function manualPadToken(groupId: string, padId: PadState['id']): string {
   return `manual:${groupId}:${padId}`

@@ -46,6 +46,7 @@ export function assignStringsSource(pad: PadState, stringsPatchId: StringsPatchI
     fileName: null,
     durationSeconds: null,
     region: { startSeconds: 0, endSeconds: 0 },
+    reversed: false,
     slices: [],
     chopSessionId: null,
     synthPatchId: null,

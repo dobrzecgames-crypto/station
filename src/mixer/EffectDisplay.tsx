@@ -6,7 +6,7 @@ import type { DisplayTenant } from '../shell/SystemDisplay'
 import { useSystemDisplay } from '../shell/systemDisplayContext'
 
 interface EffectContext {
-  scope: 'group' | 'master'
+  scope: 'group' | 'track' | 'master'
   slotIndex: 0 | 1
 }
 

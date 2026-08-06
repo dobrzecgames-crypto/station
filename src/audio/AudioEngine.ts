@@ -52,6 +52,37 @@ export interface TriggerSampleOptions {
   chokeGroupId?: string
   /** Runtime-only sequencer step length. Shorter than the region's natural duration, it cuts the voice early through the same release fade as a normal envelope. */
   maxDurationSeconds?: number
+  /** Plays the region back to front, from a lazily-cached time-reversed copy
+      of the whole asset rather than a per-region copy - see reversedSamples. */
+  reversed?: boolean
+}
+
+/**
+ * Options for scheduleClip (TRACKS). Distinct from TriggerSampleOptions
+ * because a clip's fades are seconds (musical-length, up to several seconds)
+ * rather than a pad's short millisecond attack/release, and because a clip
+ * always has a hard timeline-slot duration to truncate at - see
+ * tracks/tracksTypes.ts's AudioClip docs for why.
+ */
+export interface ScheduleClipOptions {
+  sourceOffsetSeconds: number
+  sourceEndSeconds: number
+  /** Hard timeline-slot duration in seconds. Playback is always truncated
+      here regardless of loop/pitch/tempo rate, so a clip never bleeds past
+      its own slot into the next one. */
+  lengthSeconds: number
+  gain?: number
+  pitchSemitones?: number
+  /** Extra multiplier from tracks/tracksOperations.ts's resolveTempoMatchRate,
+      stacked with the semitone-derived rate. 1 (or omitted) when tempo match
+      is off. */
+  tempoRate?: number
+  fadeInSeconds?: number
+  fadeOutSeconds?: number
+  loop?: boolean
+  /** Plays this clip's region back to front, from the same lazily-cached
+      whole-asset reversed buffer a reversed Pad or CHOP slice already uses. */
+  reversed?: boolean
 }
 
 export type PumpCurve = 'snap' | 'smooth' | 'swell'
@@ -83,7 +114,7 @@ interface ActiveVoice {
   source: AudioScheduledSourceNode
   gain: GainNode
   cleanedUp: boolean
-  origin: 'manual' | 'sequencer' | 'preview'
+  origin: 'manual' | 'sequencer' | 'preview' | 'timeline'
   isSample: boolean
   startsAt: number
   /** CHOP slices share this key so their sequenced triggers can be monophonic. */
@@ -298,6 +329,10 @@ export class AudioEngine {
   private pumpRoutes: readonly PumpRoute[] = []
   private samples = new Map<SampleId, AudioBuffer>()
   private waveforms = new Map<SampleId, number[]>()
+  /** One lazily-built time-reversed copy per asset, shared by every reversed
+      slice/pad that plays any part of it - never one copy per slice. Built on
+      first use, not at load time, since most assets never play in reverse. */
+  private reversedSamples = new Map<SampleId, AudioBuffer>()
   private runtimeAssets = new Map<SampleAssetId, RuntimeSampleAsset>()
   private activeVoices = new Set<ActiveVoice>()
   private previewVoices = new Set<ActiveVoice>()
@@ -441,6 +476,9 @@ export class AudioEngine {
       this.samples.set(assetId, decodedBuffer)
       this.waveforms.set(assetId, this.createWaveform(decodedBuffer))
       this.runtimeAssets.set(assetId, { filename, blob })
+      // Defensive: a reload under the same id (rare, but not impossible) must
+      // not leave a reversed copy of the previous audio behind.
+      this.reversedSamples.delete(assetId)
       return {
         filename,
         durationSeconds: decodedBuffer.duration,
@@ -457,6 +495,7 @@ export class AudioEngine {
   removeSampleAsset(assetId: SampleAssetId): boolean {
     this.waveforms.delete(assetId)
     this.runtimeAssets.delete(assetId)
+    this.reversedSamples.delete(assetId)
     return this.samples.delete(assetId)
   }
 
@@ -471,6 +510,42 @@ export class AudioEngine {
 
   getWaveformPeaks(assetId: SampleAssetId): number[] | undefined {
     return this.waveforms.get(assetId)?.slice()
+  }
+
+  /**
+   * A finer, RMS-based sibling of `getWaveformPeaks` for CHOP's own transient
+   * and tempo analysis, not for drawing. `getWaveformPeaks`'s cache is capped
+   * at 512 buckets total for the waveform canvas - fine for a picture, far too
+   * coarse (20-50ms/bucket on a 20-25s source) to place cuts precisely on. This
+   * reads the real decoded buffer on demand instead, at a target resolution
+   * that stays cheap (one linear pass, no caching - CHOP analyzes one loaded
+   * source at a time) while being 8-10x finer than the drawing cache.
+   */
+  getAnalysisEnvelope(assetId: SampleAssetId, targetBucketSeconds = 0.005): number[] | undefined {
+    const sampleBuffer = this.samples.get(assetId)
+    if (!sampleBuffer) return undefined
+    const maxAnalysisBucketCount = 6000
+    const bucketCount = Math.min(maxAnalysisBucketCount, Math.max(1, Math.round(sampleBuffer.duration / targetBucketSeconds)))
+    const bucketSize = Math.ceil(sampleBuffer.length / bucketCount)
+    const envelope: number[] = []
+
+    for (let bucketIndex = 0; bucketIndex < bucketCount; bucketIndex += 1) {
+      const start = bucketIndex * bucketSize
+      const end = Math.min(sampleBuffer.length, start + bucketSize)
+      let sumOfSquares = 0
+      let sampleCount = 0
+
+      for (let channelIndex = 0; channelIndex < sampleBuffer.numberOfChannels; channelIndex += 1) {
+        const channelData = sampleBuffer.getChannelData(channelIndex)
+        for (let sampleIndex = start; sampleIndex < end; sampleIndex += 1) {
+          sumOfSquares += channelData[sampleIndex] * channelData[sampleIndex]
+          sampleCount += 1
+        }
+      }
+      envelope.push(sampleCount > 0 ? Math.sqrt(sumOfSquares / sampleCount) : 0)
+    }
+
+    return envelope
   }
 
   /**
@@ -663,7 +738,7 @@ export class AudioEngine {
   }
 
   previewAsset(assetId: SampleAssetId, options: TriggerSampleOptions = {}, onEnded?: () => void): void {
-    const sampleBuffer = this.samples.get(assetId)
+    const sampleBuffer = this.resolvePlaybackBuffer(assetId, options.reversed)
     if (this.status !== 'ready' || !this.context || !this.masterEffects || !sampleBuffer) return
 
     const when = this.context.currentTime
@@ -671,7 +746,9 @@ export class AudioEngine {
     const gain = this.context.createGain()
     const voice: ActiveVoice = { source, gain, cleanedUp: false, origin: 'preview', isSample: true, startsAt: when, onEnded }
     const playbackRate = this.toPlaybackRate(options.pitchSemitones)
-    const region = this.toPlaybackRegion(sampleBuffer.duration, options.startSeconds, options.endSeconds)
+    // Duration is identical on the reversed copy (same length/sampleRate as
+    // the forward buffer it mirrors), so this is safe regardless of reversed.
+    const region = this.toPlaybackRegion(sampleBuffer.duration, options.startSeconds, options.endSeconds, options.reversed)
     const outputDuration = region.durationSeconds / playbackRate
     const fadeDuration = Math.min(0.004, outputDuration / 2)
     source.buffer = sampleBuffer
@@ -717,7 +794,7 @@ export class AudioEngine {
   }
 
   scheduleSample(groupId: GroupId, channelId: ChannelId, assetId: SampleAssetId, when: number, options: TriggerSampleOptions = {}, origin: 'manual' | 'sequencer' = 'manual'): void {
-    const sampleBuffer = this.samples.get(assetId)
+    const sampleBuffer = this.resolvePlaybackBuffer(assetId, options.reversed)
     const channel = this.ensureChannel(groupId, channelId)
 
     if (this.status !== 'ready' || !this.context || !this.masterEffects || !sampleBuffer || !channel?.gain) {
@@ -729,7 +806,7 @@ export class AudioEngine {
     const scheduledWhen = Math.max(this.context.currentTime, when)
     const voice: ActiveVoice = { source, gain, cleanedUp: false, origin, isSample: true, startsAt: scheduledWhen, chokeGroupId: options.chokeGroupId }
     const playbackRate = this.toPlaybackRate(options.pitchSemitones)
-    const region = this.toPlaybackRegion(sampleBuffer.duration, options.startSeconds, options.endSeconds)
+    const region = this.toPlaybackRegion(sampleBuffer.duration, options.startSeconds, options.endSeconds, options.reversed)
     const voiceGain = this.toGain(options.gain)
     const naturalOutputDuration = region.durationSeconds / playbackRate
     const outputDuration = options.maxDurationSeconds !== undefined && options.maxDurationSeconds > 0 ? Math.min(naturalOutputDuration, options.maxDurationSeconds) : naturalOutputDuration
@@ -743,6 +820,54 @@ export class AudioEngine {
     this.activeVoices.add(voice)
     this.triggerPumpRoutesForChannel(channelId, scheduledWhen)
     source.start(scheduledWhen, region.startSeconds, outputDuration * playbackRate)
+  }
+
+  /**
+   * TRACKS clip playback - one event per clip (unlike scheduleSample's
+   * per-step calls), scheduled by TimelineScheduler. groupId/channelId are
+   * both the owning AudioTrack's own id: a track is its own bus (see
+   * ensureGroupBus/ensureChannel), not routed through a Pattern Group.
+   *
+   * Looping uses the AudioBufferSourceNode's native loop/loopStart/loopEnd
+   * rather than re-triggering per repeat. Either way, an explicit stop() at
+   * the timeline-slot boundary is the single source of truth for how long
+   * the clip actually sounds - see ScheduleClipOptions.lengthSeconds.
+   */
+  scheduleClip(groupId: GroupId, channelId: ChannelId, assetId: SampleAssetId, when: number, options: ScheduleClipOptions): void {
+    const sampleBuffer = this.resolvePlaybackBuffer(assetId, options.reversed)
+    const channel = this.ensureChannel(groupId, channelId)
+
+    if (this.status !== 'ready' || !this.context || !this.masterEffects || !sampleBuffer || !channel?.gain) {
+      return
+    }
+
+    const source = this.context.createBufferSource()
+    const gain = this.context.createGain()
+    const scheduledWhen = Math.max(this.context.currentTime, when)
+    const voice: ActiveVoice = { source, gain, cleanedUp: false, origin: 'timeline', isSample: true, startsAt: scheduledWhen }
+    const playbackRate = this.toPlaybackRate(options.pitchSemitones) * (options.tempoRate && options.tempoRate > 0 ? options.tempoRate : 1)
+    const region = this.toPlaybackRegion(sampleBuffer.duration, options.sourceOffsetSeconds, options.sourceEndSeconds, options.reversed)
+    const voiceGain = this.toGain(options.gain)
+    const outputDuration = Math.max(0.005, options.lengthSeconds)
+    source.buffer = sampleBuffer
+    source.playbackRate.setValueAtTime(playbackRate, scheduledWhen)
+    if (options.loop) {
+      source.loop = true
+      source.loopStart = region.startSeconds
+      source.loopEnd = region.startSeconds + region.durationSeconds
+    }
+    this.applyClipEnvelope(gain.gain, voiceGain, scheduledWhen, outputDuration, options.fadeInSeconds, options.fadeOutSeconds)
+    source.connect(gain)
+    gain.connect(channel.gain)
+    source.addEventListener('ended', () => this.cleanUpVoice(voice), { once: true })
+
+    this.activeVoices.add(voice)
+    this.triggerPumpRoutesForChannel(channelId, scheduledWhen)
+    source.start(scheduledWhen, region.startSeconds)
+    // Always truncated at the timeline slot boundary: a pitched-down clip may
+    // not finish its natural region, a pitched-up or non-looped short one
+    // goes silent for the remainder rather than bleeding into the next clip.
+    source.stop(scheduledWhen + outputDuration)
   }
 
   scheduleMetronome(when: number, accented: boolean): void {
@@ -795,6 +920,22 @@ export class AudioEngine {
     for (const voice of [...this.activeStringsVoices]) if (voice.origin === 'sequencer') this.stopStringsVoiceImmediately(voice)
   }
 
+  /** TRACKS' equivalent of stopSequencerVoices - kept separate (not folded
+      into 'sequencer') so transport STOP can own both independently and so
+      CHOP's choke-group logic below, which is sequencer-specific, never
+      touches a clip voice. */
+  stopTimelineVoices(): void {
+    for (const voice of [...this.activeVoices]) {
+      if (voice.origin !== 'timeline') continue
+      try {
+        voice.source.stop()
+      } catch {
+        // A scheduled clip may have already ended before transport stop.
+      }
+      this.cleanUpVoice(voice)
+    }
+  }
+
   stopSequencerChokeGroupAt(chokeGroupId: string, when: number): void {
     if (!this.context) return
     const stopAt = Math.max(this.context.currentTime, when)
@@ -838,6 +979,7 @@ export class AudioEngine {
     this.stopAll()
     this.samples.clear()
     this.waveforms.clear()
+    this.reversedSamples.clear()
     this.runtimeAssets.clear()
     for (const [key, runtime] of this.synthRuntimes) this.disposeSynthRuntime(key, runtime)
     this.synthPatches.clear()
@@ -1760,12 +1902,49 @@ export class AudioEngine {
     return peaks
   }
 
-  private toPlaybackRegion(sampleDuration: number, startSeconds: number | undefined, endSeconds: number | undefined): { startSeconds: number; durationSeconds: number } {
-    const minimumDuration = Math.min(0.005, sampleDuration)
+  /**
+   * Builds (once) and caches a whole-asset time-reversed copy of a decoded
+   * buffer - never a per-slice copy, so any number of reversed slices/pads
+   * sharing one asset share this same buffer. Position `t` in the reversed
+   * buffer holds whatever was originally at `duration - t`, which is what
+   * lets `toPlaybackRegion` below turn a forward region into a reversed one
+   * with simple mirror math instead of a second, region-sized copy.
+   */
+  private ensureReversedBuffer(assetId: SampleAssetId, forward: AudioBuffer): AudioBuffer {
+    const cached = this.reversedSamples.get(assetId)
+    if (cached) return cached
+    const context = this.context!
+    const reversed = context.createBuffer(forward.numberOfChannels, forward.length, forward.sampleRate)
+    for (let channelIndex = 0; channelIndex < forward.numberOfChannels; channelIndex += 1) {
+      const source = forward.getChannelData(channelIndex)
+      const destination = reversed.getChannelData(channelIndex)
+      const lastIndex = source.length - 1
+      for (let sampleIndex = 0; sampleIndex <= lastIndex; sampleIndex += 1) destination[sampleIndex] = source[lastIndex - sampleIndex]
+    }
+    this.reversedSamples.set(assetId, reversed)
+    return reversed
+  }
+
+  /** Forward playback is untouched (same buffer, same math); reverse resolves
+      the cached mirror copy above, building it on first use. */
+  private resolvePlaybackBuffer(assetId: SampleAssetId, reversed: boolean | undefined): AudioBuffer | undefined {
+    const forward = this.samples.get(assetId)
+    if (!forward) return undefined
+    return reversed ? this.ensureReversedBuffer(assetId, forward) : forward
+  }
+
+  private toPlaybackRegion(sampleDuration: number, startSeconds: number | undefined, endSeconds: number | undefined, reversed: boolean | undefined): { startSeconds: number; durationSeconds: number } {
     const requestedStart = typeof startSeconds === 'number' && Number.isFinite(startSeconds) ? startSeconds : 0
-    const start = Math.min(Math.max(0, requestedStart), Math.max(0, sampleDuration - minimumDuration))
     const requestedEnd = typeof endSeconds === 'number' && Number.isFinite(endSeconds) ? endSeconds : sampleDuration
-    const end = Math.min(sampleDuration, Math.max(start + minimumDuration, requestedEnd))
+    // A reversed slice is still described by its forward start/end seconds
+    // everywhere else in the app (persisted data, the waveform, region math);
+    // only here, right before scheduling, does that flip into the mirrored
+    // buffer's own coordinate space (see ensureReversedBuffer above).
+    const [rangeStart, rangeEnd] = reversed ? [sampleDuration - requestedEnd, sampleDuration - requestedStart] : [requestedStart, requestedEnd]
+
+    const minimumDuration = Math.min(0.005, sampleDuration)
+    const start = Math.min(Math.max(0, rangeStart), Math.max(0, sampleDuration - minimumDuration))
+    const end = Math.min(sampleDuration, Math.max(start + minimumDuration, rangeEnd))
 
     return { startSeconds: start, durationSeconds: end - start }
   }
@@ -1779,6 +1958,29 @@ export class AudioEngine {
     const minimumEdgeFadeSeconds = 0.004
     const requestedAttackSeconds = Math.max(minimumEdgeFadeSeconds, this.toBoundedNumber(attackMs ?? 0, 0, 250, 0) / 1000)
     const requestedReleaseSeconds = this.toBoundedNumber(releaseMs ?? 4, 4, 120, 4) / 1000
+    const durationScale = Math.min(1, outputDuration / (requestedAttackSeconds + requestedReleaseSeconds))
+    const attackSeconds = requestedAttackSeconds * durationScale
+    const releaseSeconds = requestedReleaseSeconds * durationScale
+    const releaseStartsAt = when + Math.max(attackSeconds, outputDuration - releaseSeconds)
+
+    gain.setValueAtTime(0, when)
+    gain.linearRampToValueAtTime(voiceGain, when + attackSeconds)
+    gain.setValueAtTime(voiceGain, releaseStartsAt)
+    gain.linearRampToValueAtTime(0, when + outputDuration)
+  }
+
+  /**
+   * Same ramp shape as applyPadEnvelope above, but for TRACKS clip fades:
+   * stored in seconds already (not ms) and allowed up to several seconds,
+   * wider than a pad's short attack/release. A separate, equally small
+   * method rather than widening applyPadEnvelope's bounds, which would
+   * change how every existing pad's envelope clamps.
+   */
+  private applyClipEnvelope(gain: AudioParam, voiceGain: number, when: number, outputDuration: number, fadeInSeconds: number | undefined, fadeOutSeconds: number | undefined): void {
+    const minimumEdgeFadeSeconds = 0.004
+    // 10s ceiling matches tracks/tracksOperations.ts's maximumClipFadeSeconds.
+    const requestedAttackSeconds = Math.max(minimumEdgeFadeSeconds, this.toBoundedNumber(fadeInSeconds ?? 0, 0, 10, 0))
+    const requestedReleaseSeconds = Math.max(minimumEdgeFadeSeconds, this.toBoundedNumber(fadeOutSeconds ?? 0, 0, 10, 0))
     const durationScale = Math.min(1, outputDuration / (requestedAttackSeconds + requestedReleaseSeconds))
     const attackSeconds = requestedAttackSeconds * durationScale
     const releaseSeconds = requestedReleaseSeconds * durationScale

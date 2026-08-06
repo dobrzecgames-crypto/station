@@ -1,4 +1,4 @@
-import type { PadDefinition, PadState, ChopSessionState } from './types'
+import type { PadDefinition, PadState, ChopSessionState, SampleSlice } from './types'
 
 export interface PadBankState {
   pads: PadState[]
@@ -44,6 +44,7 @@ export function createPadBank(): PadState[] {
     fileName: null,
     durationSeconds: null,
     region: { startSeconds: 0, endSeconds: 0 },
+    reversed: false,
     slices: [],
     chopSessionId: null,
     volume: 1,
@@ -60,6 +61,19 @@ export function createPadBank(): PadState[] {
   }))
 }
 
+/**
+ * Only an absent field is migrated, matching every other normalize helper in
+ * this app - a project saved before per-slice REVERSE existed has no
+ * `reversed` on its slices at all, and defaults to unreversed exactly as it
+ * always sounded. Shared by every place a SampleSlice is cloned or
+ * deserialized (clonePadBank below, plus ProjectState.ts's migrations), so
+ * the default can't drift between them.
+ */
+export function normalizeSampleSlice(slice: SampleSlice): SampleSlice {
+  const legacySlice = slice as SampleSlice & { reversed?: unknown }
+  return { ...slice, reversed: legacySlice.reversed === undefined ? false : legacySlice.reversed as boolean }
+}
+
 export function createEmptyChopSession(): ChopSessionState {
   return { id: '', assetId: null, fileName: null, durationSeconds: null, slices: [], activeSliceId: null, pitchSemitones: 0 }
 }
@@ -74,11 +88,12 @@ export function clonePadBank(bank: PadBankState): PadBankState {
   const legacySession = bank.chopSession as ChopSessionState & { pitchSemitones?: unknown }
   return {
     pads: bank.pads.map((pad) => {
-      const legacyPad = pad as PadState & { synthPatchId?: unknown; stringsPatchId?: unknown; chordIntervals?: unknown }
+      const legacyPad = pad as PadState & { reversed?: unknown; synthPatchId?: unknown; stringsPatchId?: unknown; chordIntervals?: unknown }
       return {
         ...pad,
         region: { ...pad.region },
-        slices: pad.slices.map((slice) => ({ ...slice })),
+        reversed: legacyPad.reversed === undefined ? false : legacyPad.reversed as boolean,
+        slices: pad.slices.map(normalizeSampleSlice),
         synthPatchId: legacyPad.synthPatchId === undefined ? null : legacyPad.synthPatchId as PadState['synthPatchId'],
         stringsPatchId: legacyPad.stringsPatchId === undefined ? null : legacyPad.stringsPatchId as PadState['stringsPatchId'],
         chordIntervals: legacyPad.chordIntervals === undefined ? [0] : [...legacyPad.chordIntervals as number[]],
@@ -87,7 +102,7 @@ export function clonePadBank(bank: PadBankState): PadBankState {
     chopSession: {
       ...bank.chopSession,
       pitchSemitones: legacySession.pitchSemitones === undefined ? 0 : legacySession.pitchSemitones as number,
-      slices: bank.chopSession.slices.map((slice) => ({ ...slice })),
+      slices: bank.chopSession.slices.map(normalizeSampleSlice),
     },
   }
 }

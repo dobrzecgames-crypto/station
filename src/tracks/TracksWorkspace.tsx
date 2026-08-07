@@ -1,10 +1,10 @@
 import { useRef } from 'react'
 import type { ChangeEvent, CSSProperties, UIEvent } from 'react'
 import type { SampleAssetId } from '../audio/AudioEngine'
+import { SnapGridSelect } from './SnapGridSelect'
 import { trackAccentColor } from './trackAccent'
 import { TrackClipWaveform } from './TrackClipWaveform'
 import { TrackControls } from './TrackControls'
-import { timelineGridDivisions } from './tracksTypes'
 import type { AudioClip, AudioTrack, TimelineGridDivision } from './tracksTypes'
 import { useTrackClipDrag } from './useTrackClipDrag'
 import type { TracksViewState } from './useTracksViewState'
@@ -133,45 +133,38 @@ export function TracksWorkspace({ tracks, waveforms, audioReady, isPlaying, play
   return (
     <section className="tracks-workspace" aria-label="Tracks">
       <div className="tracks-toolbar">
-        <label className="file-picker-button tracks-add-track-button">
+        <label className="tracks-add-track-button">
           + ADD TRACK
           <input ref={newTrackInputRef} type="file" accept="audio/wav,.wav" disabled={!audioReady || tracks.length >= maximumTracks} onChange={handleNewTrackFile} />
         </label>
-        <div className="tracks-snap-control" role="group" aria-label="Snap grid">
-          <span className="context-label">SNAP</span>
-          {timelineGridDivisions.map((division) => (
-            <button key={division} type="button" className={snapDivision === division ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} aria-pressed={snapDivision === division} onClick={() => onSnapDivisionChange(division)}>
-              {division === 'off' ? 'OFF' : division === '1' ? '1 BAR' : division}
-            </button>
-          ))}
-        </div>
+        <SnapGridSelect value={snapDivision} onChange={onSnapDivisionChange} />
       </div>
 
-      {selection && selectedClip && (
-        <div className="tracks-clip-actions" role="toolbar" aria-label="Selected clip">
-          <span className="tracks-clip-actions-label">{tracks.find((track) => track.id === selection.trackId)?.name}</span>
-          <button type="button" className="mixer-toggle" disabled={!canSplitSelected} onClick={() => onSplitClipAtPlayhead(selection.trackId, selection.clipId)}>SPLIT AT PLAYHEAD</button>
-          <button type="button" className="mixer-toggle" onClick={() => onDuplicateClip(selection.trackId, selection.clipId)}>DUPLICATE</button>
-          <button type="button" className={selectedClip.loop ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} aria-pressed={selectedClip.loop} onClick={() => onToggleClipLoop(selection.trackId, selection.clipId)}>LOOP</button>
-          <button type="button" className="mixer-toggle compact-danger" onClick={() => onRequestRemoveClip(selection.trackId, selection.clipId)}>DELETE</button>
-          <button type="button" className="mixer-toggle" onClick={() => setSelection(null)}>CLOSE</button>
-        </div>
-      )}
-
-      {tracks.length === 0 ? (
-        <div className="chop-empty-state">
-          <p className="sample-editor-empty">No tracks yet - import a WAV to create the first one.</p>
-        </div>
-      ) : (
-        <div className="tracks-card-list">
+      {tracks.length > 0 && (
+        <div className="tracks-row-list">
           {tracks.map((track) => {
             const accent = trackAccentColor(track.id)
+            const isTrackSelected = selection?.trackId === track.id
             return (
-              <div className="tracks-card" key={track.id} style={{ '--tracks-row-accent': accent } as CSSProperties}>
-                <div className="tracks-card-header">
-                  <strong className="tracks-track-name" title={track.name}>{track.name}</strong>
-                  <TrackControls track={track} audioReady={audioReady} onSetTrackMuted={onSetTrackMuted} onSetTrackSolo={onSetTrackSolo} onMoveTrackOrder={onMoveTrackOrder} onImportClipToTrack={onImportClipToTrack} onRequestRemoveTrack={onRequestRemoveTrack} />
-                  <button type="button" className="tracks-expand-button" aria-label={`Open ${track.name} in the track editor`} onClick={() => onOpenTrackEditor(track.id)}>⤢</button>
+              <div className="tracks-row" key={track.id} style={{ '--tracks-row-accent': accent } as CSSProperties}>
+                <div className={isTrackSelected ? 'tracks-row-header tracks-row-selected' : 'tracks-row-header'}>
+                  <strong className="tracks-row-name" title={track.name}>{track.name}</strong>
+                  <TrackControls
+                    track={track}
+                    audioReady={audioReady}
+                    selectedClip={isTrackSelected ? (selectedClip ?? null) : null}
+                    canSplitSelectedClip={isTrackSelected && canSplitSelected}
+                    onSetTrackMuted={onSetTrackMuted}
+                    onSetTrackSolo={onSetTrackSolo}
+                    onMoveTrackOrder={onMoveTrackOrder}
+                    onImportClipToTrack={onImportClipToTrack}
+                    onRequestRemoveTrack={onRequestRemoveTrack}
+                    onSplitClipAtPlayhead={onSplitClipAtPlayhead}
+                    onDuplicateClip={onDuplicateClip}
+                    onToggleClipLoop={onToggleClipLoop}
+                    onRequestRemoveClip={onRequestRemoveClip}
+                    onOpenTrackEditor={onOpenTrackEditor}
+                  />
                 </div>
 
                 <div className="tracks-timeline-scroll" ref={registerStrip(track.id)} onScroll={handleStripScroll(track.id)}>

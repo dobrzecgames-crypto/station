@@ -14,7 +14,11 @@
      edge-to-edge (border-box), only the flex content (toolbar, body) shifts
      in from the true screen edge/notch/gesture bar. */
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-  background: #0d0e0e;
+  /* Same void the rest of Station frames its panels against
+     (docs/COLOR_BIBLE.md) - this fixed overlay plays the role .station-shell
+     plays for every other tab, so the toolbar/rail/lane below read as
+     content sitting on it, not a second, differently-toned app. */
+  background: var(--station-bg, #0b0c14);
   color: var(--station-text, #eee4d6);
 }
 
@@ -25,8 +29,8 @@
   gap: 6px;
   align-items: center;
   padding: 6px 8px;
-  border-bottom: 1px solid var(--station-line, #4b5252);
-  background: #17191a;
+  border-bottom: 1px solid var(--station-line, #443b3d);
+  background: var(--station-card, #221e22);
 }
 
 .tracks-arranger-toolbar .mixer-toggle {
@@ -77,47 +81,6 @@
   font-size: 0.85rem;
 }
 
-/* ---- SNAP selector: closed-by-default trigger + single-column popover ----
-   Replaces six always-visible division buttons, only one of which was ever
-   active. See SnapGridSelect.tsx and docs/DECISIONS.md DEC-027's third
-   addendum. */
-.tracks-snap-select {
-  position: relative;
-}
-
-.tracks-snap-select-caret {
-  margin-left: 2px;
-  opacity: 0.7;
-}
-
-.tracks-snap-select-menu {
-  position: absolute;
-  /* Positioned elements with z-index:auto paint in DOM order within the
-     nearest ancestor stacking context (.tracks-arranger{position:fixed}
-     establishes one) - since .tracks-arranger-toolbar comes before
-     .tracks-arranger-body in the DOM, an auto z-index here would let a
-     scrolled-up clip paint over this menu. An explicit value avoids that. */
-  z-index: 20;
-  top: calc(100% + 4px);
-  left: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  width: max-content;
-  min-width: 100%;
-  padding: 5px;
-  border: 1px solid var(--station-line, #4b5252);
-  border-radius: 8px;
-  background: #202325;
-  box-shadow: 0 8px 20px rgb(0 0 0 / 45%);
-}
-
-.tracks-snap-select-menu .mixer-toggle {
-  min-height: 36px;
-  padding: 0 10px;
-  text-align: left;
-}
-
 /* ---- Overflow menu: houses the rarer horizontal time-zoom control ----
    Always tucked away regardless of viewport width - one lone control group
    is too small to justify a responsive width-measurement show/hide system,
@@ -137,9 +100,9 @@
   flex-direction: column;
   gap: 6px;
   padding: 8px;
-  border: 1px solid var(--station-line, #4b5252);
-  border-radius: 8px;
-  background: #202325;
+  border: 1px solid var(--station-line, #443b3d);
+  border-radius: 6px;
+  background: var(--station-card, #221e22);
   box-shadow: 0 8px 20px rgb(0 0 0 / 45%);
 }
 
@@ -173,11 +136,10 @@
   font-size: 0.85rem;
 }
 
-.tracks-arranger-add-track,
 .tracks-arranger-toolbar .tracks-add-track-button {
   min-height: 32px;
   padding: 0 10px;
-  font-size: 0.6rem;
+  font-size: 0.64rem;
 }
 
 .tracks-arranger-exit {
@@ -215,13 +177,15 @@
      min-content size, which can override flex-basis/flex-shrink:0 and let
      a long, otherwise-elided track name force the whole rail wider than
      160px - the same bug the compact view's header column had (see
-     tracksWorkspace.css's .tracks-card-list docs), just less visible here
+     tracksWorkspace.css's .tracks-row-list docs), just less visible here
      since 160px is a smaller fraction of a wide viewport. */
   min-width: 0;
   flex-direction: column;
   overflow-y: auto;
-  border-right: 1px solid var(--station-line, #4b5252);
-  background: #17191a;
+  border-right: 1px solid var(--station-line, #443b3d);
+  /* One step up from the arranger's own void background, the same relation
+     .station-panel has to .station-shell - see .tracks-arranger's docs. */
+  background: var(--station-panel, #181720);
 }
 
 /* Row/lane height is a custom property, not a hardcoded number, precisely so
@@ -245,8 +209,10 @@
   justify-content: center;
   gap: 6px;
   padding: 8px 10px;
-  border-bottom: 1px solid var(--station-line, #4b5252);
-  border-left: 3px solid var(--tracks-row-accent, transparent);
+  border-bottom: 1px solid var(--station-line, #443b3d);
+  /* Identity hairline, not a border - see tracksWorkspace.css's .tracks-row
+     for the same treatment in the compact view; both views agree on 2px. */
+  border-left: 2px solid var(--tracks-row-accent, transparent);
 }
 
 /* No rule for [data-track-height="medium"] - the var() fallback above and
@@ -270,6 +236,14 @@
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Selected-track cue, wide view: same idea as tracksWorkspace.css's
+   .tracks-row-selected (a wash across the row plus a tinted name) - a
+   second rule here only because this view's name is a different element
+   (.tracks-arranger-rail-name, not .tracks-row-name). */
+.tracks-row-selected .tracks-arranger-rail-name {
+  color: var(--station-accent);
 }
 
 .tracks-arranger-scroll {
@@ -316,11 +290,10 @@
    no custom property needed. MEDIUM has no rules in this section at all:
    it IS today's unscoped defaults (.tracks-arranger-rail-row's own
    padding/gap, .tracks-arranger-rail-name's own font-size, the shared
-   .tracks-controls-row .mixer-toggle's own 32x32/.7rem from
-   tracksWorkspace.css, .tracks-clip's own 6px inset) - nothing to
-   override, so the default level is guaranteed byte-identical to the
-   pre-level-system layout. See docs/DECISIONS.md DEC-027's third
-   addendum. */
+   .tracks-mini-toggle's own 26x26 from tracksWorkspace.css, .tracks-clip's
+   own 4px inset) - nothing to override, so MEDIUM stays the baseline the
+   other three levels step down/up from. See docs/DECISIONS.md DEC-027's
+   third addendum. */
 
 .tracks-arranger[data-track-height="small"] .tracks-arranger-rail-row {
   padding: 6px 10px;
@@ -345,9 +318,9 @@
 .tracks-arranger[data-track-height="mini"] .tracks-arranger-rail-name {
   /* Flipping the row to flex-direction:row moves the cross axis from
      height to width - without an explicit flex-basis here the name would
-     shrink-to-content instead of filling the space left by M/S/⋮ and
+     shrink-to-content instead of filling the space left by M/S/••• and
      eliding into it, the same class of bug tracksWorkspace.css's own
-     .tracks-track-name comment already warns about. */
+     .tracks-row-name comment already warns about. */
   flex: 1 1 auto;
   min-width: 0;
   font-size: 0.66rem;
@@ -356,17 +329,19 @@
 .tracks-arranger[data-track-height="small"] .tracks-arranger-rail-name { font-size: 0.72rem; }
 .tracks-arranger[data-track-height="large"] .tracks-arranger-rail-name { font-size: 0.82rem; }
 
-.tracks-arranger[data-track-height="mini"] .tracks-controls-row .mixer-toggle { min-height: 24px; min-width: 24px; }
-.tracks-arranger[data-track-height="small"] .tracks-controls-row .mixer-toggle { min-height: 28px; min-width: 28px; }
-.tracks-arranger[data-track-height="large"] .tracks-controls-row .mixer-toggle { min-height: 36px; min-width: 36px; }
+/* Ladder around .tracks-mini-toggle's own 26px MEDIUM baseline - mini/small
+   step down, large steps up, same +2/+4 shape the row-height ladder uses. */
+.tracks-arranger[data-track-height="mini"] .tracks-controls-row .mixer-toggle { min-height: 22px; min-width: 22px; }
+.tracks-arranger[data-track-height="small"] .tracks-controls-row .mixer-toggle { min-height: 24px; min-width: 24px; }
+.tracks-arranger[data-track-height="large"] .tracks-controls-row .mixer-toggle { min-height: 30px; min-width: 30px; }
 
-/* .tracks-clip's own top/bottom:6px (tracksWorkspace.css) is the vertical
+/* .tracks-clip's own top/bottom:4px (tracksWorkspace.css) is the vertical
    inset between a lane's edge and its clips - shrinks with the lane so a
    MINI clip isn't drowned in padding a 48px lane can't spare, and grows for
    LARGE where a 168px lane has room to give a clip more breathing room. */
-.tracks-arranger[data-track-height="mini"] .tracks-clip { top: 3px; bottom: 3px; }
-.tracks-arranger[data-track-height="small"] .tracks-clip { top: 5px; bottom: 5px; }
-.tracks-arranger[data-track-height="large"] .tracks-clip { top: 9px; bottom: 9px; }
+.tracks-arranger[data-track-height="mini"] .tracks-clip { top: 2px; bottom: 2px; }
+.tracks-arranger[data-track-height="small"] .tracks-clip { top: 3px; bottom: 3px; }
+.tracks-arranger[data-track-height="large"] .tracks-clip { top: 7px; bottom: 7px; }
 
 @media (max-height: 420px) {
   .tracks-arranger-toolbar { padding: 4px 6px; gap: 4px; }

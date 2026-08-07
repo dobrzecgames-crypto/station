@@ -1,9 +1,12 @@
+/* Surface (border/radius/background) for .tracks-workspace itself now comes
+   from lab-interface.css's shared card-tier rule - the same one
+   .chop-workspace/.sequencer/.mixer/.song-workspace/etc. use. TRACKS was
+   never added to that list when it shipped, which is the actual reason it
+   read as a bolted-on module instead of a Station tenant: everything below
+   this line is layout and detail, not a second surface system. */
 .tracks-workspace {
   margin-top: 16px;
   padding: 14px;
-  border: 1px solid var(--station-line, #4b5252);
-  border-radius: 14px;
-  background: #17191a;
 }
 
 .tracks-toolbar {
@@ -14,19 +17,51 @@
   justify-content: space-between;
 }
 
+/* Flat, hairline, same face as every other control (.mixer-toggle) - not
+   .file-picker-button, which is CHOP's big empty-state "CHOOSE WAV FILE" CTA
+   look (heavy shadow, 8px radius, its own background). Adding a track is a
+   routine toolbar action here, not a first-run call to action, so it gets
+   the ordinary control treatment plus the same absolute-overlay file input
+   trick .track-menu-file-item uses below. */
 .tracks-add-track-button {
-  min-width: 140px;
-}
-
-/* Compact view only (TracksArranger's own toolbar sets its own sizing) -
-   the "+ ADD TRACK" button doesn't need the app-wide file-picker-button's
-   full 40px/16px sizing here, it's one control among several. */
-.tracks-toolbar .tracks-add-track-button {
-  min-height: 34px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
   padding: 0 12px;
-  font-size: 0.68rem;
+  border: 1px solid var(--station-line, #443b3d);
+  border-radius: 4px;
+  color: var(--station-text, #eee4d6);
+  background: var(--station-raised, #2b2527);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  cursor: pointer;
 }
 
+.tracks-add-track-button:hover {
+  border-color: var(--station-accent);
+  color: var(--station-accent);
+}
+
+.tracks-add-track-button:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.tracks-add-track-button input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* Inline SNAP row - only the fullscreen Track Editor still renders this
+   (six always-visible division buttons in its own compact MONITOR row,
+   where there's no toolbar to collapse it into). Both TRACKS views use
+   SnapGridSelect below instead - see its own docs. */
 .tracks-snap-control {
   display: flex;
   flex-wrap: wrap;
@@ -39,6 +74,62 @@
   padding: 0 8px;
 }
 
+/* ---- SNAP selector: closed-by-default trigger + single-column popover ----
+   Replaces six always-visible division buttons with one compact trigger,
+   sized to match .tracks-add-track-button so the toolbar reads as one row
+   of same-weight controls, not two different button languages. Used by
+   both TRACKS views - see SnapGridSelect.tsx and docs/DECISIONS.md DEC-027's
+   third addendum. */
+.tracks-snap-select {
+  position: relative;
+}
+
+.tracks-toolbar .tracks-snap-select-trigger {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.tracks-snap-select-caret {
+  margin-left: 2px;
+  opacity: 0.7;
+}
+
+.tracks-snap-select-menu {
+  position: absolute;
+  /* Positioned elements with z-index:auto paint in DOM order within the
+     nearest ancestor stacking context - since the toolbar that holds this
+     trigger always comes before the track list in the DOM, an auto z-index
+     here would let a scrolled-up clip paint over this menu. An explicit
+     value avoids that. */
+  z-index: 20;
+  top: calc(100% + 4px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: max-content;
+  min-width: 84px;
+  padding: 4px;
+  border: 1px solid var(--station-line, #443b3d);
+  border-radius: 6px;
+  background: var(--station-card, #221e22);
+  box-shadow: 0 8px 20px rgb(0 0 0 / 45%);
+}
+
+.tracks-snap-select-menu .mixer-toggle {
+  min-height: 30px;
+  padding: 0 10px;
+  text-align: left;
+}
+
+/* Reused, unchanged, by the fullscreen Track Editor's own TIMELINE sub-view
+   only - both compact TRACKS views replaced this bar with the per-track
+   "•••" menu below (see TrackControls.tsx), but DETAIL/TIMELINE there is a
+   dedicated single-clip editing surface, not the track list this file is
+   about, so its own bottom action bar is unaffected. */
 .tracks-clip-actions {
   display: flex;
   flex-wrap: wrap;
@@ -46,9 +137,9 @@
   align-items: center;
   margin-top: 14px;
   padding: 8px 10px;
-  border: 1px solid var(--station-line, #4b5252);
-  border-radius: 9px;
-  background: #202325;
+  border: 1px solid var(--station-line, #443b3d);
+  border-radius: 6px;
+  background: var(--station-card, #221e22);
 }
 
 .tracks-clip-actions-label {
@@ -62,103 +153,199 @@
   white-space: nowrap;
 }
 
-/* Compact TRACKS: one card per track, header bar on top (name + controls,
-   fixed height, never scrolls) and that track's own full-width timeline
-   strip below it (see TracksWorkspace.tsx's registerStrip/handleStripScroll
-   docs for why every card needs its own scroll container rather than
-   sharing one - a header can't opt out of its own scrolling ancestor's
-   horizontal scroll, so a shared strip would drag headers along with it).
-   Deliberately plain block layout, not flex - a flex column's automatic
-   min-width can silently let a long track name grow a fixed-width sibling
-   past its intended size (the bug this replaced: .tracks-headers used to
-   be flex:0 0 128px with no min-width:0, so it grew to fit an untruncated
-   name instead of eliding it, eating most of the viewport on a long
-   filename like a timestamped recording). Block children take exactly
-   their parent's width, full stop - nothing to override. */
-.tracks-card-list {
-  margin-top: 12px;
-}
-
-.tracks-card {
+/* Compact TRACKS: every track is a row in one shared list, not a card of
+   its own - see docs/DECISIONS.md DEC-027's TRACKS visual-cleanup addendum.
+   A row still owns its own horizontally-scrolling strip (so its header can
+   sit above a full-width timeline instead of beside a cramped one - see
+   TracksWorkspace.tsx's registerStrip/handleStripScroll docs for why every
+   row needs its own scroll container rather than sharing one), it just no
+   longer draws a border/radius/background around itself to say so - a
+   hairline under each row (below) is the only separator. Deliberately plain
+   block layout, not flex - a flex column's automatic min-width can silently
+   let a long track name grow a fixed-width sibling past its intended size
+   (the bug this replaced: .tracks-headers used to be flex:0 0 128px with no
+   min-width:0, so it grew to fit an untruncated name instead of eliding it).
+   Block children take exactly their parent's width, full stop. */
+.tracks-row-list {
   margin-top: 10px;
-  border: 1px solid var(--station-line, #4b5252);
-  border-radius: 9px;
-  overflow: hidden;
-  background: #17191a;
-  /* Ties a card to its own clips' color at a glance - see trackAccent.ts. */
-  border-left: 3px solid var(--tracks-row-accent, transparent);
 }
 
-.tracks-card:first-child {
-  margin-top: 0;
+.tracks-row {
+  /* The track's own identity colour (see trackAccent.ts) as a hairline, not
+     a border - thin enough to read as a marker, not a box edge. */
+  border-left: 2px solid var(--tracks-row-accent, transparent);
 }
 
-.tracks-card-header {
+.tracks-row:not(:last-child) {
+  border-bottom: 1px solid var(--station-line, #443b3d);
+}
+
+/* Selected-track cue: a low-percentage wash of the module's own accent
+   (--station-accent, switched to TRACKS' teal by [data-view="tracks"] - see
+   docs/COLOR_BIBLE.md) across the row, plus the name picking up the same
+   colour - never a glowing border or a second, competing left-line (the
+   permanent identity stripe above already owns that edge). */
+.tracks-row-selected {
+  background: color-mix(in srgb, var(--station-accent) 6%, transparent);
+}
+
+.tracks-row-selected .tracks-row-name {
+  color: var(--station-accent);
+}
+
+.tracks-row-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--station-line, #4b5252);
-  background: #202325;
+  gap: 8px;
+  padding: 5px 8px;
 }
 
 /* The one deliberate min-width:0 in this file - it's what lets a long name
    actually elide instead of forcing the row (and everything downstream)
-   wider. Everything else here is plain block layout specifically so no
-   other element needs this fix at all. */
-.tracks-track-name {
+   wider. Weighted to read as the row's primary label - see the design
+   brief's "name more important than controls" - matching the wide
+   arranger's own .tracks-arranger-rail-name so both views agree on what a
+   track's name looks like. */
+.tracks-row-name {
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
-  color: var(--station-text, #e3e5df);
-  font-size: 0.72rem;
+  color: var(--station-text, #eee4d6);
+  font-size: 0.78rem;
+  font-weight: 800;
   letter-spacing: 0.02em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.tracks-expand-button {
-  display: grid;
-  flex: 0 0 auto;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  min-height: 0;
-  padding: 0;
-  border: 1px solid #606767;
-  border-radius: 6px;
-  color: var(--station-accent);
-  background: #202325;
-  font-size: 0.86rem;
-  cursor: pointer;
-}
-
-/* M/S plus a single "more" toggle at rest; reorder/add-clip/remove swap in
-   only once that toggle is tapped - see TrackControls.tsx. Never shrinks
-   even when a long track name is fighting it for space in the same row -
-   the name is what gives way (min-width:0 above), not this. */
+/* M / S / "•••" - always exactly these three, fixed width, whatever else is
+   going on (see TrackControls.tsx). Never shrinks even when a long track
+   name is fighting it for space in the same row - the name is what gives
+   way (min-width:0 above), not this. */
 .tracks-controls-row {
   display: flex;
   flex: 0 0 auto;
   gap: 4px;
 }
 
-.tracks-controls-row .mixer-toggle,
-.tracks-add-clip-button {
-  min-height: 32px;
-  min-width: 32px;
+/* Small hardware-style toggles, not tiles - built on .mixer-toggle so hover/
+   active/disabled/focus all come from the one button rule the rest of the
+   app already uses (lab-interface.css section 2); this only tightens the
+   footprint. 26px matches the System Display's own compact .display-action
+   control - the established "smaller touch control" size in this codebase,
+   not a new one invented for TRACKS. */
+.tracks-mini-toggle {
+  min-width: 26px;
+  min-height: 26px;
   padding: 0;
-  font-size: 0.7rem;
+  font-size: 0.6rem;
 }
 
-.tracks-add-clip-button {
-  position: relative;
-  display: grid;
-  place-items: center;
+/* ---- Per-track "•••" menu ----
+   Portaled to document.body (see TrackControls.tsx for why: both the
+   compact row and the arranger rail clip an in-place popover via their own
+   overflow), positioned with fixed top/left written inline from JS. A real
+   popover, not a stack of buttons: each item below is a flat text row, not
+   a second .mixer-toggle, so eight actions read as one compact list rather
+   than eight stacked cards. */
+.track-menu-panel {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  width: 178px;
+  padding: 4px;
+  border: 1px solid var(--station-line, #443b3d);
+  border-radius: 6px;
+  background: var(--station-card, #221e22);
+  box-shadow: 0 10px 24px rgb(0 0 0 / 50%);
+}
+
+.track-menu-row {
+  display: block;
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 3px;
+  color: var(--station-text, #eee4d6);
+  background: transparent;
+  font: inherit;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-align: left;
   cursor: pointer;
 }
 
-.tracks-add-clip-button input {
+.track-menu-row:hover,
+.track-menu-row:focus-visible {
+  color: var(--station-accent);
+  background: var(--station-raised, #2b2527);
+  outline: none;
+}
+
+.track-menu-row:disabled {
+  color: var(--station-text-disabled, #5d5657);
+  cursor: not-allowed;
+  background: transparent;
+}
+
+/* Marks the first row of a new group - a hairline above it rather than a
+   separate divider element, the same technique the System Display's own
+   .display-param/.display-toggle rows already use for the same purpose. */
+.track-menu-row-divider {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--station-line, #443b3d);
+}
+
+/* Delete clip / Remove track - flat text in the same muted status-red the
+   System Display's own .display-action-danger already uses for a
+   destructive control that isn't REC itself (lab-interface.css section 18):
+   REC keeps the one saturated recording-red light, this is the same colour
+   read as plain text instead of a lit indicator. */
+.track-menu-row-danger {
+  color: var(--status-recording, #cf5450);
+}
+
+.track-menu-row-danger:hover,
+.track-menu-row-danger:focus-visible {
+  color: var(--status-recording, #cf5450);
+  background: color-mix(in srgb, var(--status-recording, #cf5450) 14%, transparent);
+}
+
+/* LOOP's row: label left, current value right - baseline-aligned like the
+   System Display's own label/value rows, so "on this menu, a name is a
+   name and a number is a number" holds even outside the display glass. */
+.track-menu-row-value {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.track-menu-row-value-text {
+  color: var(--station-text-muted, #c8bcae);
+  font-family: var(--station-mono-font);
+  font-size: 0.6rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.track-menu-row-value-active .track-menu-row-value-text {
+  color: var(--station-accent);
+}
+
+/* IMPORT CLIP… - a <label> wrapping a real file input, styled as one more
+   flat row: the input is stretched over the whole row and made transparent
+   rather than display:none, so the click that opens the OS file picker
+   lands on it directly instead of relying on implicit label/input click-
+   forwarding - the same technique .tracks-add-track-button uses above. */
+.track-menu-file-item {
+  position: relative;
+  overflow: hidden;
+}
+
+.track-menu-file-item input {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -186,51 +373,52 @@
 
 .tracks-ruler {
   position: relative;
-  height: 28px;
-  border-bottom: 1px solid var(--station-line, #4b5252);
-  background: #1c1f20;
+  height: 26px;
+  border-bottom: 1px solid var(--station-line, #443b3d);
 }
 
 .tracks-ruler-mark {
   position: absolute;
   top: 0;
   padding: 6px 0 0 4px;
-  color: var(--station-text-muted, #b5bab5);
-  font-size: 0.62rem;
-  font-weight: 800;
+  color: var(--station-text-muted, #c8bcae);
+  font-size: 0.6rem;
+  font-weight: 700;
 }
 
-/* Scoped to the compact card layout only (TracksArranger's shared, single
-   ruler keeps the taller 28px above) - one ruler per card now instead of
-   one for the whole page, so shaving a few px off each keeps the added
-   per-track vertical cost down. */
-.tracks-card .tracks-ruler {
-  height: 22px;
+/* One shared ruler tone per row is enough - the compact view repeats this
+   per track, so it stays a touch shorter than the wide arranger's single
+   ruler above every lane (below). */
+.tracks-row .tracks-ruler {
+  height: 20px;
 }
 
-.tracks-card .tracks-ruler-mark {
-  padding-top: 4px;
+.tracks-row .tracks-ruler-mark {
+  padding-top: 3px;
+  font-size: 0.56rem;
 }
 
 .tracks-track-lane {
   position: relative;
-  height: 96px;
-  border-bottom: 1px solid var(--station-line, #4b5252);
+  height: 88px;
   background:
     repeating-linear-gradient(90deg, rgb(255 255 255 / 3%) 0 1px, transparent 1px calc(4 * 24px));
 }
 
+/* The material on the timeline, not a button - small radius, a hairline
+   rather than a heavy outline, and a light accent wash rather than a filled
+   box, so the waveform drawn on top of it stays the thing your eye reads
+   first. --tracks-clip-accent is set inline per clip from trackAccent.ts,
+   so clips on different tracks still read as different colours at a
+   glance; falls back to the view's own accent if it's ever missing. */
 .tracks-clip {
   position: absolute;
-  top: 6px;
-  bottom: 6px;
+  top: 4px;
+  bottom: 4px;
   overflow: hidden;
-  /* --tracks-clip-accent is set inline per clip from trackAccent.ts, so
-     clips on different tracks read as different colors at a glance; falls
-     back to the view's own accent if it's ever missing. */
-  border: 1px solid color-mix(in srgb, var(--tracks-clip-accent, var(--station-accent)) 55%, transparent);
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--tracks-clip-accent, var(--station-accent)) 28%, #202325);
+  border: 1px solid color-mix(in srgb, var(--tracks-clip-accent, var(--station-accent)) 42%, transparent);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--tracks-clip-accent, var(--station-accent)) 15%, transparent);
   cursor: grab;
   touch-action: none;
   user-select: none;
@@ -251,22 +439,25 @@
   top: 2px;
   right: 3px;
   color: var(--station-accent);
-  font-size: 0.6rem;
+  font-size: 0.58rem;
   content: '\21BB';
 }
 
+/* Kept small and muted - information, not a label competing with the
+   waveform for attention. */
 .tracks-clip-label {
   position: absolute;
   bottom: 2px;
   left: 4px;
   overflow: hidden;
   max-width: calc(100% - 8px);
-  color: var(--station-text, #eee4d6);
-  font-size: 0.6rem;
-  font-weight: 700;
+  color: var(--station-text-muted, #c8bcae);
+  font-size: 0.56rem;
+  font-weight: 500;
   text-overflow: ellipsis;
   text-shadow: 0 1px 2px rgb(0 0 0 / 70%);
   white-space: nowrap;
+  opacity: 0.85;
 }
 
 .track-clip-waveform {
@@ -287,20 +478,23 @@
 
 .tracks-clip-handle-start {
   left: -2px;
-  border-left: 3px solid var(--station-accent);
+  border-left: 2px solid var(--station-accent);
 }
 
 .tracks-clip-handle-end {
   right: -2px;
-  border-right: 3px solid var(--station-accent);
+  border-right: 2px solid var(--station-accent);
 }
 
+/* Signal, not selection - the module accent marks what's selected
+   everywhere else in TRACKS, so the playhead deliberately stays on the same
+   blue "playback signal" role the rest of Station uses (docs/COLOR_BIBLE.md),
+   with no glow: a plain line reads as a moving position, not a lit control. */
 .tracks-playhead {
   position: absolute;
   top: 0;
   bottom: 0;
   width: 2px;
-  background: var(--signal-blue-bright, #b5e0eb);
-  box-shadow: 0 0 6px rgb(181 224 235 / 60%);
+  background: var(--signal-accent, #83bed2);
   pointer-events: none;
 }

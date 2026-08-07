@@ -8,7 +8,10 @@
      tracksArranger.css) - own safe-area inset so the header/DONE button and
      the bottom transport never sit under the notch or the gesture bar. */
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-  background: #0d0e0e;
+  /* Same void .tracks-arranger uses now (tracksArranger.css) - both full-
+     viewport TRACKS overlays frame themselves the same way .station-shell
+     frames .station-panel. */
+  background: var(--station-bg, #0b0c14);
   color: var(--station-text, #eee4d6);
 }
 

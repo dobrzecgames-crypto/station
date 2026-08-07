@@ -19,7 +19,7 @@
   background: var(--station-panel);
   box-shadow: none;
 }/* Cards and wells sit one step up from the panel they live in. */
-.mix-bus-card, .mixer-strip, .pad-editor, .context-panel, .step-parameter-editor, .sequencer, .mixer, .song-workspace, .chop-workspace, .library-workspace, .sample-editor, .project-workspace, .library-row, .effect-rack {
+.mix-bus-card, .mixer-strip, .pad-editor, .context-panel, .step-parameter-editor, .sequencer, .mixer, .song-workspace, .chop-workspace, .library-workspace, .sample-editor, .project-workspace, .library-row, .effect-rack, .tracks-workspace {
   border: 1px solid var(--station-line);
   border-radius: 4px;
   background: var(--station-card);
@@ -349,7 +349,7 @@ input[type="text"], input[type="number"], select, textarea {
     radial-gradient(115% 38% at 50% -4%, rgb(var(--station-accent-rgb) / 9%), transparent 66%),
     linear-gradient(180deg, color-mix(in srgb, var(--station-panel) 100%, #fff 4%), var(--station-panel) 34%);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 9%), 0 1px 0 rgb(0 0 0 / 50%);
-}.mix-bus-card, .mixer-strip, .pad-editor, .context-panel, .step-parameter-editor, .sequencer, .mixer, .song-workspace, .chop-workspace, .library-workspace, .sample-editor, .project-workspace, .library-row, .effect-rack, .transport-bar {
+}.mix-bus-card, .mixer-strip, .pad-editor, .context-panel, .step-parameter-editor, .sequencer, .mixer, .song-workspace, .chop-workspace, .library-workspace, .sample-editor, .project-workspace, .library-row, .effect-rack, .transport-bar, .tracks-workspace {
   background: linear-gradient(180deg, color-mix(in srgb, var(--station-card) 100%, #fff 4%), var(--station-card) 30%);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%);
 }.pad, .effect-slot-button, .effect-slot-card {

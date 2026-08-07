@@ -225,7 +225,7 @@ export function TracksArranger({ tracks, waveforms, audioReady, isPlaying, playh
           <output className="tracks-arranger-track-size-value">{trackHeightLevelLabels[trackHeightLevel]}</output>
           <button type="button" className="mixer-toggle" aria-label="Increase track height" disabled={trackHeightIndex >= trackHeightLevels.length - 1} onClick={increaseTrackHeight}>+</button>
         </div>
-        <label className="file-picker-button tracks-add-track-button">
+        <label className="tracks-add-track-button">
           + TRACK
           <input ref={newTrackInputRef} type="file" accept="audio/wav,.wav" disabled={!audioReady || tracks.length >= maximumTracks} onChange={handleNewTrackFile} />
         </label>
@@ -244,22 +244,7 @@ export function TracksArranger({ tracks, waveforms, audioReady, isPlaying, playh
         <button type="button" className="mixer-toggle tracks-arranger-exit" aria-label="Back to Station" onClick={onExit}>✕ STATION</button>
       </div>
 
-      {selection && selectedClip && (
-        <div className="tracks-clip-actions" role="toolbar" aria-label="Selected clip">
-          <span className="tracks-clip-actions-label">{selectedTrack?.name}</span>
-          <button type="button" className="mixer-toggle" disabled={!canSplitSelected} onClick={() => onSplitClipAtPlayhead(selection.trackId, selection.clipId)}>SPLIT AT PLAYHEAD</button>
-          <button type="button" className="mixer-toggle" onClick={() => onDuplicateClip(selection.trackId, selection.clipId)}>DUPLICATE</button>
-          <button type="button" className={selectedClip.loop ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} aria-pressed={selectedClip.loop} onClick={() => onToggleClipLoop(selection.trackId, selection.clipId)}>LOOP</button>
-          <button type="button" className="mixer-toggle compact-danger" onClick={() => onRequestRemoveClip(selection.trackId, selection.clipId)}>DELETE</button>
-          <button type="button" className="mixer-toggle" onClick={() => setSelection(null)}>CLOSE</button>
-        </div>
-      )}
-
-      {tracks.length === 0 ? (
-        <div className="chop-empty-state">
-          <p className="sample-editor-empty">No tracks yet - import a WAV to create the first one.</p>
-        </div>
-      ) : (
+      {tracks.length > 0 && (
         <div className="tracks-arranger-body">
           <div className="tracks-arranger-rail" ref={railRef} onScroll={handleRailScroll}>
             {/* Pixel-identical spacer to the real ruler below (same class),
@@ -269,14 +254,32 @@ export function TracksArranger({ tracks, waveforms, audioReady, isPlaying, playh
                 the ruler's own height). aria-hidden since it carries no
                 track-list semantics of its own. */}
             <div className="tracks-ruler" aria-hidden="true" />
-            {tracks.map((track) => (
-              <div className="tracks-arranger-rail-row" key={track.id} style={{ '--tracks-row-accent': trackAccentColor(track.id) } as CSSProperties}>
-                <button type="button" className="tracks-arranger-rail-name" title={track.name} onClick={() => onOpenTrackEditor(track.id)}>
-                  {track.name}
-                </button>
-                <TrackControls track={track} audioReady={audioReady} onSetTrackMuted={onSetTrackMuted} onSetTrackSolo={onSetTrackSolo} onMoveTrackOrder={onMoveTrackOrder} onImportClipToTrack={onImportClipToTrack} onRequestRemoveTrack={onRequestRemoveTrack} />
-              </div>
-            ))}
+            {tracks.map((track) => {
+              const isTrackSelected = selection?.trackId === track.id
+              return (
+                <div className={isTrackSelected ? 'tracks-arranger-rail-row tracks-row-selected' : 'tracks-arranger-rail-row'} key={track.id} style={{ '--tracks-row-accent': trackAccentColor(track.id) } as CSSProperties}>
+                  <button type="button" className="tracks-arranger-rail-name" title={track.name} onClick={() => onOpenTrackEditor(track.id)}>
+                    {track.name}
+                  </button>
+                  <TrackControls
+                    track={track}
+                    audioReady={audioReady}
+                    selectedClip={isTrackSelected ? (selectedClip ?? null) : null}
+                    canSplitSelectedClip={isTrackSelected && canSplitSelected}
+                    onSetTrackMuted={onSetTrackMuted}
+                    onSetTrackSolo={onSetTrackSolo}
+                    onMoveTrackOrder={onMoveTrackOrder}
+                    onImportClipToTrack={onImportClipToTrack}
+                    onRequestRemoveTrack={onRequestRemoveTrack}
+                    onSplitClipAtPlayhead={onSplitClipAtPlayhead}
+                    onDuplicateClip={onDuplicateClip}
+                    onToggleClipLoop={onToggleClipLoop}
+                    onRequestRemoveClip={onRequestRemoveClip}
+                    onOpenTrackEditor={onOpenTrackEditor}
+                  />
+                </div>
+              )
+            })}
           </div>
 
           <div className="tracks-timeline-scroll tracks-arranger-scroll" ref={scrollRef} onScroll={handleTimelineScroll}>

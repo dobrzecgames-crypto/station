@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { PadState } from '../pads/types'
+import { useDragSlider } from '../shell/useDragSlider'
 import { SynthDisplayLauncher } from './SynthDisplay'
 import { subWaveforms, synthWaveforms } from './synthTypes'
 import type { SynthPatch, SynthVoiceMode } from './synthTypes'
@@ -145,10 +146,11 @@ function InlineRange({ label, value, min, max, step, format = compact, onChange 
   format?: (value: number) => string
   onChange: (value: number) => void
 }) {
+  const drag = useDragSlider({ value, min, max, step, onChange, focusLabel: label, formatValue: format })
   return <label className="synth-inline-control synth-inline-range">
     <span>{label}</span>
     <output>{format(value)}</output>
-    <input type="range" value={value} min={min} max={max} step={step} onChange={(event) => onChange(Number(event.target.value))} />
+    <input type="range" value={value} min={min} max={max} step={step} onChange={(event) => onChange(Number(event.target.value))} onPointerDown={drag.onPointerDown} />
   </label>
 }
 

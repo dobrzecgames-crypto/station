@@ -1,4 +1,12 @@
-/* Same card as StationConfirm (stationConfirm.css) - a native <dialog> in the
+/* Originally shared by the app-wide touch-slider popup (shell/SliderMagnifier.tsx)
+   and SequencerControls' StepLengthDialog. The popup is gone - see
+   shell/useDragSlider.ts, which replaced it with in-place relative dragging - so
+   StepLengthDialog (imports this file directly; see SequencerControls.tsx) is the
+   only thing these classes style now. It keeps the same enlarged-dialog language
+   because it isn't a slider at all: picking a note length across a run of ~40px
+   grid cells still needs a dedicated screen, not a touch-target fix.
+
+   Same card as StationConfirm (stationConfirm.css) - a native <dialog> in the
    browser's top layer, so this sits above everything, including an open FX
    panel, without a z-index rule anywhere. The only job specific to this
    dialog is the range input inside it: thumb and track sized for a finger

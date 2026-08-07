@@ -5,10 +5,10 @@ type DismissRef = RefObject<HTMLElement | null>
 
 /**
  * Closes an open popover/menu on a pointerdown outside every given ref's
- * subtree, or on Escape - the same outside-pointerdown pattern shell/SliderMagnifier.tsx
- * already uses at the app root (capture phase, so it fires before the
- * target's own click handler and works for touch as well as mouse), just
- * scoped to one popover's own ref(s) instead of a single global listener.
+ * subtree, or on Escape - a capture-phase document listener, so it fires
+ * before the target's own click handler and works for touch as well as
+ * mouse, scoped to one popover's own ref(s) instead of a single global
+ * listener.
  * Shared by SnapGridSelect, TracksArranger's own overflow menu, and
  * TrackControls' track-actions menu.
  *

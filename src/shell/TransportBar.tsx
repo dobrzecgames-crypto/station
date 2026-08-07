@@ -25,6 +25,9 @@ interface TransportBarProps {
   statusMessage?: string
   /** Failure or blocked action; holds the display until the next action. */
   errorMessage?: string
+  /** A slider's live value while it is being dragged - see SystemDisplay's own
+      focusReadout doc comment. */
+  focusReadout?: string | null
   /** Whoever has claimed the display, or null when nobody has and tempo holds
       the floor. */
   displayOwner: DisplayTenant | null
@@ -59,7 +62,7 @@ interface TransportBarProps {
   onStop: () => void
 }
 
-export function TransportBar({ bpm, swing, isPlaying, recording, countingIn, mode, loopSong, metronomeEnabled, settingsOpen, onSettingsOpenChange, groups, selectedGroupId, selectedVariant, statusMessage, errorMessage, displayOwner, audioStatus, audioDisabled, controlsAwake, onStartAudio, onBpmChange, onSwingChange, onModeChange, onLoopSongChange, onMetronomeEnabledChange, onRecordToggle, onGroupChange, onVariantChange, onGroupCreate, onVariantCreate, onVariantDuplicate, onVariantClear, onGroupDelete, projectControl, onPlay, onStop }: TransportBarProps) {
+export function TransportBar({ bpm, swing, isPlaying, recording, countingIn, mode, loopSong, metronomeEnabled, settingsOpen, onSettingsOpenChange, groups, selectedGroupId, selectedVariant, statusMessage, errorMessage, focusReadout, displayOwner, audioStatus, audioDisabled, controlsAwake, onStartAudio, onBpmChange, onSwingChange, onModeChange, onLoopSongChange, onMetronomeEnabledChange, onRecordToggle, onGroupChange, onVariantChange, onGroupCreate, onVariantCreate, onVariantDuplicate, onVariantClear, onGroupDelete, projectControl, onPlay, onStop }: TransportBarProps) {
   const groupIndex = groups.findIndex((group) => group.id === selectedGroupId)
   const selectedGroup = groups[groupIndex]
   const audioRecovering = audioStatus === 'suspended' || audioStatus === 'interrupted'
@@ -135,6 +138,7 @@ export function TransportBar({ bpm, swing, isPlaying, recording, countingIn, mod
         owner={displayOwner ?? tempoTenant({ bpm, swing, mode, loopSong, metronomeEnabled, onBpmChange, onSwingChange, onLoopSongChange, onMetronomeEnabledChange })}
         statusMessage={statusMessage}
         errorMessage={errorMessage}
+        focusReadout={focusReadout}
         open={settingsOpen}
         onOpenChange={onSettingsOpenChange}
       />

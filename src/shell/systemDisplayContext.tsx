@@ -2,6 +2,12 @@ import { createContext, useCallback, useContext, useMemo, useRef, useState } fro
 import type { ReactNode } from 'react'
 import type { DisplayTenant } from './SystemDisplay'
 
+/** How long the line keeps showing the value a slider was just dragged to before
+    reverting to whatever it would normally show - see releaseFocus. Short, unlike
+    the 4s confirmation hold (SYSTEM_DISPLAY.md's channel table): a drag is a
+    frequent, continuous interaction, not a one-off event worth lingering on. */
+const focusHoldMs = 900
+
 /** What a context does to the display. Step 2 of docs/SYSTEM_DISPLAY.md. */
 export interface SystemDisplayApi {
   /** Take the display. Claiming under an id that already owns it updates what
@@ -18,6 +24,17 @@ export interface SystemDisplayApi {
       re-claims whenever its data changes quietly steals the display back from
       whoever replaced it. */
   ownerId: string | null
+  /** The Focus channel, priority 3 of SYSTEM_DISPLAY.md's table - between a
+      confirmation and the resting readout, and independent of panel ownership:
+      showing a value being dragged never claims or changes the open panel, only
+      the line's text. Used by shell/useDragSlider.ts so every slider's live value
+      appears here instead of in a popup. Text on the line immediately; cancels
+      any pending releaseFocus from a previous drag so two quick drags in a row
+      don't flash back to the resting readout in between. */
+  showFocus: (text: string) => void
+  /** Ends the current focus session: holds the last text for focusHoldMs, then
+      clears it - unless a new showFocus arrives first. */
+  releaseFocus: () => void
 }
 
 const SystemDisplayContext = createContext<SystemDisplayApi | null>(null)
@@ -32,13 +49,16 @@ export function useSystemDisplay(): SystemDisplayApi {
 
 /** Held by App, which owns the display's state and hands the winner to the
     transport. Returns the current owner - null when nothing has claimed, which
-    is when the transport falls back to tempo so the floor is never empty. */
+    is when the transport falls back to tempo so the floor is never empty - and
+    the current focusReadout, threaded into SystemDisplay's line alongside it. */
 export function useSystemDisplayHost() {
   const [owner, setOwner] = useState<DisplayTenant | null>(null)
   /* The guard reads a ref rather than the state it mirrors. Two releases in one
      tick both see the same stale state value, and the check cannot live inside
      the updater - React is free to call that twice. */
   const ownerIdRef = useRef<string | null>(null)
+  const [focusReadout, setFocusReadout] = useState<string | null>(null)
+  const focusReleaseTimeoutRef = useRef<number | null>(null)
 
   /* Neither claim nor release touches whether the panel is open. They used to
      force it shut on every change of owner, on the reasoning that a context
@@ -58,8 +78,27 @@ export function useSystemDisplayHost() {
     setOwner(null)
   }, [])
 
-  const api = useMemo<SystemDisplayApi>(() => ({ claim, release, ownerId: owner?.id ?? null }), [claim, release, owner])
-  return { owner, api }
+  const showFocus = useCallback((text: string) => {
+    if (focusReleaseTimeoutRef.current !== null) {
+      window.clearTimeout(focusReleaseTimeoutRef.current)
+      focusReleaseTimeoutRef.current = null
+    }
+    setFocusReadout(text)
+  }, [])
+
+  const releaseFocus = useCallback(() => {
+    if (focusReleaseTimeoutRef.current !== null) window.clearTimeout(focusReleaseTimeoutRef.current)
+    focusReleaseTimeoutRef.current = window.setTimeout(() => {
+      focusReleaseTimeoutRef.current = null
+      setFocusReadout(null)
+    }, focusHoldMs)
+  }, [])
+
+  const api = useMemo<SystemDisplayApi>(
+    () => ({ claim, release, ownerId: owner?.id ?? null, showFocus, releaseFocus }),
+    [claim, release, owner, showFocus, releaseFocus],
+  )
+  return { owner, focusReadout, api }
 }
 
 export function SystemDisplayProvider({ api, children }: { api: SystemDisplayApi; children: ReactNode }) {

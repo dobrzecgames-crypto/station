@@ -118,31 +118,31 @@ function stringsTenant(props: StringsTenantProps): DisplayTenant {
 
       {page === 'sound' && <>
         <SegmentedSwitch label="OCTAVE" value={patch.octave} options={stringsOctaves} format={signed} onChange={(octave) => change({ octave })} />
-        <DisplayRange label="ATTACK" value={formatSeconds(patch.ampEnvelope.attackSeconds)} min="0.01" max="5" step="0.01" current={patch.ampEnvelope.attackSeconds} idPrefix={displayId} onChange={(attackSeconds) => change({ ampEnvelope: { ...patch.ampEnvelope, attackSeconds } })} />
-        <DisplayRange label="RELEASE" value={formatSeconds(patch.ampEnvelope.releaseSeconds)} min="0.05" max="8" step="0.05" current={patch.ampEnvelope.releaseSeconds} idPrefix={displayId} onChange={(releaseSeconds) => change({ ampEnvelope: { ...patch.ampEnvelope, releaseSeconds } })} />
-        <DisplayRange label="BRIGHTNESS" value={`${Math.round(patch.brightness * 100)}%`} min="0" max="1" step="0.01" current={patch.brightness} idPrefix={displayId} onChange={(brightness) => change({ brightness })} />
-        <DisplayRange label="LEVEL" value={`${Math.round(patch.level * 100)}%`} min="0" max="1" step="0.01" current={patch.level} idPrefix={displayId} onChange={(level) => change({ level })} />
+        <DisplayRange label="ATTACK" formatValue={formatSeconds} min="0.01" max="5" step="0.01" current={patch.ampEnvelope.attackSeconds} idPrefix={displayId} onChange={(attackSeconds) => change({ ampEnvelope: { ...patch.ampEnvelope, attackSeconds } })} />
+        <DisplayRange label="RELEASE" formatValue={formatSeconds} min="0.05" max="8" step="0.05" current={patch.ampEnvelope.releaseSeconds} idPrefix={displayId} onChange={(releaseSeconds) => change({ ampEnvelope: { ...patch.ampEnvelope, releaseSeconds } })} />
+        <DisplayRange label="BRIGHTNESS" formatValue={(value) => `${Math.round(value * 100)}%`} min="0" max="1" step="0.01" current={patch.brightness} idPrefix={displayId} onChange={(brightness) => change({ brightness })} />
+        <DisplayRange label="LEVEL" formatValue={(value) => `${Math.round(value * 100)}%`} min="0" max="1" step="0.01" current={patch.level} idPrefix={displayId} onChange={(level) => change({ level })} />
       </>}
 
       {page === 'character' && <>
-        <DisplayRange label="ENSEMBLE" value={`${Math.round(patch.ensemble * 100)}%`} min="0" max="1" step="0.01" current={patch.ensemble} idPrefix={displayId} onChange={(ensemble) => change({ ensemble })} />
-        <DisplayRange label="VIBRATO" value={`${Math.round(patch.vibrato * 100)}%`} min="0" max="1" step="0.01" current={patch.vibrato} idPrefix={displayId} onChange={(vibrato) => change({ vibrato })} />
-        <DisplayRange label="DETUNE" value={`${patch.detuneCents.toFixed(0)} ct`} min="0" max="40" step="1" current={patch.detuneCents} idPrefix={displayId} onChange={(detuneCents) => change({ detuneCents })} />
+        <DisplayRange label="ENSEMBLE" formatValue={(value) => `${Math.round(value * 100)}%`} min="0" max="1" step="0.01" current={patch.ensemble} idPrefix={displayId} onChange={(ensemble) => change({ ensemble })} />
+        <DisplayRange label="VIBRATO" formatValue={(value) => `${Math.round(value * 100)}%`} min="0" max="1" step="0.01" current={patch.vibrato} idPrefix={displayId} onChange={(vibrato) => change({ vibrato })} />
+        <DisplayRange label="DETUNE" formatValue={(value) => `${value.toFixed(0)} ct`} min="0" max="40" step="1" current={patch.detuneCents} idPrefix={displayId} onChange={(detuneCents) => change({ detuneCents })} />
       </>}
 
       {page === 'more' && <>
-        <DisplayRange label="BODY" value={`${Math.round(patch.body * 100)}%`} min="0" max="1" step="0.01" current={patch.body} idPrefix={displayId} onChange={(body) => change({ body })} />
-        <DisplayRange label="MOTION" value={`${Math.round(patch.motion * 100)}%`} min="0" max="1" step="0.01" current={patch.motion} idPrefix={displayId} onChange={(motion) => change({ motion })} />
-        <DisplayRange label="WIDTH" value={`${Math.round(patch.width * 100)}%`} min="0" max="1" step="0.01" current={patch.width} idPrefix={displayId} onChange={(width) => change({ width })} />
-        <DisplayRange label="BOW" value={`${Math.round(patch.bow * 100)}%`} min="0" max="1" step="0.01" current={patch.bow} idPrefix={displayId} onChange={(bow) => change({ bow })} />
-        <DisplayRange label="VIBRATO DELAY" value={`${Math.round(patch.vibratoDelayMs)} ms`} min="0" max="2000" step="10" current={patch.vibratoDelayMs} idPrefix={displayId} onChange={(vibratoDelayMs) => change({ vibratoDelayMs })} />
-        <DisplayRange label="WARMTH" value={`${Math.round(patch.warmth * 100)}%`} min="0" max="1" step="0.01" current={patch.warmth} idPrefix={displayId} onChange={(warmth) => change({ warmth })} />
-        <DisplayRange label="SPACE" value={`${Math.round(patch.space * 100)}%`} min="0" max="1" step="0.01" current={patch.space} idPrefix={displayId} onChange={(space) => change({ space })} />
+        <DisplayRange label="BODY" formatValue={(value) => `${Math.round(value * 100)}%`} min="0" max="1" step="0.01" current={patch.body} idPrefix={displayId} onChange={(body) => change({ body })} />
+        <DisplayRange label="MOTION" formatValue={(value) => `${Math.round(value * 100)}%`} min="0" max="1" step="0.01" current={patch.motion} idPrefix={displayId} onChange={(motion) => change({ motion })} />
+        <DisplayRange label="WIDTH" formatValue={(value) => `${Math.round(value * 100)}%`} min="0" max="1" step="0.01" current={patch.width} idPrefix={displayId} onChange={(width) => change({ width })} />
+        <DisplayRange label="BOW" formatValue={(value) => `${Math.round(value * 100)}%`} min="0" max="1" step="0.01" current={patch.bow} idPrefix={displayId} onChange={(bow) => change({ bow })} />
+        <DisplayRange label="VIBRATO DELAY" formatValue={(value) => `${Math.round(value)} ms`} min="0" max="2000" step="10" current={patch.vibratoDelayMs} idPrefix={displayId} onChange={(vibratoDelayMs) => change({ vibratoDelayMs })} />
+        <DisplayRange label="WARMTH" formatValue={(value) => `${Math.round(value * 100)}%`} min="0" max="1" step="0.01" current={patch.warmth} idPrefix={displayId} onChange={(warmth) => change({ warmth })} />
+        <DisplayRange label="SPACE" formatValue={(value) => `${Math.round(value * 100)}%`} min="0" max="1" step="0.01" current={patch.space} idPrefix={displayId} onChange={(space) => change({ space })} />
       </>}
 
       {page === 'pad' && <>
-        <DisplayRange label="BASE NOTE" value={formatMidiNote(patch.baseMidiNote)} min={String(props.baseMidiRange[0])} max={String(props.baseMidiRange[1])} step="1" current={patch.baseMidiNote} idPrefix={displayId} onChange={(baseMidiNoteValue) => change({ baseMidiNote: baseMidiNoteValue })} />
-        <DisplayRange label="GATE" value={`${Math.round(patch.gate * 100)}% step`} min="0.05" max="2" step="0.01" current={patch.gate} idPrefix={displayId} onChange={(gate) => change({ gate })} />
+        <DisplayRange label="BASE NOTE" formatValue={formatMidiNote} min={String(props.baseMidiRange[0])} max={String(props.baseMidiRange[1])} step="1" current={patch.baseMidiNote} idPrefix={displayId} onChange={(baseMidiNoteValue) => change({ baseMidiNote: baseMidiNoteValue })} />
+        <DisplayRange label="GATE" formatValue={(value) => `${Math.round(value * 100)}% step`} min="0.05" max="2" step="0.01" current={patch.gate} idPrefix={displayId} onChange={(gate) => change({ gate })} />
         <div className="strings-display-chord">
           <span>BASE</span>
           <strong>0 st / {formatMidiNote(baseMidiNote)}</strong>

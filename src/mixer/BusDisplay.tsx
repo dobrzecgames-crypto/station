@@ -114,7 +114,7 @@ function busTenant(props: BusTenantProps): DisplayTenant {
     label: `${scopeLabel} bus`,
     readout: `${scopeLabel} BUS · ${rack.slots.map(slotReadout).join(' · ')}`,
     panel: <>
-      <DisplayRange idPrefix="bus-display" label="VOL" value={bus.volume.toFixed(2)} min="0" max="1" step="0.01" current={bus.volume} onChange={props.onVolumeChange} />
+      <DisplayRange idPrefix="bus-display" label="VOL" formatValue={(value) => value.toFixed(2)} min="0" max="1" step="0.01" current={bus.volume} onChange={props.onVolumeChange} />
       <div className="display-param">
         <span className="display-param-label">OUTPUT</span>
         <div className="display-actions">

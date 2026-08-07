@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { PadState } from '../pads/types'
+import { useDragSlider } from '../shell/useDragSlider'
 import { StringsDisplayLauncher } from './StringsDisplay'
 import { stringsCharacters, stringsOctaveLayers } from './stringsTypes'
 import type { StringsOctaveLayer, StringsPatch } from './stringsTypes'
@@ -149,9 +150,10 @@ function InlineRange({ label, value, min, max, step, disabled, format = percent,
   format?: (value: number) => string
   onChange: (value: number) => void
 }) {
+  const drag = useDragSlider({ value, min, max, step, disabled, onChange, focusLabel: label, formatValue: format })
   return <label className="strings-inline-control strings-inline-range">
     <span>{label}</span>
     <output>{format(value)}</output>
-    <input type="range" value={value} min={min} max={max} step={step} disabled={disabled} onChange={(event) => onChange(Number(event.target.value))} />
+    <input type="range" value={value} min={min} max={max} step={step} disabled={disabled} onChange={(event) => onChange(Number(event.target.value))} onPointerDown={drag.onPointerDown} />
   </label>
 }

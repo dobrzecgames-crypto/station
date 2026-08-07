@@ -28,7 +28,6 @@ import { SequencerControls } from './sequencer/SequencerControls'
 import { MainNavigation } from './shell/MainNavigation'
 import type { MainView } from './shell/MainNavigation'
 import { StationConfirm } from './shell/StationConfirm'
-import { SliderMagnifier } from './shell/SliderMagnifier'
 import { TransportBar } from './shell/TransportBar'
 import { SystemDisplayProvider, useSystemDisplayHost } from './shell/systemDisplayContext'
 import { applyKickPreset, applySnarePreset, createDefaultDrumSynthState } from './drumsynth/drumSynthOperations'
@@ -154,7 +153,7 @@ export function App({ audioEngine }: AppProps) {
   // The display's ownership lives here because the display is in the transport
   // and the contexts that claim it are all over the workspace. setState is
   // stable, so claiming does not rebuild the api on every render.
-  const { owner: displayOwner, api: displayApi } = useSystemDisplayHost()
+  const { owner: displayOwner, focusReadout: displayFocusReadout, api: displayApi } = useSystemDisplayHost()
   const [master, setMaster] = useState({ volume: 1, muted: false })
   const [masterEffects, setMasterEffects] = useState<EffectRackState>(() => createDefaultMasterEffectRack())
   const [activeFxContext, setActiveFxContext] = useState<FxContext | null>(null)
@@ -1603,6 +1602,7 @@ export function App({ audioEngine }: AppProps) {
               settingsOpen={transportSettingsOpen}
               statusMessage={transportNotice ?? projectMessage}
               errorMessage={errorMessage}
+              focusReadout={displayFocusReadout}
               displayOwner={displayOwner}
               audioStatus={audioStatus}
               audioDisabled={audioStatus === 'starting' || projectBusy}
@@ -2050,7 +2050,6 @@ export function App({ audioEngine }: AppProps) {
           onCancel={() => setPendingConfirmation(undefined)}
         />
       )}
-      <SliderMagnifier />
     </main>
     </SystemDisplayProvider>
   );

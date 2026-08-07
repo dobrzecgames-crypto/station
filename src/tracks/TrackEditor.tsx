@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react'
 import type { SampleAssetId } from '../audio/AudioEngine'
+import { useDragSlider } from '../shell/useDragSlider'
 import { maximumClipFadeSeconds } from './tracksOperations'
 import { snapBeatToGrid } from './timelineGrid'
 import { trackAccentColor } from './trackAccent'
@@ -157,6 +158,46 @@ export function TrackEditor({ track, waveforms, bpm, isPlaying, playheadBeat, sn
   }
 
   const selectedClip = track.clips.find((clip) => clip.id === selectedClipId)
+  // Hooks can't be called conditionally, but the four param sliders below only
+  // render once a clip is selected - so each drag falls back to a harmless 0/
+  // no-op when there is none, same shape as any other hook reading state that
+  // might not exist yet.
+  const gainDrag = useDragSlider({
+    value: selectedClip?.gain ?? 0,
+    min: 0,
+    max: 1,
+    step: 0.01,
+    onChange: (value) => { if (selectedClip) onSetClipGain(selectedClip.id, value) },
+    focusLabel: 'GAIN',
+    formatValue: (value) => `${Math.round(value * 100)}%`,
+  })
+  const fadeInDrag = useDragSlider({
+    value: selectedClip?.fadeInSeconds ?? 0,
+    min: 0,
+    max: maximumClipFadeSeconds,
+    step: 0.05,
+    onChange: (value) => { if (selectedClip) onSetClipFadeIn(selectedClip.id, value) },
+    focusLabel: 'FADE IN',
+    formatValue: (value) => `${value.toFixed(2)} s`,
+  })
+  const fadeOutDrag = useDragSlider({
+    value: selectedClip?.fadeOutSeconds ?? 0,
+    min: 0,
+    max: maximumClipFadeSeconds,
+    step: 0.05,
+    onChange: (value) => { if (selectedClip) onSetClipFadeOut(selectedClip.id, value) },
+    focusLabel: 'FADE OUT',
+    formatValue: (value) => `${value.toFixed(2)} s`,
+  })
+  const pitchDrag = useDragSlider({
+    value: selectedClip?.pitchSemitones ?? 0,
+    min: -24,
+    max: 24,
+    step: 1,
+    onChange: (value) => { if (selectedClip) onSetClipPitch(selectedClip.id, value) },
+    focusLabel: 'PITCH',
+    formatValue: (value) => `${value > 0 ? '+' : ''}${value} st`,
+  })
   const canSplitSelected = Boolean(selectedClip && playheadBeat > selectedClip.startBeat + 0.02 && playheadBeat < selectedClip.startBeat + selectedClip.lengthBeats - 0.02)
   const furthestBeat = track.clips.reduce((max, clip) => Math.max(max, clip.startBeat + clip.lengthBeats), 0)
   const totalBeats = Math.max(minimumVisibleBars * barBeats, Math.ceil((furthestBeat + barBeats) / barBeats) * barBeats)
@@ -477,22 +518,22 @@ export function TrackEditor({ track, waveforms, bpm, isPlaying, playheadBeat, sn
           <label className="track-editor-param" htmlFor="track-editor-gain">
             <span>GAIN</span>
             <output htmlFor="track-editor-gain">{Math.round(selectedClip.gain * 100)}%</output>
-            <input id="track-editor-gain" type="range" min="0" max="1" step="0.01" value={selectedClip.gain} onChange={(event) => onSetClipGain(selectedClip.id, Number(event.target.value))} />
+            <input id="track-editor-gain" type="range" min="0" max="1" step="0.01" value={selectedClip.gain} onChange={(event) => onSetClipGain(selectedClip.id, Number(event.target.value))} onPointerDown={gainDrag.onPointerDown} />
           </label>
           <label className="track-editor-param" htmlFor="track-editor-fade-in">
             <span>FADE IN</span>
             <output htmlFor="track-editor-fade-in">{selectedClip.fadeInSeconds.toFixed(2)} s</output>
-            <input id="track-editor-fade-in" type="range" min="0" max={maximumClipFadeSeconds} step="0.05" value={selectedClip.fadeInSeconds} onChange={(event) => onSetClipFadeIn(selectedClip.id, Number(event.target.value))} />
+            <input id="track-editor-fade-in" type="range" min="0" max={maximumClipFadeSeconds} step="0.05" value={selectedClip.fadeInSeconds} onChange={(event) => onSetClipFadeIn(selectedClip.id, Number(event.target.value))} onPointerDown={fadeInDrag.onPointerDown} />
           </label>
           <label className="track-editor-param" htmlFor="track-editor-fade-out">
             <span>FADE OUT</span>
             <output htmlFor="track-editor-fade-out">{selectedClip.fadeOutSeconds.toFixed(2)} s</output>
-            <input id="track-editor-fade-out" type="range" min="0" max={maximumClipFadeSeconds} step="0.05" value={selectedClip.fadeOutSeconds} onChange={(event) => onSetClipFadeOut(selectedClip.id, Number(event.target.value))} />
+            <input id="track-editor-fade-out" type="range" min="0" max={maximumClipFadeSeconds} step="0.05" value={selectedClip.fadeOutSeconds} onChange={(event) => onSetClipFadeOut(selectedClip.id, Number(event.target.value))} onPointerDown={fadeOutDrag.onPointerDown} />
           </label>
           <label className="track-editor-param" htmlFor="track-editor-pitch">
             <span>PITCH</span>
             <output htmlFor="track-editor-pitch">{selectedClip.pitchSemitones > 0 ? '+' : ''}{selectedClip.pitchSemitones} st</output>
-            <input id="track-editor-pitch" type="range" min="-24" max="24" step="1" value={selectedClip.pitchSemitones} onChange={(event) => onSetClipPitch(selectedClip.id, Number(event.target.value))} />
+            <input id="track-editor-pitch" type="range" min="-24" max="24" step="1" value={selectedClip.pitchSemitones} onChange={(event) => onSetClipPitch(selectedClip.id, Number(event.target.value))} onPointerDown={pitchDrag.onPointerDown} />
           </label>
         </div>
       ) : (

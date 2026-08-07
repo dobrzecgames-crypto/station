@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useDragSlider } from '../shell/useDragSlider'
 
 interface AutoChopControlsProps {
   maxSmartCount: number
@@ -29,6 +30,17 @@ export function AutoChopControls({ maxSmartCount, smartCount, isPreviewing, anal
     movingTimeoutRef.current = window.setTimeout(() => setMoving(false), movingSettleMs)
   }
 
+  const drag = useDragSlider({
+    value: smartCount,
+    min: 1,
+    max: maxSmartCount,
+    step: 1,
+    disabled: analyzing || maxSmartCount <= 1,
+    onChange: handleSmartCountChange,
+    focusLabel: 'CUT',
+    formatValue: (value) => String(Math.round(value)),
+  })
+
   // 1..maxSmartCount mapped to 0-100% along the track - the same value the
   // native input already renders itself at, just mirrored onto the overlay.
   const headPercent = maxSmartCount > 1 ? ((smartCount - 1) / (maxSmartCount - 1)) * 100 : 0
@@ -39,11 +51,11 @@ export function AutoChopControls({ maxSmartCount, smartCount, isPreviewing, anal
         <label className="auto-chop-smart-slider" htmlFor="auto-chop-smart-count">
           <span>CUT</span><output htmlFor="auto-chop-smart-count">{analyzing ? '…' : smartCount}</output>
           {/* The real input stays exactly what it was - same id, type, min/max/
-              step/value/onChange - so SliderMagnifier (global touch listener on
-              every input[type=range], see shell/SliderMagnifier.tsx) keeps
-              working unchanged. Only its own paint becomes invisible (see CSS);
-              the head+beam is a decorative, pointer-events:none SVG mirroring
-              the same value on top, never a replacement for the control. */}
+              step/value/onChange, plus the same useDragSlider every other
+              slider uses (see shell/useDragSlider.ts) - so it keeps working
+              unchanged. Only its own paint becomes invisible (see CSS); the
+              head+beam is a decorative, pointer-events:none SVG mirroring the
+              same value on top, never a replacement for the control. */}
           <span className="cut-laser-track">
             <input
               id="auto-chop-smart-count"
@@ -54,6 +66,7 @@ export function AutoChopControls({ maxSmartCount, smartCount, isPreviewing, anal
               value={smartCount}
               disabled={analyzing || maxSmartCount <= 1}
               onChange={(event) => handleSmartCountChange(Number(event.target.value))}
+              onPointerDown={drag.onPointerDown}
             />
             <svg
               className={moving ? 'cut-laser-head cut-laser-head-moving' : 'cut-laser-head'}

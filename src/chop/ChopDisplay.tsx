@@ -86,7 +86,7 @@ function chopTenant(props: ChopTenantProps): DisplayTenant {
       {/* Seeds a pad's pitch only on the way onto the grid - a pad already cut
           keeps whatever pitch it has, so a later per-pad tweak in PAD survives
           further re-slicing. See applyChopMapping. */}
-      <DisplayRange idPrefix="chop-display" label="SOURCE PITCH" value={formatSourcePitch(sourcePitchSemitones)} min="-12" max="36" step="1" current={sourcePitchSemitones} disabled={!props.hasSource} onChange={props.onSourcePitchChange} />
+      <DisplayRange idPrefix="chop-display" label="SOURCE PITCH" formatValue={formatSourcePitch} min="-12" max="36" step="1" current={sourcePitchSemitones} disabled={!props.hasSource} onChange={props.onSourcePitchChange} />
       {/* Read-only until APPLY - detectTempo never sets the transport's BPM
           itself (see App.tsx's applyDetectedTempo), so a detected reading is
           only ever a suggestion the user commits to on purpose. */}

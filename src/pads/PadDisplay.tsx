@@ -4,6 +4,7 @@ import { builtInLibrary, libraryCategories } from '../library/builtInLibrary'
 import type { LibrarySample } from '../library/builtInLibrary'
 import type { DisplayTenant } from '../shell/SystemDisplay'
 import { useSystemDisplay } from '../shell/systemDisplayContext'
+import { useDragSlider } from '../shell/useDragSlider'
 import './padBrowser.css'
 
 interface PadDisplayLauncherProps {
@@ -184,10 +185,10 @@ function padTenant(props: PadDisplayLauncherProps, browser: DisplayPageState): D
         <span>{pad.label} / {trimExtension(pad.fileName)}</span>
         <span aria-hidden="true" />
       </div>
-      <SoundControl id="pad-display-volume" label="VOLUME" value={pad.volume.toFixed(2)} min="0" max="1" step="0.01" current={pad.volume} onChange={(value) => update({ volume: value })} />
-      <SoundControl id="pad-display-pitch" label="PITCH" value={formatPitch(pad.pitchSemitones)} min="-12" max="36" step="1" current={pad.pitchSemitones} onChange={(value) => update({ pitchSemitones: value })} />
-      <SoundControl id="pad-display-attack" label="ATTACK" value={`${pad.attackMs} ms`} min="0" max="250" step="1" current={pad.attackMs} onChange={(value) => update({ attackMs: value })} />
-      <SoundControl id="pad-display-release" label="RELEASE" value={`${pad.releaseMs} ms`} min="4" max="120" step="1" current={pad.releaseMs} onChange={(value) => update({ releaseMs: value })} />
+      <SoundControl id="pad-display-volume" label="VOLUME" formatValue={(value) => value.toFixed(2)} min="0" max="1" step="0.01" current={pad.volume} onChange={(value) => update({ volume: value })} />
+      <SoundControl id="pad-display-pitch" label="PITCH" formatValue={formatPitch} min="-12" max="36" step="1" current={pad.pitchSemitones} onChange={(value) => update({ pitchSemitones: value })} />
+      <SoundControl id="pad-display-attack" label="ATTACK" formatValue={(value) => `${value} ms`} min="0" max="250" step="1" current={pad.attackMs} onChange={(value) => update({ attackMs: value })} />
+      <SoundControl id="pad-display-release" label="RELEASE" formatValue={(value) => `${value} ms`} min="4" max="120" step="1" current={pad.releaseMs} onChange={(value) => update({ releaseMs: value })} />
       <div className="sound-tools-row">
         <span>SCALE / {props.projectKeyLabel}</span>
         <div>
@@ -252,11 +253,20 @@ function padTenant(props: PadDisplayLauncherProps, browser: DisplayPageState): D
   }
 }
 
-function SoundControl(props: { id: string; label: string; value: string; min: string; max: string; step: string; current: number; onChange: (value: number) => void }) {
+function SoundControl(props: { id: string; label: string; formatValue: (value: number) => string; min: string; max: string; step: string; current: number; onChange: (value: number) => void }) {
+  const drag = useDragSlider({
+    value: props.current,
+    min: Number(props.min),
+    max: Number(props.max),
+    step: Number(props.step),
+    onChange: props.onChange,
+    focusLabel: props.label,
+    formatValue: props.formatValue,
+  })
   return <label className="sound-control" htmlFor={props.id}>
     <span>{props.label}</span>
-    <input id={props.id} type="range" min={props.min} max={props.max} step={props.step} value={props.current} onChange={(event) => props.onChange(Number(event.target.value))} />
-    <output htmlFor={props.id}>{props.value}</output>
+    <input id={props.id} type="range" min={props.min} max={props.max} step={props.step} value={props.current} onChange={(event) => props.onChange(Number(event.target.value))} onPointerDown={drag.onPointerDown} />
+    <output htmlFor={props.id}>{props.formatValue(props.current)}</output>
   </label>
 }
 

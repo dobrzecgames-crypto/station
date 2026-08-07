@@ -188,9 +188,29 @@
   box-shadow: none;
 }.variant-selector .variant-empty:hover { border-color: var(--station-accent); color: var(--station-accent); }/* ---------- 6. Sliders -------------------------------------------------- */
 
-/* A thin cut with a plain cap. The printed scale stays - it is the one piece of
-   the console read that survives flattening, because it carries information. */
+/* A thin cut with a plain cap, in a box taller than the cut itself - the extra
+   height is an invisible touch/click target (shell/useDragSlider.ts drives the
+   actual drag; this just gives it more box to receive the initial pointerdown
+   on) rather than a bigger-looking control. Same idea as the CUT laser
+   slider's own 34px box around a 2px line (vinyl-dust.css), generalised here to
+   every slider. Geometry and paint both moved onto ::-webkit-slider-runnable-
+   track so growing the input's own height doesn't need hand-recomputed
+   background-position math - Chromium centres an explicit-height runnable-
+   track inside whatever taller box the input claims, for free. The printed
+   scale stays - it is the one piece of the console read that survives
+   flattening, because it carries information. */
 input[type="range"] {
+  height: 30px;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  /* A drag surface, not scrollable/selectable page content - without this a
+     touch drag can be swallowed by the page's own scroll before it ever
+     reaches useDragSlider's pointer handling. */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}input[type="range"]::-webkit-slider-runnable-track {
   height: 14px;
   border-radius: 0;
   background:
@@ -205,9 +225,10 @@ input[type="range"] {
 }input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none;
   width: 10px; height: 18px;
-  /* Centres the 18px thumb on the 14px track: (14 - 18) / 2. The rotated
-     mixer fader turns any imbalance here into the cap visibly sitting off to
-     one side instead of straddling the rail evenly. */
+  /* Centres the 18px thumb on the 14px track above (the track's own height,
+     not the input's): (14 - 18) / 2. The rotated mixer fader turns any
+     imbalance here into the cap visibly sitting off to one side instead of
+     straddling the rail evenly. */
   margin-top: -2px;
   border: 0;
   border-radius: 2px;
@@ -853,9 +874,11 @@ input[type="text"], input[type="number"], select, textarea {
   text-shadow: none;
 }/* Inside the display a slider is screen furniture, not a console control: the
    printed scale comes off and the cap lights up instead of taking the module
-   accent. Geometry is left to the app rule above so the drag target does not
-   move - only the paint changes. */
-.system-display input[type="range"] {
+   accent. Geometry (both the input's own invisible hit height and the track's
+   visual height) is left to the app rule above so the drag target does not
+   move - only the paint changes, on the same ::-webkit-slider-runnable-track
+   the app rule now paints on rather than on the input directly. */
+.system-display input[type="range"]::-webkit-slider-runnable-track {
   background: linear-gradient(rgb(var(--display-light) / 22%) 0 0);
   background-repeat: no-repeat;
   background-size: 100% 1px;

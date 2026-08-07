@@ -4,6 +4,12 @@ import type { PatternGroup, PatternVariantName, StepPattern, StepShiftPattern, S
 import type { PadState } from '../pads/types'
 import type { DisplayTenant } from '../shell/SystemDisplay'
 import { useSystemDisplay } from '../shell/systemDisplayContext'
+import { useDragSlider } from '../shell/useDragSlider'
+// StepLengthDialog below reuses the enlarged-dialog styling that used to be
+// shell/SliderMagnifier.tsx's alone (that component is gone - see
+// useDragSlider.ts for what replaced it) - this is now the only importer of
+// the stylesheet, so the import has to live here or the dialog goes unstyled.
+import '../shell/sliderMagnifier.css'
 
 interface SequencerControlsProps {
   pattern: StepPattern
@@ -92,6 +98,27 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
   const onShiftChangeRef = useRef(onShiftChange)
   onVelocityChangeRef.current = onVelocityChange
   onShiftChangeRef.current = onShiftChange
+  // stepTenant below is a plain function, not a component (it is built inside
+  // useMemo) - it cannot call a hook itself, so the two drags are started here,
+  // at the component's own top level, and handed down as plain handlers.
+  const velocityDrag = useDragSlider({
+    value: velocity,
+    min: 0,
+    max: 1,
+    step: 0.01,
+    onChange: (nextVelocity) => onVelocityChangeRef.current(editedPad.id, editedStep.stepIndex, nextVelocity),
+    focusLabel: 'VELOCITY',
+    formatValue: (value) => `${Math.round(value * 100)}%`,
+  })
+  const shiftDrag = useDragSlider({
+    value: shift,
+    min: -0.5,
+    max: 0.5,
+    step: 0.01,
+    onChange: (nextShift) => onShiftChangeRef.current(editedPad.id, editedStep.stepIndex, nextShift),
+    focusLabel: 'SHIFT',
+    formatValue: (value) => `${Math.round(value * 100)}%`,
+  })
   const tenant = useMemo<DisplayTenant>(() => stepTenant({
     pad: editedPad,
     stepIndex: editedStep.stepIndex,
@@ -100,7 +127,9 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
     length,
     onVelocityChange: (padId, stepIndex, nextVelocity) => onVelocityChangeRef.current(padId, stepIndex, nextVelocity),
     onShiftChange: (padId, stepIndex, nextShift) => onShiftChangeRef.current(padId, stepIndex, nextShift),
-  }), [editedPad, editedStep.stepIndex, velocity, shift, length])
+    onVelocityPointerDown: velocityDrag.onPointerDown,
+    onShiftPointerDown: shiftDrag.onPointerDown,
+  }), [editedPad, editedStep.stepIndex, velocity, shift, length, velocityDrag.onPointerDown, shiftDrag.onPointerDown])
   const selectStep = (padId: PadState['id'], stepIndex: number) => { setDisplayActive(true); setEditedStep({ padId, stepIndex }) }
   const pageStartStep = stepPage * 8
   const pageSteps = Array.from({ length: 8 }, (_, offset) => pageStartStep + offset)
@@ -237,9 +266,13 @@ interface StepTenantProps {
   length: number
   onVelocityChange: (padId: PadState['id'], stepIndex: number, velocity: number) => void
   onShiftChange: (padId: PadState['id'], stepIndex: number, shift: number) => void
+  /** Built by useDragSlider back in SequencerControls, which - unlike this
+      plain object-returning function - is allowed to call hooks. */
+  onVelocityPointerDown: (event: ReactPointerEvent<HTMLInputElement>) => void
+  onShiftPointerDown: (event: ReactPointerEvent<HTMLInputElement>) => void
 }
 
-function stepTenant({ pad, stepIndex, velocity, shift, length, onVelocityChange, onShiftChange }: StepTenantProps): DisplayTenant {
+function stepTenant({ pad, stepIndex, velocity, shift, length, onVelocityChange, onShiftChange, onVelocityPointerDown, onShiftPointerDown }: StepTenantProps): DisplayTenant {
   const lengthLabel = length > 0 ? `${length} STEP${length === 1 ? '' : 'S'}` : 'FULL'
   return {
     id: displayId,
@@ -249,12 +282,12 @@ function stepTenant({ pad, stepIndex, velocity, shift, length, onVelocityChange,
       <label className="display-param" htmlFor="seq-step-velocity">
         <span className="display-param-label">VELOCITY</span>
         <output htmlFor="seq-step-velocity">{Math.round(velocity * 100)}%</output>
-        <input id="seq-step-velocity" type="range" min="0" max="1" step="0.01" value={velocity} onChange={(event) => onVelocityChange(pad.id, stepIndex, Number(event.target.value))} />
+        <input id="seq-step-velocity" type="range" min="0" max="1" step="0.01" value={velocity} onChange={(event) => onVelocityChange(pad.id, stepIndex, Number(event.target.value))} onPointerDown={onVelocityPointerDown} />
       </label>
       <label className="display-param" htmlFor="seq-step-shift">
         <span className="display-param-label">SHIFT</span>
         <output htmlFor="seq-step-shift">{Math.round(shift * 100)}%</output>
-        <input id="seq-step-shift" type="range" min="-0.5" max="0.5" step="0.01" value={shift} onChange={(event) => onShiftChange(pad.id, stepIndex, Number(event.target.value))} />
+        <input id="seq-step-shift" type="range" min="-0.5" max="0.5" step="0.01" value={shift} onChange={(event) => onShiftChange(pad.id, stepIndex, Number(event.target.value))} onPointerDown={onShiftPointerDown} />
       </label>
     </>,
   }
@@ -270,14 +303,19 @@ interface StepLengthDialogProps {
   onClose: () => void
 }
 
-/** Same enlarged-dialog language as SliderMagnifier (shell/SliderMagnifier.tsx)
-    for the one thing on the step grid a native range input can't stand in
-    for by itself - dragging a note across a run of ~40px cells asked for
-    more precision than a touch screen gives. This drives onLengthChange
-    directly rather than mirroring a hidden native slider: there is no small
-    length input anywhere else for it to stay in sync with. */
+/** Enlarged-dialog language for the one thing on the step grid a native range
+    input can't stand in for by itself - dragging a note across a run of ~40px
+    cells asked for more precision than a touch screen gives. This drives
+    onLengthChange directly rather than mirroring a hidden native slider: there
+    is no small length input anywhere else for it to stay in sync with. Its
+    slider still uses useDragSlider for the same relative-drag feel every other
+    slider has, but skips that hook's focusLabel/Display integration - the big
+    <output> two lines down already is this dialog's live value readout, so a
+    second one on the transport line behind it would just say the same thing
+    twice. */
 function StepLengthDialog({ padLabel, stepIndex, length, maxLength, onLengthChange, onRemove, onClose }: StepLengthDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
+  const lengthDrag = useDragSlider({ value: length, min: 1, max: maxLength, step: 1, onChange: onLengthChange })
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -304,6 +342,7 @@ function StepLengthDialog({ padLabel, stepIndex, length, maxLength, onLengthChan
           step={1}
           value={length}
           onChange={(event) => onLengthChange(Number(event.target.value))}
+          onPointerDown={lengthDrag.onPointerDown}
         />
         <div className="slider-magnifier-actions">
           <button className="slider-magnifier-done slider-magnifier-remove" type="button" onClick={onRemove}>REMOVE</button>

@@ -125,33 +125,33 @@ function synthTenant(props: SynthTenantProps): DisplayTenant {
       </nav>
 
       {page === 'filter' && <>
-        <DisplayRange label="CUTOFF" value={formatFrequency(patch.filter.cutoffHz)} min="20" max="20000" step="1" current={patch.filter.cutoffHz} idPrefix={displayId} onChange={(cutoffHz) => change({ filter: { ...patch.filter, cutoffHz } })} />
-        <DisplayRange label="RESONANCE" value={patch.filter.resonance.toFixed(1)} min="0" max="20" step="0.1" current={patch.filter.resonance} idPrefix={displayId} onChange={(resonance) => change({ filter: { ...patch.filter, resonance } })} />
-        <DisplayRange label="ENV ATTACK" value={formatSeconds(patch.filter.envelopeAttackSeconds)} min="0" max="5" step="0.001" current={patch.filter.envelopeAttackSeconds} idPrefix={displayId} onChange={(envelopeAttackSeconds) => change({ filter: { ...patch.filter, envelopeAttackSeconds } })} />
-        <DisplayRange label="ENV DECAY" value={formatSeconds(patch.filter.envelopeDecaySeconds)} min="0" max="5" step="0.001" current={patch.filter.envelopeDecaySeconds} idPrefix={displayId} onChange={(envelopeDecaySeconds) => change({ filter: { ...patch.filter, envelopeDecaySeconds } })} />
-        <DisplayRange label="ENV AMOUNT" value={`${signed(patch.filter.envelopeAmountSemitones)} st`} min="-60" max="60" step="1" current={patch.filter.envelopeAmountSemitones} idPrefix={displayId} onChange={(envelopeAmountSemitones) => change({ filter: { ...patch.filter, envelopeAmountSemitones } })} />
+        <DisplayRange label="CUTOFF" formatValue={formatFrequency} min="20" max="20000" step="1" current={patch.filter.cutoffHz} idPrefix={displayId} onChange={(cutoffHz) => change({ filter: { ...patch.filter, cutoffHz } })} />
+        <DisplayRange label="RESONANCE" formatValue={(value) => value.toFixed(1)} min="0" max="20" step="0.1" current={patch.filter.resonance} idPrefix={displayId} onChange={(resonance) => change({ filter: { ...patch.filter, resonance } })} />
+        <DisplayRange label="ENV ATTACK" formatValue={formatSeconds} min="0" max="5" step="0.001" current={patch.filter.envelopeAttackSeconds} idPrefix={displayId} onChange={(envelopeAttackSeconds) => change({ filter: { ...patch.filter, envelopeAttackSeconds } })} />
+        <DisplayRange label="ENV DECAY" formatValue={formatSeconds} min="0" max="5" step="0.001" current={patch.filter.envelopeDecaySeconds} idPrefix={displayId} onChange={(envelopeDecaySeconds) => change({ filter: { ...patch.filter, envelopeDecaySeconds } })} />
+        <DisplayRange label="ENV AMOUNT" formatValue={(value) => `${signed(value)} st`} min="-60" max="60" step="1" current={patch.filter.envelopeAmountSemitones} idPrefix={displayId} onChange={(envelopeAmountSemitones) => change({ filter: { ...patch.filter, envelopeAmountSemitones } })} />
       </>}
 
       {page === 'amp' && <>
-        <DisplayRange label="ATTACK" value={formatSeconds(patch.ampEnvelope.attackSeconds)} min="0" max="5" step="0.001" current={patch.ampEnvelope.attackSeconds} idPrefix={displayId} onChange={(attackSeconds) => change({ ampEnvelope: { ...patch.ampEnvelope, attackSeconds } })} />
-        <DisplayRange label="DECAY" value={formatSeconds(patch.ampEnvelope.decaySeconds)} min="0" max="5" step="0.001" current={patch.ampEnvelope.decaySeconds} idPrefix={displayId} onChange={(decaySeconds) => change({ ampEnvelope: { ...patch.ampEnvelope, decaySeconds } })} />
-        <DisplayRange label="SUSTAIN" value={patch.ampEnvelope.sustain.toFixed(2)} min="0" max="1" step="0.01" current={patch.ampEnvelope.sustain} idPrefix={displayId} onChange={(sustain) => change({ ampEnvelope: { ...patch.ampEnvelope, sustain } })} />
-        <DisplayRange label="RELEASE" value={formatSeconds(patch.ampEnvelope.releaseSeconds)} min="0.005" max="10" step="0.005" current={patch.ampEnvelope.releaseSeconds} idPrefix={displayId} onChange={(releaseSeconds) => change({ ampEnvelope: { ...patch.ampEnvelope, releaseSeconds } })} />
-        <DisplayRange label="DRIVE" value={patch.drive.toFixed(2)} min="0" max="1" step="0.01" current={patch.drive} idPrefix={displayId} onChange={(drive) => change({ drive })} />
+        <DisplayRange label="ATTACK" formatValue={formatSeconds} min="0" max="5" step="0.001" current={patch.ampEnvelope.attackSeconds} idPrefix={displayId} onChange={(attackSeconds) => change({ ampEnvelope: { ...patch.ampEnvelope, attackSeconds } })} />
+        <DisplayRange label="DECAY" formatValue={formatSeconds} min="0" max="5" step="0.001" current={patch.ampEnvelope.decaySeconds} idPrefix={displayId} onChange={(decaySeconds) => change({ ampEnvelope: { ...patch.ampEnvelope, decaySeconds } })} />
+        <DisplayRange label="SUSTAIN" formatValue={(value) => value.toFixed(2)} min="0" max="1" step="0.01" current={patch.ampEnvelope.sustain} idPrefix={displayId} onChange={(sustain) => change({ ampEnvelope: { ...patch.ampEnvelope, sustain } })} />
+        <DisplayRange label="RELEASE" formatValue={formatSeconds} min="0.005" max="10" step="0.005" current={patch.ampEnvelope.releaseSeconds} idPrefix={displayId} onChange={(releaseSeconds) => change({ ampEnvelope: { ...patch.ampEnvelope, releaseSeconds } })} />
+        <DisplayRange label="DRIVE" formatValue={(value) => value.toFixed(2)} min="0" max="1" step="0.01" current={patch.drive} idPrefix={displayId} onChange={(drive) => change({ drive })} />
       </>}
 
       {page === 'lfo' && <>
         <DisplaySelect label="WAVE" value={patch.lfo.waveform} options={synthWaveforms} onChange={(waveform) => change({ lfo: { ...patch.lfo, waveform } })} />
         <DisplaySelect label="DIVISION" value={patch.lfo.division} options={synthLfoDivisions} onChange={(division) => change({ lfo: { ...patch.lfo, division } })} />
-        <DisplayRange label="FILTER DEPTH" value={`${compact(patch.lfo.depthSemitones)} st`} min="0" max="48" step="0.5" current={patch.lfo.depthSemitones} idPrefix={displayId} onChange={(depthSemitones) => change({ lfo: { ...patch.lfo, depthSemitones } })} />
+        <DisplayRange label="FILTER DEPTH" formatValue={(value) => `${compact(value)} st`} min="0" max="48" step="0.5" current={patch.lfo.depthSemitones} idPrefix={displayId} onChange={(depthSemitones) => change({ lfo: { ...patch.lfo, depthSemitones } })} />
       </>}
 
       {page === 'voice' && <>
         <DisplaySelect label="MODE" value={patch.mode} options={synthVoiceModes} labels={{ mono: 'MONO', poly5: 'POLY 5' }} onChange={props.onModeChange} />
-        <DisplayRange label="BASE NOTE" value={formatMidiNote(patch.baseMidiNote)} min={String(props.baseMidiRange[0])} max={String(props.baseMidiRange[1])} step="1" current={patch.baseMidiNote} idPrefix={displayId} onChange={(baseMidiNoteValue) => change({ baseMidiNote: baseMidiNoteValue })} />
-        <DisplayRange label="PAD PITCH" value={`${signed(pad.pitchSemitones)} st`} min={String(minimumPadPitch)} max={String(maximumPadPitch)} step="1" current={pad.pitchSemitones} idPrefix={displayId} onChange={props.onPadPitchChange} />
-        <DisplayRange label="GLIDE" value={formatSeconds(patch.glideSeconds)} min="0" max="2" step="0.005" current={patch.glideSeconds} idPrefix={displayId} onChange={(glideSeconds) => change({ glideSeconds })} />
-        <DisplayRange label="GATE" value={`${Math.round(patch.gate * 100)}% step`} min="0.05" max="2" step="0.01" current={patch.gate} idPrefix={displayId} onChange={(gate) => change({ gate })} />
+        <DisplayRange label="BASE NOTE" formatValue={formatMidiNote} min={String(props.baseMidiRange[0])} max={String(props.baseMidiRange[1])} step="1" current={patch.baseMidiNote} idPrefix={displayId} onChange={(baseMidiNoteValue) => change({ baseMidiNote: baseMidiNoteValue })} />
+        <DisplayRange label="PAD PITCH" formatValue={(value) => `${signed(value)} st`} min={String(minimumPadPitch)} max={String(maximumPadPitch)} step="1" current={pad.pitchSemitones} idPrefix={displayId} onChange={props.onPadPitchChange} />
+        <DisplayRange label="GLIDE" formatValue={formatSeconds} min="0" max="2" step="0.005" current={patch.glideSeconds} idPrefix={displayId} onChange={(glideSeconds) => change({ glideSeconds })} />
+        <DisplayRange label="GATE" formatValue={(value) => `${Math.round(value * 100)}% step`} min="0.05" max="2" step="0.01" current={patch.gate} idPrefix={displayId} onChange={(gate) => change({ gate })} />
       </>}
 
       {page === 'pad' && <>

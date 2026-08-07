@@ -153,10 +153,10 @@ function EffectDisplayPanel({ scopeLabel, slotIndex, rack, bpm, onChange, onClos
     </div>}
 
     {!showChooser && slot.type === 'compressor' && <>
-      <DisplayRange idPrefix="fx-display" label="THRESHOLD" value={`${slot.compressor.thresholdDb.toFixed(0)} dB`} min="-60" max="0" step="1" current={slot.compressor.thresholdDb} onChange={(value) => updateCompressor({ thresholdDb: value })} />
-      <DisplayRange idPrefix="fx-display" label="RATIO" value={`${slot.compressor.ratio.toFixed(1)}:1`} min="1" max="12" step="0.1" current={slot.compressor.ratio} onChange={(value) => updateCompressor({ ratio: value })} />
-      <DisplayRange idPrefix="fx-display" label="ATTACK" value={`${Math.round(slot.compressor.attackSeconds * 1000)} ms`} min="0.003" max="0.1" step="0.001" current={slot.compressor.attackSeconds} onChange={(value) => updateCompressor({ attackSeconds: value })} />
-      <DisplayRange idPrefix="fx-display" label="RELEASE" value={`${Math.round(slot.compressor.releaseSeconds * 1000)} ms`} min="0.05" max="1" step="0.01" current={slot.compressor.releaseSeconds} onChange={(value) => updateCompressor({ releaseSeconds: value })} />
+      <DisplayRange idPrefix="fx-display" label="THRESHOLD" formatValue={(value) => `${value.toFixed(0)} dB`} min="-60" max="0" step="1" current={slot.compressor.thresholdDb} onChange={(value) => updateCompressor({ thresholdDb: value })} />
+      <DisplayRange idPrefix="fx-display" label="RATIO" formatValue={(value) => `${value.toFixed(1)}:1`} min="1" max="12" step="0.1" current={slot.compressor.ratio} onChange={(value) => updateCompressor({ ratio: value })} />
+      <DisplayRange idPrefix="fx-display" label="ATTACK" formatValue={(value) => `${Math.round(value * 1000)} ms`} min="0.003" max="0.1" step="0.001" current={slot.compressor.attackSeconds} onChange={(value) => updateCompressor({ attackSeconds: value })} />
+      <DisplayRange idPrefix="fx-display" label="RELEASE" formatValue={(value) => `${Math.round(value * 1000)} ms`} min="0.05" max="1" step="0.01" current={slot.compressor.releaseSeconds} onChange={(value) => updateCompressor({ releaseSeconds: value })} />
     </>}
 
     {!showChooser && slot.type === 'delay' && <>
@@ -170,19 +170,19 @@ function EffectDisplayPanel({ scopeLabel, slotIndex, rack, bpm, onChange, onClos
           {(['1/2', '1/4', '1/8', '1/16'] as const).map((division) => <button className={slot.delay.division === division ? 'display-action display-action-active' : 'display-action'} key={division} type="button" disabled={!slot.delay.sync} aria-pressed={slot.delay.division === division} onClick={() => updateDelay({ division })}>{division}</button>)}
         </div>
       </div>
-      <DisplayRange idPrefix="fx-display" label="TIME" value={`${Math.round(getDelayTimeSeconds(slot.delay, bpm) * 1000)} ms`} min="0.02" max={slot.delay.sync ? '2' : '1'} step="0.01" disabled={slot.delay.sync} current={slot.delay.sync ? getDelayTimeSeconds(slot.delay, bpm) : slot.delay.timeSeconds} onChange={(value) => updateDelay({ timeSeconds: value })} />
-      <DisplayRange idPrefix="fx-display" label="FEEDBACK" value={`${Math.round(slot.delay.feedback * 100)}%`} min="0" max="0.85" step="0.01" current={slot.delay.feedback} onChange={(value) => updateDelay({ feedback: value })} />
-      <DisplayRange idPrefix="fx-display" label="MIX" value={`${Math.round(slot.delay.mix * 100)}%`} min="0" max="0.5" step="0.01" current={slot.delay.mix} onChange={(value) => updateDelay({ mix: value })} />
+      <DisplayRange idPrefix="fx-display" label="TIME" formatValue={(value) => `${Math.round(value * 1000)} ms`} min="0.02" max={slot.delay.sync ? '2' : '1'} step="0.01" disabled={slot.delay.sync} current={slot.delay.sync ? getDelayTimeSeconds(slot.delay, bpm) : slot.delay.timeSeconds} onChange={(value) => updateDelay({ timeSeconds: value })} />
+      <DisplayRange idPrefix="fx-display" label="FEEDBACK" formatValue={(value) => `${Math.round(value * 100)}%`} min="0" max="0.85" step="0.01" current={slot.delay.feedback} onChange={(value) => updateDelay({ feedback: value })} />
+      <DisplayRange idPrefix="fx-display" label="MIX" formatValue={(value) => `${Math.round(value * 100)}%`} min="0" max="0.5" step="0.01" current={slot.delay.mix} onChange={(value) => updateDelay({ mix: value })} />
     </>}
 
     {!showChooser && slot.type === 'eq' && <>
-      <DisplayRange idPrefix="fx-display" label="LOW FREQ" value={`${Math.round(slot.eq.lowShelfFreqHz)} Hz`} min="40" max="500" step="1" current={slot.eq.lowShelfFreqHz} onChange={(value) => updateEQ({ lowShelfFreqHz: value })} />
-      <DisplayRange idPrefix="fx-display" label="LOW GAIN" value={formatEqGain(slot.eq.lowShelfGainDb)} min="-15" max="15" step="0.1" current={slot.eq.lowShelfGainDb} onChange={(value) => updateEQ({ lowShelfGainDb: value })} />
-      <DisplayRange idPrefix="fx-display" label="MID FREQ" value={`${Math.round(slot.eq.midFreqHz)} Hz`} min="200" max="6000" step="1" current={slot.eq.midFreqHz} onChange={(value) => updateEQ({ midFreqHz: value })} />
-      <DisplayRange idPrefix="fx-display" label="MID GAIN" value={formatEqGain(slot.eq.midGainDb)} min="-15" max="15" step="0.1" current={slot.eq.midGainDb} onChange={(value) => updateEQ({ midGainDb: value })} />
-      <DisplayRange idPrefix="fx-display" label="MID Q" value={slot.eq.midQ.toFixed(2)} min="0.4" max="4" step="0.1" current={slot.eq.midQ} onChange={(value) => updateEQ({ midQ: value })} />
-      <DisplayRange idPrefix="fx-display" label="HIGH FREQ" value={`${Math.round(slot.eq.highShelfFreqHz)} Hz`} min="2000" max="12000" step="1" current={slot.eq.highShelfFreqHz} onChange={(value) => updateEQ({ highShelfFreqHz: value })} />
-      <DisplayRange idPrefix="fx-display" label="HIGH GAIN" value={formatEqGain(slot.eq.highShelfGainDb)} min="-15" max="15" step="0.1" current={slot.eq.highShelfGainDb} onChange={(value) => updateEQ({ highShelfGainDb: value })} />
+      <DisplayRange idPrefix="fx-display" label="LOW FREQ" formatValue={(value) => `${Math.round(value)} Hz`} min="40" max="500" step="1" current={slot.eq.lowShelfFreqHz} onChange={(value) => updateEQ({ lowShelfFreqHz: value })} />
+      <DisplayRange idPrefix="fx-display" label="LOW GAIN" formatValue={formatEqGain} min="-15" max="15" step="0.1" current={slot.eq.lowShelfGainDb} onChange={(value) => updateEQ({ lowShelfGainDb: value })} />
+      <DisplayRange idPrefix="fx-display" label="MID FREQ" formatValue={(value) => `${Math.round(value)} Hz`} min="200" max="6000" step="1" current={slot.eq.midFreqHz} onChange={(value) => updateEQ({ midFreqHz: value })} />
+      <DisplayRange idPrefix="fx-display" label="MID GAIN" formatValue={formatEqGain} min="-15" max="15" step="0.1" current={slot.eq.midGainDb} onChange={(value) => updateEQ({ midGainDb: value })} />
+      <DisplayRange idPrefix="fx-display" label="MID Q" formatValue={(value) => value.toFixed(2)} min="0.4" max="4" step="0.1" current={slot.eq.midQ} onChange={(value) => updateEQ({ midQ: value })} />
+      <DisplayRange idPrefix="fx-display" label="HIGH FREQ" formatValue={(value) => `${Math.round(value)} Hz`} min="2000" max="12000" step="1" current={slot.eq.highShelfFreqHz} onChange={(value) => updateEQ({ highShelfFreqHz: value })} />
+      <DisplayRange idPrefix="fx-display" label="HIGH GAIN" formatValue={formatEqGain} min="-15" max="15" step="0.1" current={slot.eq.highShelfGainDb} onChange={(value) => updateEQ({ highShelfGainDb: value })} />
     </>}
 
     {/* Split across two light "pages" (mirroring STRINGS' own MORE page)
@@ -201,14 +201,14 @@ function EffectDisplayPanel({ scopeLabel, slotIndex, rack, bpm, onChange, onClos
             {(['room', 'drum', 'vocal'] as const).map((mode) => <button className={slot.tightRoom.mode === mode ? 'display-action display-action-active' : 'display-action'} key={mode} type="button" aria-pressed={slot.tightRoom.mode === mode} onClick={() => updateTightRoom({ mode })}>{mode.toUpperCase()}</button>)}
           </div>
         </div>
-        <DisplayRange idPrefix="fx-display" label="AMOUNT" value={`${Math.round(slot.tightRoom.amount * 100)}%`} min="0" max="1" step="0.01" current={slot.tightRoom.amount} onChange={(value) => updateTightRoom({ amount: value })} />
-        <DisplayRange idPrefix="fx-display" label="SIZE" value={`${Math.round(slot.tightRoom.size * 100)}%`} min="0" max="1" step="0.01" current={slot.tightRoom.size} onChange={(value) => updateTightRoom({ size: value })} />
-        <DisplayRange idPrefix="fx-display" label="DECAY" value={`${slot.tightRoom.decaySeconds.toFixed(2)} s`} min="0.15" max="1.5" step="0.01" current={slot.tightRoom.decaySeconds} onChange={(value) => updateTightRoom({ decaySeconds: value })} />
+        <DisplayRange idPrefix="fx-display" label="AMOUNT" formatValue={(value) => `${Math.round(value * 100)}%`} min="0" max="1" step="0.01" current={slot.tightRoom.amount} onChange={(value) => updateTightRoom({ amount: value })} />
+        <DisplayRange idPrefix="fx-display" label="SIZE" formatValue={(value) => `${Math.round(value * 100)}%`} min="0" max="1" step="0.01" current={slot.tightRoom.size} onChange={(value) => updateTightRoom({ size: value })} />
+        <DisplayRange idPrefix="fx-display" label="DECAY" formatValue={(value) => `${value.toFixed(2)} s`} min="0.15" max="1.5" step="0.01" current={slot.tightRoom.decaySeconds} onChange={(value) => updateTightRoom({ decaySeconds: value })} />
       </>}
       {showTightRoomMore && <>
-        <DisplayRange idPrefix="fx-display" label="PRE-DELAY" value={`${Math.round(slot.tightRoom.preDelaySeconds * 1000)} ms`} min="0" max="0.045" step="0.001" current={slot.tightRoom.preDelaySeconds} onChange={(value) => updateTightRoom({ preDelaySeconds: value })} />
-        <DisplayRange idPrefix="fx-display" label="TONE" value={formatTightRoomTone(slot.tightRoom.tone)} min="-1" max="1" step="0.01" current={slot.tightRoom.tone} onChange={(value) => updateTightRoom({ tone: value })} />
-        <DisplayRange idPrefix="fx-display" label="TIGHT" value={`${Math.round(slot.tightRoom.tight * 100)}%`} min="0" max="1" step="0.01" current={slot.tightRoom.tight} onChange={(value) => updateTightRoom({ tight: value })} />
+        <DisplayRange idPrefix="fx-display" label="PRE-DELAY" formatValue={(value) => `${Math.round(value * 1000)} ms`} min="0" max="0.045" step="0.001" current={slot.tightRoom.preDelaySeconds} onChange={(value) => updateTightRoom({ preDelaySeconds: value })} />
+        <DisplayRange idPrefix="fx-display" label="TONE" formatValue={formatTightRoomTone} min="-1" max="1" step="0.01" current={slot.tightRoom.tone} onChange={(value) => updateTightRoom({ tone: value })} />
+        <DisplayRange idPrefix="fx-display" label="TIGHT" formatValue={(value) => `${Math.round(value * 100)}%`} min="0" max="1" step="0.01" current={slot.tightRoom.tight} onChange={(value) => updateTightRoom({ tight: value })} />
       </>}
     </>}
 

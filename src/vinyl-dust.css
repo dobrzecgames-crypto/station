@@ -548,10 +548,10 @@ select, textarea {
   letter-spacing: .04em;
 }
 
-/* CUT's own laser head/beam. The real <input> stays fully functional and
-   SliderMagnifier-visible (see AutoChopControls.tsx) - only its own paint
-   is hidden here; the SVG head is a pointer-events:none decoration mirroring
-   the same value on top of it. */
+/* CUT's own laser head/beam. The real <input> stays fully functional - same
+   useDragSlider every other slider uses (see AutoChopControls.tsx) - only its
+   own paint is hidden here; the SVG head is a pointer-events:none decoration
+   mirroring the same value on top of it. */
 .chop-workspace .cut-laser-track {
   position: relative;
   display: block;

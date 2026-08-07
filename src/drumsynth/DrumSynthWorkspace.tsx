@@ -1,3 +1,4 @@
+import { useDragSlider } from '../shell/useDragSlider'
 import { kickDecayToSeconds, kickPresetNames, kickTuneToHz, snareBodyDecayToSeconds, snarePresetNames, snareRattleDecayToSeconds, snareTuneToHz } from './drumSynthOperations'
 import type { KickPresetName, SnarePresetName } from './drumSynthOperations'
 import type { DrumInstrumentType, DrumKickPatch, DrumSnarePatch, DrumSynthState } from './drumSynthTypes'
@@ -134,9 +135,10 @@ function InlineRange({ label, value, format, dust, onChange }: {
   dust?: boolean
   onChange: (value: number) => void
 }) {
+  const drag = useDragSlider({ value, min: 0, max: 1, step: 0.01, onChange, focusLabel: label, formatValue: format })
   return <label className={`drumsynth-inline-range${dust ? ' drumsynth-inline-range-dust' : ''}`}>
     <span>{label}</span>
     <output>{format(value)}</output>
-    <input type="range" value={value} min={0} max={1} step={0.01} onChange={(event) => onChange(Number(event.target.value))} />
+    <input type="range" value={value} min={0} max={1} step={0.01} onChange={(event) => onChange(Number(event.target.value))} onPointerDown={drag.onPointerDown} />
   </label>
 }

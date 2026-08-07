@@ -4,9 +4,16 @@
    which asks that anything added to the panel reuse this shape rather than
    invent a layout, so a delay and a bus read as the same instrument. */
 
+import { useDragSlider } from './useDragSlider'
+
 interface DisplayRangeProps {
   label: string
-  value: string
+  /** Formats `current` - and any in-progress value while the slider is being
+      dragged - for both this row's own <output> and the System Display's live
+      focus readout (see useDragSlider). One formatter rather than a formatted
+      string plus a separate function: the two could otherwise drift, one used
+      for the resting value and the other for the value mid-drag. */
+  formatValue: (value: number) => string
   min: string
   max: string
   step: string
@@ -18,11 +25,31 @@ interface DisplayRangeProps {
   onChange: (value: number) => void
 }
 
-export function DisplayRange({ label, value, min, max, step, current, idPrefix, disabled, onChange }: DisplayRangeProps) {
+export function DisplayRange({ label, formatValue, min, max, step, current, idPrefix, disabled, onChange }: DisplayRangeProps) {
   const id = `${idPrefix}-${label.toLowerCase().replaceAll(' ', '-')}`
+  const drag = useDragSlider({
+    value: current,
+    min: Number(min),
+    max: Number(max),
+    step: Number(step),
+    disabled,
+    onChange,
+    focusLabel: label,
+    formatValue,
+  })
   return <label className="display-param" htmlFor={id}>
     <span className="display-param-label">{label}</span>
-    <output htmlFor={id}>{value}</output>
-    <input id={id} type="range" min={min} max={max} step={step} disabled={disabled} value={current} onChange={(event) => onChange(Number(event.target.value))} />
+    <output htmlFor={id}>{formatValue(current)}</output>
+    <input
+      id={id}
+      type="range"
+      min={min}
+      max={max}
+      step={step}
+      disabled={disabled}
+      value={current}
+      onChange={(event) => onChange(Number(event.target.value))}
+      onPointerDown={drag.onPointerDown}
+    />
   </label>
 }

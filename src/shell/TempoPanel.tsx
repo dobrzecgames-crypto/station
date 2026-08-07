@@ -1,4 +1,5 @@
 import type { DisplayTenant } from './SystemDisplay'
+import { useDragSlider } from './useDragSlider'
 
 interface TempoPanelProps {
   bpm: number
@@ -41,6 +42,8 @@ export function tempoTenant(props: TempoPanelProps): DisplayTenant {
    is exactly the case tooling gets wrong, and the visible ON/OFF is next to it
    waiting to be swept into the same string. Two constants, three lines apart. */
 function TempoPanel({ bpm, swing, mode, loopSong, metronomeEnabled, onBpmChange, onSwingChange, onLoopSongChange, onMetronomeEnabledChange }: TempoPanelProps) {
+  const bpmDrag = useDragSlider({ value: bpm, min: 60, max: 200, step: 1, onChange: onBpmChange, focusLabel: 'BPM', formatValue: (value) => String(value) })
+  const swingDrag = useDragSlider({ value: swing, min: 0, max: 0.5, step: 0.01, onChange: onSwingChange, focusLabel: 'SWING', formatValue: (value) => `${Math.round(value * 100)}%` })
   return <>
     <button className="display-toggle" type="button" role="switch" aria-label="LOOP SONG" aria-checked={loopSong} disabled={mode !== 'song'} onClick={() => onLoopSongChange(!loopSong)}>
       <span className="display-param-label">LOOP SONG</span>
@@ -55,12 +58,12 @@ function TempoPanel({ bpm, swing, mode, loopSong, metronomeEnabled, onBpmChange,
     <label className="display-param" htmlFor="bpm">
       <span className="display-param-label">BPM</span>
       <output htmlFor="bpm">{bpm}</output>
-      <input id="bpm" type="range" min="60" max="200" value={bpm} onChange={(event) => onBpmChange(Number(event.target.value))} />
+      <input id="bpm" type="range" min="60" max="200" value={bpm} onChange={(event) => onBpmChange(Number(event.target.value))} onPointerDown={bpmDrag.onPointerDown} />
     </label>
     <label className="display-param" htmlFor="swing">
       <span className="display-param-label">SWING</span>
       <output htmlFor="swing">{Math.round(swing * 100)}%</output>
-      <input id="swing" type="range" min="0" max="0.5" step="0.01" value={swing} onChange={(event) => onSwingChange(Number(event.target.value))} />
+      <input id="swing" type="range" min="0" max="0.5" step="0.01" value={swing} onChange={(event) => onSwingChange(Number(event.target.value))} onPointerDown={swingDrag.onPointerDown} />
     </label>
   </>
 }

@@ -27,6 +27,12 @@ interface SystemDisplayProps {
   statusMessage?: string
   /** Failure or blocked action; holds the line until the next action. */
   errorMessage?: string
+  /** The Focus channel (SYSTEM_DISPLAY.md priority 3) - a slider's live value
+      while it is being dragged, from shell/useDragSlider.ts via
+      systemDisplayContext's showFocus/releaseFocus. Outranks the resting
+      readout but not a confirmation or error, and never touches the panel -
+      dragging a slider does not change who owns it. */
+  focusReadout?: string | null
   open: boolean
   onOpenChange: (open: boolean) => void
 }
@@ -34,17 +40,21 @@ interface SystemDisplayProps {
 /* The one place messages appear, and the only thing on screen that emits light
    rather than reflecting it. A line plus a panel, both inside the same glass.
 
-   The line runs four channels in priority order - error, confirmation, focus
-   (not built yet), then the owner's readout as the floor. Higher always wins,
-   so a readout can never push a failure off the line.
+   The line runs four channels in priority order - error, confirmation, focus,
+   then the owner's readout as the floor. Higher always wins, so a readout can
+   never push a failure off the line.
 
    The tappable surface is a sibling of the text, not its parent: a live region
    nested inside a button is unreliable, because assistive tech may flatten a
    button's contents to its label and never announce the change. */
-export function SystemDisplay({ owner, statusMessage, errorMessage, open, onOpenChange }: SystemDisplayProps) {
+export function SystemDisplay({ owner, statusMessage, errorMessage, focusReadout, open, onOpenChange }: SystemDisplayProps) {
   // An error outranks a confirmation: if both are pending, the failure is the
-  // one you need to see.
-  const message = errorMessage ?? statusMessage
+  // one you need to see. Focus sits below both of those and above the owner's
+  // own readout, but - deliberately - is not part of the `tone` computation
+  // below: it is a readout, not a message, so it stays untinted and silent
+  // (aria-live off) exactly like the resting readout it is temporarily standing
+  // in for. See the focusReadout doc comment on SystemDisplayProps.
+  const message = errorMessage ?? statusMessage ?? focusReadout
   const tone = errorMessage ? 'error' : statusMessage ? 'status' : 'idle'
   /* A line-only tenant - the resting MIX readout, the library's drop prompt -
      has nothing behind the line. The chevron and the tap target used to render

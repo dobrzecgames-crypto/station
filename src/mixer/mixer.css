@@ -97,6 +97,13 @@
 }
 
 .mixer-strip-fader input[type="range"]::-webkit-slider-runnable-track {
+  /* lab-interface.css's base rule now sets height:14px on this same
+     pseudo-element (for the invisible touch-target box every other slider
+     uses - see its comment) - height has no shorthand to reset it as a side
+     effect the way `background: transparent` below resets the base rule's
+     background layers, so without this override the vertical fader's track
+     would get squashed to 14px instead of running the fader's full length. */
+  height: 100%;
   width: 100%;
   border-radius: 0;
   background: transparent;

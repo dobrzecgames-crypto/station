@@ -7,8 +7,10 @@ several things want it at once.
 Status: **sections 1–6 are built. Steps 1, 2 and 3 of section 8 are done** — the
 panel is a slot, tempo is its default tenant, contexts claim and release it
 through `SystemDisplayApi`, and the first adopter is live. The focus channel
-(priority 3) is the one part of section 3 still unbuilt: today a context claims
-on a discrete selection rather than while a control is held.
+(priority 3) is built too: `SystemDisplayApi.showFocus`/`releaseFocus` (see
+`shell/systemDisplayContext.tsx`), driven by every slider via
+`shell/useDragSlider.ts` while it is being dragged - the one thing that does
+claim while a control is held rather than only on a discrete selection.
 
 Current adopters include the library's assign step, the transport's bank
 actions (copy, clear, delete), the pad's sample browser with its sound controls,
@@ -137,7 +139,7 @@ higher always wins.
 | --- | --- | --- | --- |
 | 1 | **Error** | 2 s, then releases | `errorMessage` |
 | 2 | **Confirmation** | 4 s, then releases | `projectMessage` |
-| 3 | **Focus** *(proposed)* | While a control is held or focused | — |
+| 3 | **Focus** | While a control is held | `SystemDisplayApi.showFocus` / `releaseFocus` |
 | 4 | **Readout** | Always, as the floor | `bpm` / `swing` |
 
 Errors outrank everything on purpose while they are visible. They release after
@@ -239,8 +241,9 @@ Each step is useful on its own and can be stopped after.
 1. ~~Turn the panel into a slot with tempo as the default owner.~~ **Done.** No
    behaviour change — this is the refactor that makes the rest possible.
 2. ~~Add the claim/release API.~~ **Done** — see `shell/systemDisplayContext.tsx`.
-   The focus channel at priority 3 is still open: nothing yet claims *while a
-   control is held*, only on a discrete selection.
+   ~~The focus channel at priority 3 is still open.~~ **Done** — `showFocus`/
+   `releaseFocus` on the same API, claimed by `shell/useDragSlider.ts` while a
+   slider is held.
 3. ~~Adopt it in one place only.~~ **Done, in the library rather than the FX
    slot** — see the note at the top. Use it for a while before spreading it.
 4. Decide, from that experience, whether in-place controls stay or go.

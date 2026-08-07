@@ -34,13 +34,23 @@ function HexToColor($hex) {
     return [System.Drawing.Color]::FromArgb(255, $r, $g, $b)
 }
 
-# ---- Exact geometry, measured pixel-by-pixel from the user's reference PNG
-#      (1024x1024) - not eyeballed. Grid is 16x16, origin 96px, pitch 52px
-#      (46px cell + 6px gap), centred: 96 + 16*52 + 96 = 1024. ----
+# ---- Geometry. Grid is 16x16 (pattern below still matches what was
+#      measured pixel-by-pixel off the user's reference PNG - only the
+#      MARGIN changed from that reference, see below). ----
 $gridSize = 16
-$origin = 96.0
-$pitch = 52.0
-$cell = 46.0
+# The reference's own ~9.4% margin plus an inset decorative ring read fine
+# in isolation but, seen live on a real home screen next to full-bleed
+# icons (WhatsApp, Instagram, Claude - none of which carry an internal
+# frame), showed up as "a square inside a square": iOS's own corner mask
+# on the true edge, plus a second, visible rounded edge from the ring
+# sitting well inside it. Fixed by dropping the ring entirely and pulling
+# the grid out to ~92% fill, the same full-bleed convention every sibling
+# icon on that home screen already uses - not a return to the old
+# "pre-rounded" mistake, just less dead margin between the content and the
+# edge the OS is going to round anyway.
+$pitch = 59.0
+$cell = 52.0
+$origin = ($master - $gridSize * $pitch) / 2.0
 $cellRadius = 10.0
 $unlitColor = HexToColor "#1d1b27"
 
@@ -97,28 +107,8 @@ function DrawIcon($bmp, [bool]$showUnlit) {
     $g.FillRectangle($depthBrush, $depthRect)
     $depthBrush.Dispose()
 
-    # Thin double ring, echoing the reference artwork's own frame - well
-    # inside the true canvas edge so it never competes with the OS mask.
-    # Two plain scalar blocks rather than looping a config array: a
-    # hashtable-in-array here previously handed a boxed [object[]] out
-    # through a property read instead of a plain double, and `2 * <that>`
-    # failed looking for op_Multiply on System.Object[] - simplest fix is
-    # not to box the value at all.
-    $ringColor = [System.Drawing.Color]::FromArgb(150, 200, 111, 80)
-
-    $ring1Width = [Math]::Max(1.0, 3.0 * $scale)
-    $ringPen1 = New-Object System.Drawing.Pen -ArgumentList @($ringColor, $ring1Width)
-    $r1 = 42.0 * $scale
-    $path1 = RoundedRectPath $r1 $r1 ($size - 2.0*$r1) ($size - 2.0*$r1) (85.0 * $scale)
-    $g.DrawPath($ringPen1, $path1)
-    $path1.Dispose(); $ringPen1.Dispose()
-
-    $ring2Width = [Math]::Max(1.0, 6.0 * $scale)
-    $ringPen2 = New-Object System.Drawing.Pen -ArgumentList @($ringColor, $ring2Width)
-    $r2 = 55.0 * $scale
-    $path2 = RoundedRectPath $r2 $r2 ($size - 2.0*$r2) ($size - 2.0*$r2) (85.0 * $scale)
-    $g.DrawPath($ringPen2, $path2)
-    $path2.Dispose(); $ringPen2.Dispose()
+    # No decorative ring/frame here on purpose any more - see the margin
+    # comment above. The grid itself is the whole mark now, full-bleed.
 
     # Unlit cells first (so lit cells always paint cleanly on top even if a
     # row entry and an unlit cell ever overlapped at a boundary).

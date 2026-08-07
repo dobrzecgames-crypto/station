@@ -9,8 +9,8 @@
     },
     {
       "name": "station-dev-verify",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["dev", "--", "--port", "5174"],
+      "runtimeExecutable": "C:/Users/T470/Documents/station/node_modules/.bin/vite.CMD",
+      "runtimeArgs": ["--port", "5174"],
       "port": 5174
     },
     {

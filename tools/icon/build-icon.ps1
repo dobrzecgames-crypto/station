@@ -38,18 +38,17 @@ function HexToColor($hex) {
 #      measured pixel-by-pixel off the user's reference PNG - only the
 #      MARGIN changed from that reference, see below). ----
 $gridSize = 16
-# The reference's own ~9.4% margin plus an inset decorative ring read fine
-# in isolation but, seen live on a real home screen next to full-bleed
-# icons (WhatsApp, Instagram, Claude - none of which carry an internal
-# frame), showed up as "a square inside a square": iOS's own corner mask
-# on the true edge, plus a second, visible rounded edge from the ring
-# sitting well inside it. Fixed by dropping the ring entirely and pulling
-# the grid out to ~92% fill, the same full-bleed convention every sibling
-# icon on that home screen already uses - not a return to the old
-# "pre-rounded" mistake, just less dead margin between the content and the
-# edge the OS is going to round anyway.
-$pitch = 59.0
-$cell = 52.0
+# Round 1 (ring removed, ~92% fill) still left a visible seam under real
+# zoom: a plain-background margin band, one tone darker than the unlit
+# cells' own fill, ringing the grid - itself still reading as "a square"
+# short of the corners iOS actually rounds. Two changes together: pushed to
+# ~97% fill (cells now nearly reach the true edge), and the plain canvas
+# background is unified with the unlit-cell colour (see $bg below, set to
+# $unlitColor) so there is no second tone left to draw a boundary with in
+# the first place - belt and suspenders, either alone would likely have
+# been enough.
+$pitch = 62.0
+$cell = 55.0
 $origin = ($master - $gridSize * $pitch) / 2.0
 $cellRadius = 10.0
 $unlitColor = HexToColor "#1d1b27"
@@ -95,8 +94,11 @@ function DrawIcon($bmp, [bool]$showUnlit) {
     # Flat, edge-to-edge, alpha-free square - iOS (and Android adaptive
     # icons) apply their own corner mask on top of whatever is shipped here.
     # A pre-rounded or transparent source reads as "a square inside a
-    # square" once that mask lands - see DEC-028.
-    $bg = HexToColor "#0b0c14"
+    # square" once that mask lands - see DEC-028. Same colour as the unlit
+    # cells themselves (not the app's own --station-bg) so the margin band
+    # outside the grid can't read as a second, distinct square in its own
+    # right - see the geometry comment above.
+    $bg = $unlitColor
     $g.Clear($bg)
 
     $depthRect = New-Object System.Drawing.Rectangle -ArgumentList @(0, 0, $size, [int]($size * 0.65))

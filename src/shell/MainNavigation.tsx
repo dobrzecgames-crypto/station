@@ -6,7 +6,7 @@ interface MainNavigationProps {
 }
 
 const views: ReadonlyArray<{ id: MainView; label: string }> = [
-  { id: 'chop', label: 'CHOP' },
+  { id: 'chop', label: 'LASER' },
   { id: 'pad', label: 'PADS' },
   { id: 'synth', label: 'SYNTH' },
   { id: 'seq', label: 'SEQ' },

@@ -76,7 +76,7 @@ function chopTenant(props: ChopTenantProps): DisplayTenant {
   const { cutOnPadTrigger, sourcePitchSemitones, tempo } = props
   return {
     id: displayId,
-    label: 'CHOP',
+    label: 'LASER',
     readout: `${cutOnPadTrigger ? 'ONE PAD' : 'ALL PADS'} · PITCH ${formatSourcePitch(sourcePitchSemitones)}${props.hasSource ? ` · BPM ${tempo?.bpm ?? '--'}` : ''}`,
     panel: <>
       <button className="display-toggle" type="button" role="switch" aria-label="ONE PAD AT A TIME" aria-checked={cutOnPadTrigger} onClick={() => props.onCutOnPadTriggerChange(!cutOnPadTrigger)}>

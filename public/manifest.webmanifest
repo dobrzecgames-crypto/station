@@ -1,0 +1,16 @@
+{
+  "id": ".",
+  "name": "Station",
+  "short_name": "Station",
+  "description": "Station — an audio production instrument: pads, sequencer, synths, tracks and mixing in one machine.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#0b0c14",
+  "theme_color": "#0b0c14",
+  "lang": "en",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

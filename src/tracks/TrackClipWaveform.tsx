@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { drawWaveformEnvelope } from '../canvas/waveformEnvelope'
 
 interface TrackClipWaveformProps {
   /** Full-asset peaks cache from AudioEngine.getWaveformPeaks - the same
@@ -49,26 +50,9 @@ export function TrackClipWaveform({ peaks, regionStart, regionEnd, color }: Trac
       const startIndex = Math.max(0, Math.floor(regionStart * peaks.length))
       const endIndex = Math.min(peaks.length, Math.max(startIndex + 1, Math.ceil(regionEnd * peaks.length)))
       const slice = peaks.slice(startIndex, endIndex)
-      const centerY = height / 2
       const strokeColor = color ?? waveformColor(canvas)
-      const xAt = (index: number) => (slice.length > 1 ? (index / (slice.length - 1)) * width : 0)
-      const amplitudeAt = (index: number) => Math.min(1, slice[index]) * (height * 0.45)
 
-      // A filled top/bottom envelope reads far better at clip size than the
-      // previous one-tick-per-sample comb - trace the top edge left to
-      // right, then the bottom edge back right to left, closing one path.
-      context.beginPath()
-      slice.forEach((_, index) => {
-        const point: [number, number] = [xAt(index), centerY - amplitudeAt(index)]
-        if (index === 0) context.moveTo(...point); else context.lineTo(...point)
-      })
-      for (let index = slice.length - 1; index >= 0; index -= 1) context.lineTo(xAt(index), centerY + amplitudeAt(index))
-      context.closePath()
-      context.fillStyle = `color-mix(in srgb, ${strokeColor} 38%, transparent)`
-      context.fill()
-      context.strokeStyle = strokeColor
-      context.lineWidth = 1
-      context.stroke()
+      drawWaveformEnvelope(context, slice, { width, height, strokeStyle: strokeColor, fillColor: strokeColor })
     }
 
     const resizeObserver = new ResizeObserver(draw)

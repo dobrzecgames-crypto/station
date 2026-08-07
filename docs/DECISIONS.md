@@ -499,6 +499,6 @@ Round 1 dropped the ring and widened `$pitch`/`$cell` (52px pitch/46px cell agai
 Consequences:
 
 - verified at realistic display sizes (180/120/76/60/40/29px, each through an approximated iOS corner mask) before first shipping - the 16×16 grid's fine detail was a real legibility concern going in, and held up better than expected even at 29px, so the design was not simplified further; this check did *not* catch the margin/ring problem above, since an approximated corner mask on an isolated preview has no sibling icons to look wrong next to,
-- confirmed wrong twice, each round, via the user's own real iPhone home screen - not by Claude directly (browser-tool checks only, same limitation this decision already carries elsewhere) - fixed as of round 2 above, pending the user's own re-confirmation,
+- confirmed wrong twice, then confirmed right, each round via the user's own real iPhone home screen - not by Claude directly (browser-tool checks only, same limitation this decision already carries elsewhere); round 2's fix is the version the user approved,
 - service worker remains explicitly out of scope, as it was for the first pass - manifest + standalone config alone satisfies the install/full-screen behaviour asked for,
 - if the pattern, colours or fill amount need to change again, edit `$rows` (colour/pattern) or `$pitch`/`$cell`/`$gridSize` (fill amount - `$origin` follows automatically) in `tools/icon/build-icon.ps1` and rerun it - it overwrites all four shipped sizes plus the reference render in one pass.

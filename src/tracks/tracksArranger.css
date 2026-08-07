@@ -9,6 +9,11 @@
   z-index: 30;
   display: flex;
   flex-direction: column;
+  /* This escapes .station-shell's padding (see App.css), so it carries its
+     own safe-area inset instead of inheriting one - background still paints
+     edge-to-edge (border-box), only the flex content (toolbar, body) shifts
+     in from the true screen edge/notch/gesture bar. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   background: #0d0e0e;
   color: var(--station-text, #eee4d6);
 }

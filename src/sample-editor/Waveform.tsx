@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { drawWaveformEnvelope } from '../canvas/waveformEnvelope'
 import type { SamplePlaybackRegion, SampleSlice } from '../pads/types'
 
 interface WaveformProps {
@@ -15,10 +16,37 @@ interface WaveformProps {
   sliceMarkersDraggable?: boolean
   playheadSeconds?: number | null
   readOnly?: boolean
+  /** CUT's preview draws its candidate cut boundaries here before SET
+      commits them - 'laser' swaps the normal block-handle cut markers for a
+      thin glowing line, since these aren't real cuts yet and (CUT being a
+      slice-count, not a position) there can be several at once. */
+  cutMarkerStyle?: 'default' | 'laser'
+  /** Just-applied cut times (seconds) - animates a brief brighter pulse over
+      their laser line, see FLASH_HOLD_MS/FLASH_DECAY_MS below. Caller clears
+      this well after the animation settles (see ChopWorkspace.tsx); purely a
+      decorative read of already-committed slices, not a data source. */
+  flashCutTimes?: readonly number[] | null
 }
 
 const minimumSliceSeconds = 0.01
 const markerHitWidthPixels = 18
+/** SET's "cyk" - a brief brighter pulse on the laser(s) at the cut(s) just
+    committed. Held at full intensity briefly, then eased out - not a single
+    on/off flip, so it reads as a flash decaying rather than a UI blink.
+    Total stays within the 250-400ms window this was speced to. */
+const flashHoldMs = 100
+const flashDecayMs = 200
+const flashTotalMs = flashHoldMs + flashDecayMs
+
+function flashIntensityAt(elapsedMs: number): number {
+  if (elapsedMs <= flashHoldMs) return 1
+  if (elapsedMs >= flashTotalMs) return 0
+  return 1 - (elapsedMs - flashHoldMs) / flashDecayMs
+}
+
+function lerp(from: number, to: number, t: number): number {
+  return from + (to - from) * t
+}
 
 type DragState = { kind: 'start' | 'end'; pointerId: number } | { kind: 'cut'; index: number; pointerId: number } | null
 
@@ -37,6 +65,14 @@ interface WaveformColors {
   label: string
   activeLabel: string
   playhead: string
+  laser: string
+  laserGlow: string
+  laserCore: string
+  /** The SET flash's hottest moment - near-white, not another warm tone, so
+      the peak genuinely reads as "bright/almost white" against the resting
+      laser's gold. --station-text is the app's own ivory ("pure white is
+      not a UI colour" per docs/COLOR_BIBLE.md), not a new colour. */
+  flashCore: string
 }
 
 function getWaveformColors(canvas: HTMLCanvasElement): WaveformColors {
@@ -57,13 +93,21 @@ function getWaveformColors(canvas: HTMLCanvasElement): WaveformColors {
     label: color('--waveform-label', '#eee4d6'),
     activeLabel: color('--waveform-active-label', '#d3b77e'),
     playhead: color('--waveform-playhead', '#b5e0eb'),
+    laser: color('--cut-laser', '#c86f50'),
+    laserGlow: color('--cut-laser-glow', 'rgb(200 111 80 / 55%)'),
+    laserCore: color('--cut-laser-core', '#ffcfb0'),
+    flashCore: color('--station-text', '#eee4d6'),
   }
 }
 
-export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId, addingSlice, onRegionChange, onAddSlice, onMoveCut, onSelectSlice, sliceMarkersDraggable = false, playheadSeconds = null, readOnly = false }: WaveformProps) {
+export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId, addingSlice, onRegionChange, onAddSlice, onMoveCut, onSelectSlice, sliceMarkersDraggable = false, playheadSeconds = null, readOnly = false, cutMarkerStyle = 'default', flashCutTimes = null }: WaveformProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const dragStateRef = useRef<DragState>(null)
   const [draggingMarker, setDraggingMarker] = useState(false)
+  // Driven by the rAF loop below, read fresh on every draw() call (including
+  // ones triggered by ResizeObserver mid-flash) - not React state, since it
+  // ticks up to ~60x/sec and has no business causing a re-render.
+  const flashIntensityRef = useRef(0)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -103,21 +147,26 @@ export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId
         context.fillRect(width * activeSlice.startSeconds / durationSeconds, 0, width * (activeSlice.endSeconds - activeSlice.startSeconds) / durationSeconds, height)
       }
 
-      const centerY = height / 2
+      // Filled jagged silhouette (see drawWaveformEnvelope) - same "electric
+      // signal" language TRACKS' clips use, with CHOP's own two-tone outline
+      // gradient on top since this canvas also carries a grid, handles and
+      // labels that a small TRACKS clip never has to share room with.
       const waveformGradient = context.createLinearGradient(0, 0, 0, height)
       waveformGradient.addColorStop(0, colors.waveformLight)
       waveformGradient.addColorStop(0.5, colors.waveform)
       waveformGradient.addColorStop(1, colors.waveformLight)
-      context.strokeStyle = waveformGradient
-      context.lineWidth = 1
-      context.beginPath()
-      peaks.forEach((peak, index) => {
-        const x = index / Math.max(1, peaks.length - 1) * width
-        const amplitude = Math.min(1, peak) * (height * 0.42)
-        context.moveTo(x, centerY - amplitude)
-        context.lineTo(x, centerY + amplitude)
-      })
-      context.stroke()
+      // Denser points than the shared 6px default (TRACKS' tiny clips stay
+      // there) - CHOP's canvas is wide enough to carry more texture without
+      // smoothing back into a blob, and that's the detail/"life" this is
+      // the main, zoomed-in view for.
+      // A very slight dip in opacity while SET's flash is at its brightest -
+      // "przygasa" is the word, a dip you feel more than see - so the flash
+      // reads as the wave momentarily giving way to the cut, not a light
+      // turning on next to an unrelated, unreactive wave.
+      context.save()
+      context.globalAlpha = 1 - flashIntensityRef.current * 0.15
+      drawWaveformEnvelope(context, peaks, { width, height, amplitudeScale: 0.42, strokeStyle: waveformGradient, fillColor: colors.waveform, fillOpacityPercent: 30, lineWidth: 1.3, pointPixelSpacing: 3 })
+      context.restore()
 
       if (playheadSeconds !== null && Number.isFinite(playheadSeconds)) {
         const playheadX = Math.min(width, Math.max(0, width * playheadSeconds / durationSeconds))
@@ -139,6 +188,65 @@ export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId
         for (let rib = 0; rib < 3; rib += 1) context.fillRect(left + 2 + rib * 3, 8, 1, 10)
       }
 
+      // A real bloom, not a hairline with a faint shadow: a wide, soft outer
+      // pass in the glow colour first, then a thin sharp core on top in the
+      // hot colour - the layering (not just shadowBlur alone) is what reads
+      // as a lit beam rather than "a line that happens to have a shadow",
+      // and staying thin keeps it a precise beam rather than a fat bar.
+      // Small glowing lamps at the top and bottom edges, not a dark notch -
+      // the beam reads as fired between two lit points rather than starting/
+      // stopping mid-air. `intensity` (0 = resting, 1 = SET's peak flash)
+      // scales every pass continuously rather than flipping between two
+      // fixed looks, so the flash reads as decaying, not blinking off.
+      const drawLaser = (x: number, intensity: number) => {
+        const coreColor = intensity > 0.7 ? colors.flashCore : intensity > 0.25 ? colors.laserCore : colors.laser
+        const dotColor = intensity > 0.5 ? colors.flashCore : colors.laserCore
+
+        context.save()
+        context.shadowColor = colors.laserGlow
+        context.shadowBlur = lerp(12, 20, intensity)
+        context.strokeStyle = colors.laserGlow
+        context.lineWidth = lerp(2.4, 3.4, intensity)
+        context.beginPath()
+        context.moveTo(x, 0)
+        context.lineTo(x, height)
+        context.stroke()
+        context.restore()
+
+        context.save()
+        context.shadowColor = colors.laserGlow
+        context.shadowBlur = lerp(6, 10, intensity)
+        context.strokeStyle = coreColor
+        context.lineWidth = lerp(1.1, 1.6, intensity)
+        context.beginPath()
+        context.moveTo(x, 0)
+        context.lineTo(x, height)
+        context.stroke()
+        context.restore()
+
+        context.save()
+        context.shadowColor = colors.laserGlow
+        context.shadowBlur = lerp(9, 15, intensity)
+        context.fillStyle = dotColor
+        context.beginPath()
+        context.arc(x, height / 2, lerp(2.2, 3.2, intensity), 0, Math.PI * 2)
+        context.fill()
+        context.restore()
+
+        context.save()
+        context.shadowColor = colors.laserGlow
+        context.shadowBlur = lerp(8, 13, intensity)
+        context.fillStyle = dotColor
+        const lampRadius = lerp(2.3, 3.2, intensity)
+        context.beginPath()
+        context.arc(x, 3, lampRadius, 0, Math.PI * 2)
+        context.fill()
+        context.beginPath()
+        context.arc(x, height - 3, lampRadius, 0, Math.PI * 2)
+        context.fill()
+        context.restore()
+      }
+
       context.strokeStyle = colors.regionHandle
       context.lineWidth = 1
       for (const x of [startX, endX]) {
@@ -150,36 +258,84 @@ export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId
       }
 
       context.font = '700 11px Inter, sans-serif'
+      const isLaserPreview = cutMarkerStyle === 'laser'
       slices.forEach((slice, index) => {
         if (index < slices.length - 1) {
           const cutX = width * slice.endSeconds / durationSeconds
-          const activeMarker = slice.id === activeSliceId || slices[index + 1].id === activeSliceId
-          const markerColor = activeMarker ? colors.activeCut : colors.cut
-          context.lineWidth = activeMarker ? 5 : 3
-          context.strokeStyle = colors.handleEdge
-          context.beginPath()
-          context.moveTo(cutX, 0)
-          context.lineTo(cutX, height)
-          context.stroke()
-          context.lineWidth = activeMarker ? 2 : 1
-          context.strokeStyle = markerColor
-          context.beginPath()
-          context.moveTo(cutX, 0)
-          context.lineTo(cutX, height)
-          context.stroke()
-          drawHandle(cutX, markerColor)
+          if (isLaserPreview) {
+            drawLaser(cutX, 0)
+          } else {
+            const activeMarker = slice.id === activeSliceId || slices[index + 1].id === activeSliceId
+            const markerColor = activeMarker ? colors.activeCut : colors.cut
+            context.lineWidth = activeMarker ? 5 : 3
+            context.strokeStyle = colors.handleEdge
+            context.beginPath()
+            context.moveTo(cutX, 0)
+            context.lineTo(cutX, height)
+            context.stroke()
+            context.lineWidth = activeMarker ? 2 : 1
+            context.strokeStyle = markerColor
+            context.beginPath()
+            context.moveTo(cutX, 0)
+            context.lineTo(cutX, height)
+            context.stroke()
+            drawHandle(cutX, markerColor)
+          }
         }
         const labelX = width * ((slice.startSeconds + slice.endSeconds) / 2) / durationSeconds
         context.fillStyle = slice.id === activeSliceId ? colors.activeLabel : colors.label
         context.fillText(String(index + 1), labelX + 4, 14)
       })
+
+      if (flashCutTimes && flashCutTimes.length > 0) {
+        flashCutTimes.forEach((timeSeconds) => drawLaser(width * timeSeconds / durationSeconds, flashIntensityRef.current))
+      }
     }
 
     const resizeObserver = new ResizeObserver(draw)
     resizeObserver.observe(canvas)
-    draw()
-    return () => resizeObserver.disconnect()
-  }, [activeSliceId, durationSeconds, peaks, playheadSeconds, region, slices])
+
+    // The flash is its own rAF loop, not React state ticking every frame -
+    // draw() above always reads the current intensity from the ref, so a
+    // ResizeObserver-triggered redraw mid-flash still shows the right frame.
+    // prefers-reduced-motion swaps the eased ramp for a single short step
+    // (still visible feedback, no continuous motion).
+    let animationFrameId: number | null = null
+    let reducedMotionTimeoutId: number | null = null
+    if (flashCutTimes && flashCutTimes.length > 0) {
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        flashIntensityRef.current = 1
+        draw()
+        reducedMotionTimeoutId = window.setTimeout(() => {
+          flashIntensityRef.current = 0
+          draw()
+        }, 150)
+      } else {
+        // Draw the first (peak) frame synchronously - otherwise the canvas
+        // would show one frame (~16ms) of the old, pre-flash content while
+        // waiting on the first rAF callback.
+        flashIntensityRef.current = flashIntensityAt(0)
+        draw()
+        const startTime = performance.now()
+        const tick = (now: number) => {
+          const elapsed = now - startTime
+          flashIntensityRef.current = flashIntensityAt(elapsed)
+          draw()
+          if (elapsed < flashTotalMs) animationFrameId = requestAnimationFrame(tick)
+        }
+        animationFrameId = requestAnimationFrame(tick)
+      }
+    } else {
+      flashIntensityRef.current = 0
+      draw()
+    }
+
+    return () => {
+      resizeObserver.disconnect()
+      if (animationFrameId !== null) cancelAnimationFrame(animationFrameId)
+      if (reducedMotionTimeoutId !== null) window.clearTimeout(reducedMotionTimeoutId)
+    }
+  }, [activeSliceId, cutMarkerStyle, durationSeconds, flashCutTimes, peaks, playheadSeconds, region, slices])
 
   const timeFromPointer = (clientX: number): number | null => {
     const canvas = canvasRef.current

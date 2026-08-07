@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { PadGrid } from '../pads/PadGrid'
 import type { PadState, SampleSlice } from '../pads/types'
 import { AutoChopControls } from '../sample-editor/AutoChopControls'
 import { ChopControls } from '../sample-editor/ChopControls'
 import { Waveform } from '../sample-editor/Waveform'
-import { equalSliceRegions, maxChopSliceCount, maxSmartSliceCount, smartSliceRegions } from './autoChopOperations'
+import { maxChopSliceCount, maxSmartSliceCount, smartSliceRegions } from './autoChopOperations'
 import type { SliceRegion, TransientCandidate } from './autoChopOperations'
 import type { ChopTestSample } from './chopTestSamples'
 
@@ -49,6 +49,15 @@ interface ChopWorkspaceProps {
 export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, sourceFileName, sourceDurationSeconds, peaks, playheadSeconds, slices, activeSliceId, addingSlice, candidates, analyzing, onLoadSource, testSamples, loadingTestId, onLoadTestSample, sourcePreviewing, onPreviewSource, onStopPreviewSource, onTriggerPad, onReleasePad, onFeedbackEnd, onAddSlice, onMoveCut, onSelectSlice, onPreviewSlice, onToggleSliceReversed, onToggleAdding, onRemoveActiveCut, onClearSlices, onApplyAutoChop }: ChopWorkspaceProps) {
   const hasSource = sourceFileName !== null && sourceDurationSeconds !== null
   const [previewCount, setPreviewCount] = useState<number | null>(null)
+  // Purely decorative: a brief brighter pulse on the laser(s) at whichever
+  // cut times SET just committed. Never read by anything else - not the
+  // slices themselves, not project data. Waveform.tsx owns the actual
+  // animation timing (an eased ~300ms rAF ramp); this timeout just clears
+  // the trigger prop afterward, with a safety margin so it never cuts the
+  // animation off early even on a slow frame.
+  const [flashCutTimes, setFlashCutTimes] = useState<readonly number[] | null>(null)
+  const flashTimeoutRef = useRef<number | null>(null)
+  useEffect(() => () => { if (flashTimeoutRef.current !== null) window.clearTimeout(flashTimeoutRef.current) }, [])
 
   const maxSmartCount = maxSmartSliceCount(candidates.length)
   const isPreviewing = previewCount !== null
@@ -58,14 +67,15 @@ export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, so
   const previewRegions = isPreviewing && hasSource ? smartSliceRegions(candidates, smartCount, sourceDurationSeconds) : null
   const previewSlices = previewRegions?.map((region, index) => ({ id: `preview-${index}`, ...region }))
 
-  const handleEqualChop = (count: number) => {
-    if (!hasSource) return
-    setPreviewCount(null)
-    onApplyAutoChop(equalSliceRegions(sourceDurationSeconds, count))
-  }
   const handleApplySmart = () => {
     if (!previewRegions) return
-    if (onApplyAutoChop(previewRegions, () => setPreviewCount(null))) setPreviewCount(null)
+    const cutTimes = previewRegions.slice(0, -1).map((previewRegion) => previewRegion.endSeconds)
+    if (onApplyAutoChop(previewRegions, () => setPreviewCount(null))) {
+      setPreviewCount(null)
+      setFlashCutTimes(cutTimes)
+      if (flashTimeoutRef.current !== null) window.clearTimeout(flashTimeoutRef.current)
+      flashTimeoutRef.current = window.setTimeout(() => setFlashCutTimes(null), 400)
+    }
   }
 
   return <section className="chop-workspace" aria-label="Chop">
@@ -86,27 +96,28 @@ export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, so
         </div>
       </div>
     ) : <>
-      <div className="sequencer-heading">
-        <p className="sample-editor-file">{sourceFileName} - {sourceDurationSeconds.toFixed(3)} s</p>
-        {/* Icon-only like the transport's PLAY/STOP, but smaller and in CHOP's
-            own plum rather than the module accent, so a source preview never
-            reads as the transport's own play/stop repeated. */}
-        <div className="source-preview-controls">
-          <button className="chop-preview-button chop-preview-play" type="button" disabled={!audioReady || sourcePreviewing} aria-label="Preview source" onClick={onPreviewSource} />
-          <button className="chop-preview-button chop-preview-stop" type="button" disabled={!sourcePreviewing} aria-label="Stop preview" onClick={onStopPreviewSource} />
-        </div>
-      </div>
-      <Waveform peaks={peaks} durationSeconds={sourceDurationSeconds} region={{ startSeconds: 0, endSeconds: sourceDurationSeconds }} slices={previewSlices ?? slices} activeSliceId={isPreviewing ? null : activeSliceId} addingSlice={addingSlice} playheadSeconds={playheadSeconds} readOnly={isPreviewing} onRegionChange={() => undefined} onAddSlice={onAddSlice} onMoveCut={onMoveCut} onSelectSlice={onSelectSlice} sliceMarkersDraggable />
+      {/* No filename/duration heading above it - the waveform is the first
+          thing shown, full stop. sourceFileName still drives hasSource and
+          the file input above; it just isn't printed anywhere any more. */}
+      <Waveform peaks={peaks} durationSeconds={sourceDurationSeconds} region={{ startSeconds: 0, endSeconds: sourceDurationSeconds }} slices={previewSlices ?? slices} activeSliceId={isPreviewing ? null : activeSliceId} addingSlice={addingSlice} playheadSeconds={playheadSeconds} readOnly={isPreviewing} cutMarkerStyle={isPreviewing ? 'laser' : 'default'} flashCutTimes={flashCutTimes} onRegionChange={() => undefined} onAddSlice={onAddSlice} onMoveCut={onMoveCut} onSelectSlice={onSelectSlice} sliceMarkersDraggable />
       <AutoChopControls
         maxSmartCount={maxSmartCount}
         smartCount={smartCount}
         isPreviewing={isPreviewing}
         analyzing={analyzing}
-        onEqualChop={handleEqualChop}
         onSmartCountChange={setPreviewCount}
         onApplySmart={handleApplySmart}
         onCancelSmart={() => setPreviewCount(null)}
       />
+      {/* Icon-only like the transport's PLAY/STOP, but smaller and in CHOP's
+          own plum rather than the module accent, so a source preview never
+          reads as the transport's own play/stop repeated. Below CUT rather
+          than right under the waveform - CUT is the primary thing you reach
+          for after the waveform itself, source preview is secondary. */}
+      <div className="source-preview-controls">
+        <button className="chop-preview-button chop-preview-play" type="button" disabled={!audioReady || sourcePreviewing} aria-label="Preview source" onClick={onPreviewSource} />
+        <button className="chop-preview-button chop-preview-stop" type="button" disabled={!sourcePreviewing} aria-label="Stop preview" onClick={onStopPreviewSource} />
+      </div>
       <ChopControls slices={slices} activeSliceId={activeSliceId} addingSlice={addingSlice} disabled={isPreviewing} maxSliceCount={maxChopSliceCount} mappedSliceCount={pads.length} onStartAdding={onToggleAdding} onSelectSlice={onSelectSlice} onPreviewSlice={onPreviewSlice} onToggleReversed={onToggleSliceReversed} onRemoveActiveCut={onRemoveActiveCut} onClearSlices={onClearSlices} onAssignSlices={() => undefined} showAssign={false} />
     </>}
     <div className="chop-pad-heading"><p className="eyebrow">LIVE SLICE MAP</p></div>

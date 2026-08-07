@@ -431,8 +431,14 @@ select, textarea {
   --waveform-background: #0b0b11;
   --waveform-outside-region: rgb(0 0 0 / 42%);
   --waveform-active-slice: rgb(83 97 132 / 22%);
-  --waveform-wave: var(--action-accent);
-  --waveform-wave-light: #dfa080;
+  /* Dusty blue, the same family as TRACKS' per-track accent palette
+     (trackAccent.ts) - user pointed at a track rendered in that tone as the
+     reference. Gold moved to the laser itself (see --cut-laser below) now
+     that the wave body is out of the warm family entirely, so neither ever
+     has to share a hue with the other again regardless of which one shifts
+     later. */
+  --waveform-wave: color-mix(in srgb, #8fa8c7 60%, var(--scene-void));
+  --waveform-wave-light: color-mix(in srgb, #8fa8c7 65%, var(--scene-void));
   --waveform-grid: rgb(238 228 214 / 12%);
   --waveform-region-handle: #596782;
   --waveform-cut: #596782;
@@ -452,7 +458,29 @@ select, textarea {
   box-shadow: inset 0 1px 0 rgb(255 239 220 / 9%), inset 0 0 0 1px rgb(200 111 80 / 30%), inset 0 0 18px rgb(0 0 0 / 34%);
 }
 
-/* Auto-slice stays directly below the waveform in two compact instrument rows. */
+/* PLAY/STOP source-preview now sits below the waveform instead of sharing the
+   filename's header row - needs its own top gap here since it lost that row. */
+.chop-workspace .source-preview-controls {
+  margin-top: 10px;
+}
+
+/* The waveform's own preview-cut laser markers (Waveform.tsx's cutMarkerStyle
+   'laser'). Declared on .chop-workspace, not .waveform, so it's available
+   even if something outside the canvas ever needs it. NOT used by CUT's own
+   slider head any more (that one deliberately reads --station-text/
+   --signal-blue directly, see .cut-laser-beam etc. below) - ivory was
+   chosen there specifically so it stays legible no matter what hue this
+   token becomes. Gold ("loaded sample / stored material" per
+   docs/COLOR_BIBLE.md) - the wave body itself is dusty blue now (see
+   .waveform above), so gold no longer has to share a hue with anything it
+   crosses. */
+.chop-workspace {
+  --cut-laser: var(--loaded-accent);
+  --cut-laser-glow: rgb(185 154 98 / 70%);
+  --cut-laser-core: color-mix(in srgb, var(--loaded-accent) 55%, var(--station-text));
+}
+
+/* Auto-slice (CUT) stays directly below the waveform in one compact instrument row. */
 .chop-workspace .auto-chop-controls {
   display: grid;
   gap: 6px;
@@ -463,37 +491,14 @@ select, textarea {
   background: linear-gradient(180deg, rgb(255 239 220 / 3%), transparent 65%), var(--scene-card);
 }
 
-.chop-workspace .auto-chop-equal-row,
-.chop-workspace .auto-chop-smart-row {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 7px;
-}
-
-.chop-workspace .auto-chop-equal-row .eyebrow {
-  min-width: 82px;
-  color: var(--workspace-accent);
-  font-size: .52rem;
-  letter-spacing: .08em;
-}
-
-.chop-workspace .auto-chop-equal-buttons {
-  display: grid;
-  grid-template-columns: repeat(3, 34px);
-  gap: 4px;
-}
-
-.chop-workspace .auto-chop-equal-buttons .mixer-toggle {
-  min-width: 0;
-  min-height: 26px;
-  padding: 0;
-  font-size: .56rem;
-}
-
+/* EQUAL was dropped - CUT (transient-based) is the only auto-slice mode now,
+   so this is one row: label, value, slider, APPLY. */
 .chop-workspace .auto-chop-smart-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
 }
 
 .chop-workspace .auto-chop-smart-slider {
@@ -520,15 +525,178 @@ select, textarea {
 
 .chop-workspace .auto-chop-smart-actions {
   display: flex;
+  align-items: center;
   gap: 4px;
 }
 
-.chop-workspace .auto-chop-smart-actions .mixer-toggle,
-.chop-workspace .auto-chop-smart-actions .transport-button {
+.chop-workspace .auto-chop-smart-actions .mixer-toggle {
   min-width: 52px;
   min-height: 26px;
   padding: 0 6px;
   font-size: .52rem;
+}
+
+/* SET is this row's one real action - CANCEL just backs out of a preview
+   that never wrote anything - so it gets a step up in size/weight rather
+   than matching CANCEL exactly. Still one of the row's compact controls,
+   nowhere near a full-size CTA. */
+.chop-workspace .auto-chop-smart-actions .transport-button {
+  min-width: 58px;
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: .6rem;
+  letter-spacing: .04em;
+}
+
+/* CUT's own laser head/beam. The real <input> stays fully functional and
+   SliderMagnifier-visible (see AutoChopControls.tsx) - only its own paint
+   is hidden here; the SVG head is a pointer-events:none decoration mirroring
+   the same value on top of it. */
+.chop-workspace .cut-laser-track {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.chop-workspace .auto-chop-smart-slider input {
+  /* Visually this is still a hairline - the taller box is only an easier
+     target to land a finger on, per the ~40-44px touch-target ask; nothing
+     about it reads as a bigger control. */
+  height: 34px;
+  background: transparent;
+}
+
+/* Navy, not the app's usual warm hairline - the laser is a warm gold/orange,
+   and a warm-on-warm rail was washing it out. Derived from the existing
+   signal-blue family (mixed dark toward void) rather than a new hue. */
+.chop-workspace .auto-chop-smart-slider input::-webkit-slider-runnable-track {
+  height: 2px;
+  background: color-mix(in srgb, var(--signal-blue-dim) 45%, var(--scene-void));
+  border-radius: 1px;
+}
+
+.chop-workspace .auto-chop-smart-slider input::-moz-range-track {
+  height: 2px;
+  background: color-mix(in srgb, var(--signal-blue-dim) 45%, var(--scene-void));
+  border-radius: 1px;
+  border: 0;
+}
+
+.chop-workspace .auto-chop-smart-slider input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 1px;
+  height: 1px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.chop-workspace .auto-chop-smart-slider input::-moz-range-thumb {
+  width: 1px;
+  height: 1px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+/* Deliberately NOT --cut-laser (gold/orange) - that colour is reserved for
+   the waveform's own laser markers below. The slider's head+beam read as the
+   cool mechanism aiming the cut; the warm laser is the payoff it's aiming
+   at. Sharing one colour between "control" and "result" made them blend into
+   one undifferentiated glow with no read on which was which. Blue also
+   matches the existing signal-blue role (COLOR_BIBLE.md: "focus, playback
+   signal... the thin marker for the currently playing step") better than
+   gold ever did here - this is a moving position indicator, not the cut. */
+.chop-workspace .cut-laser-head {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 14px;
+  height: 26px;
+  /* Centers on the value's % horizontally; vertically seats the emitter body
+     (not the beam) on the rail rather than centering the whole SVG on it. */
+  transform: translate(-50%, -8px);
+  overflow: visible;
+  pointer-events: none;
+  filter: drop-shadow(0 0 3px rgb(131 190 210 / 55%));
+  transition: filter 150ms ease;
+}
+
+.chop-workspace .cut-laser-head-moving {
+  filter: drop-shadow(0 0 6px rgb(131 190 210 / 55%));
+}
+
+/* The beam itself is ivory, not blue - blue is now the rail's own colour
+   (see the runnable-track rule above), and a blue beam on a blue rail was
+   exactly the same "blends into its background" problem the gold beam had
+   against the gold waveform lasers, just moved one step over. Blue survives
+   only as the glow tint (drop-shadow above) and the emitter's outline - the
+   one line that has to read clearly against ANY background gets the
+   Color Bible's actual bright neutral (ivory text colour; "pure white is
+   not a UI colour" per docs/COLOR_BIBLE.md) instead of another hue. */
+.chop-workspace .cut-laser-beam {
+  stroke: var(--station-text);
+  stroke-width: 1.4;
+  opacity: .8;
+  transition: opacity 150ms ease;
+}
+
+.chop-workspace .cut-laser-head-moving .cut-laser-beam {
+  opacity: 1;
+}
+
+.chop-workspace .cut-laser-emitter {
+  fill: var(--scene-recess);
+  stroke: var(--signal-blue);
+  stroke-width: .75;
+}
+
+.chop-workspace .cut-laser-slit {
+  stroke: var(--station-text);
+  stroke-width: 1;
+}
+
+/* Manual slices toolbar mirrors the auto-slice box above it: one compact
+   row, label left, actions right, instead of a heading block plus two
+   full-width stacked action rows. The label can ellipsis before the actions
+   ever give up their width - ADD/REMOVE/CLEAR always stay fully readable. */
+.chop-workspace .chop-manual-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 8px;
+}
+
+.chop-workspace .chop-manual-toolbar .eyebrow {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.chop-workspace .chop-manual-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 5px;
+}
+
+.chop-workspace .chop-manual-actions .transport-button,
+.chop-workspace .chop-manual-actions .mixer-toggle {
+  flex: 0 0 auto;
+  min-width: 0;
+  min-height: 28px;
+  padding: 0 8px;
+  font-size: .56rem;
+  white-space: nowrap;
+}
+
+/* A hairline above LIVE SLICE MAP, same separation language as the manual-
+   slices divider above it, instead of bare margin with no visible break. */
+.chop-workspace .chop-pad-heading {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--station-line);
 }
 
 /* Loaded material is gold; selection and primary actions stay terracotta. */

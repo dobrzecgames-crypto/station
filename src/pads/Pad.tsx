@@ -29,9 +29,10 @@ export function Pad({
 }: PadProps) {
   const isSynth = pad.synthPatchId !== null
   const isStrings = pad.stringsPatchId !== null
-  const isLoaded = pad.fileName !== null || isSynth || isStrings
-  const sourceLabel = isSynth ? 'MONOPOLY' : isStrings ? 'STRINGS' : pad.fileName
-  const statusLabel = dropSampleName ? 'DROP' : isSynth || isStrings ? (audioReady ? (isSynth ? 'SYNTH' : 'STRINGS') : 'LOCKED') : isLoaded ? (audioReady ? 'READY' : 'LOCKED') : 'EMPTY'
+  const isOrganicBass = pad.organicBassPatchId !== null
+  const isLoaded = pad.fileName !== null || isSynth || isStrings || isOrganicBass
+  const sourceLabel = isSynth ? 'MONOPOLY' : isStrings ? 'STRINGS' : isOrganicBass ? 'MONOGORG' : pad.fileName
+  const statusLabel = dropSampleName ? 'DROP' : isSynth || isStrings || isOrganicBass ? (audioReady ? (isSynth ? 'SYNTH' : isStrings ? 'STRINGS' : 'BASS') : 'LOCKED') : isLoaded ? (audioReady ? 'READY' : 'LOCKED') : 'EMPTY'
 
   return (
     <button

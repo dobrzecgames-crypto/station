@@ -1,6 +1,6 @@
 import './SynthPicker.css'
 
-export type SynthPickerInstrument = 'monopoly' | 'strings' | 'drumsynth'
+export type SynthPickerInstrument = 'monopoly' | 'organicbass' | 'strings' | 'drumsynth'
 
 interface SynthPickerProps {
   onSelect: (instrument: SynthPickerInstrument) => void
@@ -8,6 +8,7 @@ interface SynthPickerProps {
 
 const instruments: ReadonlyArray<{ id: SynthPickerInstrument; name: string; description: string }> = [
   { id: 'monopoly', name: 'MONOPOLY', description: 'Monophonic bass, leads and short synth sounds.' },
+  { id: 'organicbass', name: 'MONOGORG', description: 'Dark, rounded mono bass for sampled beats.' },
   { id: 'strings', name: 'STRINGS', description: 'Polyphonic strings, pads and analog brass.' },
   { id: 'drumsynth', name: 'DRUM SYNTH', description: 'Synthesized kicks for electronic drum patterns.' },
 ]
@@ -47,7 +48,12 @@ function SynthGlyph({ variant, className }: { variant: SynthPickerInstrument; cl
       <rect x="1.5" y="1.5" width="97" height="65" rx="6" stroke="currentColor" strokeWidth="2" />
       <line x1="1.5" y1="30" x2="98.5" y2="30" stroke="currentColor" strokeWidth="2" />
 
-      {variant === 'monopoly' ? (
+      {variant === 'organicbass' ? (
+        <>
+          <path d="M9 19 C13 7 18 7 22 19 C26 27 30 25 34 14" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+          <line x1="9" y1="23" x2="34" y2="23" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+        </>
+      ) : variant === 'monopoly' ? (
         <>
           <rect x="9" y="8" width="22" height="9" rx="1.3" stroke="currentColor" strokeWidth="1.5" />
           <circle cx="12" cy="21.5" r="1.5" fill="currentColor" />

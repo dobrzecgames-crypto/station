@@ -11,7 +11,7 @@ interface SequencerControlsProps {
   pattern: StepPattern
   shifts: StepShiftPattern
   lengths: StepLengthPattern
-  pads: readonly Pick<PadState, 'id' | 'label' | 'fileName' | 'synthPatchId' | 'stringsPatchId'>[]
+  pads: readonly Pick<PadState, 'id' | 'label' | 'fileName' | 'synthPatchId' | 'stringsPatchId' | 'organicBassPatchId'>[]
   selectedPadId: PadState['id']
   group: PatternGroup
   selectedVariant: PatternVariantName
@@ -197,7 +197,7 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
             onPointerUp={() => onReleasePad(pad.id)}
             onPointerCancel={() => onReleasePad(pad.id)}
             onLostPointerCapture={() => onReleasePad(pad.id)}
-          >{pad.label}<small>{pad.synthPatchId ? 'MONOPOLY' : pad.stringsPatchId ? 'STRINGS' : pad.fileName ?? 'EMPTY'}</small></button>
+          >{pad.label}<small>{pad.synthPatchId ? 'MONOPOLY' : pad.stringsPatchId ? 'STRINGS' : pad.organicBassPatchId ? 'MONOGORG' : pad.fileName ?? 'EMPTY'}</small></button>
           {pageSteps.map((stepIndex) => {
             const headIndex = owners[stepIndex]
             const headVelocity = headIndex === null ? 0 : steps[headIndex]

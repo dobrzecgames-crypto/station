@@ -3,6 +3,7 @@ import type { EffectRackState } from '../audio/effects'
 import type { PadBankState } from '../pads/padBank'
 import type { SynthPatch } from '../synth/synthTypes'
 import type { StringsPatch } from '../strings/stringsTypes'
+import type { OrganicBassPatch } from '../organic-bass/organicBassTypes'
 import type { ChordAssignment } from '../music/chords'
 
 export const patternVariantNames = ['A', 'B', 'C', 'D'] as const
@@ -34,6 +35,7 @@ export interface PatternGroup {
   effects: EffectRackState
   synthPatches: SynthPatch[]
   stringsPatches: StringsPatch[]
+  organicBassPatches: OrganicBassPatch[]
   padMode: PadMode
   chordAssignments: Array<ChordAssignment | null>
   variants: Partial<Record<PatternVariantName, StepPattern>>

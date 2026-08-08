@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "test": "node --experimental-strip-types --test tests/chords.test.ts",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
     "preview": "vite preview"

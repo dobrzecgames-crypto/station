@@ -41,6 +41,12 @@
   background: color-mix(in srgb, var(--accent-synth) 7%, var(--station-raised));
 }
 
+.synth-picker-card-organicbass {
+  color: color-mix(in srgb, var(--accent-synth) 72%, var(--station-amber));
+  border-color: color-mix(in srgb, var(--accent-synth) 45%, var(--station-line));
+  background: color-mix(in srgb, var(--accent-synth) 7%, var(--station-raised));
+}
+
 .synth-picker-card-strings {
   color: var(--accent-strings);
   border-color: color-mix(in srgb, var(--accent-strings) 45%, var(--station-line));

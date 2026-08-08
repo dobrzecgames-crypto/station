@@ -1,6 +1,7 @@
 import type { AudioEngine, ChannelId, GroupId, SampleAssetId, TriggerSampleOptions } from './AudioEngine'
 import type { SynthPatch } from '../synth/synthTypes'
 import type { StringsPatch } from '../strings/stringsTypes'
+import type { OrganicBassPatch } from '../organic-bass/organicBassTypes'
 
 export interface StepSequencerConfig {
   bpm: number
@@ -58,7 +59,13 @@ export interface StringsChordSequencerTrack extends StepSequencerTrackBase {
   chordGroupId: string
 }
 
-export type StepSequencerTrack = SampleSequencerTrack | SynthSequencerTrack | SynthChordSequencerTrack | StringsSequencerTrack | StringsChordSequencerTrack
+export interface OrganicBassSequencerTrack extends StepSequencerTrackBase {
+  source: 'organicBass'
+  patch: OrganicBassPatch
+  midiNote: number
+}
+
+export type StepSequencerTrack = SampleSequencerTrack | SynthSequencerTrack | SynthChordSequencerTrack | StringsSequencerTrack | StringsChordSequencerTrack | OrganicBassSequencerTrack
 
 /**
  * Decides when the next scheduling pass happens. Live playback wakes on a
@@ -169,6 +176,8 @@ export class StepSequencer {
         } else if (track.source === 'stringsChord') {
           this.audioEngine.releaseSequencerChordAt(track.chordGroupId, when)
           this.audioEngine.scheduleStringsPad(track.groupId, track.channelId, track.patch, track.midiNotes, when, when + Math.max(1, length) * track.patch.gate * stepDuration, velocity)
+        } else if (track.source === 'organicBass') {
+          this.audioEngine.scheduleOrganicBassPad(track.groupId, track.channelId, track.patch, track.midiNote, when, when + Math.max(1, length) * track.patch.gate * stepDuration, velocity)
         } else {
           this.audioEngine.scheduleStringsPad(track.groupId, track.channelId, track.patch, track.midiNotes, when, when + Math.max(1, length) * track.patch.gate * stepDuration, velocity)
         }

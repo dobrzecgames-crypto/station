@@ -6,6 +6,7 @@ import { StepSequencer } from '../audio/StepSequencer'
 import type { SequencerTicker, StepSequencerConfig } from '../audio/StepSequencer'
 import { getLastOccupiedSlot } from '../song/songOperations'
 import { getSongTracksForSlot } from '../song/songTracks'
+import { organicBassEnvelopeShape } from '../organic-bass/organicBassOperations'
 import type { ProjectState } from './ProjectState'
 
 export interface RenderSongOptions {
@@ -184,6 +185,7 @@ function measureRender(buffer: AudioBuffer): Omit<RenderSongResult, 'buffer'> {
 function applyRenderState(engine: AudioEngine, liveEngine: AudioEngine, state: ProjectState): void {
   engine.syncSynthPatches(state.patternGroups.flatMap((group) => group.synthPatches.map((patch) => ({ groupId: group.id, patch }))))
   engine.syncStringsPatches(state.patternGroups.flatMap((group) => group.stringsPatches.map((patch) => ({ groupId: group.id, patch }))))
+  engine.syncOrganicBassPatches(state.patternGroups.flatMap((group) => group.organicBassPatches.map((patch) => ({ groupId: group.id, patch }))))
   for (const group of state.patternGroups) {
     for (const pad of group.bank.pads) {
       const buffer = pad.assetId ? liveEngine.getDecodedSampleAsset(pad.assetId) : undefined
@@ -224,7 +226,7 @@ function getRenderSeconds(state: ProjectState, lastSlot: number): number {
   const stepSeconds = 60 / state.bpm / 4
   const songSeconds = lastSlot * 16 * stepSeconds
   const latestStartSeconds = stepSeconds * (0.5 + Math.max(0, state.swing) * 0.5)
-  const tailSeconds = Math.min(maximumTailSeconds, Math.max(getSampleTailSeconds(state), getSynthTailSeconds(state), getStringsTailSeconds(state), getDelayTailSeconds(state)))
+  const tailSeconds = Math.min(maximumTailSeconds, Math.max(getSampleTailSeconds(state), getSynthTailSeconds(state), getStringsTailSeconds(state), getOrganicBassTailSeconds(state), getDelayTailSeconds(state)))
   return songSeconds + latestStartSeconds + tailSeconds + tailSafetySeconds
 }
 
@@ -270,6 +272,22 @@ function getStringsTailSeconds(state: ProjectState): number {
       if (!pad.stringsPatchId || !steps[pad.id]?.some((velocity) => velocity > 0)) continue
       const patch = group.stringsPatches.find((candidate) => candidate.id === pad.stringsPatchId)
       if (patch) longest = Math.max(longest, patch.gate * stepSeconds + patch.ampEnvelope.releaseSeconds)
+    }
+  }
+  return longest
+}
+
+function getOrganicBassTailSeconds(state: ProjectState): number {
+  const stepSeconds = 60 / state.bpm / 4
+  let longest = 0
+  for (const clip of state.playlist) {
+    const group = state.patternGroups.find((candidate) => candidate.id === clip.patternGroupId)
+    const steps = group?.variants[clip.variant]
+    if (!group || !steps) continue
+    for (const pad of group.bank.pads) {
+      if (!pad.organicBassPatchId || !steps[pad.id]?.some((velocity) => velocity > 0)) continue
+      const patch = group.organicBassPatches.find((candidate) => candidate.id === pad.organicBassPatchId)
+      if (patch) longest = Math.max(longest, patch.gate * stepSeconds + organicBassEnvelopeShape(patch.decay).releaseSeconds)
     }
   }
   return longest

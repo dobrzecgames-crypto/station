@@ -51,6 +51,7 @@ export function assignStringsSource(pad: PadState, stringsPatchId: StringsPatchI
     chopSessionId: null,
     synthPatchId: null,
     stringsPatchId,
+    organicBassPatchId: null,
     chordIntervals: [...chordIntervals],
   }
 }
@@ -187,4 +188,3 @@ export function stringsSpaceFeedback(space: number): number {
 export function stringsSpaceWet(space: number): number {
   return Math.min(1, Math.max(0, space)) * 0.35
 }
-

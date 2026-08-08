@@ -23,6 +23,18 @@ import {
   stringsWidthToPan,
 } from '../strings/stringsOperations'
 import type { StringsPatch } from '../strings/stringsTypes'
+import {
+  cloneOrganicBassPatch,
+  organicBassContourSemitones,
+  organicBassCutoffHz,
+  organicBassEnvelopeShape,
+  organicBassGlideSeconds,
+  organicBassResonanceQ,
+  organicBassVelocityResponse,
+  organicBassWaveCoefficients,
+  organicBassWeightMacro,
+} from '../organic-bass/organicBassOperations'
+import type { OrganicBassPatch } from '../organic-bass/organicBassTypes'
 
 export type SampleId = string
 export type SampleAssetId = string
@@ -164,6 +176,52 @@ interface SynthPatchRuntime {
   heldMonoNotes: HeldMonoNote[]
   currentMonoVoice?: ActiveSynthVoice
   lastMidiNote?: number
+}
+
+export interface OrganicBassPatchRegistration {
+  groupId: GroupId
+  patch: OrganicBassPatch
+}
+
+interface ActiveOrganicBassVoice {
+  oscillators: [OscillatorNode, OscillatorNode, OscillatorNode]
+  oscillatorGains: [GainNode, GainNode, GainNode]
+  preDrive: GainNode
+  saturation: WaveShaperNode
+  filters: [BiquadFilterNode, BiquadFilterNode]
+  outputTrim: GainNode
+  amp: GainNode
+  routes: Map<ChannelId, GainNode>
+  origin: 'manual' | 'sequencer'
+  groupId: GroupId
+  patchKey: string
+  channelId: ChannelId
+  midiNote: number
+  velocity: number
+  startsAt: number
+  serial: number
+  stopAt?: number
+  cleanedUp: boolean
+}
+
+interface HeldOrganicBassNote {
+  token: string
+  groupId: GroupId
+  channelId: ChannelId
+  midiNote: number
+  velocity: number
+}
+
+interface OrganicBassPatchRuntime {
+  groupId: GroupId
+  patch: OrganicBassPatch
+  voices: Set<ActiveOrganicBassVoice>
+  heldNotes: HeldOrganicBassNote[]
+  currentVoice?: ActiveOrganicBassVoice
+  driftLfoA?: OscillatorNode
+  driftLfoB?: OscillatorNode
+  driftDepthA?: GainNode
+  driftDepthB?: GainNode
 }
 
 export interface StringsPatchRegistration {
@@ -342,6 +400,11 @@ export class AudioEngine {
   private readonly synthRuntimes = new Map<string, SynthPatchRuntime>()
   private activeSynthVoices = new Set<ActiveSynthVoice>()
   private synthVoiceSerial = 0
+  private readonly organicBassPatches = new Map<string, OrganicBassPatchRegistration>()
+  private readonly organicBassRuntimes = new Map<string, OrganicBassPatchRuntime>()
+  private activeOrganicBassVoices = new Set<ActiveOrganicBassVoice>()
+  private organicBassVoiceSerial = 0
+  private organicBassSaturationCurve?: Float32Array<ArrayBuffer>
   private readonly stringsPatches = new Map<string, StringsPatchRegistration>()
   private readonly stringsRuntimes = new Map<string, StringsPatchRuntime>()
   private activeStringsVoices = new Set<ActiveStringsVoice>()
@@ -401,6 +464,7 @@ export class AudioEngine {
       this.createMasterOutput(this.liveContext)
       this.createChannelNodes()
       this.ensureAllSynthRuntimes()
+      this.ensureAllOrganicBassRuntimes()
       this.ensureAllStringsRuntimes()
       await this.liveContext.resume()
 
@@ -425,6 +489,7 @@ export class AudioEngine {
     this.createMasterOutput(context)
     this.createChannelNodes()
     this.ensureAllSynthRuntimes()
+    this.ensureAllOrganicBassRuntimes()
     this.ensureAllStringsRuntimes()
     this.setStatus('ready')
   }
@@ -628,6 +693,24 @@ export class AudioEngine {
     }
   }
 
+  syncOrganicBassPatches(registrations: readonly OrganicBassPatchRegistration[]): void {
+    const nextKeys = new Set<string>()
+    for (const registration of registrations) {
+      const key = this.organicBassPatchKey(registration.groupId, registration.patch.id)
+      nextKeys.add(key)
+      this.organicBassPatches.set(key, { groupId: registration.groupId, patch: cloneOrganicBassPatch(registration.patch) })
+      const runtime = this.organicBassRuntimes.get(key)
+      if (runtime) this.updateOrganicBassRuntime(runtime, registration.patch)
+      else if (this.context) this.ensureOrganicBassRuntime(registration.groupId, registration.patch)
+    }
+    for (const key of [...this.organicBassPatches.keys()]) {
+      if (nextKeys.has(key)) continue
+      this.organicBassPatches.delete(key)
+      const runtime = this.organicBassRuntimes.get(key)
+      if (runtime) this.disposeOrganicBassRuntime(key, runtime)
+    }
+  }
+
   syncStringsPatches(registrations: readonly StringsPatchRegistration[]): void {
     const nextKeys = new Set<string>()
     for (const registration of registrations) {
@@ -730,6 +813,48 @@ export class AudioEngine {
       const voice = this.startSynthVoice(runtime, groupId, channelId, midiNote, velocity * 0.42, scheduledWhen, 'sequencer')
       if (voice) this.releaseSynthVoice(runtime, voice, scheduledOff)
     }
+  }
+
+  triggerOrganicBassPad(groupId: GroupId, channelId: ChannelId, patch: OrganicBassPatch, midiNote: number, velocity = 1, manualToken = channelId): void {
+    if (this.status !== 'ready' || !this.context || !Number.isFinite(midiNote)) return
+    const runtime = this.ensureOrganicBassRuntime(groupId, patch)
+    const when = this.context.currentTime
+    const boundedVelocity = this.toGain(velocity)
+    this.triggerPumpRoutesForChannel(channelId, when)
+    runtime.heldNotes = runtime.heldNotes.filter((held) => held.token !== manualToken)
+    const canLegato = runtime.currentVoice?.origin === 'manual' && runtime.currentVoice.stopAt === undefined && !runtime.currentVoice.cleanedUp && runtime.heldNotes.length > 0
+    runtime.heldNotes.push({ token: manualToken, groupId, channelId, midiNote, velocity: boundedVelocity })
+    if (canLegato && runtime.currentVoice) {
+      this.glideOrganicBassVoice(runtime, runtime.currentVoice, channelId, midiNote, boundedVelocity, when)
+      return
+    }
+    if (runtime.currentVoice && !runtime.currentVoice.cleanedUp) this.releaseOrganicBassVoice(runtime, runtime.currentVoice, when, 0.008)
+    runtime.currentVoice = this.startOrganicBassVoice(runtime, groupId, channelId, midiNote, boundedVelocity, when, 'manual')
+  }
+
+  releaseOrganicBassPad(manualToken: string): void {
+    if (!this.context) return
+    const when = this.context.currentTime
+    for (const runtime of this.organicBassRuntimes.values()) {
+      const wasCurrent = runtime.heldNotes.at(-1)?.token === manualToken
+      runtime.heldNotes = runtime.heldNotes.filter((held) => held.token !== manualToken)
+      if (!wasCurrent || !runtime.currentVoice || runtime.currentVoice.cleanedUp) continue
+      const fallback = runtime.heldNotes.at(-1)
+      if (fallback) this.glideOrganicBassVoice(runtime, runtime.currentVoice, fallback.channelId, fallback.midiNote, fallback.velocity, when)
+      else this.releaseOrganicBassVoice(runtime, runtime.currentVoice, when)
+    }
+  }
+
+  scheduleOrganicBassPad(groupId: GroupId, channelId: ChannelId, patch: OrganicBassPatch, midiNote: number, when: number, noteOffWhen: number, velocity: number): void {
+    if (this.status !== 'ready' || !this.context || !Number.isFinite(midiNote)) return
+    const runtime = this.ensureOrganicBassRuntime(groupId, patch)
+    const scheduledWhen = Math.max(this.context.currentTime, when)
+    const scheduledOff = Math.max(scheduledWhen + 0.005, noteOffWhen)
+    this.triggerPumpRoutesForChannel(channelId, scheduledWhen)
+    if (runtime.currentVoice && !runtime.currentVoice.cleanedUp) this.releaseOrganicBassVoice(runtime, runtime.currentVoice, scheduledWhen, 0.008)
+    const voice = this.startOrganicBassVoice(runtime, groupId, channelId, midiNote, velocity, scheduledWhen, 'sequencer')
+    runtime.currentVoice = voice
+    if (voice) this.releaseOrganicBassVoice(runtime, voice, scheduledOff)
   }
 
   /** Always polyphonic - unlike MONOPOLY there is no MONO mode, so every call takes the same chord path. */
@@ -943,6 +1068,7 @@ export class AudioEngine {
       this.cleanUpVoice(voice)
     }
     for (const voice of [...this.activeSynthVoices]) this.stopSynthVoiceImmediately(voice)
+    for (const voice of [...this.activeOrganicBassVoices]) this.stopOrganicBassVoiceImmediately(voice)
     for (const voice of [...this.activeStringsVoices]) this.stopStringsVoiceImmediately(voice)
     for (const voice of [...this.drumPreviewVoices]) voice.stop()
   }
@@ -958,6 +1084,7 @@ export class AudioEngine {
       this.cleanUpVoice(voice)
     }
     for (const voice of [...this.activeSynthVoices]) if (voice.origin === 'sequencer') this.stopSynthVoiceImmediately(voice)
+    for (const voice of [...this.activeOrganicBassVoices]) if (voice.origin === 'sequencer') this.stopOrganicBassVoiceImmediately(voice)
     for (const voice of [...this.activeStringsVoices]) if (voice.origin === 'sequencer') this.stopStringsVoiceImmediately(voice)
   }
 
@@ -1004,12 +1131,14 @@ export class AudioEngine {
       this.cleanUpVoice(voice)
     }
     for (const runtime of this.synthRuntimes.values()) runtime.heldMonoNotes = []
+    for (const runtime of this.organicBassRuntimes.values()) runtime.heldNotes = []
     for (const voice of [...this.activeSynthVoices]) if (voice.origin === 'manual') this.stopSynthVoiceImmediately(voice)
+    for (const voice of [...this.activeOrganicBassVoices]) if (voice.origin === 'manual') this.stopOrganicBassVoiceImmediately(voice)
     for (const voice of [...this.activeStringsVoices]) if (voice.origin === 'manual') this.stopStringsVoiceImmediately(voice)
   }
 
   getActiveVoiceCount(): number {
-    return this.activeVoices.size + this.activeSynthVoices.size + this.activeStringsVoices.size
+    return this.activeVoices.size + this.activeSynthVoices.size + this.activeOrganicBassVoices.size + this.activeStringsVoices.size
   }
 
   getCurrentTime(): number {
@@ -1025,6 +1154,10 @@ export class AudioEngine {
     for (const [key, runtime] of this.synthRuntimes) this.disposeSynthRuntime(key, runtime)
     this.synthPatches.clear()
     this.activeSynthVoices.clear()
+    for (const [key, runtime] of this.organicBassRuntimes) this.disposeOrganicBassRuntime(key, runtime)
+    this.organicBassPatches.clear()
+    this.activeOrganicBassVoices.clear()
+    this.organicBassSaturationCurve = undefined
     for (const [key, runtime] of this.stringsRuntimes) this.disposeStringsRuntime(key, runtime)
     this.stringsPatches.clear()
     this.activeStringsVoices.clear()
@@ -1370,6 +1503,258 @@ export class AudioEngine {
     runtime.lfo?.disconnect()
     runtime.lfoDepth?.disconnect()
     this.synthRuntimes.delete(key)
+  }
+
+  private organicBassPatchKey(groupId: GroupId, patchId: string): string {
+    return `${groupId}:${patchId}`
+  }
+
+  private ensureAllOrganicBassRuntimes(): void {
+    for (const registration of this.organicBassPatches.values()) this.ensureOrganicBassRuntime(registration.groupId, registration.patch)
+  }
+
+  private ensureOrganicBassRuntime(groupId: GroupId, patch: OrganicBassPatch): OrganicBassPatchRuntime {
+    const key = this.organicBassPatchKey(groupId, patch.id)
+    this.organicBassPatches.set(key, { groupId, patch: cloneOrganicBassPatch(patch) })
+    let runtime = this.organicBassRuntimes.get(key)
+    if (!runtime) {
+      runtime = { groupId, patch: cloneOrganicBassPatch(patch), voices: new Set(), heldNotes: [] }
+      this.organicBassRuntimes.set(key, runtime)
+      this.createOrganicBassDrift(runtime)
+    } else this.updateOrganicBassRuntime(runtime, patch)
+    return runtime
+  }
+
+  private updateOrganicBassRuntime(runtime: OrganicBassPatchRuntime, patch: OrganicBassPatch): void {
+    runtime.patch = cloneOrganicBassPatch(patch)
+    for (const voice of runtime.voices) this.applyPatchToOrganicBassVoice(runtime, voice)
+  }
+
+  /** Two fixed, incommensurate rates make render output repeatable while avoiding a periodic unison wobble. */
+  private createOrganicBassDrift(runtime: OrganicBassPatchRuntime): void {
+    if (!this.context || runtime.driftLfoA || runtime.driftLfoB) return
+    const now = this.context.currentTime
+    const lfoA = this.context.createOscillator()
+    const lfoB = this.context.createOscillator()
+    const depthA = this.context.createGain()
+    const depthB = this.context.createGain()
+    lfoA.type = 'sine'
+    lfoB.type = 'sine'
+    lfoA.frequency.setValueAtTime(0.071, now)
+    lfoB.frequency.setValueAtTime(0.113, now)
+    depthA.gain.setValueAtTime(1.1, now)
+    depthB.gain.setValueAtTime(-0.85, now)
+    lfoA.connect(depthA)
+    lfoB.connect(depthB)
+    lfoA.start(now)
+    lfoB.start(now)
+    runtime.driftLfoA = lfoA
+    runtime.driftLfoB = lfoB
+    runtime.driftDepthA = depthA
+    runtime.driftDepthB = depthB
+  }
+
+  private startOrganicBassVoice(runtime: OrganicBassPatchRuntime, groupId: GroupId, channelId: ChannelId, midiNote: number, velocity: number, when: number, origin: 'manual' | 'sequencer'): ActiveOrganicBassVoice | undefined {
+    if (!this.context) return
+    const scheduledWhen = Math.max(this.context.currentTime, when)
+    const oscillators = [this.context.createOscillator(), this.context.createOscillator(), this.context.createOscillator()] as [OscillatorNode, OscillatorNode, OscillatorNode]
+    const oscillatorGains = [this.context.createGain(), this.context.createGain(), this.context.createGain()] as [GainNode, GainNode, GainNode]
+    const preDrive = this.context.createGain()
+    const saturation = this.context.createWaveShaper()
+    const filters = [this.context.createBiquadFilter(), this.context.createBiquadFilter()] as [BiquadFilterNode, BiquadFilterNode]
+    const outputTrim = this.context.createGain()
+    const amp = this.context.createGain()
+    const voice: ActiveOrganicBassVoice = {
+      oscillators,
+      oscillatorGains,
+      preDrive,
+      saturation,
+      filters,
+      outputTrim,
+      amp,
+      routes: new Map(),
+      origin,
+      groupId,
+      patchKey: this.organicBassPatchKey(groupId, runtime.patch.id),
+      channelId,
+      midiNote,
+      velocity: this.toGain(velocity),
+      startsAt: scheduledWhen,
+      serial: this.organicBassVoiceSerial++,
+      cleanedUp: false,
+    }
+
+    for (let index = 0; index < oscillators.length; index += 1) {
+      oscillators[index].connect(oscillatorGains[index])
+      oscillatorGains[index].connect(preDrive)
+    }
+    preDrive.connect(saturation)
+    saturation.connect(filters[0])
+    filters[0].connect(filters[1])
+    filters[1].connect(outputTrim)
+    outputTrim.connect(amp)
+    this.connectOrganicBassRoute(voice, channelId, true)
+    runtime.driftDepthA?.connect(oscillators[0].detune)
+    runtime.driftDepthB?.connect(oscillators[1].detune)
+    runtime.driftDepthA?.connect(oscillators[2].detune)
+
+    this.applyPatchToOrganicBassVoice(runtime, voice, true)
+    const envelope = organicBassEnvelopeShape(runtime.patch.decay)
+    const peak = Math.max(0.0001, organicBassVelocityResponse(voice.velocity).amplitude * 0.44)
+    const sustain = Math.max(0.0001, peak * envelope.sustain)
+    const attack = Math.max(0.001, runtime.patch.attackSeconds)
+    amp.gain.setValueAtTime(0.0001, scheduledWhen)
+    amp.gain.exponentialRampToValueAtTime(peak, scheduledWhen + attack)
+    amp.gain.exponentialRampToValueAtTime(sustain, scheduledWhen + attack + envelope.decaySeconds)
+    this.applyOrganicBassFilterEnvelope(runtime.patch, filters, scheduledWhen)
+
+    oscillators[0].addEventListener('ended', () => this.cleanUpOrganicBassVoice(runtime, voice), { once: true })
+    runtime.voices.add(voice)
+    this.activeOrganicBassVoices.add(voice)
+    for (const oscillator of oscillators) oscillator.start(scheduledWhen)
+    return voice
+  }
+
+  private applyPatchToOrganicBassVoice(runtime: OrganicBassPatchRuntime, voice: ActiveOrganicBassVoice, immediately = false, glideFromMidiNote?: number): void {
+    if (!this.context) return
+    const patch = runtime.patch
+    const now = Math.max(this.context.currentTime, voice.startsAt)
+    const harmonicLimit = Math.max(2, Math.min(24, Math.floor(this.context.sampleRate / 2 / this.midiNoteToFrequency(voice.midiNote))))
+    const mainWave = organicBassWaveCoefficients(patch.shape, harmonicLimit)
+    const bodyWave = organicBassWaveCoefficients(patch.shape * 0.72, harmonicLimit)
+    voice.oscillators[0].setPeriodicWave(this.context.createPeriodicWave(mainWave.real, mainWave.imag, { disableNormalization: false }))
+    voice.oscillators[1].setPeriodicWave(this.context.createPeriodicWave(bodyWave.real, bodyWave.imag, { disableNormalization: false }))
+    voice.oscillators[2].type = 'sine'
+    const glideSeconds = glideFromMidiNote === undefined ? 0 : organicBassGlideSeconds(patch.glide)
+    this.applyOrganicBassPitch(voice.oscillators[0].frequency, voice.midiNote, 0, now, glideSeconds, glideFromMidiNote)
+    this.applyOrganicBassPitch(voice.oscillators[1].frequency, voice.midiNote, -4, now, glideSeconds, glideFromMidiNote)
+    this.applyOrganicBassPitch(voice.oscillators[2].frequency, voice.midiNote - 12, 0, now, glideSeconds, glideFromMidiNote === undefined ? undefined : glideFromMidiNote - 12)
+
+    const weight = organicBassWeightMacro(patch.weight)
+    const velocity = organicBassVelocityResponse(voice.velocity)
+    this.applyEffectParameter(voice.oscillatorGains[0].gain, weight.mainGain, immediately, 0.015)
+    this.applyEffectParameter(voice.oscillatorGains[1].gain, weight.bodyGain, immediately, 0.015)
+    this.applyEffectParameter(voice.oscillatorGains[2].gain, weight.subGain, immediately, 0.015)
+    this.applyEffectParameter(voice.preDrive.gain, weight.inputDrive * (1 + patch.drive * 2.2) * velocity.inputDrive, immediately, 0.02)
+    this.organicBassSaturationCurve ??= this.createOrganicBassSaturationCurve()
+    voice.saturation.curve = this.organicBassSaturationCurve
+    voice.saturation.oversample = '2x'
+
+    const cutoff = organicBassCutoffHz(patch.cutoff) * 2 ** (velocity.cutoffSemitones / 12)
+    for (const filter of voice.filters) {
+      filter.type = 'lowpass'
+      this.applyEffectParameter(filter.frequency, cutoff, immediately, 0.018)
+    }
+    this.applyEffectParameter(voice.filters[0].Q, organicBassResonanceQ(patch.resonance), immediately, 0.018)
+    this.applyEffectParameter(voice.filters[1].Q, 0.55, immediately, 0.018)
+    this.applyEffectParameter(voice.outputTrim.gain, weight.outputTrim * (1 - patch.resonance * 0.12) / (1 + patch.drive * 0.18), immediately, 0.02)
+  }
+
+  private applyOrganicBassPitch(parameter: AudioParam, midiNote: number, detuneCents: number, when: number, glideSeconds: number, glideFromMidiNote?: number): void {
+    const target = this.midiNoteToFrequency(midiNote + detuneCents / 100)
+    const start = this.midiNoteToFrequency((glideFromMidiNote ?? midiNote) + detuneCents / 100)
+    parameter.cancelScheduledValues(when)
+    parameter.setValueAtTime(start, when)
+    if (glideSeconds > 0 && start !== target) parameter.exponentialRampToValueAtTime(target, when + glideSeconds)
+    else parameter.setValueAtTime(target, when)
+  }
+
+  private applyOrganicBassFilterEnvelope(patch: OrganicBassPatch, filters: readonly [BiquadFilterNode, BiquadFilterNode], when: number): void {
+    const attack = Math.max(0.001, patch.attackSeconds)
+    const decay = organicBassEnvelopeShape(patch.decay).decaySeconds
+    const peakCents = organicBassContourSemitones(patch.contour) * 100
+    for (const filter of filters) {
+      filter.detune.setValueAtTime(0, when)
+      filter.detune.linearRampToValueAtTime(peakCents, when + attack)
+      filter.detune.exponentialRampToValueAtTime(0.01, when + attack + decay)
+      filter.detune.setValueAtTime(0, when + attack + decay + 0.001)
+    }
+  }
+
+  private glideOrganicBassVoice(runtime: OrganicBassPatchRuntime, voice: ActiveOrganicBassVoice, channelId: ChannelId, midiNote: number, velocity: number, when: number): void {
+    const previousMidiNote = voice.midiNote
+    voice.channelId = channelId
+    voice.midiNote = midiNote
+    voice.velocity = this.toGain(velocity)
+    this.crossfadeOrganicBassRoute(voice, channelId, when)
+    this.applyPatchToOrganicBassVoice(runtime, voice, false, previousMidiNote)
+  }
+
+  private connectOrganicBassRoute(voice: ActiveOrganicBassVoice, channelId: ChannelId, active: boolean): GainNode | undefined {
+    if (!this.context) return
+    const existing = voice.routes.get(channelId)
+    if (existing) return existing
+    const channel = this.ensureChannel(voice.groupId, channelId)
+    if (!channel.gain) return
+    const route = this.context.createGain()
+    route.gain.setValueAtTime(active ? 1 : 0, this.context.currentTime)
+    voice.amp.connect(route)
+    route.connect(channel.gain)
+    voice.routes.set(channelId, route)
+    return route
+  }
+
+  private crossfadeOrganicBassRoute(voice: ActiveOrganicBassVoice, channelId: ChannelId, when: number): void {
+    const target = this.connectOrganicBassRoute(voice, channelId, false)
+    if (!target) return
+    for (const [id, route] of voice.routes) {
+      route.gain.cancelScheduledValues(when)
+      route.gain.setValueAtTime(route.gain.value, when)
+      route.gain.linearRampToValueAtTime(id === channelId ? 1 : 0, when + 0.006)
+    }
+  }
+
+  private releaseOrganicBassVoice(runtime: OrganicBassPatchRuntime, voice: ActiveOrganicBassVoice, when: number, releaseOverride?: number): void {
+    if (!this.context || voice.cleanedUp) return
+    const releaseAt = Math.max(this.context.currentTime, when)
+    if (voice.stopAt !== undefined && voice.stopAt <= releaseAt) return
+    const release = Math.max(0.005, releaseOverride ?? organicBassEnvelopeShape(runtime.patch.decay).releaseSeconds)
+    this.holdAudioParamAtTime(voice.amp.gain, releaseAt)
+    voice.amp.gain.exponentialRampToValueAtTime(0.0001, releaseAt + release)
+    const stopAt = releaseAt + release + 0.01
+    for (const oscillator of voice.oscillators) {
+      try { oscillator.stop(stopAt) } catch { /* A scheduled voice may already be stopping. */ }
+    }
+    voice.stopAt = stopAt
+  }
+
+  private stopOrganicBassVoiceImmediately(voice: ActiveOrganicBassVoice): void {
+    for (const oscillator of voice.oscillators) {
+      try { oscillator.stop() } catch { /* The oscillator may already have ended. */ }
+    }
+    const runtime = this.organicBassRuntimes.get(voice.patchKey)
+    if (runtime) this.cleanUpOrganicBassVoice(runtime, voice)
+  }
+
+  private cleanUpOrganicBassVoice(runtime: OrganicBassPatchRuntime, voice: ActiveOrganicBassVoice): void {
+    if (voice.cleanedUp) return
+    voice.cleanedUp = true
+    runtime.voices.delete(voice)
+    this.activeOrganicBassVoices.delete(voice)
+    if (runtime.currentVoice === voice) runtime.currentVoice = undefined
+    try { runtime.driftDepthA?.disconnect(voice.oscillators[0].detune) } catch { /* Already disconnected. */ }
+    try { runtime.driftDepthB?.disconnect(voice.oscillators[1].detune) } catch { /* Already disconnected. */ }
+    try { runtime.driftDepthA?.disconnect(voice.oscillators[2].detune) } catch { /* Already disconnected. */ }
+    for (const oscillator of voice.oscillators) oscillator.disconnect()
+    for (const gain of voice.oscillatorGains) gain.disconnect()
+    voice.preDrive.disconnect()
+    voice.saturation.disconnect()
+    for (const filter of voice.filters) filter.disconnect()
+    voice.outputTrim.disconnect()
+    voice.amp.disconnect()
+    for (const route of voice.routes.values()) route.disconnect()
+    voice.routes.clear()
+  }
+
+  private disposeOrganicBassRuntime(key: string, runtime: OrganicBassPatchRuntime): void {
+    for (const voice of [...runtime.voices]) this.stopOrganicBassVoiceImmediately(voice)
+    try { runtime.driftLfoA?.stop() } catch { /* Already stopped. */ }
+    try { runtime.driftLfoB?.stop() } catch { /* Already stopped. */ }
+    runtime.driftLfoA?.disconnect()
+    runtime.driftLfoB?.disconnect()
+    runtime.driftDepthA?.disconnect()
+    runtime.driftDepthB?.disconnect()
+    this.organicBassRuntimes.delete(key)
   }
 
   private stringsPatchKey(groupId: GroupId, patchId: string): string {
@@ -1882,6 +2267,17 @@ export class AudioEngine {
     for (let index = 0; index < curve.length; index += 1) {
       const input = index * 2 / (curve.length - 1) - 1
       curve[index] = (1 + amount) * input / (1 + amount * Math.abs(input))
+    }
+    return curve
+  }
+
+  /** Fixed, gently asymmetric transfer; DRIVE and WEIGHT push into it through a smooth input gain. */
+  private createOrganicBassSaturationCurve(): Float32Array<ArrayBuffer> {
+    const curve = new Float32Array(2048)
+    const normalization = Math.tanh(1.77)
+    for (let index = 0; index < curve.length; index += 1) {
+      const input = index * 2 / (curve.length - 1) - 1
+      curve[index] = Math.tanh(input * 1.65 + input * input * 0.12) / normalization
     }
     return curve
   }

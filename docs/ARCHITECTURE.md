@@ -96,7 +96,7 @@ This is a direction, not permission to scaffold files before the implementation 
 
 ## Current UI shell and Chop Workspace
 
-Station renders one main workspace at a time: CHOP, PAD, SYNTH, STRINGS, SEQ, SONG, SAMPLE or MIX. The transport remains outside those views, so changing views does not recreate audio, Pattern Groups, Playlist, mixer settings, the active pad, synth/strings patches or the current Chop Session.
+Station renders one main workspace at a time: CHOP, PAD, SYNTH, SEQ, SONG, SAMPLE or MIX. MONOPOLY, MONOGORG, STRINGS and DRUM SYNTH are selected inside SYNTH rather than becoming top-level workspaces. The transport remains outside those views, so changing views does not recreate audio, Pattern Groups, Playlist, mixer settings, the active pad, synth patches or the current Chop Session.
 
 CHOP owns a source-asset reference and serializable slice boundaries; pads own their playback and musical state. A live map applies slice 1–16 to pad 1–16 without placing an AudioBuffer in React. The workspace tracks the pads it currently manages so that shrinking the slice set clears only its own surplus assignments.
 
@@ -136,9 +136,13 @@ Each scheduled step may have a persisted velocity and a local SHIFT expressed as
 
 ## STRINGS source boundary
 
-STRINGS is a third mutually exclusive pad source, sharing the MONO-3 source boundary's shape rather than introducing a new one: serializable `StringsPatch` objects belong to Pattern Groups, pads reference them by ID, and per-pad chord intervals and pitch stay on the pad. A pad may hold at most one of `assetId`, `synthPatchId` or `stringsPatchId`. Oscillators, the shared lowpass, the per-channel ensemble, the engine-wide vibrato/ensemble LFOs, voice allocation and cleanup remain AudioEngine-owned, deliberately not shared node-for-node with MONO-3's own voice - the two instruments have different DSP needs and different voice shapes on purpose.
+STRINGS is a third mutually exclusive pad source, sharing the MONO-3 source boundary's shape rather than introducing a new one: serializable `StringsPatch` objects belong to Pattern Groups, pads reference them by ID, and per-pad chord intervals and pitch stay on the pad. A pad may hold at most one of `assetId`, `synthPatchId`, `stringsPatchId` or `organicBassPatchId`. Oscillators, the shared lowpass, the per-channel ensemble, the engine-wide vibrato/ensemble LFOs, voice allocation and cleanup remain AudioEngine-owned, deliberately not shared node-for-node with MONO-3's own voice - the instruments have different DSP needs and different voice shapes on purpose.
 
 STRINGS reuses MONO-3's established boundary for everything generic: it resolves to `songTracks` events the same way, schedules through the same `StepSequencer`/`AudioEngine`, stamps GATE/SHIFT against AudioContext time the same way, and gets render-length and offline-render parity through the same registration pattern (`syncStringsPatches` alongside `syncSynthPatches`). It does not reuse MONO-3's mono/glide handling, its cascaded filter, its filter envelope or its tempo-synced LFO - STRINGS has no MONO mode, and its vibrato/ensemble modulation is deliberately free-running rather than tempo-synced.
+
+## MONOGORG source boundary
+
+MONOGORG follows the same serializable-patch/runtime-voice split. Pattern Groups own `organicBassPatches`; pads reference one through `organicBassPatchId`; the audio engine alone owns its active mono voice, routing crossfades, oscillator periodic waves, filter nodes, envelopes and fixed-rate drift LFOs. Generic scheduling, mixer, Pump, FX, Scale Map and offline rendering are shared. Its DSP and legato runtime are separate from MONO-3 so the focused nine-control macro design does not alter or constrain the older general-purpose synth.
 
 ## AudioWorklet policy
 

@@ -1,6 +1,7 @@
 import type { SampleAssetId, SampleId } from '../audio/AudioEngine'
 import type { SynthPatchId } from '../synth/synthTypes'
 import type { StringsPatchId } from '../strings/stringsTypes'
+import type { OrganicBassPatchId } from '../organic-bass/organicBassTypes'
 
 export interface ChannelState {
   id: SampleId
@@ -53,6 +54,7 @@ export interface PadState extends ChannelState {
   releaseMs: number
   synthPatchId: SynthPatchId | null
   stringsPatchId: StringsPatchId | null
+  organicBassPatchId: OrganicBassPatchId | null
   chordIntervals: number[]
 }
 

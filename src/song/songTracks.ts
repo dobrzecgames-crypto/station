@@ -8,6 +8,7 @@ import { getActiveClipsForSlot } from './songOperations'
 import type { PatternClip } from './songTypes'
 import { getSynthPatch, resolveSynthPadMidiNotes } from '../synth/synthOperations'
 import { getStringsPatch, resolveStringsPadMidiNotes } from '../strings/stringsOperations'
+import { getOrganicBassPatch, resolveOrganicBassPadMidiNote } from '../organic-bass/organicBassOperations'
 import type { ProjectKey } from '../music/scales'
 import { resolveChordMidiNotes } from '../music/chords'
 
@@ -63,6 +64,8 @@ function toTracks(variants: readonly (ResolvedVariant | undefined)[], hasSampleA
       if (stringsPatch) return chordAssignment
         ? [{ ...common, source: 'stringsChord', chordGroupId: pattern.group.id, patch: stringsPatch, midiNotes: resolveChordMidiNotes(pattern.group, pad, chordAssignment, projectKey) }]
         : [{ ...common, source: 'strings', patch: stringsPatch, midiNotes: resolveStringsPadMidiNotes(stringsPatch, pad) }]
+      const organicBassPatch = getOrganicBassPatch(pattern.group, pad.organicBassPatchId)
+      if (organicBassPatch) return [{ ...common, source: 'organicBass', patch: organicBassPatch, midiNote: resolveOrganicBassPadMidiNote(organicBassPatch, pad) }]
       if (!pad.assetId || !hasSampleAsset(pad.assetId)) return []
       const samplePad = pad as PadState & { assetId: SampleAssetId }
       return [{

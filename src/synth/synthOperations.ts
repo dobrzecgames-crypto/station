@@ -56,6 +56,7 @@ export function assignSynthSource(pad: PadState, synthPatchId: SynthPatchId, cho
     chopSessionId: null,
     synthPatchId,
     stringsPatchId: null,
+    organicBassPatchId: null,
     chordIntervals: [...chordIntervals],
   }
 }
@@ -72,6 +73,7 @@ export function clearPadSource(pad: PadState): PadState {
     chopSessionId: null,
     synthPatchId: null,
     stringsPatchId: null,
+    organicBassPatchId: null,
     chordIntervals: [0],
   }
 }

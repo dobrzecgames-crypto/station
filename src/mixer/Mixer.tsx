@@ -98,9 +98,9 @@ function MixerStrip({ audioEngine, patternGroupId, pad, isPumpSource, onVolumeCh
     <article className="mixer-strip">
       <strong className="mixer-strip-label">{pad.label.replace('PAD ', '')}</strong>
       <span
-        className={pad.fileName || pad.synthPatchId || pad.stringsPatchId ? 'mixer-strip-status mixer-strip-status-loaded' : 'mixer-strip-status'}
-        title={pad.synthPatchId ? 'MONOPOLY' : pad.stringsPatchId ? 'STRINGS' : pad.fileName ?? undefined}
-        aria-label={pad.synthPatchId ? 'MONOPOLY loaded' : pad.stringsPatchId ? 'STRINGS loaded' : pad.fileName ? `${pad.fileName} loaded` : 'Empty'}
+        className={pad.fileName || pad.synthPatchId || pad.stringsPatchId || pad.organicBassPatchId ? 'mixer-strip-status mixer-strip-status-loaded' : 'mixer-strip-status'}
+        title={pad.synthPatchId ? 'MONOPOLY' : pad.stringsPatchId ? 'STRINGS' : pad.organicBassPatchId ? 'MONOGORG' : pad.fileName ?? undefined}
+        aria-label={pad.synthPatchId ? 'MONOPOLY loaded' : pad.stringsPatchId ? 'STRINGS loaded' : pad.organicBassPatchId ? 'MONOGORG loaded' : pad.fileName ? `${pad.fileName} loaded` : 'Empty'}
       />
       <span
         className={isPumpSource ? 'mixer-strip-pump mixer-strip-pump-source' : 'mixer-strip-pump'}

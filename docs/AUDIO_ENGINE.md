@@ -118,6 +118,14 @@ Vibrato and the ensemble's delay-time modulation are driven by three free-runnin
 
 The sequencer and offline render integration mirrors MONO-3's exactly: resolved MIDI notes, velocity, SHIFT-adjusted note-on and `patch.gate * stepDuration` note-off, the same `syncStringsPatches` registration call, and a `getStringsTailSeconds` render-length term alongside the synth one.
 
+## MONOGORG synthesis
+
+MONOGORG is always monophonic. Three cheap oscillators (harmonically morphed main, quieter body and sine sub) are normalized by WEIGHT, pushed through one fixed gently asymmetric waveshaper, then through two cascaded low-pass biquads (four poles total), output compensation and the amp envelope. DRIVE and WEIGHT change the level entering the fixed transfer rather than rebuilding a WaveShaper curve while audio is live. RESO raises Q only on the first filter stage and applies modest output compensation, avoiding two stacked high-Q peaks.
+
+Manual last-note legato retunes the existing oscillators and leaves their amp/filter envelopes running. A six-millisecond route crossfade moves that continuing voice between Scale-Mapped pad channels without bypassing per-pad volume, mute, solo, meters or Pump. Releasing the newest held note glides back to the previous held note; releasing the last note uses a DECAY-derived release with a five-millisecond safety floor. Sequenced notes retrigger the envelopes and use the normal AudioContext timestamps, per-step length, velocity, SHIFT and offline render path.
+
+Micro-drift uses two per-patch-runtime sine oscillators at fixed incommensurate rates (0.071 Hz and 0.113 Hz), with depths of +1.1 and -0.85 cents. Their rates and phases are not randomized, so offline renders remain repeatable. Velocity scales amplitude from 0.56 to 1, opens the filter by 0.5-4 semitones and adds up to 18% extra pressure into saturation.
+
 ## Sequencer timing
 
 The scheduler must:

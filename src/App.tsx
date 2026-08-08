@@ -21,6 +21,8 @@ import { PumpDisplayLauncher } from './mixer/PumpDisplay'
 import { clonePadBank, createPadBank, padIdByKeyCode } from './pads/padBank'
 import type { PadBankState } from './pads/padBank'
 import { PadDisplayLauncher } from './pads/PadDisplay'
+import { ChordDisplayLauncher } from './pads/ChordDisplay'
+import { ChordModeToggle } from './pads/ChordModeToggle'
 import { PadGrid } from './pads/PadGrid'
 import type { ChopSessionState, PadState, SamplePlaybackRegion, SampleSlice } from './pads/types'
 import { SampleEditor } from './sample-editor/SampleEditor'
@@ -43,11 +45,13 @@ import { renderSongToBuffer } from './project/renderSong'
 import type { RenderSongResult } from './project/renderSong'
 import { defaultProjectKey, formatProjectKey } from './music/scales'
 import type { ProjectKey } from './music/scales'
+import { chordRootMidiNote, formatChordAssignment, formatMidiNoteName, resolveChordMidiNotes } from './music/chords'
+import { ChordPriority } from './music/chordPriority'
 import { findProjectScaleMapConflicts, mapPadBankToProjectScale } from './music/scaleMapping'
 import { projectRepository } from './storage/ProjectRepository'
 import { defaultProjectId } from './storage/storageTypes'
-import { addPatternGroup, clearVariant, createInitialPatternGroups, duplicateVariant, getVariant, getVariantLengths, getVariantShifts, patternStepCount, recordVariantStep, setVariantStepLength, setVariantStepShift, setVariantStepVelocity, updateVariantStep } from './patterns/patternOperations'
-import type { PatternGroup, PatternVariantName } from './patterns/patternTypes'
+import { addPatternGroup, clearVariant, createInitialPatternGroups, duplicateVariant, getVariant, getVariantLengths, getVariantShifts, patternStepCount, recordVariantStep, repairPatternGroupChords, setPatternGroupChordAssignment, setPatternGroupPadMode, setVariantStepLength, setVariantStepShift, setVariantStepVelocity, updateVariantStep } from './patterns/patternOperations'
+import type { PadMode, PatternGroup, PatternVariantName } from './patterns/patternTypes'
 import { addPatternClip, getLastOccupiedSlot, removeClipsForGroup, removeClipsForVariant, removePatternClip } from './song/songOperations'
 import type { PatternClip, TransportMode } from './song/songTypes'
 import { getPatternTracks, getSongTracksForSlot } from './song/songTracks'
@@ -231,6 +235,7 @@ export function App({ audioEngine }: AppProps) {
   const [sequencerPlayhead, setSequencerPlayhead] = useState<SequencerPlayhead | null>(null)
   const [visualAudioTime, setVisualAudioTime] = useState(0)
   const sequencerRef = useRef(new StepSequencer(audioEngine))
+  const chordPriorityRef = useRef(new ChordPriority())
   const timelineSchedulerRef = useRef(new TimelineScheduler(audioEngine))
   /** Where TRACKS playback last began, in (timeline beat, AudioContext time)
       terms - lets the live playhead be derived each render (visualAudioTime
@@ -261,6 +266,8 @@ export function App({ audioEngine }: AppProps) {
   const selectedStringsPatch = getStringsPatch(selectedGroup, selectedPad.stringsPatchId)
   const selectedStringsUsageCount = selectedStringsPatch ? pads.filter((pad) => pad.stringsPatchId === selectedStringsPatch.id).length : 0
   const selectedStringsBaseRange = selectedStringsPatch ? getSharedStringsPatchBaseMidiRange(selectedGroup, selectedStringsPatch.id) : [minimumSynthMidiNote, maximumSynthMidiNote] as const
+  const chordModeAvailable = pads.every((pad) => pad.synthPatchId !== null && pad.synthPatchId === pads[0].synthPatchId)
+    || pads.every((pad) => pad.stringsPatchId !== null && pad.stringsPatchId === pads[0].stringsPatchId)
   const audioReady = audioStatus === 'ready'
   const audioRecovering = audioStatus === 'suspended' || audioStatus === 'interrupted'
   const controlsAwake = audioReady && powerVisualPhase === 'on'
@@ -271,6 +278,13 @@ export function App({ audioEngine }: AppProps) {
   const playingStep = sequencerPlayhead && visualAudioTime >= sequencerPlayhead.startsAt && visualAudioTime < sequencerPlayhead.startsAt + sequencerPlayhead.durationSeconds
     ? sequencerPlayhead.stepIndex
     : null
+  const selectedChordAssignment = selectedGroup.padMode === 'chords' ? selectedGroup.chordAssignments[pads.indexOf(selectedPad)] : null
+  const chordLabels = selectedGroup.padMode === 'chords'
+    ? Object.fromEntries(pads.map((pad, index) => {
+        const assignment = selectedGroup.chordAssignments[index]
+        return [pad.id, assignment ? { name: formatChordAssignment(selectedGroup, pad, assignment, projectKey), root: formatMidiNoteName(chordRootMidiNote(selectedGroup, pad, projectKey)) } : { name: '—', root: '' }]
+      }))
+    : undefined
 
   // Display messages are transient: the transport returns to its tempo
   // readout without requiring a separate corrective action.
@@ -384,8 +398,8 @@ export function App({ audioEngine }: AppProps) {
     loopSong,
     lastSongSlot: getLastOccupiedSlot(playlist),
     getTracksForSlot: (slot) => transportMode === 'song'
-      ? getSongTracksForSlot(patternGroups, playlist, slot, hasSampleAsset)
-      : getPatternTracks(patternGroups, selectedPatternGroupId, selectedPatternVariant, hasSampleAsset),
+      ? getSongTracksForSlot(patternGroups, playlist, slot, hasSampleAsset, projectKey)
+      : getPatternTracks(patternGroups, selectedPatternGroupId, selectedPatternVariant, hasSampleAsset, projectKey),
     onSongSlotChange: setPlayingSongSlot,
     onSongComplete: () => { setIsPlaying(false); setPlayingSongSlot(null); setSequencerPlayhead(null) },
     onStepScheduled: (stepIndex, scheduledTime, durationSeconds) => {
@@ -442,6 +456,24 @@ export function App({ audioEngine }: AppProps) {
     setSelectedPadId(padId)
     if (!pad || !audioReady) return
     const patch = getSynthPatch(selectedGroup, pad.synthPatchId)
+    const padIndex = pads.indexOf(pad)
+    const chordAssignment = selectedGroup.padMode === 'chords' ? selectedGroup.chordAssignments[padIndex] : null
+    if (chordAssignment && (patch || pad.stringsPatchId)) {
+      const { token, previousToken } = chordPriorityRef.current.press(selectedPatternGroupId, padId)
+      if (previousToken) {
+        audioEngine.releaseSynthPad(previousToken)
+        audioEngine.releaseStringsPad(previousToken)
+      }
+      const notes = resolveChordMidiNotes(selectedGroup, pad, chordAssignment, projectKey)
+      if (patch) audioEngine.triggerSynthChord(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), patch, notes, 1, token)
+      else {
+        const stringsPatch = getStringsPatch(selectedGroup, pad.stringsPatchId)
+        if (stringsPatch) audioEngine.triggerStringsPad(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), stringsPatch, notes, 1, token)
+      }
+      setActivePadId(padId)
+      recordPadHit(padId, audioEngine.getCurrentTime())
+      return
+    }
     if (patch) {
       audioEngine.triggerSynthPad(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), patch, resolveSynthPadMidiNotes(patch, pad), 1, manualPadToken(selectedPatternGroupId, padId))
       setActivePadId(padId)
@@ -465,6 +497,14 @@ export function App({ audioEngine }: AppProps) {
   }
 
   const releasePad = (padId: PadState['id']) => {
+    if (selectedGroup.padMode === 'chords') {
+      const token = chordPriorityRef.current.release(padId)
+      if (!token) return
+      audioEngine.releaseSynthPad(token)
+      audioEngine.releaseStringsPad(token)
+      setActivePadId((current) => current === padId ? null : current)
+      return
+    }
     audioEngine.releaseSynthPad(manualPadToken(selectedPatternGroupId, padId))
     audioEngine.releaseStringsPad(manualPadToken(selectedPatternGroupId, padId))
     const releasedPad = pads.find((pad) => pad.id === padId)
@@ -505,7 +545,7 @@ export function App({ audioEngine }: AppProps) {
     // `recording` and the selected variant are listed because the listener closes over
     // triggerPad -> recordPadHit: without them a key press while armed would write into
     // whichever variant was selected when this effect last ran, or not record at all.
-  }, [pads, audioReady, cutOnPadTrigger, selectedPatternGroupId, selectedGroup, recording, selectedPatternVariant, mainView, drumSynthPanelOpen, drumSynth])
+  }, [pads, audioReady, cutOnPadTrigger, selectedPatternGroupId, selectedGroup, recording, selectedPatternVariant, mainView, drumSynthPanelOpen, drumSynth, projectKey])
 
   const startAudio = async () => {
     setErrorMessage(undefined)
@@ -610,6 +650,7 @@ export function App({ audioEngine }: AppProps) {
     setProjectMessage(undefined)
     stopPlayback()
     audioEngine.stopManualVoices()
+    chordPriorityRef.current.clear()
     audioEngine.stopPreview()
     setSourcePreviewing(false)
     setPreviewingLibrarySampleId(null)
@@ -1020,6 +1061,32 @@ export function App({ audioEngine }: AppProps) {
       setErrorMessage(toMessage(error))
       return false
     }
+  }
+
+  const changeProjectKey = (nextProjectKey: ProjectKey) => {
+    const activeToken = chordPriorityRef.current.clear()
+    if (activeToken) {
+      audioEngine.releaseSynthPad(activeToken)
+      audioEngine.releaseStringsPad(activeToken)
+    }
+    setProjectKey(nextProjectKey)
+    setPatternGroups((groups) => repairPatternGroupChords(groups, nextProjectKey))
+  }
+
+  const changePadMode = (mode: PadMode) => {
+    if (mode === selectedGroup.padMode) return
+    const activeToken = chordPriorityRef.current.clear()
+    if (activeToken) {
+      audioEngine.releaseSynthPad(activeToken)
+      audioEngine.releaseStringsPad(activeToken)
+    }
+    setActivePadId(null)
+    setPatternGroups((groups) => setPatternGroupPadMode(groups, selectedPatternGroupId, mode, projectKey))
+  }
+
+  const changeSelectedChordAssignment = (assignment: NonNullable<typeof selectedChordAssignment>) => {
+    const padIndex = pads.findIndex((pad) => pad.id === selectedPadId)
+    setPatternGroups((groups) => setPatternGroupChordAssignment(groups, selectedPatternGroupId, padIndex, assignment))
   }
 
   const loadChopSource = (event: ChangeEvent<HTMLInputElement>) => {
@@ -1497,6 +1564,7 @@ export function App({ audioEngine }: AppProps) {
   const selectPatternGroup = (groupId: string) => {
     if (groupId === selectedPatternGroupId) return
     audioEngine.stopManualVoices()
+    chordPriorityRef.current.clear()
     audioEngine.stopPreview()
     setSourcePreviewing(false)
     setChopAddingSlice(false)
@@ -1678,7 +1746,7 @@ export function App({ audioEngine }: AppProps) {
                 renderProgress={renderProgress}
                 soloActive={soloActive}
                 hotRender={hotRender?.result ?? null}
-                onProjectKeyChange={setProjectKey}
+                onProjectKeyChange={changeProjectKey}
                 onSave={() => void saveProject()}
                 onOpen={() => void openProject()}
                 onRender={() => void renderSong()}
@@ -1761,24 +1829,29 @@ export function App({ audioEngine }: AppProps) {
           )}
           {mainView === "pad" && (
             <>
-              <PadDisplayLauncher
-                pad={selectedPad}
-                audioReady={audioReady}
-                projectBusy={projectBusy}
-                projectKeyLabel={formatProjectKey(projectKey)}
-                loadingLibrarySampleId={loadingLibrarySampleId}
-                previewingLibrarySampleId={previewingLibrarySampleId}
-                selectedLibrarySample={selectedLibrarySample}
-                onUpdate={updateSelectedPad}
-                onPreviewLibrarySample={previewLibrarySample}
-                onOpenLibrarySampleInChop={openLibrarySampleInChop}
-                onSelectedLibrarySampleChange={(sample) => { setSelectedLibrarySample(sample); setPendingDrumSound(null) }}
-                onMapToProjectScale={mapSelectedPadToProjectScale}
-                onEditSample={() => setSampleEditorOpen(true)}
-                onClear={clearSelectedPad}
-              />
+              {selectedGroup.padMode === 'chords' && selectedChordAssignment
+                ? <ChordDisplayLauncher group={selectedGroup} pad={selectedPad} assignment={selectedChordAssignment} projectKey={projectKey} onAssignmentChange={changeSelectedChordAssignment} />
+                : <PadDisplayLauncher
+                    pad={selectedPad}
+                    audioReady={audioReady}
+                    projectBusy={projectBusy}
+                    projectKeyLabel={formatProjectKey(projectKey)}
+                    loadingLibrarySampleId={loadingLibrarySampleId}
+                    previewingLibrarySampleId={previewingLibrarySampleId}
+                    selectedLibrarySample={selectedLibrarySample}
+                    onUpdate={updateSelectedPad}
+                    onPreviewLibrarySample={previewLibrarySample}
+                    onOpenLibrarySampleInChop={openLibrarySampleInChop}
+                    onSelectedLibrarySampleChange={(sample) => { setSelectedLibrarySample(sample); setPendingDrumSound(null) }}
+                    onMapToProjectScale={mapSelectedPadToProjectScale}
+                    onEditSample={() => setSampleEditorOpen(true)}
+                    onClear={clearSelectedPad}
+                  />}
               <div className="instrument-layout">
                 <div className="pad-workspace">
+                  <div className="pad-grid-toolbar">
+                    <ChordModeToggle enabled={selectedGroup.padMode === 'chords'} available={chordModeAvailable} onChange={(enabled) => changePadMode(enabled ? 'chords' : 'notes')} />
+                  </div>
                   <PadGrid
                     pads={pads}
                     selectedPadId={selectedPadId}
@@ -1789,8 +1862,10 @@ export function App({ audioEngine }: AppProps) {
                     onRelease={releasePad}
                     onDropSample={dropArmedItemOnPad}
                     onFeedbackEnd={(padId) => {
-                      if (!pads.find((pad) => pad.id === padId)?.synthPatchId) setActivePadId((current) => current === padId ? null : current)
+                      const pad = pads.find((candidate) => candidate.id === padId)
+                      if (selectedGroup.padMode !== 'chords' && !pad?.synthPatchId && !pad?.stringsPatchId) setActivePadId((current) => current === padId ? null : current)
                     }}
+                    chordLabels={chordLabels}
                   />
                 </div>
               </div>

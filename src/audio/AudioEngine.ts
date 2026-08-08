@@ -135,6 +135,7 @@ interface ActiveSynthVoice {
   drive: WaveShaperNode
   amp: GainNode
   origin: 'manual' | 'sequencer'
+  groupId: GroupId
   patchKey: string
   channelId: ChannelId
   midiNote: number
@@ -188,6 +189,7 @@ interface ActiveStringsVoice {
   /** BOW's shared-buffer noise layer. Always present (unlike `layer`) since BOW must update smoothly on an already-sounding voice; its fade-out rides the same shared `amp` envelope as the oscillators rather than having one of its own. */
   bow: { source: AudioBufferSourceNode; gain: GainNode }
   origin: 'manual' | 'sequencer'
+  groupId: GroupId
   patchKey: string
   channelId: ChannelId
   midiNote: number
@@ -671,6 +673,19 @@ export class AudioEngine {
     }
   }
 
+  /** SMART CHORDS treats the Pattern Group as the monophonic unit while the
+      notes inside its active chord remain polyphonic. */
+  triggerSynthChord(groupId: GroupId, channelId: ChannelId, patch: SynthPatch, midiNotes: readonly number[], velocity = 1, manualToken = channelId): void {
+    if (this.status !== 'ready' || !this.context) return
+    const runtime = this.ensureSynthRuntime(groupId, patch)
+    const when = this.context.currentTime
+    this.triggerPumpRoutesForChannel(channelId, when)
+    this.releaseSynthPad(manualToken)
+    for (const midiNote of midiNotes.slice(0, maximumSynthVoices)) {
+      if (Number.isFinite(midiNote)) this.startSynthVoice(runtime, groupId, channelId, midiNote, velocity * 0.42, when, 'manual', manualToken)
+    }
+  }
+
   releaseSynthPad(manualToken: string): void {
     if (!this.context) return
     const when = this.context.currentTime
@@ -700,6 +715,19 @@ export class AudioEngine {
     for (const midiNote of midiNotes.slice(0, maximumSynthVoices)) {
       if (!Number.isFinite(midiNote)) continue
       const voice = this.startSynthVoice(runtime, groupId, channelId, midiNote, velocity, scheduledWhen, 'sequencer')
+      if (voice) this.releaseSynthVoice(runtime, voice, scheduledOff)
+    }
+  }
+
+  scheduleSynthChord(groupId: GroupId, channelId: ChannelId, patch: SynthPatch, midiNotes: readonly number[], when: number, noteOffWhen: number, velocity: number): void {
+    if (this.status !== 'ready' || !this.context) return
+    const runtime = this.ensureSynthRuntime(groupId, patch)
+    const scheduledWhen = Math.max(this.context.currentTime, when)
+    const scheduledOff = Math.max(scheduledWhen + 0.005, noteOffWhen)
+    this.triggerPumpRoutesForChannel(channelId, scheduledWhen)
+    for (const midiNote of midiNotes.slice(0, maximumSynthVoices)) {
+      if (!Number.isFinite(midiNote)) continue
+      const voice = this.startSynthVoice(runtime, groupId, channelId, midiNote, velocity * 0.42, scheduledWhen, 'sequencer')
       if (voice) this.releaseSynthVoice(runtime, voice, scheduledOff)
     }
   }
@@ -734,6 +762,19 @@ export class AudioEngine {
       if (!Number.isFinite(midiNote)) continue
       const voice = this.startStringsVoice(runtime, channelId, midiNote, velocity, scheduledWhen, 'sequencer')
       if (voice) this.releaseStringsVoice(runtime, voice, scheduledOff)
+    }
+  }
+
+  /** Cut only the preceding sequenced SMART CHORDS voice in this Pattern
+      Group; a stale note-off cannot silence the newer chord. */
+  releaseSequencerChordAt(groupId: GroupId, when: number): void {
+    if (!this.context) return
+    const releaseAt = Math.max(this.context.currentTime, when)
+    for (const runtime of this.synthRuntimes.values()) {
+      for (const voice of runtime.voices) if (voice.origin === 'sequencer' && voice.groupId === groupId && voice.startsAt < releaseAt && (voice.stopAt === undefined || voice.stopAt > releaseAt)) this.releaseSynthVoice(runtime, voice, releaseAt, 0.008)
+    }
+    for (const runtime of this.stringsRuntimes.values()) {
+      for (const voice of runtime.voices) if (voice.origin === 'sequencer' && voice.groupId === groupId && voice.startsAt < releaseAt && (voice.stopAt === undefined || voice.stopAt > releaseAt)) this.releaseStringsVoice(runtime, voice, releaseAt, 0.008)
     }
   }
 
@@ -1186,6 +1227,7 @@ export class AudioEngine {
       drive,
       amp,
       origin,
+      groupId,
       patchKey: this.synthPatchKey(groupId, runtime.patch.id),
       channelId,
       midiNote,
@@ -1633,6 +1675,7 @@ export class AudioEngine {
       vibratoOnset,
       bow: { source: bowSource, gain: bowGain },
       origin,
+      groupId: runtime.groupId,
       patchKey: this.stringsPatchKey(runtime.groupId, runtime.patch.id),
       channelId,
       midiNote,

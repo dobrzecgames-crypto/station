@@ -1,6 +1,7 @@
 import type { PadState } from '../pads/types'
-import { getScalePitchOffsets } from './scales'
+import { getScalePitchOffsets } from './scales.ts'
 import type { ProjectKey } from './scales'
+import type { PatternGroup } from '../patterns/patternTypes'
 
 export interface ScaleMapResult {
   pads: PadState[]
@@ -76,5 +77,30 @@ export function mapPadBankToProjectScale(pads: readonly PadState[], sourcePadId:
           }
     }),
     mappedPadCount: pads.length - sourceIndex,
+  }
+}
+
+/** Re-map a complete one-instrument bank when its SMART CHORDS Project Key
+    changes. Mixed or partially populated banks stay untouched. */
+export function remapScalarChordBank(group: PatternGroup, projectKey: ProjectKey): PatternGroup {
+  const pads = group.bank.pads
+  const sourceIndex = pads.findIndex((pad) => pad.synthPatchId !== null || pad.stringsPatchId !== null)
+  const source = pads[sourceIndex]
+  if (!source) return group
+  const sourceKind = source.synthPatchId ? 'synth' : 'strings'
+  const sourceId = source.synthPatchId ?? source.stringsPatchId
+  const canRemap = pads.slice(sourceIndex).every((pad) => {
+    const isEmpty = pad.assetId === null && pad.synthPatchId === null && pad.stringsPatchId === null
+    const matches = sourceKind === 'synth'
+      ? pad.assetId === null && pad.synthPatchId === sourceId && pad.stringsPatchId === null
+      : pad.assetId === null && pad.stringsPatchId === sourceId && pad.synthPatchId === null
+    return isEmpty || matches
+  })
+  if (!canRemap) return group
+  try {
+    const mapped = mapPadBankToProjectScale(pads, source.id, projectKey)
+    return { ...group, bank: { ...group.bank, pads: mapped.pads } }
+  } catch {
+    return group
   }
 }

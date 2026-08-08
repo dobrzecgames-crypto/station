@@ -73,7 +73,7 @@ export async function renderSongToBuffer({ state, liveEngine, onProgress, signal
     mode: 'song',
     loopSong: false,
     lastSongSlot: lastSlot,
-    getTracksForSlot: (slot) => getSongTracksForSlot(state.patternGroups, state.playlist, slot, (assetId) => engine.hasSampleAsset(assetId)),
+    getTracksForSlot: (slot) => getSongTracksForSlot(state.patternGroups, state.playlist, slot, (assetId) => engine.hasSampleAsset(assetId), state.projectKey),
   }
 
   const cancelled = new Promise<never>((_resolve, reject) => {

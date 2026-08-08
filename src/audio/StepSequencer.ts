@@ -38,13 +38,27 @@ export interface SynthSequencerTrack extends StepSequencerTrackBase {
   midiNotes: readonly number[]
 }
 
+export interface SynthChordSequencerTrack extends StepSequencerTrackBase {
+  source: 'synthChord'
+  patch: SynthPatch
+  midiNotes: readonly number[]
+  chordGroupId: string
+}
+
 export interface StringsSequencerTrack extends StepSequencerTrackBase {
   source: 'strings'
   patch: StringsPatch
   midiNotes: readonly number[]
 }
 
-export type StepSequencerTrack = SampleSequencerTrack | SynthSequencerTrack | StringsSequencerTrack
+export interface StringsChordSequencerTrack extends StepSequencerTrackBase {
+  source: 'stringsChord'
+  patch: StringsPatch
+  midiNotes: readonly number[]
+  chordGroupId: string
+}
+
+export type StepSequencerTrack = SampleSequencerTrack | SynthSequencerTrack | SynthChordSequencerTrack | StringsSequencerTrack | StringsChordSequencerTrack
 
 /**
  * Decides when the next scheduling pass happens. Live playback wakes on a
@@ -60,8 +74,9 @@ export interface SequencerTicker {
 
 class TimeoutTicker implements SequencerTicker {
   private timer: number | undefined
+  private readonly intervalMilliseconds: number
 
-  constructor(private readonly intervalMilliseconds: number) {}
+  constructor(intervalMilliseconds: number) { this.intervalMilliseconds = intervalMilliseconds }
 
   wake(callback: () => void): void {
     this.timer = window.setTimeout(callback, this.intervalMilliseconds)
@@ -82,12 +97,19 @@ export class StepSequencer {
   private nextStepIndex = 0
   private currentSongSlot = 1
   private running = false
+  private readonly audioEngine: AudioEngine
+  private readonly ticker: SequencerTicker
+  private readonly lookAheadSeconds: number
 
   constructor(
-    private readonly audioEngine: AudioEngine,
-    private readonly ticker: SequencerTicker = createTimeoutTicker(),
-    private readonly lookAheadSeconds = 0.1,
-  ) {}
+    audioEngine: AudioEngine,
+    ticker: SequencerTicker = createTimeoutTicker(),
+    lookAheadSeconds = 0.1,
+  ) {
+    this.audioEngine = audioEngine
+    this.ticker = ticker
+    this.lookAheadSeconds = lookAheadSeconds
+  }
 
   /** `startAt` lets a count-in hand off a future, already-scheduled timestamp instead of "now" - the look-ahead loop in `schedule` reaches it with the same sample accuracy as any other step. */
   start(getConfig: () => StepSequencerConfig, startAt: number = this.audioEngine.getCurrentTime()): void {
@@ -128,13 +150,25 @@ export class StepSequencer {
         const length = track.lengths[this.nextStepIndex] ?? 0
         return [{ track, velocity, length, when: scheduledTime + shift * stepDuration }]
       })
-      for (const { track, velocity, length, when } of activeTracks.sort((left, right) => left.when - right.when)) {
+      const orderedTracks = activeTracks.sort((left, right) => left.when - right.when)
+      const lastSimultaneousChord = new Map<string, number>()
+      orderedTracks.forEach(({ track, when }, index) => {
+        if (track.source === 'synthChord' || track.source === 'stringsChord') lastSimultaneousChord.set(`${track.chordGroupId}:${when}`, index)
+      })
+      for (const [index, { track, velocity, length, when }] of orderedTracks.entries()) {
+        if ((track.source === 'synthChord' || track.source === 'stringsChord') && lastSimultaneousChord.get(`${track.chordGroupId}:${when}`) !== index) continue
         if (track.source === 'sample') {
           if (track.chokeGroupId) this.audioEngine.stopSequencerChokeGroupAt(track.chokeGroupId, when)
           const maxDurationSeconds = length > 0 ? length * stepDuration : undefined
           this.audioEngine.scheduleSample(track.groupId, track.channelId, track.assetId, when, { ...track.options, gain: (track.options.gain ?? 1) * velocity, chokeGroupId: track.chokeGroupId, maxDurationSeconds }, 'sequencer')
+        } else if (track.source === 'synthChord') {
+          this.audioEngine.releaseSequencerChordAt(track.chordGroupId, when)
+          this.audioEngine.scheduleSynthChord(track.groupId, track.channelId, track.patch, track.midiNotes, when, when + Math.max(1, length) * track.patch.gate * stepDuration, velocity)
         } else if (track.source === 'synth') {
           this.audioEngine.scheduleSynthPad(track.groupId, track.channelId, track.patch, track.midiNotes, when, when + Math.max(1, length) * track.patch.gate * stepDuration, velocity)
+        } else if (track.source === 'stringsChord') {
+          this.audioEngine.releaseSequencerChordAt(track.chordGroupId, when)
+          this.audioEngine.scheduleStringsPad(track.groupId, track.channelId, track.patch, track.midiNotes, when, when + Math.max(1, length) * track.patch.gate * stepDuration, velocity)
         } else {
           this.audioEngine.scheduleStringsPad(track.groupId, track.channelId, track.patch, track.midiNotes, when, when + Math.max(1, length) * track.patch.gate * stepDuration, velocity)
         }

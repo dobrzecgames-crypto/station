@@ -29,6 +29,7 @@ import {
   organicBassCutoffHz,
   organicBassEnvelopeShape,
   organicBassGlideSeconds,
+  organicBassReleaseCurve,
   organicBassResonanceQ,
   organicBassVelocityResponse,
   organicBassWaveCoefficients,
@@ -191,6 +192,7 @@ interface ActiveOrganicBassVoice {
   filters: [BiquadFilterNode, BiquadFilterNode]
   outputTrim: GainNode
   amp: GainNode
+  releaseGain: GainNode
   routes: Map<ChannelId, GainNode>
   origin: 'manual' | 'sequencer'
   groupId: GroupId
@@ -405,6 +407,7 @@ export class AudioEngine {
   private activeOrganicBassVoices = new Set<ActiveOrganicBassVoice>()
   private organicBassVoiceSerial = 0
   private organicBassSaturationCurve?: Float32Array<ArrayBuffer>
+  private organicBassReleaseCurve?: Float32Array<ArrayBuffer>
   private readonly stringsPatches = new Map<string, StringsPatchRegistration>()
   private readonly stringsRuntimes = new Map<string, StringsPatchRuntime>()
   private activeStringsVoices = new Set<ActiveStringsVoice>()
@@ -1158,6 +1161,7 @@ export class AudioEngine {
     this.organicBassPatches.clear()
     this.activeOrganicBassVoices.clear()
     this.organicBassSaturationCurve = undefined
+    this.organicBassReleaseCurve = undefined
     for (const [key, runtime] of this.stringsRuntimes) this.disposeStringsRuntime(key, runtime)
     this.stringsPatches.clear()
     this.activeStringsVoices.clear()
@@ -1564,6 +1568,7 @@ export class AudioEngine {
     const filters = [this.context.createBiquadFilter(), this.context.createBiquadFilter()] as [BiquadFilterNode, BiquadFilterNode]
     const outputTrim = this.context.createGain()
     const amp = this.context.createGain()
+    const releaseGain = this.context.createGain()
     const voice: ActiveOrganicBassVoice = {
       oscillators,
       oscillatorGains,
@@ -1572,6 +1577,7 @@ export class AudioEngine {
       filters,
       outputTrim,
       amp,
+      releaseGain,
       routes: new Map(),
       origin,
       groupId,
@@ -1593,6 +1599,7 @@ export class AudioEngine {
     filters[0].connect(filters[1])
     filters[1].connect(outputTrim)
     outputTrim.connect(amp)
+    amp.connect(releaseGain)
     this.connectOrganicBassRoute(voice, channelId, true)
     runtime.driftDepthA?.connect(oscillators[0].detune)
     runtime.driftDepthB?.connect(oscillators[1].detune)
@@ -1603,6 +1610,7 @@ export class AudioEngine {
     const peak = Math.max(0.0001, organicBassVelocityResponse(voice.velocity).amplitude * 0.44)
     const sustain = Math.max(0.0001, peak * envelope.sustain)
     const attack = Math.max(0.001, runtime.patch.attackSeconds)
+    releaseGain.gain.setValueAtTime(1, scheduledWhen)
     amp.gain.setValueAtTime(0.0001, scheduledWhen)
     amp.gain.exponentialRampToValueAtTime(peak, scheduledWhen + attack)
     amp.gain.exponentialRampToValueAtTime(sustain, scheduledWhen + attack + envelope.decaySeconds)
@@ -1688,7 +1696,7 @@ export class AudioEngine {
     if (!channel.gain) return
     const route = this.context.createGain()
     route.gain.setValueAtTime(active ? 1 : 0, this.context.currentTime)
-    voice.amp.connect(route)
+    voice.releaseGain.connect(route)
     route.connect(channel.gain)
     voice.routes.set(channelId, route)
     return route
@@ -1707,13 +1715,13 @@ export class AudioEngine {
   private releaseOrganicBassVoice(runtime: OrganicBassPatchRuntime, voice: ActiveOrganicBassVoice, when: number, releaseOverride?: number): void {
     if (!this.context || voice.cleanedUp) return
     const releaseAt = Math.max(this.context.currentTime, when)
-    if (voice.stopAt !== undefined && voice.stopAt <= releaseAt) return
+    if (voice.stopAt !== undefined) return
     const release = Math.max(0.005, releaseOverride ?? organicBassEnvelopeShape(runtime.patch.decay).releaseSeconds)
     const silenceAt = releaseAt + release
-    const zeroFadeDuration = Math.min(0.012, release * 0.35)
-    this.holdAudioParamAtTime(voice.amp.gain, releaseAt)
-    voice.amp.gain.exponentialRampToValueAtTime(0.0001, silenceAt - zeroFadeDuration)
-    voice.amp.gain.linearRampToValueAtTime(0, silenceAt)
+    this.organicBassReleaseCurve ??= organicBassReleaseCurve()
+    voice.releaseGain.gain.cancelScheduledValues(releaseAt)
+    voice.releaseGain.gain.setValueAtTime(1, releaseAt)
+    voice.releaseGain.gain.setValueCurveAtTime(this.organicBassReleaseCurve, releaseAt, release)
     const stopAt = silenceAt + 0.012
     for (const oscillator of voice.oscillators) {
       try { oscillator.stop(stopAt) } catch { /* A scheduled voice may already be stopping. */ }
@@ -1745,6 +1753,7 @@ export class AudioEngine {
     for (const filter of voice.filters) filter.disconnect()
     voice.outputTrim.disconnect()
     voice.amp.disconnect()
+    voice.releaseGain.disconnect()
     for (const route of voice.routes.values()) route.disconnect()
     voice.routes.clear()
   }

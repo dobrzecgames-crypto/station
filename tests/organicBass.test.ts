@@ -9,6 +9,7 @@ import {
   organicBassDecaySeconds,
   organicBassEnvelopeShape,
   organicBassGlideSeconds,
+  organicBassReleaseCurve,
   organicBassVelocityResponse,
   organicBassWaveCoefficients,
   organicBassWeightMacro,
@@ -38,6 +39,15 @@ test('GLIDE is nonlinear and concentrates resolution below 150 ms', () => {
   assert.equal(organicBassGlideSeconds(0), 0)
   assert.ok(organicBassGlideSeconds(0.5) < 0.15)
   assert.ok(Math.abs(organicBassGlideSeconds(1) - 0.55) < 1e-9)
+})
+
+test('release curve reaches exact silence monotonically with flat endpoints', () => {
+  const curve = organicBassReleaseCurve()
+  assert.equal(curve[0], 1)
+  assert.equal(curve.at(-1), 0)
+  assert.equal(curve.every((value, index) => index === 0 || value <= curve[index - 1]), true)
+  assert.ok(Math.abs(curve[0] - curve[1]) < 0.001)
+  assert.ok(Math.abs(curve.at(-2) ?? 0) < 0.001)
 })
 
 test('WEIGHT increases sub/body/filter pressure without becoming a volume control', () => {

@@ -102,6 +102,18 @@ export function organicBassEnvelopeShape(value: number): OrganicBassEnvelopeShap
   }
 }
 
+/** Equal-power-style release with flat slopes at both ends, avoiding key-up clicks. */
+export function organicBassReleaseCurve(sampleCount = 128): Float32Array<ArrayBuffer> {
+  const count = Math.max(8, Math.round(sampleCount))
+  const curve = new Float32Array(count)
+  for (let index = 0; index < count; index += 1) {
+    curve[index] = 0.5 + 0.5 * Math.cos(Math.PI * index / (count - 1))
+  }
+  curve[0] = 1
+  curve[count - 1] = 0
+  return curve
+}
+
 export interface OrganicBassWeightMacro {
   mainGain: number
   bodyGain: number

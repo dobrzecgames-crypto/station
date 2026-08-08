@@ -5,11 +5,7 @@ import type { PadState } from '../pads/types'
 import type { DisplayTenant } from '../shell/SystemDisplay'
 import { useSystemDisplay } from '../shell/systemDisplayContext'
 import { useDragSlider } from '../shell/useDragSlider'
-// StepLengthDialog below reuses the enlarged-dialog styling that used to be
-// shell/SliderMagnifier.tsx's alone (that component is gone - see
-// useDragSlider.ts for what replaced it) - this is now the only importer of
-// the stylesheet, so the import has to live here or the dialog goes unstyled.
-import '../shell/sliderMagnifier.css'
+import './sequencer.css'
 
 interface SequencerControlsProps {
   pattern: StepPattern
@@ -29,9 +25,6 @@ interface SequencerControlsProps {
 }
 
 const displayId = 'seq-step-controls'
-/** A second tap landing on the same cell within this window counts as a
-    double-tap; anything slower is two unrelated single taps, each a no-op. */
-const doubleTapThresholdMs = 350
 
 function isDimBeatGroup(stepIndex: number): boolean {
   return Math.floor(stepIndex / 4) % 2 === 1
@@ -65,26 +58,18 @@ function maxAvailableLength(steps: readonly number[], headIndex: number): number
   return span
 }
 
-interface LengthDialogTarget {
-  padId: PadState['id']
-  stepIndex: number
-}
-
 export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadId, group, selectedVariant, playingStep, onSelectPad, onReleasePad, onToggleStep, onVelocityChange, onShiftChange, onLengthChange }: SequencerControlsProps) {
   const [editedStep, setEditedStep] = useState({ padId: selectedPadId, stepIndex: 0 })
   const [stepPage, setStepPage] = useState<0 | 1>(0)
-  const [lengthDialogTarget, setLengthDialogTarget] = useState<LengthDialogTarget | null>(null)
   const { claim, release, ownerId } = useSystemDisplay()
   const [displayActive, setDisplayActive] = useState(true)
   const hasOwnedDisplayRef = useRef(false)
-  /** Identity + timestamp of the last tap on any cell, so the next pointerdown
-      can tell a double-tap on the same cell from an unrelated single tap
-      elsewhere - see handleStepPointerDown. */
-  const lastTapRef = useRef<{ padId: PadState['id']; stepIndex: number; time: number } | null>(null)
   const editedPad = pads.find((pad) => pad.id === editedStep.padId) ?? pads[0]
   const velocity = pattern[editedPad.id][editedStep.stepIndex]
   const shift = shifts[editedPad.id][editedStep.stepIndex]
   const length = lengths[editedPad.id][editedStep.stepIndex]
+  const maximumLength = velocity > 0 ? maxAvailableLength(pattern[editedPad.id], editedStep.stepIndex) : 1
+  const visibleLength = Math.max(1, Math.min(maximumLength, length || 1))
   /* App rebuilds its step handlers on every render, and claiming re-renders
      App. A tenant depending on them directly therefore got a new identity each
      time the claim effect ran, re-claimed, and spun - entering SEQ produced a
@@ -96,8 +81,10 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
      EffectDisplay and BusDisplay. */
   const onVelocityChangeRef = useRef(onVelocityChange)
   const onShiftChangeRef = useRef(onShiftChange)
+  const onLengthChangeRef = useRef(onLengthChange)
   onVelocityChangeRef.current = onVelocityChange
   onShiftChangeRef.current = onShiftChange
+  onLengthChangeRef.current = onLengthChange
   // stepTenant below is a plain function, not a component (it is built inside
   // useMemo) - it cannot call a hook itself, so the two drags are started here,
   // at the component's own top level, and handed down as plain handlers.
@@ -119,6 +106,16 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
     focusLabel: 'SHIFT',
     formatValue: (value) => `${Math.round(value * 100)}%`,
   })
+  const lengthDrag = useDragSlider({
+    value: visibleLength,
+    min: 1,
+    max: maximumLength,
+    step: 1,
+    disabled: maximumLength <= 1,
+    onChange: (nextLength) => onLengthChangeRef.current(editedPad.id, editedStep.stepIndex, nextLength),
+    focusLabel: 'LENGTH',
+    formatValue: (value) => `${value} STEP${value === 1 ? '' : 'S'}`,
+  })
   const tenant = useMemo<DisplayTenant>(() => stepTenant({
     pad: editedPad,
     stepIndex: editedStep.stepIndex,
@@ -134,38 +131,16 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
   const pageStartStep = stepPage * 8
   const pageSteps = Array.from({ length: 8 }, (_, offset) => pageStartStep + offset)
 
-  /**
-   * A single tap does nothing. That is deliberate: a finger grazing a step
-   * while scrolling past the matrix used to toggle or start resizing a note
-   * by accident, and the run of ~40px cells a resize drag needed was exactly
-   * as imprecise a target. Only a second tap landing on the same cell within
-   * doubleTapThresholdMs counts as a real action:
-   * - on an empty cell it places a one-step note and immediately opens the
-   *   length dialog to dial in the exact length right there;
-   * - on an existing note, anywhere across its span, it selects the note
-   *   (so VELOCITY/SHIFT stay reachable from the system display exactly as
-   *   before) and opens the same dialog to change its length or remove it.
-   * There is no separate drag-to-resize gesture anymore - the dialog is the
-   * only way to set a length now, on a new note or an existing one alike.
-   */
-  const handleStepPointerDown = (event: ReactPointerEvent<HTMLButtonElement>, padId: PadState['id'], stepIndex: number, headIndex: number | null) => {
-    event.preventDefault()
-    const now = event.timeStamp
-    const last = lastTapRef.current
-    const isDoubleTap = last !== null && last.padId === padId && last.stepIndex === stepIndex && now - last.time < doubleTapThresholdMs
-    if (!isDoubleTap) {
-      lastTapRef.current = { padId, stepIndex, time: now }
-      return
-    }
-    lastTapRef.current = null
+  /** Empty cells create a one-step note; an existing head or tail selects its
+      note. Length editing stays next to the grid in the inline control below,
+      so neither action opens a modal or needs a double-tap gesture. */
+  const handleStepClick = (padId: PadState['id'], stepIndex: number, headIndex: number | null) => {
     if (headIndex === null) {
       onToggleStep(padId, stepIndex)
       selectStep(padId, stepIndex)
-      setLengthDialogTarget({ padId, stepIndex })
       return
     }
     selectStep(padId, headIndex)
-    setLengthDialogTarget({ padId, stepIndex: headIndex })
   }
 
   useEffect(() => {
@@ -187,10 +162,6 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
     if (hasOwnedDisplayRef.current && ownerId !== null) setDisplayActive(false)
   }, [displayActive, ownerId])
 
-  const dialogPad = lengthDialogTarget ? pads.find((pad) => pad.id === lengthDialogTarget.padId) : undefined
-  const dialogMaxLength = lengthDialogTarget ? maxAvailableLength(pattern[lengthDialogTarget.padId], lengthDialogTarget.stepIndex) : 1
-  const dialogLength = lengthDialogTarget ? Math.max(1, Math.min(dialogMaxLength, lengths[lengthDialogTarget.padId][lengthDialogTarget.stepIndex] || 1)) : 1
-
   // SEQ is deliberately just the pattern matrix. The selected step owns the
   // system display, where its musical detail stays next to playback controls.
   return <section className="sequencer" aria-label={`Sequencer, ${group.name} ${selectedVariant}`}>
@@ -198,6 +169,16 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
       <button className={stepPage === 0 ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" role="tab" aria-selected={stepPage === 0} onClick={() => setStepPage(0)}>01-08</button>
       <button className={stepPage === 1 ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" role="tab" aria-selected={stepPage === 1} onClick={() => setStepPage(1)}>09-16</button>
     </div>
+    {velocity > 0 && editedStep.stepIndex >= pageStartStep && editedStep.stepIndex < pageStartStep + 8 && (
+      <div className="sequencer-length-editor" aria-label={`${editedPad.label}, step ${editedStep.stepIndex + 1} length`}>
+        <label className="sequencer-length-slider" htmlFor="seq-inline-length">
+          <span><strong>LENGTH</strong><small>{editedPad.label} / STEP {editedStep.stepIndex + 1}</small></span>
+          <input id="seq-inline-length" type="range" min="1" max={maximumLength} step="1" value={visibleLength} disabled={maximumLength <= 1} onChange={(event) => onLengthChange(editedPad.id, editedStep.stepIndex, Number(event.target.value))} onPointerDown={lengthDrag.onPointerDown} />
+          <output htmlFor="seq-inline-length">{visibleLength} STEP{visibleLength === 1 ? '' : 'S'}</output>
+        </label>
+        <button className="mixer-toggle sequencer-length-remove" type="button" onClick={() => onToggleStep(editedPad.id, editedStep.stepIndex)}>REMOVE</button>
+      </div>
+    )}
     <div className="pattern-matrix" aria-label={`Pattern steps ${pageStartStep + 1} through ${pageStartStep + 8}`}>
       <div className="pattern-matrix-row pattern-matrix-header"><span>PAD</span>{pageSteps.map((stepIndex) => <span className={`${playingStep === stepIndex ? 'pattern-step-playing' : ''} ${isDimBeatGroup(stepIndex) ? 'pattern-step-beat-dim' : ''}`} key={stepIndex}>{stepIndex + 1}</span>)}</div>
       {pads.map((pad) => {
@@ -232,29 +213,15 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
                 key={stepIndex}
                 className={className}
                 type="button"
-                aria-label={`${pad.label}, step ${stepIndex + 1}${headIndex !== null ? ', double-tap to edit length' : ', double-tap to add'}`}
+                aria-label={`${pad.label}, step ${stepIndex + 1}${headIndex !== null ? `, select note starting at step ${headIndex + 1}` : ', add note'}`}
                 aria-pressed={headIndex !== null}
-                onPointerDown={(event) => handleStepPointerDown(event, pad.id, stepIndex, headIndex)}
+                onClick={() => handleStepClick(pad.id, stepIndex, headIndex)}
               ><small>{headIndex !== null && !isTail ? `${Math.round(headVelocity * 100)}%` : ''}</small></button>
             )
           })}
         </div>
       })}
     </div>
-    {lengthDialogTarget && dialogPad && (
-      <StepLengthDialog
-        padLabel={dialogPad.label}
-        stepIndex={lengthDialogTarget.stepIndex}
-        length={dialogLength}
-        maxLength={dialogMaxLength}
-        onLengthChange={(nextLength) => onLengthChange(lengthDialogTarget.padId, lengthDialogTarget.stepIndex, nextLength)}
-        onRemove={() => {
-          onToggleStep(lengthDialogTarget.padId, lengthDialogTarget.stepIndex)
-          setLengthDialogTarget(null)
-        }}
-        onClose={() => setLengthDialogTarget(null)}
-      />
-    )}
   </section>
 }
 
@@ -291,64 +258,4 @@ function stepTenant({ pad, stepIndex, velocity, shift, length, onVelocityChange,
       </label>
     </>,
   }
-}
-
-interface StepLengthDialogProps {
-  padLabel: string
-  stepIndex: number
-  length: number
-  maxLength: number
-  onLengthChange: (length: number) => void
-  onRemove: () => void
-  onClose: () => void
-}
-
-/** Enlarged-dialog language for the one thing on the step grid a native range
-    input can't stand in for by itself - dragging a note across a run of ~40px
-    cells asked for more precision than a touch screen gives. This drives
-    onLengthChange directly rather than mirroring a hidden native slider: there
-    is no small length input anywhere else for it to stay in sync with. Its
-    slider still uses useDragSlider for the same relative-drag feel every other
-    slider has, but skips that hook's focusLabel/Display integration - the big
-    <output> two lines down already is this dialog's live value readout, so a
-    second one on the transport line behind it would just say the same thing
-    twice. */
-function StepLengthDialog({ padLabel, stepIndex, length, maxLength, onLengthChange, onRemove, onClose }: StepLengthDialogProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null)
-  const lengthDrag = useDragSlider({ value: length, min: 1, max: maxLength, step: 1, onChange: onLengthChange })
-
-  useEffect(() => {
-    const dialog = dialogRef.current
-    if (!dialog?.open) dialog?.showModal()
-    return () => { if (dialog?.open) dialog.close() }
-  }, [])
-
-  return (
-    <dialog
-      ref={dialogRef}
-      className="slider-magnifier-dialog"
-      aria-labelledby="seq-length-dialog-label"
-      onCancel={(event) => { event.preventDefault(); onClose() }}
-    >
-      <div className="slider-magnifier-frame">
-        <p className="slider-magnifier-kicker">SEQ / {padLabel} / STEP {stepIndex + 1}</p>
-        <h2 id="seq-length-dialog-label">LENGTH</h2>
-        <output className="slider-magnifier-value">{length} STEP{length === 1 ? '' : 'S'}</output>
-        <input
-          type="range"
-          autoFocus
-          min={1}
-          max={maxLength}
-          step={1}
-          value={length}
-          onChange={(event) => onLengthChange(Number(event.target.value))}
-          onPointerDown={lengthDrag.onPointerDown}
-        />
-        <div className="slider-magnifier-actions">
-          <button className="slider-magnifier-done slider-magnifier-remove" type="button" onClick={onRemove}>REMOVE</button>
-          <button className="slider-magnifier-done" type="button" onClick={onClose}>DONE</button>
-        </div>
-      </div>
-    </dialog>
-  )
 }

@@ -39,7 +39,7 @@ export function LibraryWorkspace({ audioReady, busySampleId, previewingSampleId,
     <div className="library-heading"><p className="eyebrow">LIBRARY</p><span>{selectedSample ? 'DROP TO PAD' : 'SELECT A SAMPLE'}</span></div>
     <div className="library-category-selector">
       <button className="mixer-toggle" type="button" aria-label="Previous category" disabled={categoryIndex <= 0} onClick={() => setCategoryIndex((index) => index - 1)}>PREV</button>
-      <strong>{category}S</strong>
+      <strong>{category === 'BREAKS' ? category : `${category}S`}</strong>
       <button className="mixer-toggle" type="button" aria-label="Next category" disabled={categoryIndex >= libraryCategories.length - 1} onClick={() => setCategoryIndex((index) => index + 1)}>NEXT</button>
     </div>
     <div className="library-browser">

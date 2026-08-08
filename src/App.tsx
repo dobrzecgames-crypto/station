@@ -1000,7 +1000,7 @@ export function App({ audioEngine }: AppProps) {
     })
   }
 
-  const loadChopSourceBlob = async (blob: Blob, filename: string) => {
+  const loadChopSourceBlob = async (blob: Blob, filename: string): Promise<boolean> => {
     setErrorMessage(undefined)
     audioEngine.stopPreview()
     setSourcePreviewing(false)
@@ -1015,7 +1015,11 @@ export function App({ audioEngine }: AppProps) {
       setWaveforms((current) => ({ ...current, [assetId]: waveform }))
       setChopAddingSlice(false)
       removeAssetIfUnused(oldAssetId, groups)
-    } catch (error) { setErrorMessage(toMessage(error)) }
+      return true
+    } catch (error) {
+      setErrorMessage(toMessage(error))
+      return false
+    }
   }
 
   const loadChopSource = (event: ChangeEvent<HTMLInputElement>) => {
@@ -1035,6 +1039,27 @@ export function App({ audioEngine }: AppProps) {
       setErrorMessage(toMessage(error))
     } finally {
       setLoadingChopTestId(null)
+    }
+  }
+
+  const openLibrarySampleInChop = async (sample: LibrarySample) => {
+    if (!audioReady || projectBusy || loadingLibrarySampleId) return
+    setLoadingLibrarySampleId(sample.id)
+    setErrorMessage(undefined)
+    audioEngine.stopPreview()
+    setPreviewingLibrarySampleId(null)
+    try {
+      const response = await fetch(sample.url)
+      if (!response.ok) throw new Error(`Could not open ${sample.filename} in CHOP.`)
+      if (!await loadChopSourceBlob(await response.blob(), sample.filename)) return
+      setSelectedLibrarySample(null)
+      setPendingDrumSound(null)
+      setProjectMessage(`${sample.filename} opened in CHOP.`)
+      enterMainView('chop')
+    } catch (error) {
+      setErrorMessage(toMessage(error))
+    } finally {
+      setLoadingLibrarySampleId(null)
     }
   }
 
@@ -1736,6 +1761,7 @@ export function App({ audioEngine }: AppProps) {
                 selectedLibrarySample={selectedLibrarySample}
                 onUpdate={updateSelectedPad}
                 onPreviewLibrarySample={previewLibrarySample}
+                onOpenLibrarySampleInChop={openLibrarySampleInChop}
                 onSelectedLibrarySampleChange={(sample) => { setSelectedLibrarySample(sample); setPendingDrumSound(null) }}
                 onMapToProjectScale={mapSelectedPadToProjectScale}
                 onEditSample={() => setSampleEditorOpen(true)}

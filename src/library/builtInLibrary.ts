@@ -1,6 +1,6 @@
 import { libraryAssetUrl } from './libraryAssetUrl'
 
-export type LibraryCategory = 'KICK' | 'SNARE' | 'HAT' | 'SOUND'
+export type LibraryCategory = 'KICK' | 'SNARE' | 'HAT' | 'SOUND' | 'BREAKS'
 
 export interface LibrarySample {
   id: string
@@ -9,7 +9,55 @@ export interface LibrarySample {
   url: string
 }
 
-export const libraryCategories: readonly LibraryCategory[] = ['KICK', 'SNARE', 'HAT', 'SOUND']
+export const libraryCategories: readonly LibraryCategory[] = ['KICK', 'SNARE', 'HAT', 'SOUND', 'BREAKS']
+
+const breakFilenames = [
+  'aalonbutler-gettinsoul.wav',
+  'bigjullien-talk.wav',
+  'bis-godsavethequeen1.wav',
+  'bis-godsavethequeen2.wav',
+  'chicobatera-oxossi.wav',
+  'coldblood-kissingmylove.wav',
+  'coldgrits-itsyourthing.wav',
+  'drumloop_87.314bpm.wav',
+  'drumloopvinyl.wav',
+  'fabulouspeps-loveofmylife.wav',
+  'fleetwoodmac-hypnotized.wav',
+  'harvey-soulandsunshine.wav',
+  'indeep-lastnightadjsavedmylife.wav',
+  'jakewade-searchingforthesoul.wav',
+  'jamesspencer-takethiswomanoffthecorner.wav',
+  'jbslatin-spittinimage.wav',
+  'jcdavis-anewday.wav',
+  'joethomas-mrmumbles.wav',
+  'johndankworth-modestyblaise.wav',
+  'karelkrautgartner-laserena.wav',
+  'ledzeppelin-boogiewithstu.wav',
+  'levertallison-sugardaddy.wav',
+  'loucourtney-heyjoyce.wav',
+  'rogerroger-jerkmachine.wav',
+  'royporter-partytime.wav',
+  'serguei-ourico.wav',
+  'sob-thesoilitilledforyou.wav',
+  'soulpatrol-peterpan.wav',
+  'themeter-soulisland.wav',
+  'themeters-cardova.wav',
+  'themeters-groovylady.wav',
+  'themeters-jungleman.wav',
+  'themeters-sameoldthing.wav',
+  'tonitornado-podescreramizado.wav',
+  'unknown-vinylbreak1.wav',
+  'unknown-vinylbreak2.wav',
+  'unknown-vinylbreak3.wav',
+  'unknown-vinylbreak4.wav',
+  'unknown-vinylbreak5.wav',
+  'unknown-vinylbreak7.wav',
+  'unknown-vinylbreak8.wav',
+  'unknown-vinylbreak9.wav',
+  'uschibruning-welcheinzufall.wav',
+  'walterbranco-mangowalk.wav',
+  'zalatnay-haddmondjamel.wav',
+] as const
 
 function numberedDrumSamples(
   category: Extract<LibraryCategory, 'KICK' | 'SNARE' | 'HAT'>,
@@ -64,4 +112,10 @@ export const builtInLibrary: readonly LibrarySample[] = [
   { id: 'pluck-c5', category: 'SOUND', filename: 'Pluck C5.wav', url: libraryAssetUrl('pluck-c5.wav') },
   { id: 'saw-c5', category: 'SOUND', filename: 'Saw C5.wav', url: libraryAssetUrl('saw-c5.wav') },
   { id: 'synth-c5', category: 'SOUND', filename: 'Synth C5.wav', url: libraryAssetUrl('synth-c5.wav') },
+  ...breakFilenames.map((filename) => ({
+    id: `break-${filename.replace(/\.wav$/i, '')}`,
+    category: 'BREAKS' as const,
+    filename,
+    url: libraryAssetUrl(`breaks/${filename}`),
+  })),
 ]

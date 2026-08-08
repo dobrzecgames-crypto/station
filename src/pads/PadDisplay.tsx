@@ -17,6 +17,7 @@ interface PadDisplayLauncherProps {
   selectedLibrarySample: LibrarySample | null
   onUpdate: (changes: Pick<PadState, 'volume' | 'pitchSemitones' | 'attackMs' | 'releaseMs'>) => void
   onPreviewLibrarySample: (sample: LibrarySample) => Promise<void>
+  onOpenLibrarySampleInChop: (sample: LibrarySample) => Promise<void>
   onSelectedLibrarySampleChange: (sample: LibrarySample | null) => void
   onMapToProjectScale: () => void
   onEditSample: () => void
@@ -63,6 +64,7 @@ export function PadDisplayLauncher(props: PadDisplayLauncherProps) {
   const handlers = useMemo(() => ({
     onUpdate: (changes: Pick<PadState, 'volume' | 'pitchSemitones' | 'attackMs' | 'releaseMs'>) => latestPropsRef.current.onUpdate(changes),
     onPreviewLibrarySample: (sample: LibrarySample) => latestPropsRef.current.onPreviewLibrarySample(sample),
+    onOpenLibrarySampleInChop: (sample: LibrarySample) => latestPropsRef.current.onOpenLibrarySampleInChop(sample),
     onSelectedLibrarySampleChange: (sample: LibrarySample | null) => latestPropsRef.current.onSelectedLibrarySampleChange(sample),
     onMapToProjectScale: () => latestPropsRef.current.onMapToProjectScale(),
     onEditSample: () => latestPropsRef.current.onEditSample(),
@@ -240,7 +242,9 @@ function padTenant(props: PadDisplayLauncherProps, browser: DisplayPageState): D
                 move on it is shaping what you hear, so its second button is the
                 way onto the sound screen rather than a SELECT that changes
                 nothing. */}
-            {isOnPad ? editButton : <button className="sample-browser-action" type="button" disabled={!props.audioReady || props.projectBusy || props.loadingLibrarySampleId !== null} aria-pressed={props.selectedLibrarySample?.id === sample.id} onClick={() => browser.onSelectLibrarySample(sample)}>SELECT</button>}
+            {sample.category === 'BREAKS'
+              ? <button className="sample-browser-action" type="button" disabled={!props.audioReady || props.projectBusy || props.loadingLibrarySampleId !== null} onClick={() => void props.onOpenLibrarySampleInChop(sample)}>{props.loadingLibrarySampleId === sample.id ? 'OPENING…' : 'CHOP'}</button>
+              : isOnPad ? editButton : <button className="sample-browser-action" type="button" disabled={!props.audioReady || props.projectBusy || props.loadingLibrarySampleId !== null} aria-pressed={props.selectedLibrarySample?.id === sample.id} onClick={() => browser.onSelectLibrarySample(sample)}>SELECT</button>}
           </div>
         })}
         {showsPinnedRow && <div className="sample-browser-row sample-browser-row-loaded">

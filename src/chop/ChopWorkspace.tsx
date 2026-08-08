@@ -38,15 +38,12 @@ interface ChopWorkspaceProps {
   onAddSlice: (timeSeconds: number) => void
   onMoveCut: (cutIndex: number, timeSeconds: number) => void
   onSelectSlice: (sliceId: string) => void
-  onPreviewSlice: (slice: SampleSlice) => void
-  onToggleSliceReversed: (sliceId: string) => void
   onToggleAdding: () => void
-  onRemoveActiveCut: () => void
   onClearSlices: () => void
   onApplyAutoChop: (regions: readonly SliceRegion[], onApplied?: () => void) => boolean
 }
 
-export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, sourceFileName, sourceDurationSeconds, peaks, playheadSeconds, slices, activeSliceId, addingSlice, candidates, analyzing, onLoadSource, testSamples, loadingTestId, onLoadTestSample, sourcePreviewing, onPreviewSource, onStopPreviewSource, onTriggerPad, onReleasePad, onFeedbackEnd, onAddSlice, onMoveCut, onSelectSlice, onPreviewSlice, onToggleSliceReversed, onToggleAdding, onRemoveActiveCut, onClearSlices, onApplyAutoChop }: ChopWorkspaceProps) {
+export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, sourceFileName, sourceDurationSeconds, peaks, playheadSeconds, slices, activeSliceId, addingSlice, candidates, analyzing, onLoadSource, testSamples, loadingTestId, onLoadTestSample, sourcePreviewing, onPreviewSource, onStopPreviewSource, onTriggerPad, onReleasePad, onFeedbackEnd, onAddSlice, onMoveCut, onSelectSlice, onToggleAdding, onClearSlices, onApplyAutoChop }: ChopWorkspaceProps) {
   const hasSource = sourceFileName !== null && sourceDurationSeconds !== null
   const [previewCount, setPreviewCount] = useState<number | null>(null)
   // Purely decorative: a brief brighter pulse on the laser(s) at whichever
@@ -118,7 +115,7 @@ export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, so
         <button className="chop-preview-button chop-preview-play" type="button" disabled={!audioReady || sourcePreviewing} aria-label="Preview source" onClick={onPreviewSource} />
         <button className="chop-preview-button chop-preview-stop" type="button" disabled={!sourcePreviewing} aria-label="Stop preview" onClick={onStopPreviewSource} />
       </div>
-      <ChopControls slices={slices} activeSliceId={activeSliceId} addingSlice={addingSlice} disabled={isPreviewing} maxSliceCount={maxChopSliceCount} mappedSliceCount={pads.length} onStartAdding={onToggleAdding} onSelectSlice={onSelectSlice} onPreviewSlice={onPreviewSlice} onToggleReversed={onToggleSliceReversed} onRemoveActiveCut={onRemoveActiveCut} onClearSlices={onClearSlices} onAssignSlices={() => undefined} showAssign={false} />
+      <ChopControls slices={slices} addingSlice={addingSlice} disabled={isPreviewing} maxSliceCount={maxChopSliceCount} onStartAdding={onToggleAdding} onClearSlices={onClearSlices} onAssignSlices={() => undefined} showAssign={false} />
     </>}
     <div className="chop-pad-heading"><p className="eyebrow">LIVE SLICE MAP</p></div>
     <PadGrid pads={pads} selectedPadId={selectedPadId} activePadId={activePadId} audioReady={audioReady} onTrigger={onTriggerPad} onRelease={onReleasePad} onFeedbackEnd={onFeedbackEnd} />

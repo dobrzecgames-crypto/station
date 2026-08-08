@@ -1126,9 +1126,16 @@ export function App({ audioEngine }: AppProps) {
     }
     replaceActiveBank({ ...selectedGroup.bank, chopSession: { ...chopSession, activeSliceId: slice.id } })
   }
-  // A slice beyond the pad grid (see maxChopSliceCount) has no pad to select -
-  // it stays editable/previewable in the CHOP list only.
+  // A slice beyond the pad grid (see maxChopSliceCount) has no pad to select,
+  // but remains selectable on the waveform and editable in the System Display.
   const selectChopSlice = (sliceId: string) => { const index = chopSession.slices.findIndex((slice) => slice.id === sliceId); replaceActiveBank({ ...selectedGroup.bank, chopSession: { ...chopSession, activeSliceId: sliceId } }); if (index >= 0 && index < pads.length) setSelectedPadId(pads[index].id) }
+  const selectChopSource = () => replaceActiveBank({ ...selectedGroup.bank, chopSession: { ...chopSession, activeSliceId: null } })
+  const triggerChopPad = (padId: PadState['id']) => {
+    const padIndex = pads.findIndex((pad) => pad.id === padId)
+    const slice = chopSession.slices[padIndex]
+    if (slice) selectChopSlice(slice.id)
+    triggerPad(padId)
+  }
 
   const selectedPattern = getVariant(patternGroups, selectedPatternGroupId, selectedPatternVariant)!
   const selectedPatternShifts = getVariantShifts(patternGroups, selectedPatternGroupId, selectedPatternVariant)!
@@ -1700,6 +1707,12 @@ export function App({ audioEngine }: AppProps) {
                 onSourcePitchChange={setSourcePitch}
                 tempo={chopTempo}
                 onApplyTempo={applyDetectedTempo}
+                slices={chopSession.slices}
+                activeSliceId={chopSession.activeSliceId}
+                onSelectSource={selectChopSource}
+                onPreviewSlice={previewChopSlice}
+                onToggleSliceReversed={toggleChopSliceReversed}
+                onRemoveActiveCut={removeActiveChopCut}
               />
               <ChopWorkspace
                 pads={pads}
@@ -1730,7 +1743,7 @@ export function App({ audioEngine }: AppProps) {
                 sourcePreviewing={sourcePreviewing}
                 onPreviewSource={previewChopSource}
                 onStopPreviewSource={stopChopSourcePreview}
-                onTriggerPad={triggerPad}
+                onTriggerPad={triggerChopPad}
                 onReleasePad={releasePad}
                 onFeedbackEnd={(padId) =>
                   setActivePadId((current) =>
@@ -1740,10 +1753,7 @@ export function App({ audioEngine }: AppProps) {
                 onAddSlice={addChopSlice}
                 onMoveCut={moveChopCut}
                 onSelectSlice={selectChopSlice}
-                onPreviewSlice={previewChopSlice}
-                onToggleSliceReversed={toggleChopSliceReversed}
                 onToggleAdding={() => setChopAddingSlice((current) => !current)}
-                onRemoveActiveCut={removeActiveChopCut}
                 onClearSlices={clearChopSlices}
                 onApplyAutoChop={applyAutoChopRegions}
               />

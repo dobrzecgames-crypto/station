@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { DisplayRange } from '../shell/displayControls'
 import type { DisplayTenant } from '../shell/SystemDisplay'
 import { useSystemDisplay } from '../shell/systemDisplayContext'
+import type { SampleSlice } from '../pads/types'
 import type { TempoDetectionResult } from './tempoDetection'
 
 interface ChopDisplayLauncherProps {
@@ -14,6 +15,12 @@ interface ChopDisplayLauncherProps {
       from a finished analysis that found no usable pulse (`tempo.bpm===null`). */
   tempo: TempoDetectionResult | null
   onApplyTempo: () => void
+  slices: readonly SampleSlice[]
+  activeSliceId: string | null
+  onSelectSource: () => void
+  onPreviewSlice: (slice: SampleSlice) => void
+  onToggleSliceReversed: (sliceId: string) => void
+  onRemoveActiveCut: () => void
 }
 
 const displayId = 'chop-controls'
@@ -42,19 +49,33 @@ export function ChopDisplayLauncher(props: ChopDisplayLauncherProps) {
   const onCutOnPadTriggerChangeRef = useRef(props.onCutOnPadTriggerChange)
   const onSourcePitchChangeRef = useRef(props.onSourcePitchChange)
   const onApplyTempoRef = useRef(props.onApplyTempo)
+  const onSelectSourceRef = useRef(props.onSelectSource)
+  const onPreviewSliceRef = useRef(props.onPreviewSlice)
+  const onToggleSliceReversedRef = useRef(props.onToggleSliceReversed)
+  const onRemoveActiveCutRef = useRef(props.onRemoveActiveCut)
   onCutOnPadTriggerChangeRef.current = props.onCutOnPadTriggerChange
   onSourcePitchChangeRef.current = props.onSourcePitchChange
   onApplyTempoRef.current = props.onApplyTempo
+  onSelectSourceRef.current = props.onSelectSource
+  onPreviewSliceRef.current = props.onPreviewSlice
+  onToggleSliceReversedRef.current = props.onToggleSliceReversed
+  onRemoveActiveCutRef.current = props.onRemoveActiveCut
 
   const tenant = useMemo<DisplayTenant>(() => chopTenant({
     hasSource: props.hasSource,
     cutOnPadTrigger: props.cutOnPadTrigger,
     sourcePitchSemitones: props.sourcePitchSemitones,
     tempo: props.tempo,
+    slices: props.slices,
+    activeSliceId: props.activeSliceId,
     onCutOnPadTriggerChange: (enabled) => onCutOnPadTriggerChangeRef.current(enabled),
     onSourcePitchChange: (pitchSemitones) => onSourcePitchChangeRef.current(pitchSemitones),
     onApplyTempo: () => onApplyTempoRef.current(),
-  }), [props.hasSource, props.cutOnPadTrigger, props.sourcePitchSemitones, props.tempo])
+    onSelectSource: () => onSelectSourceRef.current(),
+    onPreviewSlice: (slice) => onPreviewSliceRef.current(slice),
+    onToggleSliceReversed: (sliceId) => onToggleSliceReversedRef.current(sliceId),
+    onRemoveActiveCut: () => onRemoveActiveCutRef.current(),
+  }), [props.hasSource, props.cutOnPadTrigger, props.sourcePitchSemitones, props.tempo, props.slices, props.activeSliceId])
 
   useEffect(() => { claim(tenant) }, [claim, tenant])
   useEffect(() => () => release(displayId), [release])
@@ -67,12 +88,22 @@ interface ChopTenantProps {
   cutOnPadTrigger: boolean
   sourcePitchSemitones: number
   tempo: TempoDetectionResult | null
+  slices: readonly SampleSlice[]
+  activeSliceId: string | null
   onCutOnPadTriggerChange: (enabled: boolean) => void
   onSourcePitchChange: (pitchSemitones: number) => void
   onApplyTempo: () => void
+  onSelectSource: () => void
+  onPreviewSlice: (slice: SampleSlice) => void
+  onToggleSliceReversed: (sliceId: string) => void
+  onRemoveActiveCut: () => void
 }
 
 function chopTenant(props: ChopTenantProps): DisplayTenant {
+  const activeSliceIndex = props.slices.findIndex((slice) => slice.id === props.activeSliceId)
+  const activeSlice = props.slices[activeSliceIndex]
+  if (activeSlice) return chopSliceTenant(props, activeSlice, activeSliceIndex)
+
   const { cutOnPadTrigger, sourcePitchSemitones, tempo } = props
   return {
     id: displayId,
@@ -96,6 +127,31 @@ function chopTenant(props: ChopTenantProps): DisplayTenant {
       </p>
       <div className="display-actions">
         <button className="display-action" type="button" disabled={!tempo?.bpm} onClick={props.onApplyTempo}>APPLY BPM</button>
+      </div>
+    </>,
+  }
+}
+
+function chopSliceTenant(props: ChopTenantProps, slice: SampleSlice, index: number): DisplayTenant {
+  const sliceNumber = index + 1
+  const duration = slice.endSeconds - slice.startSeconds
+
+  return {
+    id: displayId,
+    label: `Slice ${sliceNumber} controls`,
+    readout: `SLICE ${String(sliceNumber).padStart(2, '0')} · ${duration.toFixed(3)} s · ${slice.reversed ? 'REVERSE' : 'FORWARD'}`,
+    panel: <>
+      <p className="display-param"><span className="display-param-label">START</span><output>{slice.startSeconds.toFixed(3)} s</output></p>
+      <p className="display-param"><span className="display-param-label">END</span><output>{slice.endSeconds.toFixed(3)} s</output></p>
+      <p className="display-param"><span className="display-param-label">LENGTH</span><output>{duration.toFixed(3)} s</output></p>
+      <button className="display-toggle" type="button" role="switch" aria-label={`Reverse slice ${sliceNumber}`} aria-checked={slice.reversed} onClick={() => props.onToggleSliceReversed(slice.id)}>
+        <span className="display-param-label">REVERSE</span>
+        <span className="display-toggle-value" aria-hidden="true">{slice.reversed ? 'ON' : 'OFF'}</span>
+      </button>
+      <div className="display-actions">
+        <button className="display-action" type="button" onClick={() => props.onPreviewSlice(slice)}>PREVIEW</button>
+        <button className="display-action" type="button" onClick={props.onSelectSource}>SOURCE</button>
+        <button className="display-action display-action-danger" type="button" disabled={props.slices.length < 2} onClick={props.onRemoveActiveCut}>REMOVE CUT</button>
       </div>
     </>,
   }

@@ -107,6 +107,7 @@ select, textarea {
 .main-nav-button[data-workspace='strings'].main-nav-button-active { --nav-active: #8fa8c7; }
 .main-nav-button[data-workspace='seq'].main-nav-button-active { --nav-active: #9a88c3; }
 .main-nav-button[data-workspace='song'].main-nav-button-active { --nav-active: #b07085; }
+.main-nav-button[data-workspace='tracks'].main-nav-button-active { --nav-active: #5fa88f; }
 .main-nav-button[data-workspace='mix'].main-nav-button-active { --nav-active: #78a1b2; }
 .main-nav-button.main-nav-button-active {
   border-color: color-mix(in srgb, var(--nav-active) 76%, var(--accent-gold-light));

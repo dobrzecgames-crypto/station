@@ -132,8 +132,8 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
   const pageSteps = Array.from({ length: 8 }, (_, offset) => pageStartStep + offset)
 
   /** Empty cells create a one-step note; an existing head or tail selects its
-      note. Length editing stays next to the grid in the inline control below,
-      so neither action opens a modal or needs a double-tap gesture. */
+      note. A deliberate double click on either part removes the whole note,
+      while LENGTH editing stays safely separate in the inline control. */
   const handleStepClick = (padId: PadState['id'], stepIndex: number, headIndex: number | null) => {
     if (headIndex === null) {
       onToggleStep(padId, stepIndex)
@@ -141,6 +141,11 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
       return
     }
     selectStep(padId, headIndex)
+  }
+
+  const handleStepDoubleClick = (padId: PadState['id'], headIndex: number | null) => {
+    if (headIndex === null) return
+    onToggleStep(padId, headIndex)
   }
 
   useEffect(() => {
@@ -213,9 +218,10 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
                 key={stepIndex}
                 className={className}
                 type="button"
-                aria-label={`${pad.label}, step ${stepIndex + 1}${headIndex !== null ? `, select note starting at step ${headIndex + 1}` : ', add note'}`}
+                aria-label={`${pad.label}, step ${stepIndex + 1}${headIndex !== null ? `, select note starting at step ${headIndex + 1}; double click to remove` : ', add note'}`}
                 aria-pressed={headIndex !== null}
                 onClick={() => handleStepClick(pad.id, stepIndex, headIndex)}
+                onDoubleClick={() => handleStepDoubleClick(pad.id, headIndex)}
               ><small>{headIndex !== null && !isTail ? `${Math.round(headVelocity * 100)}%` : ''}</small></button>
             )
           })}

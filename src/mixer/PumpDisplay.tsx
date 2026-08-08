@@ -106,7 +106,7 @@ export function PumpDisplayLauncher(props: PumpDisplayLauncherProps) {
   })
 
   return <button className={open ? 'mix-pump-entry mix-pump-entry-active' : 'mix-pump-entry'} type="button" aria-pressed={open} onClick={toggleOpen}>
-    <span>PUMP</span>
+    <span className="mix-pump-entry-title">GRAVITY <small className="mix-pump-entry-kind">(sidechain)</small></span>
     <strong>{props.routes.length}</strong>
     <small>{props.routes.length === 1 ? 'ROUTE' : 'ROUTES'}</small>
   </button>
@@ -121,8 +121,8 @@ function routeListTenant(routes: readonly PumpRoute[], groups: readonly PatternG
 
   return {
     id: displayId,
-    label: 'Pump routes',
-    readout: routes.length === 0 ? 'PUMP · NO ROUTES' : `PUMP · ${routes.length} ROUTE${routes.length === 1 ? '' : 'S'}`,
+    label: 'Gravity sidechain routes',
+    readout: routes.length === 0 ? 'GRAVITY · NO ROUTES' : `GRAVITY · ${routes.length} ROUTE${routes.length === 1 ? '' : 'S'}`,
     panel: <>
       <div className="sample-browser-list">
         {routes.map((route) => (
@@ -155,8 +155,8 @@ function routeEditorTenant(route: PumpRoute, groups: readonly PatternGroup[], ha
 
   return {
     id: displayId,
-    label: 'Pump route',
-    readout: `PUMP ROUTE · ${bankLabel(route.source.patternGroupId, groups)} · ${sourcePadLabel(route.source, groups)} → ${groupLabel(route.targetGroupId, groups)}`,
+    label: 'Gravity sidechain route',
+    readout: `GRAVITY ROUTE · ${bankLabel(route.source.patternGroupId, groups)} · ${sourcePadLabel(route.source, groups)} → ${groupLabel(route.targetGroupId, groups)}`,
     panel: <>
       {/* Takes the folder row's place instead of stacking above it, matching
           how the pad sound screen returns to its browser. */}

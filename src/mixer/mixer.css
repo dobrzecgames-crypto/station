@@ -489,6 +489,14 @@
   color: var(--station-text-muted);
 }
 
+.mix-pump-entry .mix-pump-entry-kind {
+  margin-left: 3px;
+  font-size: .45rem;
+  font-weight: 600;
+  letter-spacing: .03em;
+  opacity: .68;
+}
+
 .mix-pump-entry-active {
   border-color: var(--station-accent);
   box-shadow: inset 3px 0 0 var(--station-accent);

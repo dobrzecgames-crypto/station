@@ -1573,6 +1573,20 @@ export function App({ audioEngine }: AppProps) {
       data-view={accentView}
       data-powered={powerVisualPhase === 'off' ? 'off' : 'on'}
       data-power-phase={powerVisualPhase}
+      onContextMenu={(event) => {
+        const target = event.target
+        const keepsNativeMenu = target instanceof Element && target.closest("input:not([type='range']), textarea, select, [contenteditable='true']")
+        if (!keepsNativeMenu) event.preventDefault()
+      }}
+      onDragStart={(event) => {
+        /* Inbound file drops do not fire dragstart in Station, so suppressing
+           browser-originated drags here removes ghost images/text drags without
+           affecting any WAV import path. A future intentional DOM drag can opt
+           in explicitly instead of weakening the whole chassis. */
+        const target = event.target
+        const allowsNativeDrag = target instanceof Element && target.closest('[data-native-drag]')
+        if (!allowsNativeDrag) event.preventDefault()
+      }}
       onAnimationEnd={(event) => {
         if (event.animationName === 'system-display-power-on' && audioReady) setPowerVisualPhase('on')
       }}

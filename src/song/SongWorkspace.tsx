@@ -17,6 +17,7 @@ interface PaintStroke {
   groupId: string
   variant: PatternVariantName
   add: boolean
+  pointerId: number
 }
 
 const SLOTS_PER_PAGE = 8
@@ -43,9 +44,9 @@ export function SongWorkspace({ groups, clips, selectedGroupId, selectedVariant,
   // testing rather than by mouseenter. A touch drag never fires enter on the
   // elements it passes over, so the old mouse-only version could only ever
   // paint one slot on a phone - which is the whole device this app now targets.
-  const paintAt = (clientX: number, clientY: number) => {
+  const paintAt = (pointerId: number, clientX: number, clientY: number) => {
     const current = stroke.current
-    if (!current) return
+    if (!current || current.pointerId !== pointerId) return
     const slotElement = document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>('[data-slot]')
     if (!slotElement) return
     if (slotElement.dataset.groupId !== current.groupId || slotElement.dataset.variant !== current.variant) return
@@ -53,9 +54,10 @@ export function SongWorkspace({ groups, clips, selectedGroupId, selectedVariant,
   }
 
   const beginPaint = (event: ReactPointerEvent<HTMLElement>, groupId: string, variant: PatternVariantName, slot: number, filled: boolean) => {
+    if (stroke.current || (event.pointerType === 'mouse' && event.button !== 0)) return
     event.preventDefault()
     const add = !filled
-    stroke.current = { groupId, variant, add }
+    stroke.current = { groupId, variant, add, pointerId: event.pointerId }
     // Capture so the moves keep arriving here once the finger leaves this slot;
     // paintAt works out which slot is actually under the pointer.
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -108,8 +110,10 @@ export function SongWorkspace({ groups, clips, selectedGroupId, selectedVariant,
                     data-variant={variant}
                     className={`arrangement-slot${filled ? ' arrangement-slot-filled' : ''}${activeSlot === slot ? ' arrangement-slot-playing' : ''}`}
                     onPointerDown={(event) => beginPaint(event, group.id, variant, slot, filled)}
-                    onPointerMove={(event) => paintAt(event.clientX, event.clientY)}
-                    onPointerUp={() => { stroke.current = null }}
+                    onPointerMove={(event) => paintAt(event.pointerId, event.clientX, event.clientY)}
+                    onPointerUp={(event) => { if (stroke.current?.pointerId === event.pointerId) stroke.current = null }}
+                    onPointerCancel={(event) => { if (stroke.current?.pointerId === event.pointerId) stroke.current = null }}
+                    onLostPointerCapture={(event) => { if (stroke.current?.pointerId === event.pointerId) stroke.current = null }}
                   />
                 )
               })}

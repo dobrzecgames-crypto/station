@@ -150,6 +150,46 @@ body {
   background: var(--station-bg);
 }
 
+/* Station is a control surface, so dragging across its chassis must not turn
+   labels and values into selectable page content or summon WebKit's long-press
+   callout. Scope this to the instrument instead of the whole document: real
+   text-entry controls (present or added later) explicitly keep their native
+   selection/callout behaviour. */
+.station-shell {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.station-shell :where(input:not([type='range']), textarea, [contenteditable='true']) {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/* Inline graphics are instrument artwork, not draggable page assets. This
+   affects only browser-originated ghost dragging; Station's pointer-driven
+   waveform and TRACKS gestures keep their own event paths. */
+.station-shell :where(img, svg, canvas) {
+  -webkit-user-drag: none;
+}
+
+/* Ordinary keys retain native page scrolling around them. Controls whose
+   meaning is a held or dragged gesture own that gesture completely; range and
+   waveform controls already opt out in their component layers. */
+.station-shell :where(button, [role='button']) {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.station-shell input[type='range'] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.station-shell :where(.pad, .pattern-pad-label, .pattern-step, .arrangement-slot, .synth-audition, .strings-audition) {
+  touch-action: none;
+}
+
 button,
 input,
 select,

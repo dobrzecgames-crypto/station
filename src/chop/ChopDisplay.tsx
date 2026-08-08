@@ -141,8 +141,6 @@ function chopSliceTenant(props: ChopTenantProps, slice: SampleSlice, index: numb
     label: `Slice ${sliceNumber} controls`,
     readout: `SLICE ${String(sliceNumber).padStart(2, '0')} · ${duration.toFixed(3)} s · ${slice.reversed ? 'REVERSE' : 'FORWARD'}`,
     panel: <>
-      <p className="display-param"><span className="display-param-label">START</span><output>{slice.startSeconds.toFixed(3)} s</output></p>
-      <p className="display-param"><span className="display-param-label">END</span><output>{slice.endSeconds.toFixed(3)} s</output></p>
       <p className="display-param"><span className="display-param-label">LENGTH</span><output>{duration.toFixed(3)} s</output></p>
       <button className="display-toggle" type="button" role="switch" aria-label={`Reverse slice ${sliceNumber}`} aria-checked={slice.reversed} onClick={() => props.onToggleSliceReversed(slice.id)}>
         <span className="display-param-label">REVERSE</span>

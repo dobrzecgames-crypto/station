@@ -1709,9 +1709,12 @@ export class AudioEngine {
     const releaseAt = Math.max(this.context.currentTime, when)
     if (voice.stopAt !== undefined && voice.stopAt <= releaseAt) return
     const release = Math.max(0.005, releaseOverride ?? organicBassEnvelopeShape(runtime.patch.decay).releaseSeconds)
+    const silenceAt = releaseAt + release
+    const zeroFadeDuration = Math.min(0.012, release * 0.35)
     this.holdAudioParamAtTime(voice.amp.gain, releaseAt)
-    voice.amp.gain.exponentialRampToValueAtTime(0.0001, releaseAt + release)
-    const stopAt = releaseAt + release + 0.01
+    voice.amp.gain.exponentialRampToValueAtTime(0.0001, silenceAt - zeroFadeDuration)
+    voice.amp.gain.linearRampToValueAtTime(0, silenceAt)
+    const stopAt = silenceAt + 0.012
     for (const oscillator of voice.oscillators) {
       try { oscillator.stop(stopAt) } catch { /* A scheduled voice may already be stopping. */ }
     }

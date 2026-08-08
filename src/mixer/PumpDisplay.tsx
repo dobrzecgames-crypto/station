@@ -180,7 +180,7 @@ function routeEditorTenant(route: PumpRoute, groups: readonly PatternGroup[], ha
         <span>TO GROUP / {groupLabel(route.targetGroupId, groups)}</span>
         <button className="sample-browser-folder-step" type="button" aria-label="Next target group" disabled={targetGroupIndex >= groups.length - 1} onClick={() => stepTargetGroup(1)}>›</button>
       </div>
-      <DisplayRange idPrefix="pump-route" label="DEPTH" formatValue={(value) => `${Math.round(value * 100)}%`} min="0" max="1" step="0.01" current={route.depth} onChange={(depth) => update({ depth })} />
+      <DisplayRange idPrefix="pump-route" label="MASS" formatValue={(value) => `${Math.round(value * 100)}%`} min="0" max="1" step="0.01" current={route.depth} onChange={(depth) => update({ depth })} />
       <div className="display-param">
         <span className="display-param-label">LENGTH</span>
         <div className="display-actions">

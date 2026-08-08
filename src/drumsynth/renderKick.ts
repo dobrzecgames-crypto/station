@@ -1,7 +1,7 @@
 import { estimateKickRenderSeconds } from './drumSynthOperations'
 import type { DrumKickPatch } from './drumSynthTypes'
 import { playKickVoice } from './kickVoice'
-import { createRandomSeed } from './seededRandom'
+import { createKickSeed } from './seededRandom'
 
 const renderChannelCount = 1
 
@@ -16,6 +16,6 @@ const renderChannelCount = 1
 export async function renderKickToBuffer(patch: DrumKickPatch, sampleRate: number): Promise<AudioBuffer> {
   const durationSeconds = estimateKickRenderSeconds(patch)
   const context = new OfflineAudioContext(renderChannelCount, Math.ceil(durationSeconds * sampleRate), sampleRate)
-  playKickVoice(context, context.destination, patch, 0, createRandomSeed())
+  playKickVoice(context, context.destination, patch, 0, createKickSeed(patch))
   return context.startRendering()
 }

@@ -26,6 +26,7 @@ const outputHeadroomGain = 0.7
 const bodyAmpPeak = 0.7
 const bodyAttackSeconds = 0.002
 const clickDurationSeconds = 0.015
+const clickSeedOffset = 104729
 const dustHighpassHz = 1500
 const dustHighpassQ = 1.3
 
@@ -87,7 +88,8 @@ export function playKickVoice(context: BaseAudioContext, destination: AudioNode,
 
   // Click: a short, independently-enveloped filtered-noise burst. Never tied
   // to DECAY or to a sustained noise source - it is only ever a few
-  // milliseconds long, deliberately not reproducible/seeded (see DUST below).
+  // milliseconds long. It uses its own deterministic stream derived from the
+  // patch seed so repeated previews retain the same transient.
   const clickPeakGain = kickClickToGain(patch.click)
   let click: AudioBufferSourceNode | undefined
   let clickFilter: BiquadFilterNode | undefined
@@ -95,7 +97,8 @@ export function playKickVoice(context: BaseAudioContext, destination: AudioNode,
   if (clickPeakGain > 0.001) {
     const clickBuffer = context.createBuffer(1, Math.max(1, Math.ceil(context.sampleRate * clickDurationSeconds)), context.sampleRate)
     const clickData = clickBuffer.getChannelData(0)
-    for (let index = 0; index < clickData.length; index += 1) clickData[index] = Math.random() * 2 - 1
+    const clickRandom = createSeededRandom(seed + clickSeedOffset)
+    for (let index = 0; index < clickData.length; index += 1) clickData[index] = clickRandom() * 2 - 1
     click = context.createBufferSource()
     click.buffer = clickBuffer
     clickFilter = context.createBiquadFilter()
@@ -115,8 +118,7 @@ export function playKickVoice(context: BaseAudioContext, destination: AudioNode,
 
   // Dust: only built when audible, so DUST=0 is bit-identical to no dust at
   // all rather than "gain set to zero". The buffer is filled by the seeded
-  // PRNG so the algorithm is reproducible given a seed, while each live
-  // trigger is free to pick a fresh one (see seededRandom.ts).
+  // PRNG so the algorithm is reproducible given the patch-derived seed.
   let dustSource: AudioBufferSourceNode | undefined
   let dustFilter: BiquadFilterNode | undefined
   let dustAmp: GainNode | undefined
@@ -194,6 +196,7 @@ export function playKickVoice(context: BaseAudioContext, destination: AudioNode,
   }
 
   let cleanedUp = false
+  let stopScheduled = false
   const cleanUp = () => {
     if (cleanedUp) return
     cleanedUp = true
@@ -210,11 +213,21 @@ export function playKickVoice(context: BaseAudioContext, destination: AudioNode,
   sub.stop(stopAt)
 
   return {
-    stop(stopWhen = context.currentTime) {
-      for (const source of scheduledSources) {
-        try { source.stop(stopWhen) } catch { /* A source may already be stopped or past its natural end. */ }
+    stop(stopWhen = context.currentTime, fadeSeconds = 0) {
+      if (cleanedUp || stopScheduled) return
+      stopScheduled = true
+      const releaseAt = Math.max(context.currentTime, stopWhen)
+      const fade = Math.max(0, fadeSeconds)
+      const sourceStopAt = releaseAt + fade
+      if (fade > 0) {
+        outputTrim.gain.cancelScheduledValues(releaseAt)
+        outputTrim.gain.setValueAtTime(outputTrim.gain.value, releaseAt)
+        outputTrim.gain.linearRampToValueAtTime(0, sourceStopAt)
       }
-      cleanUp()
+      for (const source of scheduledSources) {
+        try { source.stop(sourceStopAt) } catch { /* A source may already be stopped or past its natural end. */ }
+      }
+      if (fade === 0) cleanUp()
     },
   }
 }

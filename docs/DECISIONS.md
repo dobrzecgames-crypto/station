@@ -351,7 +351,7 @@ The picker in SYNTH gained a third card alongside MONOPOLY and STRINGS. Selectin
 
 The first version implements only a KICK sound, behind a `DrumInstrumentType` union sized for SNARE, CLAP, HAT, TOM and PERC to follow later without a rewrite: one more member in the union, one more `DrumXPatch` interface, one more DSP module mirroring `kickVoice.ts`, one more sub-panel - with no change to the picker, ADD TO PAD, or persistence plumbing, all of which are already generic over "whichever instrument is selected."
 
-DUST, the layer tying the Vinyl Dust identity to this instrument's sound, uses a small seeded PRNG (`drumsynth/seededRandom.ts`) rather than raw `Math.random()` - the first such utility in the codebase. The algorithm is deterministic given a seed; the seed itself is not, so live preview retriggers vary hit to hit as intended while a rendered-and-placed kick is a frozen WAV and therefore trivially stable across reload and export - nothing about its reproducibility needs to be persisted.
+DUST and CLICK use a small seeded PRNG (`drumsynth/seededRandom.ts`) rather than raw `Math.random()`. KICK derives a stable seed from its eight public patch values, so repeated previews are directly comparable and ADD TO PAD renders the same transient and texture the user auditioned. Rapid preview retriggers softly choke the previous audition before the next hit, preventing timing-dependent tail summing. The placed result remains a frozen WAV, so nothing extra needs to be persisted.
 
 Consequences:
 

@@ -1,10 +1,10 @@
+import type { DrumKickPatch } from './drumSynthTypes'
+
 export type RandomSource = () => number
 
 /**
  * Deterministic PRNG (mulberry32): the same seed always produces the same
- * sequence, so a saved DUST render is reproducible while live preview can
- * still pick a fresh seed on every trigger. No `Math.random()` involved once
- * a seed is chosen.
+ * sequence. No `Math.random()` is involved once a seed is chosen.
  */
 export function createSeededRandom(seed: number): RandomSource {
   let state = seed >>> 0
@@ -19,4 +19,20 @@ export function createSeededRandom(seed: number): RandomSource {
 /** Only the seed's own selection is non-deterministic - the generator it feeds is not. */
 export function createRandomSeed(): number {
   return Math.floor(Math.random() * 0xffffffff)
+}
+
+/** Stable per-patch seed: repeated KICK previews and ADD TO PAD use identical noise. */
+export function createKickSeed(patch: DrumKickPatch): number {
+  const values = [patch.tune, patch.punch, patch.body, patch.click, patch.decay, patch.tone, patch.drive, patch.dust]
+  let hash = 0x811c9dc5
+  for (const value of values) {
+    const text = Number.isFinite(value) ? value.toString() : '0'
+    for (let index = 0; index < text.length; index += 1) {
+      hash ^= text.charCodeAt(index)
+      hash = Math.imul(hash, 0x01000193)
+    }
+    hash ^= 0xff
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return hash >>> 0
 }

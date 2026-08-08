@@ -237,6 +237,7 @@ export function playSnareVoice(context: BaseAudioContext, destination: AudioNode
   }
 
   let cleanedUp = false
+  let stopScheduled = false
   const cleanUp = () => {
     if (cleanedUp) return
     cleanedUp = true
@@ -258,11 +259,21 @@ export function playSnareVoice(context: BaseAudioContext, destination: AudioNode
   rattleSource.stop(when + rattleDecaySeconds + 0.01)
 
   return {
-    stop(stopWhen = context.currentTime) {
-      for (const source of scheduledSources) {
-        try { source.stop(stopWhen) } catch { /* A source may already be stopped or past its natural end. */ }
+    stop(stopWhen = context.currentTime, fadeSeconds = 0) {
+      if (cleanedUp || stopScheduled) return
+      stopScheduled = true
+      const releaseAt = Math.max(context.currentTime, stopWhen)
+      const fade = Math.max(0, fadeSeconds)
+      const sourceStopAt = releaseAt + fade
+      if (fade > 0) {
+        outputTrim.gain.cancelScheduledValues(releaseAt)
+        outputTrim.gain.setValueAtTime(outputTrim.gain.value, releaseAt)
+        outputTrim.gain.linearRampToValueAtTime(0, sourceStopAt)
       }
-      cleanUp()
+      for (const source of scheduledSources) {
+        try { source.stop(sourceStopAt) } catch { /* A source may already be stopped or past its natural end. */ }
+      }
+      if (fade === 0) cleanUp()
     },
   }
 }

@@ -3,7 +3,7 @@ import type { EffectRackState, EffectSlotState, EffectType, TightRoomMode } from
 import type { DrumPatch, DrumVoiceHandle } from '../drumsynth/drumSynthTypes'
 import { playKickVoice } from '../drumsynth/kickVoice'
 import { playSnareVoice } from '../drumsynth/snareVoice'
-import { createRandomSeed } from '../drumsynth/seededRandom'
+import { createKickSeed, createRandomSeed } from '../drumsynth/seededRandom'
 import { cloneSynthPatch, lfoFrequencyHz, maximumSynthVoices } from '../synth/synthOperations'
 import type { SynthPatch } from '../synth/synthTypes'
 import {
@@ -949,15 +949,18 @@ export class AudioEngine {
   /**
    * Plays the current DRUM SYNTH patch straight through master, bypassing
    * channel/group routing exactly like `previewAsset` - this is an audition,
-   * not a sequenced pad source. A fresh seed on every call is intentional:
-   * DUST (and, for SNARE, RATTLE/SNAP too) is meant to vary hit to hit during
-   * live preview - see kickVoice.ts/snareVoice.ts and DEC-025's determinism note.
+   * not a sequenced pad source. Retriggering chokes the previous audition over
+   * a tiny fade so rapid clicks compare one hit at a time instead of summing tails.
+   * KICK uses a stable patch-derived seed; SNARE keeps its intentional variation.
    */
   previewDrumSound(patch: DrumPatch): void {
     if (this.status !== 'ready' || !this.context || !this.masterEffects) return
-    const when = this.context.currentTime
+    const fadeSeconds = 0.006
+    const now = this.context.currentTime
+    for (const previewVoice of [...this.drumPreviewVoices]) previewVoice.stop(now, fadeSeconds)
+    const when = now + fadeSeconds
     const voice: DrumVoiceHandle = patch.instrument === 'kick'
-      ? playKickVoice(this.context, this.masterEffects.input, patch, when, createRandomSeed(), () => this.drumPreviewVoices.delete(voice))
+      ? playKickVoice(this.context, this.masterEffects.input, patch, when, createKickSeed(patch), () => this.drumPreviewVoices.delete(voice))
       : playSnareVoice(this.context, this.masterEffects.input, patch, when, createRandomSeed(), () => this.drumPreviewVoices.delete(voice))
     this.drumPreviewVoices.add(voice)
   }

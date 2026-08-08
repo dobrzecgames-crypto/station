@@ -57,6 +57,6 @@ export interface DrumSynthState {
 
 /** Shared by every drum voice module (kickVoice.ts, snareVoice.ts, ...) so AudioEngine can track and stop them uniformly regardless of instrument. */
 export interface DrumVoiceHandle {
-  /** Stops every scheduled node at or after `when` and disconnects the graph. Idempotent - safe to call again after the voice has already ended naturally. */
-  stop(when?: number): void
+  /** Stops every scheduled node after an optional click-safe fade. Idempotent after a stop has been scheduled. */
+  stop(when?: number, fadeSeconds?: number): void
 }

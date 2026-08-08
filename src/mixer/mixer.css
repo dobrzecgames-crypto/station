@@ -489,9 +489,14 @@
   color: var(--station-text-muted);
 }
 
+.mix-pump-entry .mix-pump-entry-title {
+  font-size: .76rem;
+  letter-spacing: .1em;
+}
+
 .mix-pump-entry .mix-pump-entry-kind {
   margin-left: 3px;
-  font-size: .45rem;
+  font-size: .52rem;
   font-weight: 600;
   letter-spacing: .03em;
   opacity: .68;

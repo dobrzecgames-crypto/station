@@ -69,6 +69,8 @@
    would leave nothing reading as primary. Filling it is a one-line change if
    that judgement turns out wrong. */
 .main-navigation { gap: 4px; border-bottom: 0; }.main-nav-button {
+  display: grid;
+  place-items: center;
   min-height: 38px;
   padding: 0 6px;
   border: 1px solid var(--station-line);

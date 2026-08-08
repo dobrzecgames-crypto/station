@@ -11,7 +11,7 @@ const views: ReadonlyArray<{ id: MainView; label: string }> = [
   { id: 'synth', label: 'SYNTH' },
   { id: 'seq', label: 'SEQ' },
   { id: 'song', label: 'SONG' },
-  { id: 'tracks', label: 'TRACKS' },
+  { id: 'tracks', label: 'WAVES' },
   { id: 'mix', label: 'MIX' },
 ]
 

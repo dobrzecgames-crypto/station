@@ -15,7 +15,7 @@ import { maximumPatternGroups, patternVariantNames } from '../patterns/patternTy
 import type { PatternGroup, PatternVariantName } from '../patterns/patternTypes'
 import { validatePatternClipReferences } from '../song/songOperations'
 import type { PatternClip, TransportMode } from '../song/songTypes'
-import { cloneAudioTrack, collectAudioTrackAssetIds, validateAudioTracks } from '../tracks/tracksOperations'
+import { cloneAudioTrack, collectAudioTrackAssetIds, normalizeAudioTrackOrder, validateAudioTracks } from '../tracks/tracksOperations'
 import type { AudioTrack } from '../tracks/tracksTypes'
 import { maximumChordInterval, maximumSynthMidiNote, maximumSynthVoices, minimumChordInterval, minimumSynthMidiNote, resolveSynthPadMidiNotes } from '../synth/synthOperations'
 import { subWaveforms, synthLfoDivisions, synthVoiceModes, synthWaveforms } from '../synth/synthTypes'
@@ -444,7 +444,7 @@ function migratePumpRoutes(pump: unknown, legacyGroupId?: string): PumpRoute[] {
     no per-field legacy shape to backfill within a track/clip yet, unlike
     Pad/StringsPatch, since AudioTrack/AudioClip are new in this schema. */
 function normalizeAudioTracks(value: unknown): AudioTrack[] {
-  return Array.isArray(value) ? value.map(cloneAudioTrack) : []
+  return Array.isArray(value) ? normalizeAudioTrackOrder(value) : []
 }
 
 function isChopSessionState(value: unknown): value is ChopSessionState {

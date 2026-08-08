@@ -10,8 +10,8 @@ import type { AudioClip, AudioTrack } from './tracksTypes'
 export const minimumClipSourceSeconds = 0.01
 export const maximumClipFadeSeconds = 10
 
-export function createAudioTrack(id: string, name: string, order: number): AudioTrack {
-  return { id, name, order, muted: false, solo: false, gain: 1, effects: createEmptyEffectRack(id), clips: [] }
+export function createAudioTrack(id: string, order: number): AudioTrack {
+  return { id, name: `TRACK ${order + 1}`, order, muted: false, solo: false, gain: 1, effects: createEmptyEffectRack(id), clips: [] }
 }
 
 export function createAudioClipFromImport(id: string, assetId: SampleAssetId, fileName: string, durationSeconds: number, startBeat: number, bpm: number): AudioClip {
@@ -42,6 +42,15 @@ export function cloneAudioTrack(track: AudioTrack): AudioTrack {
   return { ...track, effects: cloneEffectRackState(track.effects), clips: track.clips.map(cloneAudioClip) }
 }
 
+/** Track labels describe their current position, while the imported filename
+    remains on the clip itself. Sorting here keeps numbering stable after old
+    projects are opened and contiguous after reorder or removal. */
+export function normalizeAudioTrackOrder(tracks: readonly AudioTrack[]): AudioTrack[] {
+  return [...tracks]
+    .sort((left, right) => left.order - right.order)
+    .map((track, index) => ({ ...cloneAudioTrack(track), name: `TRACK ${index + 1}`, order: index }))
+}
+
 export function findAudioTrack(tracks: readonly AudioTrack[], trackId: string): AudioTrack | undefined {
   return tracks.find((track) => track.id === trackId)
 }
@@ -58,15 +67,11 @@ export function addAudioTrack(tracks: readonly AudioTrack[], track: AudioTrack):
   // The maximumAudioTracks cap is enforced at the call site (disable the "add
   // track" control), matching how maximumPatternGroups is enforced in
   // TransportBar rather than inside addPatternClip-style operations.
-  return [...tracks.map(cloneAudioTrack), cloneAudioTrack(track)]
-}
-
-export function renameAudioTrack(tracks: readonly AudioTrack[], trackId: string, name: string): AudioTrack[] {
-  return tracks.map((track) => track.id === trackId ? { ...cloneAudioTrack(track), name } : cloneAudioTrack(track))
+  return normalizeAudioTrackOrder([...tracks, track])
 }
 
 export function removeAudioTrack(tracks: readonly AudioTrack[], trackId: string): AudioTrack[] {
-  return tracks.filter((track) => track.id !== trackId).map((track, index) => ({ ...cloneAudioTrack(track), order: index }))
+  return normalizeAudioTrackOrder(tracks.filter((track) => track.id !== trackId))
 }
 
 /** Swaps the track with its neighbour in order - the only reorder shape
@@ -76,11 +81,11 @@ export function moveAudioTrack(tracks: readonly AudioTrack[], trackId: string, d
   const sorted = [...tracks].sort((left, right) => left.order - right.order)
   const index = sorted.findIndex((track) => track.id === trackId)
   const targetIndex = direction === 'up' ? index - 1 : index + 1
-  if (index < 0 || targetIndex < 0 || targetIndex >= sorted.length) return tracks.map(cloneAudioTrack)
+  if (index < 0 || targetIndex < 0 || targetIndex >= sorted.length) return normalizeAudioTrackOrder(tracks)
   const reordered = [...sorted]
   const [moved] = reordered.splice(index, 1)
   reordered.splice(targetIndex, 0, moved)
-  return reordered.map((track, newIndex) => ({ ...cloneAudioTrack(track), order: newIndex }))
+  return normalizeAudioTrackOrder(reordered.map((track, newIndex) => ({ ...track, order: newIndex })))
 }
 
 export function setAudioTrackMuted(tracks: readonly AudioTrack[], trackId: string, muted: boolean): AudioTrack[] {

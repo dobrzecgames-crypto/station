@@ -1400,8 +1400,7 @@ export function App({ audioEngine }: AppProps) {
       const loaded = await audioEngine.loadSampleBlob(assetId, file, file.name)
       const waveform = audioEngine.getWaveformPeaks(assetId) ?? []
       const trackId = createAudioTrackId()
-      const name = (file.name.replace(/\.[^./]+$/, '') || `TRACK ${audioTracks.length + 1}`).toUpperCase()
-      const track = { ...createAudioTrack(trackId, name, audioTracks.length), clips: [createAudioClipFromImport(createAudioClipId(), assetId, loaded.filename, loaded.durationSeconds, 0, bpm)] }
+      const track = { ...createAudioTrack(trackId, audioTracks.length), clips: [createAudioClipFromImport(createAudioClipId(), assetId, loaded.filename, loaded.durationSeconds, 0, bpm)] }
       setAudioTracks((current) => addAudioTrack(current, track))
       setWaveforms((current) => ({ ...current, [assetId]: waveform }))
       audioEngine.setGroupVolume(trackId, track.gain)

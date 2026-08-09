@@ -1,19 +1,9 @@
 .sequencer-toolbar {
-  display: grid;
-  grid-template-columns: minmax(112px, .75fr) 1px minmax(0, 1.35fr);
-  gap: 6px;
-  align-items: center;
   margin-bottom: 7px;
   padding: 4px 5px;
   border: 1px solid var(--station-line);
   border-radius: 4px;
   background: rgb(0 0 0 / 18%);
-}
-
-.sequencer-toolbar-divider {
-  width: 1px;
-  height: 22px;
-  background: color-mix(in srgb, var(--station-line-strong) 72%, transparent);
 }
 
 .sequencer-toolbar .sequencer-step-pages {
@@ -39,137 +29,12 @@
   box-shadow: inset 0 1px 0 rgb(241 246 231 / 10%), inset 0 -1px 0 rgb(0 0 0 / 30%);
 }
 
-.sequencer-length-editor {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 98px));
-  gap: 4px;
-  align-items: center;
-  justify-content: end;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-
-.sequencer-merge-action {
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 5px;
-  color: var(--station-text);
-  background: transparent;
-  cursor: pointer;
-  font-family: var(--station-mono-font);
-  text-align: left;
-}
-
-.sequencer-merge-face {
-  position: relative;
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  justify-content: space-between;
-  overflow: hidden;
-  width: 100%;
-  height: 32px;
-  min-height: 32px;
-  min-width: 0;
-  padding: 0 8px;
-  border: 1px solid color-mix(in srgb, var(--control-active) 58%, var(--station-line));
-  border-radius: 4px;
-  background:
-    linear-gradient(180deg, rgb(225 237 243 / 7%) 0%, transparent 34%),
-    linear-gradient(180deg, color-mix(in srgb, var(--control-active) 16%, #353036), #252228 58%, #1b191f 100%);
-}
-
-.sequencer-merge-action:disabled {
-  color: var(--station-text-disabled);
-  cursor: not-allowed;
-}
-
-.sequencer-merge-action:disabled .sequencer-merge-face {
-  border-color: var(--station-line);
-  background: linear-gradient(180deg, #302b2e 0%, #242125 52%, #1b191d 100%);
-}
-
-.sequencer-merge-action:disabled .sequencer-merge-face strong,
-.sequencer-merge-action:disabled .sequencer-merge-face small,
-.sequencer-merge-action:disabled .sequencer-merge-face > span:last-child {
-  color: var(--station-text-disabled);
-}
-
-.sequencer-merge-action:disabled .sequencer-merge-face > span:last-child {
-  display: none;
-}
-
-.sequencer-merge-face strong {
-  position: relative;
-  z-index: 1;
-  color: var(--control-active);
-  font-size: .58rem;
-  letter-spacing: .08em;
-}
-
-.sequencer-merge-face small {
-  display: none;
-}
-
-.sequencer-merge-face > span:last-child {
-  position: relative;
-  z-index: 1;
-  color: var(--station-text);
-  font-size: .56rem;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  white-space: nowrap;
-}
-
-.sequencer-merge-flash {
-  position: absolute;
-  z-index: 0;
-  inset: -30% -8%;
-  pointer-events: none;
-  opacity: 0;
-  background: radial-gradient(circle at 30% 50%, color-mix(in srgb, var(--control-active) 72%, #dce7ed) 0%, color-mix(in srgb, var(--control-active) 34%, transparent) 38%, transparent 72%);
-  animation: sequencer-merge-tool-flash 160ms ease-out;
-}
-
-@keyframes sequencer-merge-tool-flash {
-  0% { opacity: 0; transform: scaleX(.72); }
-  28% { opacity: .82; }
-  100% { opacity: 0; transform: scaleX(1); }
-}
-
-.sequencer-length-remove {
-  width: 100%;
-  min-width: 0;
-  height: 32px;
-  min-height: 32px;
-  padding: 0 5px;
-  border-radius: 4px;
-  font-size: .47rem;
-  color: var(--destructive-accent);
-  border-color: color-mix(in srgb, var(--destructive-accent) 55%, transparent);
-  background: transparent;
-}
-
-.sequencer-length-remove:hover:not(:disabled),
-.sequencer-length-remove:focus-visible {
-  border-color: var(--destructive-accent);
-  color: var(--destructive-accent);
+/* Horizontal drags paint a pad row. Vertical movement remains available to
+   scroll the full sixteen-pad matrix on a touch screen. */
+.sequencer .pattern-step {
+  touch-action: pan-y;
 }
 
 @media (max-width: 560px) {
-  .sequencer-toolbar {
-    grid-template-columns: minmax(104px, .72fr) 1px minmax(0, 1.28fr);
-    gap: 5px;
-    padding-inline: 4px;
-  }
-
-  .sequencer-length-remove { min-width: 0; padding: 0 4px; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sequencer-merge-flash { animation: none; }
+  .sequencer-toolbar { padding-inline: 4px; }
 }

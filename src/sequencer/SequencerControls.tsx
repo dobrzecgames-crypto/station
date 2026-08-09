@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { PatternGroup, PatternVariantName, StepPattern, StepShiftPattern, StepLengthPattern } from '../patterns/patternTypes'
-import { getContiguousActiveStepRange, getStepEventOwners, getStepEventRange } from '../patterns/stepEvents.ts'
+import { getStepEventOwners, getStepEventRange } from '../patterns/stepEvents.ts'
 import type { PadState } from '../pads/types'
 import type { DisplayTenant } from '../shell/SystemDisplay'
 import { useSystemDisplay } from '../shell/systemDisplayContext'
@@ -19,11 +19,16 @@ interface SequencerControlsProps {
   playingStep: number | null
   onSelectPad: (padId: PadState['id']) => void
   onReleasePad: (padId: PadState['id']) => void
-  onToggleStep: (padId: PadState['id'], stepIndex: number) => void
+  onPaintStep: (padId: PadState['id'], stepIndex: number, shouldExist: boolean) => void
   onVelocityChange: (padId: PadState['id'], stepIndex: number, velocity: number) => void
   onShiftChange: (padId: PadState['id'], stepIndex: number, shift: number) => void
-  onMergeSteps: (padId: PadState['id'], stepIndex: number) => void
-  onSplitStep: (padId: PadState['id'], stepIndex: number) => void
+}
+
+interface StepPaintStroke {
+  padId: PadState['id']
+  add: boolean
+  pointerId: number
+  lastStepIndex: number
 }
 
 const displayId = 'seq-step-controls'
@@ -32,10 +37,10 @@ function isDimBeatGroup(stepIndex: number): boolean {
   return Math.floor(stepIndex / 4) % 2 === 1
 }
 
-export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadId, group, selectedVariant, playingStep, onSelectPad, onReleasePad, onToggleStep, onVelocityChange, onShiftChange, onMergeSteps, onSplitStep }: SequencerControlsProps) {
+export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadId, group, selectedVariant, playingStep, onSelectPad, onReleasePad, onPaintStep, onVelocityChange, onShiftChange }: SequencerControlsProps) {
   const [editedStep, setEditedStep] = useState({ padId: selectedPadId, stepIndex: 0 })
   const [stepPage, setStepPage] = useState<0 | 1>(0)
-  const [mergeFeedbackId, setMergeFeedbackId] = useState(0)
+  const paintStroke = useRef<StepPaintStroke | null>(null)
   const { claim, release, ownerId } = useSystemDisplay()
   const [displayActive, setDisplayActive] = useState(true)
   const hasOwnedDisplayRef = useRef(false)
@@ -45,8 +50,6 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
   const velocity = pattern[editedPad.id][editedHeadIndex]
   const shift = shifts[editedPad.id][editedHeadIndex]
   const length = editedEvent?.length ?? 1
-  const activeRun = getContiguousActiveStepRange(pattern[editedPad.id], editedStep.stepIndex)
-  const canMerge = !editedEvent?.merged && (activeRun?.length ?? 0) > 1
   /* App rebuilds its step handlers on every render, and claiming re-renders
      App. A tenant depending on them directly therefore got a new identity each
      time the claim effect ran, re-claimed, and spun - entering SEQ produced a
@@ -96,28 +99,37 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
   const pageStartStep = stepPage * 8
   const pageSteps = Array.from({ length: 8 }, (_, offset) => pageStartStep + offset)
 
-  /** Empty cells create one-step events. Any merged cell selects its owner. */
-  const handleStepClick = (padId: PadState['id'], stepIndex: number, headIndex: number | null) => {
-    if (headIndex === null) {
-      onToggleStep(padId, stepIndex)
-      selectStep(padId, stepIndex)
-      return
-    }
+  const paintAt = (pointerId: number, clientX: number, clientY: number) => {
+    const current = paintStroke.current
+    if (!current || current.pointerId !== pointerId) return
+    const stepElement = document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>('[data-sequencer-step]')
+    if (!stepElement || stepElement.dataset.padId !== current.padId) return
+    const stepIndex = Number(stepElement.dataset.stepIndex)
+    if (!Number.isInteger(stepIndex) || stepIndex === current.lastStepIndex) return
+    current.lastStepIndex = stepIndex
+    onPaintStep(current.padId, stepIndex, current.add)
+    selectStep(current.padId, stepIndex)
+  }
+
+  const beginPaint = (event: ReactPointerEvent<HTMLButtonElement>, padId: PadState['id'], stepIndex: number, filled: boolean) => {
+    if (paintStroke.current || (event.pointerType === 'mouse' && event.button !== 0)) return
+    event.preventDefault()
+    const add = !filled
+    paintStroke.current = { padId, add, pointerId: event.pointerId, lastStepIndex: stepIndex }
+    event.currentTarget.setPointerCapture(event.pointerId)
+    onPaintStep(padId, stepIndex, add)
     selectStep(padId, stepIndex)
   }
 
-  const handleStepDoubleClick = (padId: PadState['id'], headIndex: number | null) => {
-    if (headIndex === null) return
-    onToggleStep(padId, headIndex)
-  }
-
-  const handleMergeAction = () => {
-    if (!editedEvent) return
-    if (editedEvent.merged) onSplitStep(editedPad.id, editedHeadIndex)
-    else if (canMerge) onMergeSteps(editedPad.id, editedHeadIndex)
-    else return
-    setMergeFeedbackId((current) => current + 1)
-  }
+  useEffect(() => {
+    const endStroke = () => { paintStroke.current = null }
+    window.addEventListener('pointerup', endStroke)
+    window.addEventListener('pointercancel', endStroke)
+    return () => {
+      window.removeEventListener('pointerup', endStroke)
+      window.removeEventListener('pointercancel', endStroke)
+    }
+  }, [])
 
   useEffect(() => {
     if (displayActive) claim(tenant)
@@ -145,32 +157,6 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
       <div className="sequencer-step-pages" role="tablist" aria-label="Step range">
         <button className={stepPage === 0 ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" role="tab" aria-selected={stepPage === 0} onClick={() => setStepPage(0)}>01-08</button>
         <button className={stepPage === 1 ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" role="tab" aria-selected={stepPage === 1} onClick={() => setStepPage(1)}>09-16</button>
-      </div>
-      <span className="sequencer-toolbar-divider" aria-hidden="true" />
-      <div className="sequencer-length-editor" aria-label={editedEvent ? `${editedPad.label}, event starting at step ${editedHeadIndex + 1}` : 'Step event actions'}>
-        <button
-          className="mixer-toggle sequencer-length-remove"
-          type="button"
-          disabled={!editedEvent}
-          onClick={() => editedEvent && onToggleStep(editedPad.id, editedHeadIndex)}
-        >REMOVE</button>
-        {/* SCAL is a MOMENTARY action: the hard-plastic face depresses only while
-            pressed. Its cool tool flash confirms a completed action without becoming
-            a persistent latch state. */}
-        <button
-          className="sequencer-merge-action"
-          type="button"
-          data-mechanism="momentary"
-          disabled={!editedEvent || (!editedEvent.merged && !canMerge)}
-          onClick={handleMergeAction}
-        >
-          <span className="sequencer-merge-face" data-mechanism-face>
-            {mergeFeedbackId > 0 && <i className="sequencer-merge-flash" key={mergeFeedbackId} aria-hidden="true" />}
-            <strong>{editedEvent?.merged ? 'ROZDZIEL' : 'SCAL'}</strong>
-            <small>{editedEvent ? `${editedPad.label} / ${editedEvent.merged ? `STEPS ${editedHeadIndex + 1}-${editedEvent.endIndex + 1}` : `STEP ${editedHeadIndex + 1}`}` : 'SELECT ACTIVE STEPS'}</small>
-            {editedEvent && <span>{editedEvent.length} STEP{editedEvent.length === 1 ? '' : 'S'}</span>}
-          </span>
-        </button>
       </div>
     </div>
     <div className="pattern-matrix" aria-label={`Pattern steps ${pageStartStep + 1} through ${pageStartStep + 8}`}>
@@ -219,10 +205,21 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
                 key={stepIndex}
                 className={className}
                 type="button"
-                aria-label={`${pad.label}, step ${stepIndex + 1}${headIndex !== null ? `, select event starting at step ${headIndex + 1}; double click to remove` : ', add step'}`}
+                aria-label={`${pad.label}, step ${stepIndex + 1}, ${headIndex !== null ? 'active' : 'empty'}`}
                 aria-pressed={headIndex !== null}
-                onClick={() => handleStepClick(pad.id, stepIndex, headIndex)}
-                onDoubleClick={() => handleStepDoubleClick(pad.id, headIndex)}
+                data-sequencer-step
+                data-pad-id={pad.id}
+                data-step-index={stepIndex}
+                onPointerDown={(event) => beginPaint(event, pad.id, stepIndex, headIndex !== null)}
+                onPointerMove={(event) => paintAt(event.pointerId, event.clientX, event.clientY)}
+                onPointerUp={(event) => { if (paintStroke.current?.pointerId === event.pointerId) paintStroke.current = null }}
+                onPointerCancel={(event) => { if (paintStroke.current?.pointerId === event.pointerId) paintStroke.current = null }}
+                onLostPointerCapture={(event) => { if (paintStroke.current?.pointerId === event.pointerId) paintStroke.current = null }}
+                onClick={(event) => {
+                  if (event.detail !== 0) return
+                  onPaintStep(pad.id, stepIndex, headIndex === null)
+                  selectStep(pad.id, stepIndex)
+                }}
               ><small>{headIndex !== null && !isTail ? `${Math.round(headVelocity * 100)}%` : ''}</small></button>
             )
           })}

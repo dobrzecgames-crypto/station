@@ -57,6 +57,13 @@ export function addPatternGroup(groups: readonly PatternGroup[], id: string, pad
   return [...groups.map(clonePatternGroup), createPatternGroup(id, groups.length + 1, padIds)]
 }
 
+export function renamePatternGroup(groups: readonly PatternGroup[], groupId: string, name: string): PatternGroup[] {
+  const normalizedName = name.trim().replace(/\s+/g, ' ').slice(0, 24)
+  if (!normalizedName) throw new Error('Bank name cannot be empty.')
+  if (!groups.some((group) => group.id === groupId)) throw new Error('Pattern Group does not exist.')
+  return groups.map((group) => group.id === groupId ? { ...clonePatternGroup(group), name: normalizedName } : clonePatternGroup(group))
+}
+
 export function duplicateVariant(groups: readonly PatternGroup[], groupId: string, source: PatternVariantName, target: PatternVariantName, overwrite = false): PatternGroup[] {
   if (source === target) throw new Error('Choose a different variant destination.')
   return groups.map((group) => {
@@ -111,6 +118,19 @@ export function updateVariantStep(groups: readonly PatternGroup[], groupId: stri
       lengths: { ...cloned.lengths, [variant]: { ...lengths, [padId]: nextLengths } },
     }
   })
+}
+
+/** Paints toward one stable state, so repeated pointer moves over the same cell
+ * cannot toggle it back. Existing merged events remain readable: erasing any
+ * cell clears their whole stored span, while painted additions are always
+ * independent one-step events. */
+export function setVariantStepPresence(groups: readonly PatternGroup[], groupId: string, variant: PatternVariantName, padId: SampleId, stepIndex: number, shouldExist: boolean): PatternGroup[] {
+  const group = groups.find((candidate) => candidate.id === groupId)
+  const steps = group?.variants[variant]?.[padId]
+  const lengths = group?.lengths[variant]?.[padId]
+  if (!group || !steps || !lengths || stepIndex < 0 || stepIndex >= patternStepCount) throw new Error('Pattern step is invalid.')
+  const exists = getStepEventRange(steps, lengths, stepIndex) !== null
+  return exists === shouldExist ? groups.map(clonePatternGroup) : updateVariantStep(groups, groupId, variant, padId, stepIndex)
 }
 
 /** Recording reinforces the whole event when it lands inside a merged block. */

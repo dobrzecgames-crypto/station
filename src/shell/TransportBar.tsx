@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { patternVariantNames, maximumPatternGroups } from '../patterns/patternTypes'
 import type { PatternGroup, PatternVariantName } from '../patterns/patternTypes'
 import { SystemDisplay } from './SystemDisplay'
 import type { DisplayTenant } from './SystemDisplay'
+import { BankSelect } from './BankSelect'
 import { tempoTenant } from './TempoPanel'
-import { bankTenant } from './BankPanel'
-import { useSystemDisplay } from './systemDisplayContext'
 import type { AudioEngineStatus } from '../audio/AudioEngine'
 
 interface TransportBarProps {
@@ -48,6 +46,7 @@ interface TransportBarProps {
   /** Starts the count-in, punches in on a running transport, or punches out. */
   onRecordToggle: () => void
   onGroupChange: (groupId: string) => void
+  onGroupRename: (groupId: string, name: string) => void
   onVariantChange: (variant: PatternVariantName) => void
   onGroupCreate: () => void
   /** Fills an empty slot in the pattern row and switches to it. */
@@ -62,41 +61,10 @@ interface TransportBarProps {
   onStop: () => void
 }
 
-export function TransportBar({ bpm, swing, isPlaying, recording, countingIn, mode, loopSong, metronomeEnabled, settingsOpen, onSettingsOpenChange, groups, selectedGroupId, selectedVariant, statusMessage, errorMessage, focusReadout, displayOwner, audioStatus, audioDisabled, controlsAwake, onStartAudio, onBpmChange, onSwingChange, onModeChange, onLoopSongChange, onMetronomeEnabledChange, onRecordToggle, onGroupChange, onVariantChange, onGroupCreate, onVariantCreate, onVariantDuplicate, onVariantClear, onGroupDelete, projectControl, onPlay, onStop }: TransportBarProps) {
+export function TransportBar({ bpm, swing, isPlaying, recording, countingIn, mode, loopSong, metronomeEnabled, settingsOpen, onSettingsOpenChange, groups, selectedGroupId, selectedVariant, statusMessage, errorMessage, focusReadout, displayOwner, audioStatus, audioDisabled, controlsAwake, onStartAudio, onBpmChange, onSwingChange, onModeChange, onLoopSongChange, onMetronomeEnabledChange, onRecordToggle, onGroupChange, onGroupRename, onVariantChange, onGroupCreate, onVariantCreate, onGroupDelete, projectControl, onPlay, onStop }: TransportBarProps) {
   const groupIndex = groups.findIndex((group) => group.id === selectedGroupId)
   const selectedGroup = groups[groupIndex]
   const audioRecovering = audioStatus === 'suspended' || audioStatus === 'interrupted'
-  const { claim, release, ownerId } = useSystemDisplay()
-  const [managingBank, setManagingBank] = useState(false)
-  const latestBankActionsRef = useRef({ onVariantDuplicate, onVariantClear, onGroupDelete })
-  latestBankActionsRef.current = { onVariantDuplicate, onVariantClear, onGroupDelete }
-  const bankActions = useMemo(() => ({
-    onDuplicate: (target: PatternVariantName) => latestBankActionsRef.current.onVariantDuplicate(target),
-    onClear: () => latestBankActionsRef.current.onVariantClear(),
-    onDelete: () => latestBankActionsRef.current.onGroupDelete(),
-  }), [])
-
-  /* The panel is kept current rather than claimed once as a snapshot. Changing
-     bank or pattern while it is open - tapping + or an arrow - would otherwise
-     leave the heading naming BANK 1 while the buttons acted on whatever is
-     selected now, because the handlers read the selection when they fire. */
-  useEffect(() => {
-    if (!managingBank) return
-    claim(bankTenant({
-      bankNumber: groupIndex + 1,
-      group: selectedGroup,
-      variant: selectedVariant,
-      canDelete: groups.length > 1,
-      ...bankActions,
-    }))
-    return () => release('bank-manage')
-  }, [managingBank, groupIndex, selectedGroup, selectedVariant, groups.length, claim, release, bankActions])
-
-  /* Somebody else took the display - stop refreshing a panel that is no longer
-     on screen, or the next data change would snatch it back from them. */
-  useEffect(() => {
-    if (managingBank && ownerId !== null && ownerId !== 'bank-manage') setManagingBank(false)
-  }, [managingBank, ownerId])
 
   return <section className="transport-bar" aria-label="Transport">
     <div className="transport-controls">
@@ -153,17 +121,8 @@ export function TransportBar({ bpm, swing, isPlaying, recording, countingIn, mod
     <div className="music-context" aria-label="Current music context">
       {projectControl}
       <div className="group-selector">
-        <span className="context-label">BANK</span>
-        <button className="mixer-toggle" type="button" aria-label="Previous bank" disabled={groupIndex <= 0} onClick={() => onGroupChange(groups[groupIndex - 1].id)}>‹</button>
-        {/* The name is the way in to everything else you can do to a bank. */}
-        <button
-          className="bank-name"
-          type="button"
-          aria-expanded={managingBank}
-          aria-label={`Bank ${groupIndex + 1} actions`}
-          onClick={() => setManagingBank((open) => !open)}
-        >{groupIndex + 1}</button>
-        <button className="mixer-toggle" type="button" aria-label="Next bank" disabled={groupIndex >= groups.length - 1} onClick={() => onGroupChange(groups[groupIndex + 1].id)}>›</button>
+        <BankSelect groups={groups} selectedGroupId={selectedGroupId} onSelect={onGroupChange} onRename={onGroupRename} />
+        <button className="mixer-toggle bank-delete" type="button" aria-label={`Delete bank ${groupIndex + 1}`} disabled={groups.length <= 1} onClick={() => onGroupDelete()}>−</button>
         <button className="mixer-toggle" type="button" aria-label="New bank" disabled={groups.length >= maximumPatternGroups} onClick={onGroupCreate}>+</button>
       </div>
       {/* An empty slot is something you can make, not something that is broken.
@@ -171,7 +130,6 @@ export function TransportBar({ bpm, swing, isPlaying, recording, countingIn, mod
           second pattern - did nothing, and the only way through was a DUPLICATE
           row parked in the PROJECT tab. */}
       <div className="variant-selector" data-pattern-group={groupIndex + 1} aria-label="Pattern">
-        <span className="context-label">PAT</span>
         {patternVariantNames.map((variant) => {
           const exists = Boolean(selectedGroup.variants[variant])
           const className = selectedVariant === variant ? 'mixer-toggle mixer-toggle-active' : exists ? 'mixer-toggle' : 'mixer-toggle variant-empty'

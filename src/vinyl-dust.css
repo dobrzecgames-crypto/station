@@ -85,9 +85,13 @@ select, textarea {
   --nav-face-top: #34334d;
   --nav-face-mid: #24263d;
   --nav-face-bottom: #151727;
-  color: #c8c5d3;
+  color: color-mix(in srgb, var(--station-text) 92%, var(--nav-face-top));
   background: transparent;
   box-shadow: none;
+  font-family: var(--station-nav-font);
+  font-size: .58rem;
+  font-weight: 600;
+  letter-spacing: .045em;
 }
 .main-nav-button > [data-mechanism-face] {
   border-color: #4a4660;
@@ -95,10 +99,13 @@ select, textarea {
     linear-gradient(180deg, rgb(187 193 229 / 10%) 0%, transparent 34%),
     linear-gradient(180deg, #34334d 0%, #24263d 42%, #151727 100%);
   box-shadow: var(--mechanism-rest-shadow);
+  /* A shallow engraved legend: the upper cut stays dark and the lower edge
+     catches a trace of panel light. No bloom - this is pigment in a groove. */
+  text-shadow: 0 -1px 0 rgb(0 0 0 / 34%), 0 1px 0 rgb(255 247 238 / 9%);
 }
 @media (hover: hover) and (pointer: fine) {
   .main-nav-button:not(.main-nav-button-active):hover:not(:disabled) {
-    color: #f0e8df;
+    color: var(--station-text);
   }
   .main-nav-button:not(.main-nav-button-active):hover:not(:disabled) > [data-mechanism-face] {
     background:
@@ -129,7 +136,7 @@ select, textarea {
 .main-nav-button[data-workspace='project'] { --nav-face-top: #3e4556; --nav-face-mid: #2d3444; --nav-face-bottom: #1a202d; }
 .station-shell .main-nav-button.main-nav-button-active > [data-mechanism-face] {
   border-color: color-mix(in srgb, var(--nav-face-top) 76%, var(--station-text));
-  color: var(--station-text);
+  color: color-mix(in srgb, var(--station-text) 94%, var(--nav-face-top));
   /* The engaged key keeps its own material colour. Only the lighting model
      changes: the top falls into shadow and the lower edge catches a thin,
      faded trace of the workspace pigment. */
@@ -144,7 +151,7 @@ select, textarea {
     inset 0 -1px 0 rgb(255 239 220 / 3%),
     inset 0 -2px 0 color-mix(in srgb, var(--nav-face-top) 58%, transparent),
     0 1px 1px rgb(0 0 0 / 18%);
-  text-shadow: 0 1px 0 rgb(0 0 0 / 72%);
+  text-shadow: 0 -1px 0 rgb(0 0 0 / 40%), 0 1px 0 rgb(255 247 238 / 8%);
 }
 /* The inactive rail has gentle per-module night tones. These colours live on
    the keys alone; they do not alter the workspace accent or its controls. */
@@ -237,9 +244,9 @@ select, textarea {
   background: linear-gradient(180deg, var(--control-active-pressed), var(--control-active));
 }
 
-/* Existing destructive classes share STOP's dusty brick role. Recording keeps
+/* Destructive controls share STOP's dusty brick role. Recording keeps
    its separate, brighter status red below. */
-.sequencer-length-remove,
+.bank-delete,
 .context-panel-remove,
 .display-action-danger,
 .compact-danger {
@@ -248,7 +255,7 @@ select, textarea {
   background: color-mix(in srgb, var(--destructive-accent) 8%, var(--control-inactive));
 }
 
-.sequencer-length-remove:hover:not(:disabled),
+.bank-delete:hover:not(:disabled),
 .context-panel-remove:hover:not(:disabled),
 .display-action-danger:hover:not(:disabled),
 .compact-danger:hover:not(:disabled) {
@@ -1008,7 +1015,7 @@ output { color: var(--station-text); }
     inset 0 0 0 1px rgb(0 0 0 / 22%),
     inset 0 0 9px rgb(0 0 0 / 44%),
     0 1px 1px rgb(0 0 0 / 24%);
-  --pad-underlight: color-mix(in srgb, var(--signal-accent) 62%, var(--music-accent));
+  --pad-underlight: var(--loaded-accent);
   position: relative;
   isolation: isolate;
   aspect-ratio: auto;
@@ -1066,17 +1073,17 @@ output { color: var(--station-text); }
   text-align: center;
 }
 
-/* Loaded, selected and playing are symmetric edge/rim states. They never
-   relight the rubber surface. */
+/* Loaded, selected and playing are edge/light states. They never relight the
+   rubber surface itself. */
 .station-shell .pad[data-mechanism='pad'].pad-loaded {
   border-color: var(--loaded-accent);
 }
 
-/* Selection is an editing rim. It does not alter depth and can coexist
-   with the loaded edge, playing marker and a real physical press. */
+/* Selection stays on the pad's outer seam. An inset outline made the rubber
+   look like a second, smaller button nested inside the pad. */
 .station-shell .pad[data-mechanism='pad'].pad-selected {
-  outline: 1px solid var(--action-accent);
-  outline-offset: -3px;
+  border-color: color-mix(in srgb, var(--loaded-accent) 76%, var(--station-text));
+  outline: none;
 }
 
 .station-shell .pad[data-mechanism='pad'].pad-playing {
@@ -1085,6 +1092,22 @@ output { color: var(--station-text); }
 
 .station-shell .pad[data-mechanism='pad'].pad-playing::after {
   animation: pad-feedback 220ms cubic-bezier(.18, .72, .2, 1);
+}
+
+/* A held hit keeps the old lamp under the rubber visibly energised. The glow
+   follows the gold loaded-material rim instead of introducing another hue. */
+.station-shell .pad[data-mechanism='pad'][data-pressed='true']::after,
+.station-shell .pad[data-mechanism='pad']:active:not(:disabled)::after {
+  opacity: .94;
+  animation: none;
+  background:
+    radial-gradient(ellipse 94% 34% at 50% 106%, color-mix(in srgb, var(--pad-underlight) 86%, transparent), transparent 72%),
+    radial-gradient(ellipse 24% 76% at -4% 54%, color-mix(in srgb, var(--pad-underlight) 58%, transparent), transparent 76%),
+    radial-gradient(ellipse 24% 76% at 104% 54%, color-mix(in srgb, var(--pad-underlight) 58%, transparent), transparent 76%),
+    radial-gradient(ellipse 72% 16% at 50% -3%, color-mix(in srgb, var(--pad-underlight) 34%, transparent), transparent 76%);
+  box-shadow:
+    inset 0 -9px 13px -9px color-mix(in srgb, var(--pad-underlight) 82%, transparent),
+    inset 0 0 7px -4px color-mix(in srgb, var(--pad-underlight) 66%, transparent);
 }
 
 .station-shell .pad[data-mechanism='pad'][data-pressed='true'],

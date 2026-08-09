@@ -11,7 +11,7 @@
 
 .mixer-page-controls {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 4px;
   flex: 1;
 }
@@ -25,8 +25,8 @@
 
 .mixer-channels .mixer-strips {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 4px;
   margin-top: 10px;
   padding: 0;
   overflow: hidden;
@@ -51,7 +51,7 @@
    misalign, and the strip is narrow enough to leave room for its labels. */
 .mixer-strip-level {
   position: relative;
-  width: 18px;
+  width: 10px;
   height: 140px;
   margin: 0 auto;
 }
@@ -110,22 +110,24 @@
   box-shadow: none;
 }
 
-/* A cap across the groove rather than a knob beside it. It overhangs the rail
-   on both sides so the thing you grab is wider than the 18px it rides in, which
-   matters more on a touchscreen than it looks. */
+/* A dark bridge across the electric spine, not a beige hi-fi fader cap. The
+   physical hit area still overhangs the 10px rail for touch, while the narrow
+   signal-blue inlay makes its position precise without adding a glow. */
 .mixer-strip-fader input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 24px;
-  height: 9px;
-  /* vertical-rl + rtl centres the thumb about 1.5px right of the rail's
-     middle rather than dead centre; splitting the overhang unevenly the other
-     way corrects it without changing how much of the cap you can grab. */
-  margin: 0 -3px 0 -5px;
-  border: 1px solid rgb(0 0 0 / 55%);
+  width: 22px;
+  height: 8px;
+  /* The 22px cap deliberately overhangs the 10px rail. vertical-rl + rtl
+     biases it slightly right, so the uneven margins pull its visual centre
+     back onto the electric spine without shrinking the touch target. */
+  margin: 0 -6px 0 -8px;
+  border: 1px solid color-mix(in srgb, var(--control-active) 34%, var(--scene-line));
   border-radius: 2px;
-  background: linear-gradient(180deg, #dedc9f, #8f8f5a);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 60%), inset 0 1px 0 rgb(255 255 255 / 45%), inset 0 -1px 0 rgb(0 0 0 / 30%);
+  background:
+    linear-gradient(90deg, transparent 0 45%, var(--signal-accent) 45% 55%, transparent 55% 100%),
+    linear-gradient(180deg, color-mix(in srgb, var(--control-active) 16%, var(--scene-control)), var(--scene-control) 52%, var(--scene-recess));
+  box-shadow: 0 1px 2px rgb(0 0 0 / 56%), inset 0 1px 0 rgb(255 239 220 / 8%), inset 0 -1px 0 rgb(0 0 0 / 38%);
   cursor: ns-resize;
 }
 
@@ -134,7 +136,19 @@
   display: block;
   width: 100%;
   overflow: hidden;
-  background: linear-gradient(180deg, rgb(255 239 220 / 3%), transparent 16%, rgb(0 0 0 / 22%));
+  /* A dormant conductive spine under smoked glass. It gives the live signal
+     a physical path without falling back to a literal vintage LED ladder. */
+  background:
+    linear-gradient(
+      90deg,
+      rgb(0 0 0 / 32%) 0%,
+      transparent 34%,
+      color-mix(in srgb, var(--signal-accent) 11%, var(--scene-control)) 44% 56%,
+      transparent 66%,
+      rgb(255 239 220 / 3%) 100%
+    ),
+    var(--scene-recess);
+  box-shadow: inset 1px 0 1px rgb(0 0 0 / 42%), inset -1px 0 0 rgb(255 239 220 / 3%);
 }
 
 .channel-meter-fill {
@@ -143,16 +157,53 @@
   bottom: 0;
   left: 0;
   min-height: 0;
-  background: linear-gradient(180deg, var(--action-accent), var(--loaded-accent) 56%, #78603f 100%);
+  overflow: visible;
+  background: color-mix(in srgb, var(--signal-accent) 13%, transparent);
+  box-shadow: inset 0 0 3px color-mix(in srgb, var(--signal-accent) 12%, transparent);
+}
+
+.channel-meter-fill::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  background: linear-gradient(
+    to top,
+    var(--signal-accent) 0 72%,
+    var(--loaded-accent) 72% 88%,
+    var(--focus-accent) 88% 100%
+  );
+  background-position: center bottom;
+  background-size: 100% 140px;
+  box-shadow: 0 0 3px color-mix(in srgb, var(--signal-accent) 34%, transparent);
+  content: '';
+  transform: translateX(-50%);
+}
+
+.channel-meter-fill::after {
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  width: 7px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--signal-focus);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--signal-focus) 54%, transparent);
+  content: '';
+  transform: translateX(-50%);
 }
 
 .channel-meter-peak {
   position: absolute;
-  right: 0;
-  left: 0;
+  left: 50%;
+  width: 6px;
   height: 2px;
   margin-bottom: -1px;
-  background: var(--signal-accent);
+  border-radius: 1px;
+  background: var(--signal-focus);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--signal-focus) 42%, transparent);
+  transform: translateX(-50%);
 }
 
 /* A stub on each rail edge rather than one on the right only, which read as a
@@ -182,6 +233,7 @@
 .mixer-channels .mixer-strip {
   width: auto;
   min-width: 0;
+  padding-inline: 3px;
 }
 
 .mix-routing {

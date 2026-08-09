@@ -18,7 +18,7 @@ interface MixerProps {
 }
 
 export function Mixer({ audioEngine, patternGroupId, pads, pumpSourcePadIds, onVolumeChange, onMutedChange, onSoloChange }: MixerProps) {
-  const channelsPerPage = 4
+  const channelsPerPage = 8
   const pageCount = Math.ceil(pads.length / channelsPerPage)
   const [pageIndex, setPageIndex] = useState(0)
   const firstChannel = pageIndex * channelsPerPage

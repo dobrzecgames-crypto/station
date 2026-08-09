@@ -57,9 +57,12 @@
   background: #0b0c14;
   font-family: "Inter", "Segoe UI Variable", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   --station-display-font: "Rajdhani", "Bahnschrift", "Arial Narrow", "Segoe UI", sans-serif;
+  --station-control-font: "Franklin Gothic Medium", "Arial Narrow", "Segoe UI", sans-serif;
+  --station-nav-font: "Trebuchet MS", Tahoma, "Segoe UI", sans-serif;
   /* Anything that is a measurement is mono - it is what stops columns of numbers
      jittering as values change. */
   --station-mono-font: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --system-display-font: Consolas, "DejaVu Sans Mono", var(--station-mono-font);
   /* Vinyl Dust: cool, nocturnal chassis with faded functional pigments.
      Colour names below describe meaning, not the open workspace. */
   --station-bg: #0b0c14;

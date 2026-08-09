@@ -1,6 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
 import type { PadState } from './types'
 
+const touchReleaseSlopPx = 18
+const penReleaseSlopPx = 8
+
+function pointerReleaseSlop(pointerType: string) {
+  if (pointerType === 'touch') return touchReleaseSlopPx
+  if (pointerType === 'pen') return penReleaseSlopPx
+  return 0
+}
+
+function isOutsidePad(bounds: DOMRect, clientX: number, clientY: number, slop: number) {
+  return clientX < bounds.left - slop
+    || clientX > bounds.right + slop
+    || clientY < bounds.top - slop
+    || clientY > bounds.bottom + slop
+}
+
 interface PadProps {
   pad: PadState
   isSelected: boolean
@@ -31,7 +47,7 @@ export function Pad({
   chordRoot,
 }: PadProps) {
   const buttonRef = useRef<HTMLButtonElement>(null)
-  const pointerIds = useRef(new Set<number>())
+  const pointerReleaseSlops = useRef(new Map<number, number>())
   const activationKey = useRef<' ' | 'Enter' | null>(null)
   const [isPointerPressed, setIsPointerPressed] = useState(false)
   const [isActivationKeyPressed, setIsActivationKeyPressed] = useState(false)
@@ -49,14 +65,15 @@ export function Pad({
   }
 
   const releasePointer = (pointerId: number) => {
-    if (!pointerIds.current.delete(pointerId)) return
-    setIsPointerPressed(pointerIds.current.size > 0)
-    onRelease(pad.id)
+    if (!pointerReleaseSlops.current.delete(pointerId)) return
+    const hasHeldPointer = pointerReleaseSlops.current.size > 0
+    setIsPointerPressed(hasHeldPointer)
+    if (!hasHeldPointer) onRelease(pad.id)
   }
 
   const releaseAllPointers = () => {
-    if (pointerIds.current.size === 0) return
-    pointerIds.current.clear()
+    if (pointerReleaseSlops.current.size === 0) return
+    pointerReleaseSlops.current.clear()
     setIsPointerPressed(false)
     onRelease(pad.id)
   }
@@ -71,24 +88,22 @@ export function Pad({
   useEffect(() => {
     if (!isPointerPressed) return
     const releaseTrackedPointer = (event: PointerEvent) => releasePointer(event.pointerId)
-    const releasePointerOutside = (event: PointerEvent | MouseEvent) => {
+    const releasePointerOutside = (event: PointerEvent) => {
+      const slop = pointerReleaseSlops.current.get(event.pointerId)
+      if (slop === undefined) return
       const bounds = buttonRef.current?.getBoundingClientRect()
-      if (bounds && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom)) releaseAllPointers()
+      if (bounds && isOutsidePad(bounds, event.clientX, event.clientY, slop)) releasePointer(event.pointerId)
     }
     const clearOnVisibilityLoss = () => { if (document.visibilityState !== 'visible') releaseAllPointers() }
     window.addEventListener('pointerup', releaseTrackedPointer, true)
     window.addEventListener('pointercancel', releaseTrackedPointer, true)
     window.addEventListener('pointermove', releasePointerOutside, true)
-    window.addEventListener('mouseup', releaseAllPointers, true)
-    window.addEventListener('mousemove', releasePointerOutside, true)
     window.addEventListener('blur', releaseAllPointers)
     document.addEventListener('visibilitychange', clearOnVisibilityLoss)
     return () => {
       window.removeEventListener('pointerup', releaseTrackedPointer, true)
       window.removeEventListener('pointercancel', releaseTrackedPointer, true)
       window.removeEventListener('pointermove', releasePointerOutside, true)
-      window.removeEventListener('mouseup', releaseAllPointers, true)
-      window.removeEventListener('mousemove', releasePointerOutside, true)
       window.removeEventListener('blur', releaseAllPointers)
       document.removeEventListener('visibilitychange', clearOnVisibilityLoss)
     }
@@ -113,17 +128,17 @@ export function Pad({
         if (event.pointerType === 'mouse' && event.button !== 0) return
         event.preventDefault()
         event.currentTarget.setPointerCapture(event.pointerId)
-        pointerIds.current.add(event.pointerId)
+        pointerReleaseSlops.current.set(event.pointerId, pointerReleaseSlop(event.pointerType))
         setIsPointerPressed(true)
         trigger()
       }}
       onPointerMove={(event) => {
-        if (!pointerIds.current.has(event.pointerId)) return
+        const slop = pointerReleaseSlops.current.get(event.pointerId)
+        if (slop === undefined) return
         const bounds = event.currentTarget.getBoundingClientRect()
-        if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) releasePointer(event.pointerId)
+        if (isOutsidePad(bounds, event.clientX, event.clientY, slop)) releasePointer(event.pointerId)
       }}
       onPointerUp={(event) => releasePointer(event.pointerId)}
-      onPointerLeave={(event) => releasePointer(event.pointerId)}
       onPointerCancel={(event) => releasePointer(event.pointerId)}
       onLostPointerCapture={(event) => releasePointer(event.pointerId)}
       onKeyDown={(event) => {

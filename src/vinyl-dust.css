@@ -390,13 +390,14 @@ select, textarea {
 .station-shell[data-view='pad'] .pad-grid {
   width: 100%;
   height: auto;
+  margin-inline: 0;
   aspect-ratio: 1 / 1;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   grid-template-rows: repeat(4, minmax(0, 1fr));
   align-content: start;
   align-items: stretch;
-  gap: 6px;
-  padding: 8px;
+  gap: 4px;
+  padding: 3px;
   border: 1px solid #39343b;
   border-radius: 7px;
   background:
@@ -497,8 +498,10 @@ select, textarea {
 }
 
 @keyframes pad-feedback {
-  from { opacity: 1; }
-  to { opacity: 1; }
+  0% { opacity: 0; }
+  16% { opacity: .96; }
+  58% { opacity: .38; }
+  100% { opacity: 0; }
 }
 .mix-pump-entry-active {
   border-color: var(--station-accent);
@@ -990,6 +993,9 @@ output { color: var(--station-text); }
     inset 0 0 0 1px rgb(0 0 0 / 22%),
     inset 0 0 9px rgb(0 0 0 / 44%),
     0 1px 1px rgb(0 0 0 / 24%);
+  --pad-underlight: color-mix(in srgb, var(--signal-accent) 62%, var(--music-accent));
+  position: relative;
+  isolation: isolate;
   aspect-ratio: auto;
   width: 100%;
   height: 100%;
@@ -1013,10 +1019,26 @@ output { color: var(--station-text); }
   text-align: left;
 }
 
+/* A hit briefly exposes the lamp beneath the rubber at its seam. The light is
+   kept inside the pad silhouette so it reads as old hardware under-lighting,
+   not as an external web-style glow. */
+.station-shell .pad[data-mechanism='pad']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    radial-gradient(ellipse 82% 24% at 50% 104%, color-mix(in srgb, var(--pad-underlight) 66%, transparent), transparent 72%),
+    radial-gradient(ellipse 18% 68% at -3% 54%, color-mix(in srgb, var(--pad-underlight) 34%, transparent), transparent 76%),
+    radial-gradient(ellipse 18% 68% at 103% 54%, color-mix(in srgb, var(--pad-underlight) 34%, transparent), transparent 76%);
+  box-shadow: inset 0 -7px 10px -9px color-mix(in srgb, var(--pad-underlight) 56%, transparent);
+}
+
 /* Keep legacy workspace skins off the performance pads without turning the
    button itself into a transparent wrapper. */
-.station-shell[data-view] .pad[data-mechanism='pad'],
-.station-shell[data-view] .pad[data-mechanism='pad']:hover:not(:disabled) {
+.station-shell[data-view] .pad[data-mechanism='pad'] {
   border: 1px solid var(--scene-line);
   background: var(--scene-control);
   box-shadow: var(--mechanism-rest-shadow);
@@ -1043,10 +1065,11 @@ output { color: var(--station-text); }
 }
 
 .station-shell .pad[data-mechanism='pad'].pad-playing {
-  animation: pad-feedback 180ms linear;
-  box-shadow:
-    inset 0 0 0 1px var(--signal-accent),
-    var(--mechanism-rest-shadow);
+  box-shadow: var(--mechanism-rest-shadow);
+}
+
+.station-shell .pad[data-mechanism='pad'].pad-playing::after {
+  animation: pad-feedback 220ms cubic-bezier(.18, .72, .2, 1);
 }
 
 .station-shell .pad[data-mechanism='pad'][data-pressed='true'],
@@ -1056,11 +1079,6 @@ output { color: var(--station-text); }
   transform: translateY(var(--mechanism-travel));
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .station-shell .pad[data-mechanism='pad']:hover:not(:disabled) {
-    border-color: var(--scene-line-strong);
-  }
-}
 @keyframes station-panel-power-on {
   from {
     border-color: #454649;
@@ -1138,6 +1156,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .station-shell .pad[data-mechanism='pad'].pad-playing::after {
+    animation-duration: 1ms;
+  }
+
   .station-shell[data-power-phase='display'] .system-display,
   .station-shell[data-power-phase='on'], .station-shell[data-power-phase='on'] .station-panel,
   .station-shell[data-power-phase='on'] .station-branding,

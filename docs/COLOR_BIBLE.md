@@ -23,27 +23,54 @@ Text is ivory `#EEE4D6` with muted text `#C8BCAE`; pure white is not a UI colour
 
 | Meaning | Token | Value |
 | --- | --- | --- |
-| Primary action / selection | `--action-accent` | `#C86F50` |
-| Pressed action | `--action-pressed` | `#9F4937` |
+| Station identity / focus / currently running | `--focus-accent` | `#C86F50` |
+| Pressed Station focus | `--focus-pressed` | `#9F4937` |
+| Pattern / sequenced musical material | `--music-accent` | `#A66F91` |
+| Pressed musical material | `--music-pressed` | `#774D68` |
+| Active function / tool | `--control-active` | `#7891A3` |
+| Pressed function / tool | `--control-active-pressed` | `#526878` |
+| Inactive function / tool | `--control-inactive` | `--scene-control` |
+| PLAY | `--transport-play` | `#819868` |
+| Pressed PLAY | `--transport-play-pressed` | `#5C704A` |
+| STOP / destructive | `--transport-stop` | `#AD675B` |
+| Pressed STOP / destructive | `--transport-stop-pressed` | `#7E443D` |
 | Loaded sample / stored material | `--loaded-accent` | `#B99A62` |
-| Ready, focus, playback signal | `--signal-accent` | `#83BED2` |
-| Strong focus | `--signal-focus` | `#B5E0EB` |
+| Ready / display playback signal | `--signal-accent` | `#83BED2` |
+| Strong display signal | `--signal-focus` | `#B5E0EB` |
 | Recording / critical | `--status-recording` | `#CF5450` |
 | Warning | `--status-warning` | `#D4A563` |
+
+`--action-accent` and `--action-pressed` remain compatibility aliases for the
+focus pair. New component styling must choose the narrowest semantic role
+instead of treating either alias as a universal active colour.
+
+## Pattern identity
+
+Each Pattern Group owns one faded pigment from `--pattern-group-1` through
+`--pattern-group-8`. Variants A-D derive four nearby shades from that group
+token: A is lightest, B is the base pigment, C is slightly shaded and D is the
+deepest. The transport's A-D selector, SONG lane label and SONG clip must use
+the same derived colour. Orange may outline the selected/current or playing
+pattern, but it must not replace that pattern's identity colour.
 
 ## Workspace identity
 
 CHOP is plum, PADS gold, SYNTH moss green, STRINGS dusty blue, SEQ lavender,
 SONG dusty rose and MIX petrol. These
 colours belong to the top navigation, headings and small scope labels only.
-They do not recolour buttons, pads, sequencer steps or panels. PROJECT is a
+They do not recolour buttons, pads, sequencer steps or panels. Active sequencer
+steps use the fixed `--music-accent`; SEQ lavender continues to identify the
+workspace key only. PROJECT is a
 System Display tenant rather than a workspace and therefore uses the display's
 smoke-blue light.
 
 ## Light and material
 
 The chassis is the darkest enclosing material: controls and cards are mounted
-inside it rather than floating directly on the page. Blue light is reserved for the System Display, ON/READY lamp, keyboard focus and
-the thin marker for the currently playing sequencer step. REC is the only red
-light. Controls remain matte with a narrow rim, a restrained lower shadow and a
-short pressed depth; navigation, pads and CTAs do not emit decorative glow.
+inside it rather than floating directly on the page. Smoke-blue light remains
+reserved for the System Display and ON/READY signal. Orange marks keyboard
+focus, selected high-priority objects and the currently playing sequencer step.
+PLAY is muted olive green; STOP and destructive actions are dusty brick red;
+REC retains the brighter fixed recording red. Controls remain matte with a
+narrow rim, a restrained lower shadow and a short pressed depth; navigation,
+pads and CTAs do not emit decorative glow.

@@ -60,8 +60,8 @@
   /* Anything that is a measurement is mono - it is what stops columns of numbers
      jittering as values change. */
   --station-mono-font: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
-  /* Vinyl Dust: cool, nocturnal chassis; warm musical controls; blue is a
-     strictly technical signal rather than a second accent system. */
+  /* Vinyl Dust: cool, nocturnal chassis with faded functional pigments.
+     Colour names below describe meaning, not the open workspace. */
   --station-bg: #0b0c14;
   --station-panel: #181720;
   --station-card: #221e22;
@@ -81,6 +81,34 @@
   --signal-blue-bright: #b5e0eb;
   --signal-blue-dim: #426b7a;
 
+  /* Functional accents. Orange is Station/focus, not the universal ON colour.
+     The other pigments separate musical content, tools and transport while
+     staying inside the same low-chroma Vinyl Dust palette. */
+  --focus-accent: var(--accent-terracotta);
+  --focus-pressed: var(--accent-terracotta-pressed);
+  --music-accent: #a66f91;
+  --music-pressed: #774d68;
+  --control-active: #7891a3;
+  --control-active-pressed: #526878;
+  --control-inactive: var(--station-raised);
+  --transport-play: #819868;
+  --transport-play-pressed: #5c704a;
+  --transport-stop: #ad675b;
+  --transport-stop-pressed: #7e443d;
+  --destructive-accent: var(--transport-stop);
+
+  /* Pattern identity. A bank owns one faded pigment; A-D derive nearby shades
+     from it, so the same musical object keeps its colour in the selector and
+     in SONG without turning the interface into a bright rainbow. */
+  --pattern-group-1: var(--music-accent);
+  --pattern-group-2: #7f80a8;
+  --pattern-group-3: #728fa0;
+  --pattern-group-4: #6f958b;
+  --pattern-group-5: #87966c;
+  --pattern-group-6: #a38a62;
+  --pattern-group-7: #a66f63;
+  --pattern-group-8: #906f97;
+
   /* Vinyl Dust Color Bible: semantic roles used by the final UI layer. */
   --scene-void: var(--station-bg);
   --scene-sky: #201b2b;
@@ -91,8 +119,10 @@
   --scene-recess: var(--station-recess);
   --scene-line: var(--station-line);
   --scene-line-strong: var(--station-line-strong);
-  --action-accent: var(--accent-terracotta);
-  --action-pressed: var(--accent-terracotta-pressed);
+  /* Compatibility aliases for components that still use the original role
+     names. New state styling should choose the narrower tokens above. */
+  --action-accent: var(--focus-accent);
+  --action-pressed: var(--focus-pressed);
   --loaded-accent: var(--accent-gold);
   --signal-accent: var(--signal-blue);
   --signal-focus: var(--signal-blue-bright);
@@ -214,7 +244,7 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid var(--signal-blue-bright);
+  outline: 2px solid var(--focus-accent);
   outline-offset: 3px;
 }
 
@@ -281,7 +311,7 @@ textarea:focus-visible {
 }
 
 .station-shell [data-mechanism]:focus-visible {
-  outline: 2px solid var(--signal-focus);
+  outline: 2px solid var(--focus-accent);
   outline-offset: 3px;
 }
 

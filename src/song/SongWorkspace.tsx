@@ -26,7 +26,7 @@ export function SongWorkspace({ groups, clips, selectedGroupId, selectedVariant,
   const [pageIndex, setPageIndex] = useState(0)
   const firstSlot = pageIndex * SLOTS_PER_PAGE + 1
   const visibleSlots = Array.from({ length: SLOTS_PER_PAGE }, (_, index) => firstSlot + index)
-  const rows = groups.flatMap((group) => patternVariantNames.filter((name) => group.variants[name]).map((name) => ({ group, variant: name })))
+  const rows = groups.flatMap((group, groupIndex) => patternVariantNames.filter((name) => group.variants[name]).map((name) => ({ group, groupIndex, variant: name })))
   const trackTemplate = `repeat(${SLOTS_PER_PAGE}, minmax(0, 1fr))`
   const stroke = useRef<PaintStroke | null>(null)
 
@@ -80,7 +80,7 @@ export function SongWorkspace({ groups, clips, selectedGroupId, selectedVariant,
         </div>
       </div>
 
-      {rows.map(({ group, variant }) => {
+      {rows.map(({ group, groupIndex, variant }) => {
         const isCurrent = group.id === selectedGroupId && variant === selectedVariant
         const rowClips = clips.filter((clip) => clip.patternGroupId === group.id && clip.variant === variant)
         /* Bank number from the position in the list, matching the transport.
@@ -88,9 +88,14 @@ export function SongWorkspace({ groups, clips, selectedGroupId, selectedVariant,
            label depended on a string in saved project data - and would have
            printed the whole name for any group that was not called
            "Pattern N". */
-        const shortLabel = `${groups.findIndex((item) => item.id === group.id) + 1}${variant}`
+        const shortLabel = `${groupIndex + 1}${variant}`
         return (
-          <div className={`arrangement-lane${isCurrent ? ' arrangement-lane-current' : ''}`} key={`${group.id}-${variant}`}>
+          <div
+            className={`arrangement-lane${isCurrent ? ' arrangement-lane-current' : ''}`}
+            data-pattern-group={groupIndex + 1}
+            data-pattern-variant={variant}
+            key={`${group.id}-${variant}`}
+          >
             {/* The lane for the pattern selected in SEQ is marked rather than
                 announced - this replaces the "PLACE Pattern 1 A" line that
                 used to say the same thing in words above the grid. */}

@@ -170,7 +170,7 @@ export function TransportBar({ bpm, swing, isPlaying, recording, countingIn, mod
           It used to be disabled, which meant the obvious move - tap B to get a
           second pattern - did nothing, and the only way through was a DUPLICATE
           row parked in the PROJECT tab. */}
-      <div className="variant-selector" aria-label="Pattern">
+      <div className="variant-selector" data-pattern-group={groupIndex + 1} aria-label="Pattern">
         <span className="context-label">PAT</span>
         {patternVariantNames.map((variant) => {
           const exists = Boolean(selectedGroup.variants[variant])
@@ -179,6 +179,7 @@ export function TransportBar({ bpm, swing, isPlaying, recording, countingIn, mod
             className={className}
             key={variant}
             type="button"
+            data-pattern-variant={variant}
             aria-pressed={selectedVariant === variant}
             aria-label={exists ? `Pattern ${variant}` : `Create pattern ${variant}`}
             disabled={!controlsAwake}

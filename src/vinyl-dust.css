@@ -59,11 +59,15 @@ select, textarea {
 }
 
 .mixer-toggle:hover:not(:disabled),
-.group-strip-button:hover:not(:disabled), .header-project-button:hover:not(:disabled),
+.header-project-button:hover:not(:disabled),
 .clear-button:hover:not(:disabled), .effect-slot-button:hover:not(:disabled),
 .effect-slot-card:hover:not(:disabled), .mix-pump-entry:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--station-accent) 72%, var(--station-line-strong));
+  border-color: color-mix(in srgb, var(--control-active) 72%, var(--station-line-strong));
   color: var(--station-text);
+}
+
+.group-strip-button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--focus-accent) 72%, var(--station-line-strong));
 }
 
 /* Workspace keys form their own midnight rail. The upper plum-blue edge and
@@ -137,12 +141,104 @@ select, textarea {
 .main-nav-button[data-workspace='song']:not(.main-nav-button-active) > [data-mechanism-face] { background: linear-gradient(180deg, #503549 0%, #36263c 45%, #201827 100%); }
 .main-nav-button[data-workspace='mix']:not(.main-nav-button-active) > [data-mechanism-face] { background: linear-gradient(180deg, #2c4954 0%, #213744 45%, #14212c 100%); }
 .main-nav-button[data-workspace='project']:not(.main-nav-button-active) > [data-mechanism-face] { background: linear-gradient(180deg, #3e4556 0%, #2d3444 45%, #1a202d 100%); }
-.mixer-toggle-active, .group-strip-selected,
-.pump-target-toggle.mixer-toggle-active, .transport-button {
-  border-color: color-mix(in srgb, var(--station-accent) 76%, var(--accent-gold-light));
+.mixer-toggle-active,
+.pump-target-toggle.mixer-toggle-active {
+  border-color: color-mix(in srgb, var(--control-active) 76%, var(--station-text));
   color: var(--station-bg);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--station-accent) 86%, #fff) 0%, var(--station-accent) 54%, var(--accent-terracotta-pressed) 100%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--control-active) 86%, #fff) 0%, var(--control-active) 54%, var(--control-active-pressed) 100%);
+  box-shadow: inset 0 1px 0 rgb(236 244 248 / 18%), inset 0 -2px 3px rgb(17 28 36 / 34%), 0 1px 2px rgb(0 0 0 / 28%);
+}
+
+.group-strip-selected {
+  border-color: color-mix(in srgb, var(--focus-accent) 76%, var(--accent-gold-light));
+  color: var(--station-bg);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--focus-accent) 86%, #fff) 0%, var(--focus-accent) 54%, var(--focus-pressed) 100%);
   box-shadow: inset 0 1px 0 rgb(255 239 220 / 22%), inset 0 -2px 3px rgb(54 17 14 / 32%), 0 1px 2px rgb(0 0 0 / 28%);
+}
+
+/* PATTERN / SONG select the transport's operating context, so they retain the
+   Station-orange engaged state instead of reading like ordinary tool toggles. */
+.transport-modes .mixer-toggle-active,
+.transport-modes .mixer-toggle-active:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--focus-accent) 76%, var(--accent-gold-light));
+  color: var(--station-bg);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--focus-accent) 86%, #fff) 0%, var(--focus-accent) 54%, var(--focus-pressed) 100%);
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 22%), inset 0 -2px 3px rgb(54 17 14 / 32%), 0 1px 2px rgb(0 0 0 / 28%);
+}
+
+/* Bank colour is inherited; variant colour is a close shade of that bank.
+   These attributes are shared by the transport selector and SONG lanes. */
+[data-pattern-group='1'] { --pattern-group-color: var(--pattern-group-1); }
+[data-pattern-group='2'] { --pattern-group-color: var(--pattern-group-2); }
+[data-pattern-group='3'] { --pattern-group-color: var(--pattern-group-3); }
+[data-pattern-group='4'] { --pattern-group-color: var(--pattern-group-4); }
+[data-pattern-group='5'] { --pattern-group-color: var(--pattern-group-5); }
+[data-pattern-group='6'] { --pattern-group-color: var(--pattern-group-6); }
+[data-pattern-group='7'] { --pattern-group-color: var(--pattern-group-7); }
+[data-pattern-group='8'] { --pattern-group-color: var(--pattern-group-8); }
+[data-pattern-variant='A'] { --pattern-color: color-mix(in srgb, var(--pattern-group-color) 88%, var(--station-text)); }
+[data-pattern-variant='B'] { --pattern-color: var(--pattern-group-color); }
+[data-pattern-variant='C'] { --pattern-color: color-mix(in srgb, var(--pattern-group-color) 94%, var(--station-card)); }
+[data-pattern-variant='D'] { --pattern-color: color-mix(in srgb, var(--pattern-group-color) 86%, var(--station-card)); }
+
+.variant-selector .mixer-toggle[data-pattern-variant] {
+  border-color: color-mix(in srgb, var(--pattern-color) 42%, var(--station-line));
+  color: var(--pattern-color);
+  background: color-mix(in srgb, var(--pattern-color) 7%, var(--control-inactive));
+}
+
+.variant-selector .mixer-toggle-active[data-pattern-variant],
+.variant-selector .mixer-toggle-active[data-pattern-variant]:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--pattern-color) 78%, var(--station-text));
+  color: var(--station-bg);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--pattern-color) 86%, #fff), var(--pattern-color) 58%, color-mix(in srgb, var(--pattern-color) 82%, var(--station-bg)));
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 18%), inset 0 -2px 3px rgb(20 15 22 / 34%), 0 1px 2px rgb(0 0 0 / 28%);
+}
+
+.variant-selector .variant-empty[data-pattern-variant],
+.variant-selector .variant-empty[data-pattern-variant]:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--pattern-color) 46%, var(--station-line));
+  color: var(--pattern-color);
+  background: color-mix(in srgb, var(--pattern-color) 4%, transparent);
+}
+
+/* Utility actions are graphite at rest and cool blue-grey when operated. They
+   no longer borrow Station orange simply because they happen to be clickable. */
+.transport-button {
+  border-color: var(--station-line);
+  color: var(--station-text);
+  background: linear-gradient(180deg, #383035 0%, var(--control-inactive) 48%, #211d20 100%);
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 8%), inset 0 -1px 0 rgb(0 0 0 / 45%), 0 1px 2px rgb(0 0 0 / 24%);
+}
+
+.transport-button:hover:not(:disabled) {
+  border-color: var(--control-active);
+  color: var(--control-active);
+}
+
+.transport-button:active:not(:disabled) {
+  border-color: var(--control-active);
+  color: var(--station-bg);
+  background: linear-gradient(180deg, var(--control-active-pressed), var(--control-active));
+}
+
+/* Existing destructive classes share STOP's dusty brick role. Recording keeps
+   its separate, brighter status red below. */
+.sequencer-length-remove,
+.context-panel-remove,
+.display-action-danger,
+.compact-danger {
+  border-color: color-mix(in srgb, var(--destructive-accent) 55%, var(--station-line));
+  color: var(--destructive-accent);
+  background: color-mix(in srgb, var(--destructive-accent) 8%, var(--control-inactive));
+}
+
+.sequencer-length-remove:hover:not(:disabled),
+.context-panel-remove:hover:not(:disabled),
+.display-action-danger:hover:not(:disabled),
+.compact-danger:hover:not(:disabled) {
+  border-color: var(--destructive-accent);
+  color: var(--destructive-accent);
 }
 
 .mixer-toggle:active:not(:disabled),
@@ -173,7 +269,55 @@ select, textarea {
 .system-power-switch .status-interrupted { background: var(--status-warning); box-shadow: 0 0 6px rgb(212 165 99 / 40%); }
 .system-power-switch .status-error { background: var(--status-error); box-shadow: 0 0 6px rgb(221 98 92 / 42%); }
 
-/* REC is the only red control. The disabled state remains visibly distinct. */
+/* PLAY and STOP are fixed transport meanings. Their colours do not follow the
+   workspace and remain visibly related even when the unavailable key is dim. */
+.transport-play-button,
+.transport-play-button:disabled,
+.chop-preview-play,
+.chop-preview-play:disabled {
+  border-color: color-mix(in srgb, var(--transport-play) 54%, var(--station-line));
+  color: var(--transport-play);
+  background: linear-gradient(180deg, #33382f 0%, #282d25 52%, #1c201a 100%);
+}
+
+.transport-play-button:not(:disabled),
+.chop-preview-play:not(:disabled) {
+  border-color: color-mix(in srgb, var(--transport-play) 78%, var(--station-text));
+  color: var(--station-bg);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--transport-play) 86%, #fff) 0%, var(--transport-play) 56%, var(--transport-play-pressed) 100%);
+}
+
+.transport-play-button:not(:disabled):hover,
+.chop-preview-play:not(:disabled):hover {
+  border-color: color-mix(in srgb, var(--transport-play) 88%, var(--station-text));
+  color: var(--station-bg);
+}
+
+.transport-stop-button,
+.transport-stop-button:disabled,
+.chop-preview-stop,
+.chop-preview-stop:disabled {
+  border-color: color-mix(in srgb, var(--transport-stop) 54%, var(--station-line));
+  color: var(--transport-stop);
+  background: linear-gradient(180deg, #3b2b2b 0%, #2d2223 52%, #20191b 100%);
+  opacity: 1;
+}
+
+.transport-stop-button:not(:disabled),
+.chop-preview-stop:not(:disabled) {
+  border-color: color-mix(in srgb, var(--transport-stop) 78%, var(--station-text));
+  color: var(--station-bg);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--transport-stop) 86%, #fff) 0%, var(--transport-stop) 56%, var(--transport-stop-pressed) 100%);
+}
+
+.transport-stop-button:not(:disabled):hover,
+.chop-preview-stop:not(:disabled):hover {
+  border-color: color-mix(in srgb, var(--transport-stop) 88%, var(--station-text));
+  color: var(--station-bg);
+}
+
+/* REC keeps the brighter recording red rather than borrowing STOP's dusty
+   brick. The disabled state remains visibly distinct. */
 .transport-record-button, .transport-record-button:disabled {
   border-color: #784948;
   background: linear-gradient(180deg, #39272a, #241a1d);
@@ -365,25 +509,37 @@ select, textarea {
   background: linear-gradient(180deg, #342d31, #282226 100%);
   box-shadow: inset 0 1px 0 rgb(255 239 220 / 6%);
 }
-.step-active, .step-full, .sample-loaded, .pattern-matrix-row > .pattern-step.step-active {
-  border-color: var(--station-accent);
+.step-active, .step-full, .pattern-matrix-row > .pattern-step.step-active {
+  border-color: var(--music-accent);
   color: var(--station-bg);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--station-accent) 86%, #fff), var(--station-accent) 62%, var(--accent-terracotta-pressed));
-  box-shadow: inset 0 1px 0 rgb(255 239 220 / 20%), inset 0 -1px 0 rgb(67 22 17 / 28%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--music-accent) 86%, #fff), var(--music-accent) 62%, var(--music-pressed));
+  box-shadow: inset 0 1px 0 rgb(255 239 246 / 18%), inset 0 -1px 0 rgb(52 23 43 / 32%);
+}
+.sample-loaded {
+  border-color: var(--loaded-accent);
+  color: var(--station-bg);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--loaded-accent) 86%, #fff), var(--loaded-accent) 62%, #78603f);
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 20%), inset 0 -1px 0 rgb(67 48 22 / 28%);
 }
 .pattern-matrix-row > .pattern-step.pattern-step-playing {
-  box-shadow: inset 3px 0 0 var(--signal-accent), inset 0 1px 0 rgb(255 239 220 / 10%);
+  box-shadow: inset 3px 0 0 var(--focus-accent), inset 0 1px 0 rgb(255 239 220 / 10%);
 }
 .pattern-matrix-row > .pattern-step.pattern-step-selected {
-  outline: 2px solid var(--signal-blue);
+  outline: 2px solid var(--focus-accent);
   outline-offset: -2px;
+}
+
+.pattern-matrix-header > .pattern-step-playing {
+  color: var(--focus-accent);
+  background: color-mix(in srgb, var(--focus-accent) 10%, transparent);
+  box-shadow: inset 0 -2px 0 var(--focus-accent);
 }
 
 /* A merge keeps the grid tracks intact but removes only the event's internal
    seams. The first/last cells retain a precise outer rim. */
 .pattern-matrix-row > .pattern-step.pattern-step-merged {
-  border-top-color: color-mix(in srgb, var(--station-accent) 72%, var(--station-line));
-  border-bottom-color: color-mix(in srgb, var(--station-accent) 72%, var(--station-line));
+  border-top-color: color-mix(in srgb, var(--music-accent) 72%, var(--station-line));
+  border-bottom-color: color-mix(in srgb, var(--music-accent) 72%, var(--station-line));
 }
 
 .pattern-matrix-row > .pattern-step.pattern-step-merged.pattern-step-continues {
@@ -391,25 +547,54 @@ select, textarea {
 }
 
 .pattern-matrix-row > .pattern-step.pattern-step-merged-start {
-  box-shadow: inset 1px 0 0 color-mix(in srgb, var(--station-accent) 72%, var(--station-line)), inset 0 1px 0 rgb(255 239 220 / 20%), inset 0 -1px 0 rgb(67 22 17 / 28%);
+  box-shadow: inset 1px 0 0 color-mix(in srgb, var(--music-accent) 72%, var(--station-line)), inset 0 1px 0 rgb(255 239 246 / 18%), inset 0 -1px 0 rgb(52 23 43 / 32%);
 }
 
 .pattern-matrix-row > .pattern-step.pattern-step-merged-end {
-  border-right-color: color-mix(in srgb, var(--station-accent) 72%, var(--station-line));
+  border-right-color: color-mix(in srgb, var(--music-accent) 72%, var(--station-line));
 }
 
 .pattern-matrix-row > .pattern-step.pattern-step-merged-selected {
   outline: 0;
-  border-top-color: var(--signal-focus);
-  border-bottom-color: var(--signal-focus);
+  border-top-color: var(--focus-accent);
+  border-bottom-color: var(--focus-accent);
 }
 
 .pattern-matrix-row > .pattern-step.pattern-step-merged-selected.pattern-step-merged-start {
-  border-left: 1px solid var(--signal-focus);
+  border-left: 1px solid var(--focus-accent);
 }
 
 .pattern-matrix-row > .pattern-step.pattern-step-merged-selected.pattern-step-merged-end {
-  border-right-color: var(--signal-focus);
+  border-right-color: var(--focus-accent);
+}
+
+/* SONG clips and their lane labels use the exact same bank/variant colour as
+   A-D above. Orange remains the running/current marker, not the clip fill. */
+.arrangement-lane .arrangement-lane-name {
+  color: var(--pattern-color);
+}
+
+.arrangement-lane-current .arrangement-lane-name {
+  color: var(--pattern-color);
+  box-shadow: inset 2px 0 0 var(--focus-accent);
+}
+
+.arrangement-lane .arrangement-slot:hover {
+  border-color: color-mix(in srgb, var(--pattern-color) 62%, var(--station-line));
+}
+
+.arrangement-lane .arrangement-slot-filled {
+  border-color: var(--pattern-color);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--pattern-color) 84%, #fff), var(--pattern-color));
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 28%);
+}
+
+.arrangement-lane .arrangement-slot-playing {
+  outline-color: var(--focus-accent);
+}
+
+.arrangement-lane .arrangement-slot-playing.arrangement-slot-filled {
+  box-shadow: inset 0 0 0 2px var(--focus-accent), inset 0 0 0 3px rgb(0 0 0 / 30%);
 }
 
 .effect-slot-button small, .effect-slot-card small {
@@ -948,7 +1133,7 @@ output { color: var(--station-text); }
 
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible,
 .system-display:focus-visible, .display-action:focus-visible, .display-pad:focus-visible {
-  outline: 2px solid var(--signal-blue-bright);
+  outline: 2px solid var(--focus-accent);
   outline-offset: 3px;
 }
 

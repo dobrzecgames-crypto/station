@@ -147,7 +147,7 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
     </div>
     <div className="sequencer-length-editor" aria-label={editedEvent ? `${editedPad.label}, event starting at step ${editedHeadIndex + 1}` : 'Step event actions'}>
       {/* SCAL is a MOMENTARY action: the hard-plastic face depresses only while
-          pressed. Its warm flash confirms a completed action without becoming
+          pressed. Its cool tool flash confirms a completed action without becoming
           a persistent latch state. */}
       <button
         className="sequencer-merge-action"

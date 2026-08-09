@@ -63,22 +63,32 @@
    Rajdhani - they were at 7.36px, the smallest type in the app, for no reason
    other than that flat text can get away with it.
 
-   What survives from the underlined pass is its reason. The active key is
-   outlined and lit rather than filled, because CHOP alone already puts PLAY,
-   PATTERN and CHOOSE WAV FILE on screen as solid accent blocks and a fourth
-   would leave nothing reading as primary. Filling it is a one-line change if
-   that judgement turns out wrong. */
+   Phase 1 now treats this row as a mechanically interlocked selector. Colour
+   remains workspace identity, while the shared data-mechanism state owns the
+   raised/held/engaged depth. */
 .main-navigation { gap: 4px; border-bottom: 0; }.main-nav-button {
   display: grid;
-  place-items: center;
   min-height: 38px;
-  padding: 0 6px;
-  border: 1px solid var(--station-line);
+  padding: 0;
+  border: 0;
   border-radius: 4px;
+  background: transparent;
+  box-shadow: none;
   /* Fallbacks because the palette does not define these - see the note on the
      display's backlight. Without one the colour silently falls back to
      inherited, and every key would sit at full brightness. */
   color: var(--station-text-muted, #a8b0ae);
+  font-size: .64rem;
+  letter-spacing: .07em;
+}
+.main-nav-button > [data-mechanism-face] {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0 6px;
+  border: 1px solid var(--station-line);
+  border-radius: 4px;
   /* Section 13's face, written out on --station-surface because the variable it
      uses there does not exist and takes the whole declaration down with it. The
      top edge catches the light, the face falls a few percent to the bottom, and
@@ -86,36 +96,27 @@
      large flat areas are what make an interface look printed rather than lit. */
   background: linear-gradient(180deg, color-mix(in srgb, var(--station-surface) 100%, #fff 6%), var(--station-surface) 45%);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 7%), 0 1px 0 rgb(0 0 0 / 45%);
-  font-size: .64rem;
-  letter-spacing: .07em;
-  transition: color 90ms ease, border-color 90ms ease, background 90ms ease;
-}.main-nav-button:hover { color: var(--station-text, #e8eae4); border-color: color-mix(in srgb, var(--station-line) 100%, #fff 22%); }/* Pressed is a flat change of edge, not a shove downwards - section 8 of the
-   design system took the bevels out and they are not coming back in through a
-   transform. */
-.main-nav-button:active {
+}
+@media (hover: hover) and (pointer: fine) {
+  .main-nav-button:hover { color: var(--station-text, #e8eae4); }
+  .main-nav-button:hover > [data-mechanism-face] { border-color: color-mix(in srgb, var(--station-line) 100%, #fff 22%); }
+}
+.main-nav-button[data-mechanism='selector']:active:not(:disabled):not([data-engaged='true']) > [data-mechanism-face] {
   border-color: var(--station-accent);
-  /* Held down, the light inverts: the top edge stops catching and the shadow
-     moves inside. Same move the empty effect bay makes for the same reason, and
-     it reads as pressed without a transform shoving the key down the page. */
+  /* The shared foundation moves the face; this local inversion removes the
+     raised top catch while the pointer or key is physically held. */
   background: linear-gradient(180deg, var(--station-surface), color-mix(in srgb, var(--station-surface) 100%, #fff 4%));
-  box-shadow: inset 0 2px 4px rgb(0 0 0 / 40%);
-}/* Filled, like every other thing in the app that is switched on. An outlined
-   and tinted key was tried first, to keep a fourth solid accent block off a
-   screen that already has PLAY, PATTERN and the workspace's own primary - the
-   objection the underlined pass was built on. It was not enough: the point of
-   the key is that pressing it feels like throwing a switch, and in this app
-   switched on means filled.
-
-   Flat accent with a bloom, per section 13: filled states are the light source,
-   not a lit surface, so the face does not catch the light from above - it emits.
-   The dark text is --station-panel rather than --station-bg, which the rest of
-   the app uses here and which is not defined, leaving every other filled control
-   with pale text on a mid-tone accent until the palette is fixed. */
+}
+/* Engaged remains physically down. Vinyl Dust supplies the workspace colour;
+   the shadow is the same pressed hard-plastic state in every workspace. */
 .main-nav-button-active, .main-nav-button-active:hover {
   color: var(--station-panel);
+}
+.main-nav-button-active > [data-mechanism-face],
+.main-nav-button-active:hover > [data-mechanism-face] {
   border-color: var(--station-accent);
   background: var(--station-accent);
-  box-shadow: 0 0 12px rgb(var(--station-accent-rgb) / 22%), 0 1px 0 rgb(0 0 0 / 45%);
+  box-shadow: var(--mechanism-engaged-shadow);
 }/* ---------- 4. Audio switch --------------------------------------------- */
 
 /* Flattened to match the sheet, but the lamp keeps its glow: this is still the
@@ -258,16 +259,9 @@ input[type="range"] {
   box-shadow: none;
 }.pattern-step.pattern-step-beat-dim:not(.step-active) { background: var(--station-card); }/* ---------- 8. Pads ----------------------------------------------------- */
 
-.pad {
-  border: 1px solid var(--station-line);
-  border-radius: 4px;
-  background: var(--station-card);
-  box-shadow: none;
-}.pad.sample-loaded {
-  border-color: var(--station-accent);
-  background: var(--station-card);
-  color: var(--station-text);
-}/* ---------- 9. FX slots ------------------------------------------------- */
+/* Performance-pad material lives in the final Vinyl Dust layer. */
+
+/* ---------- 9. FX slots ------------------------------------------------- */
 
 .effect-slot-button, .effect-slot-card {
   border: 1px solid var(--station-line);
@@ -375,7 +369,7 @@ input[type="text"], input[type="number"], select, textarea {
 }.mix-bus-card, .mixer-strip, .pad-editor, .context-panel, .step-parameter-editor, .sequencer, .mixer, .song-workspace, .chop-workspace, .library-workspace, .sample-editor, .project-workspace, .library-row, .effect-rack, .transport-bar, .tracks-workspace {
   background: linear-gradient(180deg, color-mix(in srgb, var(--station-card) 100%, #fff 4%), var(--station-card) 30%);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%);
-}.pad, .effect-slot-button, .effect-slot-card {
+}.effect-slot-button, .effect-slot-card {
   background: linear-gradient(180deg, color-mix(in srgb, var(--station-card) 100%, #fff 5%), var(--station-card) 40%);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%);
 }/* Controls sit closest to the light, so they catch the most on the top edge -
@@ -992,10 +986,14 @@ input[type="text"], input[type="number"], select, textarea {
 .station-shell[data-powered='off'] {
   --station-accent: var(--station-text-disabled);
   --station-accent-rgb: 85 94 93;
-}.station-shell[data-powered='off'] .main-nav-button-active,
-.station-shell[data-powered='off'] .mixer-toggle-active,
+}.station-shell[data-powered='off'] .mixer-toggle-active,
 .station-shell[data-powered='off'] .group-strip-selected,
 .station-shell[data-powered='off'] .transport-button {
+  border-color: var(--station-line);
+  color: var(--station-text-muted);
+  background: var(--station-raised);
+  box-shadow: none;
+}.station-shell[data-powered='off'] .main-nav-button-active > [data-mechanism-face] {
   border-color: var(--station-line);
   color: var(--station-text-muted);
   background: var(--station-raised);

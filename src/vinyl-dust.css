@@ -58,7 +58,7 @@ select, textarea {
   box-shadow: inset 0 1px 0 rgb(255 239 220 / 8%), inset 0 -1px 0 rgb(0 0 0 / 45%), 0 1px 2px rgb(0 0 0 / 24%);
 }
 
-.mixer-toggle:hover:not(:disabled), .main-nav-button:hover:not(:disabled),
+.mixer-toggle:hover:not(:disabled),
 .group-strip-button:hover:not(:disabled), .header-project-button:hover:not(:disabled),
 .clear-button:hover:not(:disabled), .effect-slot-button:hover:not(:disabled),
 .effect-slot-card:hover:not(:disabled), .mix-pump-entry:hover:not(:disabled) {
@@ -77,23 +77,33 @@ select, textarea {
   box-shadow: inset 0 1px 0 rgb(153 161 207 / 7%), inset 0 -1px 0 rgb(0 0 0 / 48%);
 }
 .main-nav-button {
-  border-color: #4a4660;
+  --mechanism-hover-border: color-mix(in srgb, var(--station-accent) 52%, #777599);
   color: #c8c5d3;
+  background: transparent;
+  box-shadow: none;
+}
+.main-nav-button > [data-mechanism-face] {
+  border-color: #4a4660;
   background:
     linear-gradient(180deg, rgb(187 193 229 / 10%) 0%, transparent 34%),
     linear-gradient(180deg, #34334d 0%, #24263d 42%, #151727 100%);
-  box-shadow: inset 0 1px 0 rgb(224 226 255 / 12%), inset 0 -2px 3px rgb(4 5 14 / 48%), 0 1px 2px rgb(0 0 0 / 28%);
+  box-shadow: var(--mechanism-rest-shadow);
 }
-.main-nav-button:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--station-accent) 52%, #777599);
-  color: #f0e8df;
-  background:
-    linear-gradient(180deg, rgb(205 211 246 / 13%) 0%, transparent 36%),
-    linear-gradient(180deg, #3d3d5a 0%, #292b47 44%, #181a2d 100%);
+@media (hover: hover) and (pointer: fine) {
+  .main-nav-button:hover:not(:disabled) {
+    color: #f0e8df;
+  }
+  .main-nav-button:hover:not(:disabled) > [data-mechanism-face] {
+    background:
+      linear-gradient(180deg, rgb(205 211 246 / 13%) 0%, transparent 36%),
+      linear-gradient(180deg, #3d3d5a 0%, #292b47 44%, #181a2d 100%);
+  }
 }
 .main-nav-button-active {
-  border-color: color-mix(in srgb, var(--station-accent) 76%, var(--accent-gold-light));
   color: var(--station-bg);
+}
+.main-nav-button-active > [data-mechanism-face] {
+  border-color: color-mix(in srgb, var(--station-accent) 76%, var(--accent-gold-light));
   background: linear-gradient(180deg, #e09a77 0%, var(--station-accent) 50%, var(--accent-terracotta-pressed) 100%);
   box-shadow: inset 0 1px 0 rgb(255 239 220 / 25%), inset 0 -2px 3px rgb(54 17 14 / 34%), 0 1px 2px rgb(0 0 0 / 30%);
 }
@@ -109,22 +119,25 @@ select, textarea {
 .main-nav-button[data-workspace='song'].main-nav-button-active { --nav-active: #b07085; }
 .main-nav-button[data-workspace='tracks'].main-nav-button-active { --nav-active: #5fa88f; }
 .main-nav-button[data-workspace='mix'].main-nav-button-active { --nav-active: #78a1b2; }
-.main-nav-button.main-nav-button-active {
+.main-nav-button.main-nav-button-active > [data-mechanism-face] {
   border-color: color-mix(in srgb, var(--nav-active) 76%, var(--accent-gold-light));
-  background: linear-gradient(180deg, color-mix(in srgb, var(--nav-active) 78%, #fff) 0%, var(--nav-active) 50%, color-mix(in srgb, var(--nav-active) 78%, #15111a) 100%);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 22%), inset 0 -2px 3px rgb(0 0 0 / 28%), 0 1px 2px rgb(0 0 0 / 30%);
+  /* Selected is an engaged hard key: the light model flips from a bright top
+     edge to a darker upper recess. Colour still identifies the workspace but
+     no longer has to carry the state by itself. */
+  background: linear-gradient(180deg, color-mix(in srgb, var(--nav-active) 76%, #15111a) 0%, var(--nav-active) 56%, color-mix(in srgb, var(--nav-active) 86%, #fff) 100%);
+  box-shadow: var(--mechanism-engaged-shadow);
 }
 /* The inactive rail has gentle per-module night tones. These colours live on
    the keys alone; they do not alter the workspace accent or its controls. */
-.main-nav-button[data-workspace='chop']:not(.main-nav-button-active) { background: linear-gradient(180deg, #493547 0%, #2e263a 45%, #191827 100%); }
-.main-nav-button[data-workspace='pad']:not(.main-nav-button-active) { background: linear-gradient(180deg, #334454 0%, #263444 45%, #171e2b 100%); }
-.main-nav-button[data-workspace='synth']:not(.main-nav-button-active) { background: linear-gradient(180deg, #3a4a3a 0%, #283a2a 45%, #17231a 100%); }
-.main-nav-button[data-workspace='strings']:not(.main-nav-button-active) { background: linear-gradient(180deg, #354356 0%, #253244 45%, #16202f 100%); }
-.main-nav-button[data-workspace='seq']:not(.main-nav-button-active) { background: linear-gradient(180deg, #3e3a62 0%, #2c2b4b 45%, #19182f 100%); }
-.main-nav-button[data-workspace='song']:not(.main-nav-button-active) { background: linear-gradient(180deg, #503549 0%, #36263c 45%, #201827 100%); }
-.main-nav-button[data-workspace='mix']:not(.main-nav-button-active) { background: linear-gradient(180deg, #2c4954 0%, #213744 45%, #14212c 100%); }
-.main-nav-button[data-workspace='project']:not(.main-nav-button-active) { background: linear-gradient(180deg, #3e4556 0%, #2d3444 45%, #1a202d 100%); }
-.mixer-toggle-active, .main-nav-button-active, .group-strip-selected,
+.main-nav-button[data-workspace='chop']:not(.main-nav-button-active) > [data-mechanism-face] { background: linear-gradient(180deg, #493547 0%, #2e263a 45%, #191827 100%); }
+.main-nav-button[data-workspace='pad']:not(.main-nav-button-active) > [data-mechanism-face] { background: linear-gradient(180deg, #334454 0%, #263444 45%, #171e2b 100%); }
+.main-nav-button[data-workspace='synth']:not(.main-nav-button-active) > [data-mechanism-face] { background: linear-gradient(180deg, #3a4a3a 0%, #283a2a 45%, #17231a 100%); }
+.main-nav-button[data-workspace='strings']:not(.main-nav-button-active) > [data-mechanism-face] { background: linear-gradient(180deg, #354356 0%, #253244 45%, #16202f 100%); }
+.main-nav-button[data-workspace='seq']:not(.main-nav-button-active) > [data-mechanism-face] { background: linear-gradient(180deg, #3e3a62 0%, #2c2b4b 45%, #19182f 100%); }
+.main-nav-button[data-workspace='song']:not(.main-nav-button-active) > [data-mechanism-face] { background: linear-gradient(180deg, #503549 0%, #36263c 45%, #201827 100%); }
+.main-nav-button[data-workspace='mix']:not(.main-nav-button-active) > [data-mechanism-face] { background: linear-gradient(180deg, #2c4954 0%, #213744 45%, #14212c 100%); }
+.main-nav-button[data-workspace='project']:not(.main-nav-button-active) > [data-mechanism-face] { background: linear-gradient(180deg, #3e4556 0%, #2d3444 45%, #1a202d 100%); }
+.mixer-toggle-active, .group-strip-selected,
 .pump-target-toggle.mixer-toggle-active, .transport-button {
   border-color: color-mix(in srgb, var(--station-accent) 76%, var(--accent-gold-light));
   color: var(--station-bg);
@@ -132,10 +145,10 @@ select, textarea {
   box-shadow: inset 0 1px 0 rgb(255 239 220 / 22%), inset 0 -2px 3px rgb(54 17 14 / 32%), 0 1px 2px rgb(0 0 0 / 28%);
 }
 
-.mixer-toggle:active:not(:disabled), .main-nav-button:active:not(:disabled),
+.mixer-toggle:active:not(:disabled),
 .group-strip-button:active:not(:disabled), .transport-button:active:not(:disabled),
 .effect-slot-button:active:not(:disabled), .effect-slot-card:active:not(:disabled),
-.pad:active:not(:disabled), .step:active:not(:disabled) {
+.step:active:not(:disabled) {
   transform: translateY(1px);
   box-shadow: inset 0 2px 4px rgb(0 0 0 / 46%), inset 0 -1px 0 rgb(255 239 220 / 5%);
 }
@@ -220,9 +233,8 @@ select, textarea {
   text-shadow: 0 0 5px rgb(var(--display-light) / var(--display-bloom));
 }
 
-/* Pads and step cells retain a tactile edge. A selected or playing cell also
-   gets a physical marker, so its state does not depend on hue alone. */
-.pad, .effect-slot-button, .effect-slot-card {
+/* Step cells and effect slots retain a tactile edge. */
+.effect-slot-button, .effect-slot-card {
   border-color: var(--station-line);
   background: linear-gradient(180deg, #302a2e 0%, var(--station-card) 46%, #1c191e 100%);
   box-shadow: inset 0 1px 0 rgb(255 239 220 / 6%), 0 1px 2px rgb(0 0 0 / 22%);
@@ -232,6 +244,14 @@ select, textarea {
    use smoked clay and antique-metal details; gold remains reserved for loaded
    material and terracotta for the selected pad. */
 .station-shell[data-view='pad'] .pad-grid {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  align-content: start;
+  align-items: stretch;
+  gap: 6px;
   padding: 8px;
   border: 1px solid #39343b;
   border-radius: 7px;
@@ -239,23 +259,6 @@ select, textarea {
     linear-gradient(180deg, rgb(255 239 220 / 3%), transparent 20%),
     linear-gradient(180deg, #121218, #0a0b10);
   box-shadow: inset 0 1px 0 rgb(225 221 255 / 6%), inset 0 10px 18px rgb(0 0 0 / 28%);
-}
-.station-shell[data-view='pad'] .pad {
-  border-color: #5a4b43;
-  background:
-    radial-gradient(120% 46% at 50% 0%, rgb(213 162 118 / 13%), transparent 66%),
-    linear-gradient(180deg, #3a302e 0%, #282124 48%, #19171b 100%);
-  box-shadow:
-    inset 0 1px 0 rgb(255 232 207 / 11%),
-    inset 0 -1px 0 rgb(0 0 0 / 56%),
-    0 2px 0 #0b0b0e,
-    0 4px 8px rgb(0 0 0 / 25%);
-}
-.station-shell[data-view='pad'] .pad:hover:not(:disabled) {
-  border-color: #927258;
-  background:
-    radial-gradient(120% 46% at 50% 0%, rgb(223 177 126 / 18%), transparent 66%),
-    linear-gradient(180deg, #433531 0%, #2c2325 48%, #19171b 100%);
 }
 .station-shell[data-view='pad'] .pad .pad-number {
   color: #d0b895;
@@ -265,30 +268,6 @@ select, textarea {
 }
 .station-shell[data-view='pad'] .pad .pad-footer {
   color: #b9a99a;
-}
-.station-shell[data-view='pad'] .pad kbd {
-  border-color: #826a54;
-  color: #f1e4d3;
-  background: linear-gradient(180deg, #2e2728, #17161a);
-  box-shadow: inset 0 1px 0 rgb(255 239 220 / 10%), 0 1px 0 rgb(0 0 0 / 48%);
-}
-.station-shell[data-view='pad'] .pad.pad-loaded {
-  border-color: color-mix(in srgb, var(--loaded-accent) 72%, #5a4b43);
-  box-shadow:
-    inset 3px 0 0 var(--loaded-accent),
-    inset 0 1px 0 rgb(255 239 220 / 10%),
-    inset 0 -1px 0 rgb(0 0 0 / 56%),
-    0 2px 0 #0b0b0e,
-    0 4px 8px rgb(0 0 0 / 25%);
-}
-.station-shell[data-view='pad'] .pad.pad-selected {
-  border-color: var(--action-accent);
-  box-shadow:
-    inset 3px 0 0 var(--action-accent),
-    inset 0 1px 0 rgb(255 239 220 / 13%),
-    inset 0 -1px 0 rgb(0 0 0 / 58%),
-    0 2px 0 #0b0b0e,
-    0 4px 8px rgb(0 0 0 / 28%);
 }
 
 /* Four built-in samples form a compact crate: one category, one row, no
@@ -373,15 +352,11 @@ select, textarea {
   white-space: nowrap;
 }
 
-@keyframes pad-flash {
-  from { background: #d78362; transform: translateY(2px); }
-  to { transform: translateY(0); }
+@keyframes pad-feedback {
+  from { opacity: 1; }
+  to { opacity: 1; }
 }
-.pad.sample-loaded {
-  border-color: color-mix(in srgb, var(--accent-gold) 56%, var(--station-line));
-  box-shadow: inset 3px 0 0 var(--accent-gold), inset 0 1px 0 rgb(255 239 220 / 6%);
-}
-.pad-selected, .mix-pump-entry-active {
+.mix-pump-entry-active {
   border-color: var(--station-accent);
   box-shadow: inset 3px 0 0 var(--station-accent), inset 0 1px 0 rgb(255 239 220 / 7%);
 }
@@ -420,10 +395,6 @@ select, textarea {
   box-shadow: inset 0 2px 5px rgb(0 0 0 / 50%);
 }
 
-.pad-drop-target {
-  border-color: var(--signal-blue-bright);
-  box-shadow: inset 0 0 0 1px var(--signal-blue), 0 0 8px rgb(131 190 210 / 18%);
-}
 
 /* CHOP is a sampling instrument, not a generic green oscilloscope. The canvas
    reads its material and functional colours from Vinyl Dust; cut tabs have a
@@ -700,14 +671,6 @@ select, textarea {
   border-top: 1px solid var(--station-line);
 }
 
-/* Loaded material is gold; selection and primary actions stay terracotta. */
-.pad.sample-loaded {
-  border-color: color-mix(in srgb, var(--loaded-accent) 72%, var(--scene-line));
-  box-shadow:
-    inset 3px 0 0 var(--loaded-accent),
-    inset 0 1px 0 rgb(255 239 220 / 6%),
-    0 2px 0 rgb(0 0 0 / 34%);
-}
 .sample-badge.sample-loaded, .pad .sample-badge {
   color: #18120c;
   background: var(--loaded-accent);
@@ -790,6 +753,94 @@ output { color: var(--station-text); }
     background:
       radial-gradient(110% 62% at 50% -12%, rgb(55 47 73 / 34%), transparent 64%),
       linear-gradient(160deg, #10101a 0%, #090a11 58%, #08090e 100%);
+  }
+}
+
+/* Performance pads use the single-button structure proven by the 2026-08-08
+   mobile deployment. The matte face fills its complete grid cell, avoiding a
+   second inner box whose percentage sizing diverges in iOS WebKit. */
+.station-shell .pad[data-mechanism='pad'] {
+  --mechanism-travel: var(--mechanism-pad-travel);
+  --mechanism-press-duration: var(--mechanism-pad-press-duration);
+  --mechanism-release-duration: var(--mechanism-pad-release-duration);
+  --mechanism-ease: var(--mechanism-pad-ease);
+  --mechanism-rest-shadow:
+    inset 0 0 0 1px rgb(255 239 220 / 3%),
+    inset 0 0 7px rgb(0 0 0 / 18%),
+    0 2px 3px rgb(0 0 0 / 34%);
+  --mechanism-engaged-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 22%),
+    inset 0 0 9px rgb(0 0 0 / 44%),
+    0 1px 1px rgb(0 0 0 / 24%);
+  aspect-ratio: auto;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  justify-self: stretch;
+  align-self: stretch;
+  padding: 7px;
+  overflow: hidden;
+  border: 1px solid var(--scene-line);
+  border-radius: 9px;
+  appearance: none;
+  -webkit-appearance: none;
+  flex-direction: column;
+  justify-content: space-between;
+  color: var(--station-text);
+  background: var(--scene-control);
+  box-shadow: var(--mechanism-rest-shadow);
+  transform: translateY(0);
+  text-align: left;
+}
+
+/* Keep legacy workspace skins off the performance pads without turning the
+   button itself into a transparent wrapper. */
+.station-shell[data-view] .pad[data-mechanism='pad'],
+.station-shell[data-view] .pad[data-mechanism='pad']:hover:not(:disabled) {
+  border: 1px solid var(--scene-line);
+  background: var(--scene-control);
+  box-shadow: var(--mechanism-rest-shadow);
+}
+
+.station-shell .pad[data-mechanism='pad'].pad-empty {
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+}
+
+/* Loaded, selected and playing are symmetric edge/rim states. They never
+   relight the rubber surface. */
+.station-shell .pad[data-mechanism='pad'].pad-loaded {
+  border-color: var(--loaded-accent);
+}
+
+/* Selection is an editing rim. It does not alter depth and can coexist
+   with the loaded edge, playing marker and a real physical press. */
+.station-shell .pad[data-mechanism='pad'].pad-selected {
+  outline: 1px solid var(--action-accent);
+  outline-offset: -3px;
+}
+
+.station-shell .pad[data-mechanism='pad'].pad-playing {
+  animation: pad-feedback 180ms linear;
+  box-shadow:
+    inset 0 0 0 1px var(--signal-accent),
+    var(--mechanism-rest-shadow);
+}
+
+.station-shell .pad[data-mechanism='pad'][data-pressed='true'],
+.station-shell .pad[data-mechanism='pad']:active:not(:disabled) {
+  background-color: color-mix(in srgb, var(--scene-control) 92%, #000);
+  box-shadow: var(--mechanism-engaged-shadow);
+  transform: translateY(var(--mechanism-travel));
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .station-shell .pad[data-mechanism='pad']:hover:not(:disabled) {
+    border-color: var(--scene-line-strong);
   }
 }
 @keyframes station-panel-power-on {

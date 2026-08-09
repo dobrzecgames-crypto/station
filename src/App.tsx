@@ -154,6 +154,7 @@ export function App({ audioEngine }: AppProps) {
   }, [mainView])
   const [selectedPadId, setSelectedPadId] = useState<PadState['id']>('pad-01')
   const [activePadId, setActivePadId] = useState<PadState['id'] | null>(null)
+  const [keyboardPressedPadIds, setKeyboardPressedPadIds] = useState<ReadonlySet<PadState['id']>>(() => new Set())
   const [selectedLibrarySample, setSelectedLibrarySample] = useState<LibrarySample | null>(null)
   const [pendingDrumSound, setPendingDrumSound] = useState<{ blob: Blob; filename: string; durationSeconds: number; instrument: DrumInstrumentType } | null>(null)
   const [drumSoundRenderBusy, setDrumSoundRenderBusy] = useState(false)
@@ -532,6 +533,16 @@ export function App({ audioEngine }: AppProps) {
     if (releasedPad?.synthPatchId || releasedPad?.stringsPatchId || releasedPad?.organicBassPatchId) setActivePadId((current) => current === padId ? null : current)
   }
 
+  const setKeyboardPadPressed = (padId: PadState['id'], pressed: boolean) => {
+    setKeyboardPressedPadIds((current) => {
+      if (current.has(padId) === pressed) return current
+      const next = new Set(current)
+      if (pressed) next.add(padId)
+      else next.delete(padId)
+      return next
+    })
+  }
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || isTypingTarget(event.target)) return
@@ -550,11 +561,13 @@ export function App({ audioEngine }: AppProps) {
       const padId = padIdByKeyCode.get(event.code)
       if (!padId) return
       event.preventDefault()
+      setKeyboardPadPressed(padId, true)
       triggerPad(padId)
     }
     const onKeyUp = (event: KeyboardEvent) => {
       const padId = padIdByKeyCode.get(event.code)
       if (!padId) return
+      setKeyboardPadPressed(padId, false)
       releasePad(padId)
     }
     window.addEventListener('keydown', onKeyDown)
@@ -567,6 +580,17 @@ export function App({ audioEngine }: AppProps) {
     // triggerPad -> recordPadHit: without them a key press while armed would write into
     // whichever variant was selected when this effect last ran, or not record at all.
   }, [pads, audioReady, cutOnPadTrigger, selectedPatternGroupId, selectedGroup, recording, selectedPatternVariant, mainView, drumSynthPanelOpen, drumSynth, projectKey])
+
+  useEffect(() => {
+    const clearKeyboardPresses = () => setKeyboardPressedPadIds((current) => current.size === 0 ? current : new Set())
+    const onVisibilityChange = () => { if (document.visibilityState !== 'visible') clearKeyboardPresses() }
+    window.addEventListener('blur', clearKeyboardPresses)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      window.removeEventListener('blur', clearKeyboardPresses)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [])
 
   const startAudio = async () => {
     setErrorMessage(undefined)
@@ -1826,6 +1850,7 @@ export function App({ audioEngine }: AppProps) {
                 pads={pads}
                 selectedPadId={selectedPadId}
                 activePadId={activePadId}
+                keyboardPressedPadIds={keyboardPressedPadIds}
                 audioReady={controlsAwake}
                 sourceFileName={chopSession.fileName}
                 sourceDurationSeconds={chopSession.durationSeconds}
@@ -1896,6 +1921,7 @@ export function App({ audioEngine }: AppProps) {
                     pads={pads}
                     selectedPadId={selectedPadId}
                     activePadId={activePadId}
+                    keyboardPressedPadIds={keyboardPressedPadIds}
                     audioReady={audioReady}
                     dropSampleName={selectedLibrarySample?.filename ?? pendingDrumSound?.filename ?? null}
                     onTrigger={triggerPad}

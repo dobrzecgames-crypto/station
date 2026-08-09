@@ -13,6 +13,7 @@ interface ChopWorkspaceProps {
   pads: PadState[]
   selectedPadId: string
   activePadId: string | null
+  keyboardPressedPadIds: ReadonlySet<PadState['id']>
   audioReady: boolean
   sourceFileName: string | null
   sourceDurationSeconds: number | null
@@ -43,7 +44,7 @@ interface ChopWorkspaceProps {
   onApplyAutoChop: (regions: readonly SliceRegion[], onApplied?: () => void) => boolean
 }
 
-export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, sourceFileName, sourceDurationSeconds, peaks, playheadSeconds, slices, activeSliceId, addingSlice, candidates, analyzing, onLoadSource, testSamples, loadingTestId, onLoadTestSample, sourcePreviewing, onPreviewSource, onStopPreviewSource, onTriggerPad, onReleasePad, onFeedbackEnd, onAddSlice, onMoveCut, onSelectSlice, onToggleAdding, onClearSlices, onApplyAutoChop }: ChopWorkspaceProps) {
+export function ChopWorkspace({ pads, selectedPadId, activePadId, keyboardPressedPadIds, audioReady, sourceFileName, sourceDurationSeconds, peaks, playheadSeconds, slices, activeSliceId, addingSlice, candidates, analyzing, onLoadSource, testSamples, loadingTestId, onLoadTestSample, sourcePreviewing, onPreviewSource, onStopPreviewSource, onTriggerPad, onReleasePad, onFeedbackEnd, onAddSlice, onMoveCut, onSelectSlice, onToggleAdding, onClearSlices, onApplyAutoChop }: ChopWorkspaceProps) {
   const hasSource = sourceFileName !== null && sourceDurationSeconds !== null
   const [previewCount, setPreviewCount] = useState<number | null>(null)
   // Purely decorative: a brief brighter pulse on the laser(s) at whichever
@@ -118,6 +119,6 @@ export function ChopWorkspace({ pads, selectedPadId, activePadId, audioReady, so
       <ChopControls slices={slices} addingSlice={addingSlice} disabled={isPreviewing} maxSliceCount={maxChopSliceCount} onStartAdding={onToggleAdding} onClearSlices={onClearSlices} onAssignSlices={() => undefined} showAssign={false} />
     </>}
     <div className="chop-pad-heading"><p className="eyebrow">LIVE SLICE MAP</p></div>
-    <PadGrid pads={pads} selectedPadId={selectedPadId} activePadId={activePadId} audioReady={audioReady} onTrigger={onTriggerPad} onRelease={onReleasePad} onFeedbackEnd={onFeedbackEnd} />
+    <PadGrid pads={pads} selectedPadId={selectedPadId} activePadId={activePadId} keyboardPressedPadIds={keyboardPressedPadIds} audioReady={audioReady} onTrigger={onTriggerPad} onRelease={onReleasePad} onFeedbackEnd={onFeedbackEnd} />
   </section>
 }

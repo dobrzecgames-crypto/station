@@ -50,7 +50,7 @@ import { ChordPriority } from './music/chordPriority'
 import { findProjectScaleMapConflicts, mapPadBankToProjectScale } from './music/scaleMapping'
 import { projectRepository } from './storage/ProjectRepository'
 import { defaultProjectId } from './storage/storageTypes'
-import { addPatternGroup, clearVariant, createInitialPatternGroups, duplicateVariant, getVariant, getVariantLengths, getVariantShifts, patternStepCount, recordVariantStep, repairPatternGroupChords, setPatternGroupChordAssignment, setPatternGroupPadMode, setVariantStepLength, setVariantStepShift, setVariantStepVelocity, updateVariantStep } from './patterns/patternOperations'
+import { addPatternGroup, clearVariant, createInitialPatternGroups, duplicateVariant, getVariant, getVariantLengths, getVariantShifts, mergeAdjacentVariantSteps, patternStepCount, recordVariantStep, repairPatternGroupChords, setPatternGroupChordAssignment, setPatternGroupPadMode, setVariantStepShift, setVariantStepVelocity, splitMergedVariantStep, updateVariantStep } from './patterns/patternOperations'
 import type { PadMode, PatternGroup, PatternVariantName } from './patterns/patternTypes'
 import { addPatternClip, getLastOccupiedSlot, removeClipsForGroup, removeClipsForVariant, removePatternClip } from './song/songOperations'
 import type { PatternClip, TransportMode } from './song/songTypes'
@@ -1267,7 +1267,8 @@ export function App({ audioEngine }: AppProps) {
   const toggleStep = (padId: PadState['id'], stepIndex: number) => setPatternGroups((current) => updateVariantStep(current, selectedPatternGroupId, selectedPatternVariant, padId, stepIndex))
   const setStepVelocity = (padId: PadState['id'], stepIndex: number, velocity: number) => setPatternGroups((current) => setVariantStepVelocity(current, selectedPatternGroupId, selectedPatternVariant, padId, stepIndex, velocity))
   const setStepShift = (padId: PadState['id'], stepIndex: number, shift: number) => setPatternGroups((current) => setVariantStepShift(current, selectedPatternGroupId, selectedPatternVariant, padId, stepIndex, shift))
-  const setStepLength = (padId: PadState['id'], stepIndex: number, length: number) => setPatternGroups((current) => setVariantStepLength(current, selectedPatternGroupId, selectedPatternVariant, padId, stepIndex, length))
+  const mergeSteps = (padId: PadState['id'], stepIndex: number) => setPatternGroups((current) => mergeAdjacentVariantSteps(current, selectedPatternGroupId, selectedPatternVariant, padId, stepIndex))
+  const splitStep = (padId: PadState['id'], stepIndex: number) => setPatternGroups((current) => splitMergedVariantStep(current, selectedPatternGroupId, selectedPatternVariant, padId, stepIndex))
   /* Identity comes from the position in the list, not from the stored `name`.
      A group is called "Pattern 1" in saved projects, which is the word this UI
      now uses for the variants inside it - renaming the stored value would split
@@ -2046,7 +2047,8 @@ export function App({ audioEngine }: AppProps) {
               onToggleStep={toggleStep}
               onVelocityChange={setStepVelocity}
               onShiftChange={setStepShift}
-              onLengthChange={setStepLength}
+                onMergeSteps={mergeSteps}
+                onSplitStep={splitStep}
             />
           )}
           {mainView === "song" && (

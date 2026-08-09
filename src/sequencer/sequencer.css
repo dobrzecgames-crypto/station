@@ -10,28 +10,63 @@
   background: rgb(0 0 0 / 18%);
 }
 
-.sequencer-length-slider {
+.sequencer-merge-action {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  color: var(--station-text);
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--station-mono-font);
+  text-align: left;
+}
+
+.sequencer-merge-face {
+  position: relative;
   display: grid;
   grid-template-columns: 86px minmax(0, 1fr) 62px;
   gap: 8px;
   align-items: center;
+  overflow: hidden;
+  width: 100%;
+  min-height: 34px;
   min-width: 0;
-  font-family: var(--station-mono-font);
+  padding: 0 8px;
+  border: 1px solid color-mix(in srgb, var(--station-line-strong) 82%, var(--action-accent));
+  border-radius: 5px;
+  background:
+    linear-gradient(180deg, rgb(255 239 220 / 8%) 0%, transparent 34%),
+    linear-gradient(180deg, #3d3236 0%, #2b2529 52%, #1d1a20 100%);
 }
 
-.sequencer-length-slider > span {
-  display: grid;
-  gap: 1px;
-  min-width: 0;
+.sequencer-merge-action:disabled {
+  color: var(--station-text-disabled);
+  cursor: not-allowed;
 }
 
-.sequencer-length-slider strong {
+.sequencer-merge-action:disabled .sequencer-merge-face {
+  border-color: var(--station-line);
+  background: linear-gradient(180deg, #302b2e 0%, #242125 52%, #1b191d 100%);
+}
+
+.sequencer-merge-action:disabled .sequencer-merge-face strong,
+.sequencer-merge-action:disabled .sequencer-merge-face small,
+.sequencer-merge-action:disabled .sequencer-merge-face > span:last-child {
+  color: var(--station-text-disabled);
+}
+
+.sequencer-merge-face strong {
+  position: relative;
+  z-index: 1;
   color: var(--station-accent);
   font-size: .58rem;
   letter-spacing: .08em;
 }
 
-.sequencer-length-slider small {
+.sequencer-merge-face small {
+  position: relative;
+  z-index: 1;
   overflow: hidden;
   color: var(--station-text-muted);
   font-size: .48rem;
@@ -39,17 +74,30 @@
   white-space: nowrap;
 }
 
-.sequencer-length-slider input {
-  width: 100%;
-  min-width: 0;
-}
-
-.sequencer-length-slider output {
+.sequencer-merge-face > span:last-child {
+  position: relative;
+  z-index: 1;
   color: var(--station-text);
   font-size: .56rem;
   font-variant-numeric: tabular-nums;
   text-align: right;
   white-space: nowrap;
+}
+
+.sequencer-merge-flash {
+  position: absolute;
+  z-index: 0;
+  inset: -30% -8%;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle at 30% 50%, color-mix(in srgb, var(--loaded-accent) 72%, #ffd29a) 0%, color-mix(in srgb, var(--action-accent) 34%, transparent) 38%, transparent 72%);
+  animation: sequencer-merge-warm-flash 160ms ease-out;
+}
+
+@keyframes sequencer-merge-warm-flash {
+  0% { opacity: 0; transform: scaleX(.72); }
+  28% { opacity: .82; }
+  100% { opacity: 0; transform: scaleX(1); }
 }
 
 .sequencer-length-remove {
@@ -67,11 +115,15 @@
 }
 
 @media (max-width: 560px) {
-  .sequencer-length-slider {
+  .sequencer-merge-face {
     grid-template-columns: 68px minmax(0, 1fr) 54px;
     gap: 5px;
   }
 
-  .sequencer-length-slider small { display: none; }
+  .sequencer-merge-face small { display: none; }
   .sequencer-length-remove { min-width: 56px; padding: 0 5px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sequencer-merge-flash { animation: none; }
 }

@@ -379,6 +379,39 @@ select, textarea {
   outline-offset: -2px;
 }
 
+/* A merge keeps the grid tracks intact but removes only the event's internal
+   seams. The first/last cells retain a precise outer rim. */
+.pattern-matrix-row > .pattern-step.pattern-step-merged {
+  border-top-color: color-mix(in srgb, var(--station-accent) 72%, var(--station-line));
+  border-bottom-color: color-mix(in srgb, var(--station-accent) 72%, var(--station-line));
+}
+
+.pattern-matrix-row > .pattern-step.pattern-step-merged.pattern-step-continues {
+  border-right-color: transparent;
+}
+
+.pattern-matrix-row > .pattern-step.pattern-step-merged-start {
+  box-shadow: inset 1px 0 0 color-mix(in srgb, var(--station-accent) 72%, var(--station-line)), inset 0 1px 0 rgb(255 239 220 / 20%), inset 0 -1px 0 rgb(67 22 17 / 28%);
+}
+
+.pattern-matrix-row > .pattern-step.pattern-step-merged-end {
+  border-right-color: color-mix(in srgb, var(--station-accent) 72%, var(--station-line));
+}
+
+.pattern-matrix-row > .pattern-step.pattern-step-merged-selected {
+  outline: 0;
+  border-top-color: var(--signal-focus);
+  border-bottom-color: var(--signal-focus);
+}
+
+.pattern-matrix-row > .pattern-step.pattern-step-merged-selected.pattern-step-merged-start {
+  border-left: 1px solid var(--signal-focus);
+}
+
+.pattern-matrix-row > .pattern-step.pattern-step-merged-selected.pattern-step-merged-end {
+  border-right-color: var(--signal-focus);
+}
+
 .effect-slot-button small, .effect-slot-card small {
   color: var(--signal-blue-bright);
   background: rgb(131 190 210 / 11%);

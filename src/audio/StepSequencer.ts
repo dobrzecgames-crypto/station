@@ -2,6 +2,7 @@ import type { AudioEngine, ChannelId, GroupId, SampleAssetId, TriggerSampleOptio
 import type { SynthPatch } from '../synth/synthTypes'
 import type { StringsPatch } from '../strings/stringsTypes'
 import type { OrganicBassPatch } from '../organic-bass/organicBassTypes'
+import { getStepEventRange } from '../patterns/stepEvents.ts'
 
 export interface StepSequencerConfig {
   bpm: number
@@ -21,7 +22,7 @@ interface StepSequencerTrackBase {
   channelId: ChannelId
   steps: readonly number[]
   shifts: readonly number[]
-  /** Whole steps per index; 0 means unbounded and only applies to a sample track. */
+  /** A merged event stores its whole-step span on its first active cell. */
   lengths: readonly number[]
 }
 
@@ -153,20 +154,23 @@ export class StepSequencer {
       const activeTracks = tracks.flatMap((track) => {
         const velocity = track.steps[this.nextStepIndex]
         if (velocity <= 0) return []
-        const shift = track.shifts[this.nextStepIndex] ?? 0
-        const length = track.lengths[this.nextStepIndex] ?? 0
-        return [{ track, velocity, length, when: scheduledTime + shift * stepDuration }]
+        const event = getStepEventRange(track.steps, track.lengths, this.nextStepIndex)
+        if (!event || event.headIndex !== this.nextStepIndex) return []
+        const shift = track.shifts[event.headIndex] ?? 0
+        const length = event.length
+        const unboundedSample = track.source === 'sample' && track.lengths[event.headIndex] === 0
+        return [{ track, velocity, length, unboundedSample, when: scheduledTime + shift * stepDuration }]
       })
       const orderedTracks = activeTracks.sort((left, right) => left.when - right.when)
       const lastSimultaneousChord = new Map<string, number>()
       orderedTracks.forEach(({ track, when }, index) => {
         if (track.source === 'synthChord' || track.source === 'stringsChord') lastSimultaneousChord.set(`${track.chordGroupId}:${when}`, index)
       })
-      for (const [index, { track, velocity, length, when }] of orderedTracks.entries()) {
+      for (const [index, { track, velocity, length, unboundedSample, when }] of orderedTracks.entries()) {
         if ((track.source === 'synthChord' || track.source === 'stringsChord') && lastSimultaneousChord.get(`${track.chordGroupId}:${when}`) !== index) continue
         if (track.source === 'sample') {
           if (track.chokeGroupId) this.audioEngine.stopSequencerChokeGroupAt(track.chokeGroupId, when)
-          const maxDurationSeconds = length > 0 ? length * stepDuration : undefined
+          const maxDurationSeconds = unboundedSample ? undefined : length * stepDuration
           this.audioEngine.scheduleSample(track.groupId, track.channelId, track.assetId, when, { ...track.options, gain: (track.options.gain ?? 1) * velocity, chokeGroupId: track.chokeGroupId, maxDurationSeconds }, 'sequencer')
         } else if (track.source === 'synthChord') {
           this.audioEngine.releaseSequencerChordAt(track.chordGroupId, when)

@@ -93,7 +93,7 @@ test('simultaneous chord steps collapse to one and later steps choke their prede
     midiNotes: [48, 52, 55],
     steps: Array.from({ length: 16 }, (_, index) => activeSteps.includes(index) ? 1 : 0),
     shifts: Array(16).fill(0),
-    lengths: Array(16).fill(4),
+    lengths: Array(16).fill(1),
   })
   const config: StepSequencerConfig = { bpm: 120, swing: 0, metronomeEnabled: false, mode: 'pattern', loopSong: false, lastSongSlot: null, getTracksForSlot: () => [track('channel-a', [0, 1]), track('channel-b', [0])] }
   sequencer.start(() => config)

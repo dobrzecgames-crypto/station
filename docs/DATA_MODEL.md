@@ -123,7 +123,7 @@ For a non-looped clip `lengthBeats` tracks the source region's natural (rate-1) 
 
 ### Pattern Group and variants
 
-A Pattern Group is one musical idea. It owns one private 16-pad bank and has an always-present A variant with optional B, C and D variants. Each existing variant is a complete 16-pad, 16-step pattern with a velocity and a SHIFT value for each step. SHIFT is constrained to −50% through +50% of one 16th-note duration. Creating a variation copies steps, velocity and SHIFT only; it never copies or changes the group's bank. The A–D limit is intentional.
+A Pattern Group is one musical idea. It owns one private 16-pad bank and has an always-present A variant with optional B, C and D variants. Each existing variant is a complete 16-pad, 16-step pattern with velocity, SHIFT and an event-span value for each step. An ordinary active step has a span of one. Explicitly merging a contiguous active run stores the run length on its first step; the following active cells remain visible length cells but do not trigger. SHIFT is constrained to −50% through +50% of one 16th-note duration. Creating a variation copies steps, velocity, SHIFT and event spans only; it never copies or changes the group's bank. The A–D limit is intentional.
 
 ### Pattern Clip / Playlist
 
@@ -140,7 +140,10 @@ Suggested fields:
 - enabled state or existence,
 - velocity normalized to 0–1,
 - manual SHIFT microtiming normalized to −0.5 through +0.5 of a 16th-note duration,
+- whole-step event span: one for an ordinary event, or the exact number of explicitly merged contiguous active cells on the event head,
 - future probability, ratchet and parameter-lock fields.
+
+Adjacent active steps do not merge implicitly. A merged event never wraps from step 16 to step 1, never crosses a pad/track or Pattern boundary, and owns one velocity/SHIFT parameter set. Its first cell is the sole trigger. The persisted span arrays reuse the existing schema-v20 `lengths` field; historical stretched steps normalize to equivalent explicit merged cells, while missing historical spans normalize to independent one-step events. A legacy sample one-shot may retain an internal zero span solely to preserve its formerly unbounded playback, but it resolves as one grid event and cannot create a merged trigger.
 
 Do not add future fields until they are needed, but reserve clean extension points through schema versioning.
 
@@ -181,7 +184,7 @@ The following must not be serialized into the project:
 
 ## Pre-persistence ProjectState
 
-ProjectState schema v20 is the serializable boundary. Each Pattern Group contains its private bank, CHOP session, MONO-3, STRINGS and MONOGORG patch collections and two-slot serial FX Rack. It contains shared asset references and durations, Pattern Groups and their 16-step velocities, selected Pattern Group/variant, Pattern Clips, persisted transport mode and Loop Song, BPM, swing, group-and-pad Pump references, the global Project Key (`root`, `scale`) and a serializable two-slot master FX Rack. Waveform peaks and synth voices are runtime cache/state and are not serialized.
+ProjectState schema v20 is the serializable boundary. Each Pattern Group contains its private bank, CHOP session, MONO-3, STRINGS and MONOGORG patch collections and two-slot serial FX Rack. It contains shared asset references and durations, Pattern Groups and their 16-step velocities, SHIFT values and event spans, selected Pattern Group/variant, Pattern Clips, persisted transport mode and Loop Song, BPM, swing, group-and-pad Pump references, the global Project Key (`root`, `scale`) and a serializable two-slot master FX Rack. Waveform peaks and synth voices are runtime cache/state and are not serialized.
 
 Project Key is a preference for future Project Scale mappings. A mapping writes normal independent pad configurations that reference one shared SampleAsset and contain their calculated pitch offsets. Existing mapped pads have no runtime link to Project Key and are not retuned when it changes.
 

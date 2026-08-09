@@ -106,7 +106,7 @@ MONO-3 voices are created and cleaned up inside AudioEngine. A voice contains OS
 
 Each Pattern Group registers serializable patches with the engine. A patch owns a tempo-synced filter LFO whose phase is shared by its voices; `setBpm` updates its frequency without restarting transport. MONO uses last-note priority and pitch glide. POLY 5 limits each patch to five voices and steals the oldest voice deterministically with a short release. Manual note-off releases only the matching held pad token. Transport STOP releases/stops sequencer-created synth voices and leaves independent manual voices alone.
 
-The sequencer supplies resolved MIDI notes, velocity, SHIFT-adjusted note-on time and `patch.gate * stepDuration` note-off time. Offline rendering registers the same patches and schedules the same events through the same engine class. Render length includes synth GATE and amp release in addition to sample and delay tails.
+The sequencer supplies resolved MIDI notes, velocity, SHIFT-adjusted note-on time and `eventSpan * patch.gate * stepDuration` note-off time. An ordinary event span is one; an explicitly merged event spans its exact number of grid cells and its tail cells never retrigger. Offline rendering registers the same patches and schedules the same events through the same engine class. Render length includes synth GATE and amp release in addition to sample and delay tails.
 
 ## STRINGS synthesis
 
@@ -116,13 +116,13 @@ STRINGS is always polyphonic - there is no MONO mode or glide. Each patch is cap
 
 Vibrato and the ensemble's delay-time modulation are driven by three free-running (not tempo-synced) oscillators created once, engine-wide, and shared by every STRINGS patch in the app - only the depth downstream of them is per-patch. The ensemble itself (two short modulated delay lines, panned wide, mixed with a dry signal that never fully disappears) is a signal-path insert and is therefore keyed by `(patch-runtime, channelId)`, not by patch alone: a patch shared across pads by Scale Map gets an independent ensemble per pad, so two pads playing the same shared patch do not sum into one pad's channel and do not break each other's volume/mute/solo/Pump. Vibrato depth, in contrast, modulates each voice's own oscillators directly and stays per-runtime.
 
-The sequencer and offline render integration mirrors MONO-3's exactly: resolved MIDI notes, velocity, SHIFT-adjusted note-on and `patch.gate * stepDuration` note-off, the same `syncStringsPatches` registration call, and a `getStringsTailSeconds` render-length term alongside the synth one.
+The sequencer and offline render integration mirrors MONO-3's exactly: resolved MIDI notes, velocity, SHIFT-adjusted note-on and `eventSpan * patch.gate * stepDuration` note-off, the same `syncStringsPatches` registration call, and a `getStringsTailSeconds` render-length term alongside the synth one.
 
 ## MONOGORG synthesis
 
 MONOGORG is always monophonic. Three cheap oscillators (harmonically morphed main, quieter body and sine sub) are normalized by WEIGHT, pushed through one fixed gently asymmetric waveshaper, then through two cascaded low-pass biquads (four poles total), output compensation and the amp envelope. DRIVE and WEIGHT change the level entering the fixed transfer rather than rebuilding a WaveShaper curve while audio is live. RESO raises Q only on the first filter stage and applies modest output compensation, avoiding two stacked high-Q peaks.
 
-Manual last-note legato retunes the existing oscillators and leaves their amp/filter envelopes running. A six-millisecond route crossfade moves that continuing voice between Scale-Mapped pad channels without bypassing per-pad volume, mute, solo, meters or Pump. Releasing the newest held note glides back to the previous held note; releasing the last note uses a DECAY-derived release with a five-millisecond safety floor. Sequenced notes retrigger the envelopes and use the normal AudioContext timestamps, per-step length, velocity, SHIFT and offline render path.
+Manual last-note legato retunes the existing oscillators and leaves their amp/filter envelopes running. A six-millisecond route crossfade moves that continuing voice between Scale-Mapped pad channels without bypassing per-pad volume, mute, solo, meters or Pump. Releasing the newest held note glides back to the previous held note; releasing the last note uses a DECAY-derived release with a five-millisecond safety floor. Sequenced notes retrigger the envelopes and use the normal AudioContext timestamps, event span, velocity, SHIFT and offline render path.
 
 Micro-drift uses two per-patch-runtime sine oscillators at fixed incommensurate rates (0.071 Hz and 0.113 Hz), with depths of +1.1 and -0.85 cents. Their rates and phases are not randomized, so offline renders remain repeatable. Velocity scales amplitude from 0.56 to 1, opens the filter by 0.5-4 semitones and adds up to 18% extra pressure into saturation.
 
@@ -148,7 +148,7 @@ Transport STOP cancels further scheduling and stops voices created by the sequen
 
 ### M4 implementation history
 
-The original M4 scheduler established the 25 ms wake interval and 100 ms look-ahead strategy. Its current extension schedules every loaded pad track, and the wake timer only invokes planning; it does not provide musical time.
+The original M4 scheduler established the 25 ms wake interval and 100 ms look-ahead strategy. Its current extension schedules every loaded pad track, and the wake timer only invokes planning; it does not provide musical time. Before scheduling a step, the scheduler resolves its event owner: an ordinary active cell owns itself, while every tail cell in an explicitly merged run belongs to the run's first cell and is skipped. Sample events are capped to the stored span (apart from migrated legacy unbounded one-shots), and synth event gates scale from the same span.
 
 ## Basic Pump
 

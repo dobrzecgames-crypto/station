@@ -1,6 +1,6 @@
 import type { PadState } from '../pads/types'
 import type { PatternGroup } from '../patterns/patternTypes'
-import { maximumSynthMidiNote, minimumSynthMidiNote } from '../synth/synthOperations'
+import { maximumSynthMidiNote, minimumSynthMidiNote } from '../synth/synthOperations.ts'
 import type { StringsCharacter, StringsPatch, StringsPatchId } from './stringsTypes'
 
 export const maximumStringsVoices = 8

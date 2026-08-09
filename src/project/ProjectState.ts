@@ -341,6 +341,17 @@ export function validateProjectState(project: ProjectState): string[] {
         for (const shift of shifts?.[pad.id] ?? []) if (!Number.isFinite(shift) || shift < -0.5 || shift > 0.5) errors.push(`${group.name}${variant} has an invalid step shift.`)
         if (!lengths?.[pad.id] || lengths[pad.id].length !== stepCount) errors.push(`${group.name}${variant} must have exactly ${stepCount} lengths for ${pad.id}.`)
         for (const length of lengths?.[pad.id] ?? []) if (!Number.isInteger(length) || length < 0 || length > stepCount) errors.push(`${group.name}${variant} has an invalid step length.`)
+        const padSteps = pattern[pad.id] ?? []
+        const padLengths = lengths?.[pad.id] ?? []
+        for (let stepIndex = 0; stepIndex < stepCount; stepIndex += 1) {
+          const isLegacyUnboundedSample = Boolean(pad.assetId) && padSteps[stepIndex] > 0 && padLengths[stepIndex] === 0
+          if (padSteps[stepIndex] > 0 && padLengths[stepIndex] < 1 && !isLegacyUnboundedSample) errors.push(`${group.name}${variant} has an active step without an event length.`)
+          if (padSteps[stepIndex] <= 0 && padLengths[stepIndex] !== 0) errors.push(`${group.name}${variant} has an inactive step with an event length.`)
+          if (padLengths[stepIndex] > 1) {
+            const endIndex = stepIndex + padLengths[stepIndex] - 1
+            if (endIndex >= stepCount || padSteps.slice(stepIndex, endIndex + 1).some((velocity) => velocity <= 0)) errors.push(`${group.name}${variant} has an invalid merged step event.`)
+          }
+        }
       }
     }
   }

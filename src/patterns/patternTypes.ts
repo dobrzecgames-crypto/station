@@ -14,10 +14,11 @@ export type PadMode = 'notes' | 'chords'
 export type StepPattern = Record<SampleId, number[]>
 export type StepShiftPattern = Record<SampleId, number[]>
 /**
- * Step length in whole steps. `0` means "unbounded" - a sample step plays its
- * full configured region uncut, which only means something for sample pads;
- * a MONOPOLY or STRINGS step always has a concrete duration, so its length is
- * never 0.
+ * Event span in whole grid steps. An ordinary active cell stores `1`. A merged
+ * event stores its full span on the first active cell; the following active
+ * cells remain in the grid but do not trigger independently. Inactive cells
+ * store `0`. A legacy sample event may retain `0` to preserve its historical
+ * unbounded one-shot playback while still resolving as one grid step.
  */
 export type StepLengthPattern = Record<SampleId, number[]>
 

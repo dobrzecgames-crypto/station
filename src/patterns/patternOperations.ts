@@ -1,16 +1,17 @@
 import type { SampleId } from '../audio/AudioEngine'
-import { cloneEffectRackState, createEmptyEffectRack } from '../audio/effects'
-import { clonePadBank, createPadBankState } from '../pads/padBank'
-import { patternVariantNames, maximumPatternGroups } from './patternTypes'
+import { cloneEffectRackState, createEmptyEffectRack } from '../audio/effects.ts'
+import { clonePadBank, createPadBankState } from '../pads/padBank.ts'
+import { patternVariantNames, maximumPatternGroups } from './patternTypes.ts'
 import type { GroupBusState, PatternGroup, PatternVariantName, StepPattern, StepShiftPattern, StepLengthPattern } from './patternTypes'
-import { cloneSynthPatch } from '../synth/synthOperations'
-import { cloneStringsPatch } from '../strings/stringsOperations'
-import { cloneOrganicBassPatch } from '../organic-bass/organicBassOperations'
+import { cloneSynthPatch } from '../synth/synthOperations.ts'
+import { cloneStringsPatch } from '../strings/stringsOperations.ts'
+import { cloneOrganicBassPatch } from '../organic-bass/organicBassOperations.ts'
 import type { ChordAssignment } from '../music/chords'
 import type { ProjectKey } from '../music/scales'
-import { chordFieldsForMode, chordFieldsWithAssignment, normalizePatternChordFields, repairedChordFields } from './patternChordState'
+import { chordFieldsForMode, chordFieldsWithAssignment, normalizePatternChordFields, repairedChordFields } from './patternChordState.ts'
 import type { PadMode } from './patternTypes'
-import { remapScalarChordBank } from '../music/scaleMapping'
+import { remapScalarChordBank } from '../music/scaleMapping.ts'
+import { getContiguousActiveStepRange, getStepEventRange } from './stepEvents.ts'
 
 export const patternStepCount = 16
 
@@ -26,7 +27,7 @@ export function createEmptyStepShiftPattern(padIds: readonly SampleId[]): StepSh
   return Object.fromEntries(padIds.map((padId) => [padId, Array(patternStepCount).fill(0)]))
 }
 
-/** Fresh steps start inactive, so the fill value is never read until a step is toggled on - it sets its own length then. */
+/** Inactive cells have no event span. Activating one assigns a one-step span. */
 export function createEmptyStepLengthPattern(padIds: readonly SampleId[]): StepLengthPattern {
   return Object.fromEntries(padIds.map((padId) => [padId, Array(patternStepCount).fill(0)]))
 }
@@ -81,7 +82,7 @@ export function clearVariant(groups: readonly PatternGroup[], groupId: string, v
   })
 }
 
-/** Toggling a step on always claims exactly one cell - stretching it across more is a separate, explicit drag. */
+/** Toggling off a merged head removes its whole event; a new cell is always one independent step. */
 export function updateVariantStep(groups: readonly PatternGroup[], groupId: string, variant: PatternVariantName, padId: SampleId, stepIndex: number): PatternGroup[] {
   return groups.map((group) => {
     if (group.id !== groupId) return clonePatternGroup(group)
@@ -89,21 +90,30 @@ export function updateVariantStep(groups: readonly PatternGroup[], groupId: stri
     if (!current) throw new Error(`Pattern ${group.name}${variant} does not exist.`)
     const steps = current[padId]
     if (!steps || stepIndex < 0 || stepIndex >= patternStepCount) throw new Error('Pattern step is invalid.')
-    const nextVelocity = steps[stepIndex] === 0 ? 1 : 0
     const cloned = clonePatternGroup(group)
     const lengths = cloned.lengths[variant] ?? createEmptyStepLengthPattern(Object.keys(current))
     const lengthSteps = lengths[padId] ?? Array(patternStepCount).fill(0)
+    const event = getStepEventRange(steps, lengthSteps, stepIndex)
+    const nextSteps = [...steps]
+    const nextLengths = [...lengthSteps]
+    if (event) {
+      for (let index = event.headIndex; index <= event.endIndex; index += 1) {
+        nextSteps[index] = 0
+        nextLengths[index] = 0
+      }
+    } else {
+      nextSteps[stepIndex] = 1
+      nextLengths[stepIndex] = 1
+    }
     return {
       ...cloned,
-      variants: { ...cloned.variants, [variant]: { ...cloneStepPattern(current), [padId]: steps.map((velocity, index) => index === stepIndex ? nextVelocity : velocity) } },
-      lengths: nextVelocity === 1
-        ? { ...cloned.lengths, [variant]: { ...lengths, [padId]: lengthSteps.map((length, index) => index === stepIndex ? 1 : length) } }
-        : cloned.lengths,
+      variants: { ...cloned.variants, [variant]: { ...cloneStepPattern(current), [padId]: nextSteps } },
+      lengths: { ...cloned.lengths, [variant]: { ...lengths, [padId]: nextLengths } },
     }
   })
 }
 
-/** Recording always forces a step on - replaying the same hit across loop passes must reinforce it, not toggle it back off like a manual tap would. Length resets to a single step only the first time this step activates; a step already on keeps whatever length it has. */
+/** Recording reinforces the whole event when it lands inside a merged block. */
 export function recordVariantStep(groups: readonly PatternGroup[], groupId: string, variant: PatternVariantName, padId: SampleId, stepIndex: number, velocity = 1): PatternGroup[] {
   return groups.map((group) => {
     if (group.id !== groupId) return clonePatternGroup(group)
@@ -111,16 +121,22 @@ export function recordVariantStep(groups: readonly PatternGroup[], groupId: stri
     if (!current) throw new Error(`Pattern ${group.name}${variant} does not exist.`)
     const steps = current[padId]
     if (!steps || stepIndex < 0 || stepIndex >= patternStepCount) throw new Error('Pattern step is invalid.')
-    const wasInactive = steps[stepIndex] === 0
     const cloned = clonePatternGroup(group)
     const lengths = cloned.lengths[variant] ?? createEmptyStepLengthPattern(Object.keys(current))
     const lengthSteps = lengths[padId] ?? Array(patternStepCount).fill(0)
+    const event = getStepEventRange(steps, lengthSteps, stepIndex)
+    const nextSteps = [...steps]
+    const nextLengths = [...lengthSteps]
+    if (event) {
+      for (let index = event.headIndex; index <= event.endIndex; index += 1) nextSteps[index] = velocity
+    } else {
+      nextSteps[stepIndex] = velocity
+      nextLengths[stepIndex] = 1
+    }
     return {
       ...cloned,
-      variants: { ...cloned.variants, [variant]: { ...cloneStepPattern(current), [padId]: steps.map((value, index) => index === stepIndex ? velocity : value) } },
-      lengths: wasInactive
-        ? { ...cloned.lengths, [variant]: { ...lengths, [padId]: lengthSteps.map((length, index) => index === stepIndex ? 1 : length) } }
-        : cloned.lengths,
+      variants: { ...cloned.variants, [variant]: { ...cloneStepPattern(current), [padId]: nextSteps } },
+      lengths: { ...cloned.lengths, [variant]: { ...lengths, [padId]: nextLengths } },
     }
   })
 }
@@ -133,21 +149,76 @@ export function setVariantStepShift(groups: readonly PatternGroup[], groupId: st
   return updateVariantPatternValue(groups, groupId, variant, padId, stepIndex, Math.min(0.5, Math.max(-0.5, shift)), 'shift')
 }
 
-/** `length` is whole steps; 0 is only meaningful for a sample step (unbounded - see StepLengthPattern). Callers own clamping a MONOPOLY step to at least 1 and to the run of free cells ahead of it. */
-export function setVariantStepLength(groups: readonly PatternGroup[], groupId: string, variant: PatternVariantName, padId: SampleId, stepIndex: number, length: number): PatternGroup[] {
-  return updateVariantPatternValue(groups, groupId, variant, padId, stepIndex, Math.max(0, Math.round(length)), 'length')
-}
-
-function updateVariantPatternValue(groups: readonly PatternGroup[], groupId: string, variant: PatternVariantName, padId: SampleId, stepIndex: number, value: number, kind: 'velocity' | 'shift' | 'length'): PatternGroup[] {
+function updateVariantPatternValue(groups: readonly PatternGroup[], groupId: string, variant: PatternVariantName, padId: SampleId, stepIndex: number, value: number, kind: 'velocity' | 'shift'): PatternGroup[] {
   return groups.map((group) => {
     if (group.id !== groupId) return clonePatternGroup(group)
-    const pattern = kind === 'velocity' ? group.variants[variant] : kind === 'shift' ? group.shifts[variant] : group.lengths[variant]
+    const pattern = kind === 'velocity' ? group.variants[variant] : group.shifts[variant]
     if (!pattern?.[padId] || stepIndex < 0 || stepIndex >= patternStepCount) throw new Error('Pattern step is invalid.')
-    const next = pattern[padId].map((item, index) => index === stepIndex ? value : item)
     const cloned = clonePatternGroup(group)
-    if (kind === 'velocity') return { ...cloned, variants: { ...cloned.variants, [variant]: { ...cloneStepPattern(cloned.variants[variant]!), [padId]: next } } }
-    if (kind === 'shift') return { ...cloned, shifts: { ...cloned.shifts, [variant]: { ...cloneStepShiftPattern(cloned.shifts[variant]!), [padId]: next } } }
-    return { ...cloned, lengths: { ...cloned.lengths, [variant]: { ...cloneStepLengthPattern(cloned.lengths[variant]!), [padId]: next } } }
+    const steps = cloned.variants[variant]?.[padId]
+    const lengths = cloned.lengths[variant]?.[padId]
+    if (!steps || !lengths) throw new Error('Pattern step is invalid.')
+    const event = getStepEventRange(steps, lengths, stepIndex)
+    const firstIndex = event?.headIndex ?? stepIndex
+    const lastIndex = event?.endIndex ?? stepIndex
+    const next = pattern[padId].map((item, index) => index >= firstIndex && index <= lastIndex ? value : item)
+    if (kind === 'velocity') {
+      const nextLengths = value <= 0 ? lengths.map((item, index) => index >= firstIndex && index <= lastIndex ? 0 : item) : lengths
+      return {
+        ...cloned,
+        variants: { ...cloned.variants, [variant]: { ...cloneStepPattern(cloned.variants[variant]!), [padId]: next } },
+        lengths: { ...cloned.lengths, [variant]: { ...cloneStepLengthPattern(cloned.lengths[variant]!), [padId]: nextLengths } },
+      }
+    }
+    return { ...cloned, shifts: { ...cloned.shifts, [variant]: { ...cloneStepShiftPattern(cloned.shifts[variant]!), [padId]: next } } }
+  })
+}
+
+export function mergeAdjacentVariantSteps(groups: readonly PatternGroup[], groupId: string, variant: PatternVariantName, padId: SampleId, stepIndex: number): PatternGroup[] {
+  return groups.map((group) => {
+    if (group.id !== groupId) return clonePatternGroup(group)
+    const cloned = clonePatternGroup(group)
+    const steps = cloned.variants[variant]?.[padId]
+    const shifts = cloned.shifts[variant]?.[padId]
+    const lengths = cloned.lengths[variant]?.[padId]
+    if (!steps || !shifts || !lengths) throw new Error('Pattern step is invalid.')
+    const run = getContiguousActiveStepRange(steps, stepIndex)
+    if (!run || run.length < 2) return cloned
+    const velocity = steps[run.startIndex]
+    const shift = shifts[run.startIndex]
+    const nextSteps = steps.map((item, index) => index >= run.startIndex && index <= run.endIndex ? velocity : item)
+    const nextShifts = shifts.map((item, index) => index >= run.startIndex && index <= run.endIndex ? shift : item)
+    const nextLengths = lengths.map((item, index) => index === run.startIndex ? run.length : index > run.startIndex && index <= run.endIndex ? 1 : item)
+    return {
+      ...cloned,
+      variants: { ...cloned.variants, [variant]: { ...cloneStepPattern(cloned.variants[variant]!), [padId]: nextSteps } },
+      shifts: { ...cloned.shifts, [variant]: { ...cloneStepShiftPattern(cloned.shifts[variant]!), [padId]: nextShifts } },
+      lengths: { ...cloned.lengths, [variant]: { ...cloneStepLengthPattern(cloned.lengths[variant]!), [padId]: nextLengths } },
+    }
+  })
+}
+
+export function splitMergedVariantStep(groups: readonly PatternGroup[], groupId: string, variant: PatternVariantName, padId: SampleId, stepIndex: number): PatternGroup[] {
+  return groups.map((group) => {
+    if (group.id !== groupId) return clonePatternGroup(group)
+    const cloned = clonePatternGroup(group)
+    const steps = cloned.variants[variant]?.[padId]
+    const shifts = cloned.shifts[variant]?.[padId]
+    const lengths = cloned.lengths[variant]?.[padId]
+    if (!steps || !shifts || !lengths) throw new Error('Pattern step is invalid.')
+    const event = getStepEventRange(steps, lengths, stepIndex)
+    if (!event?.merged) return cloned
+    const velocity = steps[event.headIndex]
+    const shift = shifts[event.headIndex]
+    const nextSteps = steps.map((item, index) => index >= event.headIndex && index <= event.endIndex ? velocity : item)
+    const nextShifts = shifts.map((item, index) => index >= event.headIndex && index <= event.endIndex ? shift : item)
+    const nextLengths = lengths.map((item, index) => index >= event.headIndex && index <= event.endIndex ? 1 : item)
+    return {
+      ...cloned,
+      variants: { ...cloned.variants, [variant]: { ...cloneStepPattern(cloned.variants[variant]!), [padId]: nextSteps } },
+      shifts: { ...cloned.shifts, [variant]: { ...cloneStepShiftPattern(cloned.shifts[variant]!), [padId]: nextShifts } },
+      lengths: { ...cloned.lengths, [variant]: { ...cloneStepLengthPattern(cloned.lengths[variant]!), [padId]: nextLengths } },
+    }
   })
 }
 
@@ -191,25 +262,58 @@ export function ensurePatternGroupShifts(groups: readonly PatternGroup[], padIds
 }
 
 /**
- * A project saved before per-step length existed has every MONOPOLY step
- * behaving as a fixed 1-step gate, and every sample step playing its full
- * region uncut - that's what a missing entry backfills to, keyed per pad by
- * whether it currently holds a MONOPOLY patch, so old patterns keep sounding
- * exactly as they did.
+ * Missing legacy spans become independent one-step events. The earlier LENGTH
+ * editor could stretch one active head across inactive cells; those stored
+ * spans are converted to the equivalent explicit active-cell merge so their
+ * single trigger and duration survive the data-model change.
  */
 export function ensurePatternGroupLengths(groups: readonly PatternGroup[]): PatternGroup[] {
   return groups.map((group) => {
     const cloned = clonePatternGroup(group)
-    const synthPadIds = new Set(group.bank.pads.filter((pad) => pad.synthPatchId || pad.stringsPatchId || pad.organicBassPatchId).map((pad) => pad.id))
+    const variants = { ...cloned.variants }
+    const shifts = { ...cloned.shifts }
+    const lengths: PatternGroup['lengths'] = {}
+    const legacyUnboundedSamplePadIds = new Set(group.bank.pads.filter((pad) => pad.assetId).map((pad) => pad.id))
+    for (const variant of patternVariantNames) {
+      const pattern = variants[variant]
+      const shiftPattern = shifts[variant]
+      if (!pattern || !shiftPattern) continue
+      const storedLengths = group.lengths?.[variant]
+      const nextPattern = cloneStepPattern(pattern)
+      const nextShifts = cloneStepShiftPattern(shiftPattern)
+      const nextLengths = createEmptyStepLengthPattern(Object.keys(pattern))
+      for (const padId of Object.keys(pattern)) {
+        const steps = nextPattern[padId]
+        const stepShifts = nextShifts[padId]
+        const oldLengths = storedLengths?.[padId] ?? []
+        let mergedThrough = -1
+        for (let index = 0; index < patternStepCount; index += 1) {
+          if (steps[index] <= 0) continue
+          if (index <= mergedThrough) continue
+          const candidateLength = oldLengths[index]
+          const preservesUnboundedSample = legacyUnboundedSamplePadIds.has(padId) && (candidateLength === undefined || candidateLength === 0)
+          const storedLength = preservesUnboundedSample ? 0 : Number.isInteger(candidateLength) ? Math.max(1, Math.min(patternStepCount - index, candidateLength!)) : 1
+          nextLengths[padId][index] = storedLength
+          if (storedLength <= 1) continue
+          mergedThrough = index + storedLength - 1
+          for (let tail = index + 1; tail < index + storedLength; tail += 1) {
+            if (steps[tail] <= 0) {
+              steps[tail] = steps[index]
+              stepShifts[tail] = stepShifts[index]
+            }
+            nextLengths[padId][tail] = Math.max(1, nextLengths[padId][tail])
+          }
+        }
+      }
+      variants[variant] = nextPattern
+      shifts[variant] = nextShifts
+      lengths[variant] = nextLengths
+    }
     return {
       ...cloned,
-      lengths: Object.fromEntries(patternVariantNames.flatMap((variant) => {
-        const pattern = group.variants[variant]
-        if (!pattern) return []
-        const existing = group.lengths?.[variant]
-        const fallback = Object.fromEntries(Object.keys(pattern).map((padId) => [padId, Array(patternStepCount).fill(synthPadIds.has(padId) ? 1 : 0)]))
-        return [[variant, existing ? { ...fallback, ...cloneStepLengthPattern(existing) } : fallback] as const]
-      })),
+      variants,
+      shifts,
+      lengths,
     }
   })
 }

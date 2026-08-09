@@ -8,6 +8,7 @@ import { getLastOccupiedSlot } from '../song/songOperations'
 import { getSongTracksForSlot } from '../song/songTracks'
 import { organicBassEnvelopeShape } from '../organic-bass/organicBassOperations'
 import type { ProjectState } from './ProjectState'
+import { getStepEventRange } from '../patterns/stepEvents.ts'
 
 export interface RenderSongOptions {
   state: ProjectState
@@ -255,7 +256,7 @@ function getSynthTailSeconds(state: ProjectState): number {
     for (const pad of group.bank.pads) {
       if (!pad.synthPatchId || !steps[pad.id]?.some((velocity) => velocity > 0)) continue
       const patch = group.synthPatches.find((candidate) => candidate.id === pad.synthPatchId)
-      if (patch) longest = Math.max(longest, patch.gate * stepSeconds + patch.ampEnvelope.releaseSeconds)
+      if (patch) longest = Math.max(longest, longestEventSpan(steps[pad.id], group.lengths[clip.variant]?.[pad.id]) * patch.gate * stepSeconds + patch.ampEnvelope.releaseSeconds)
     }
   }
   return longest
@@ -271,7 +272,7 @@ function getStringsTailSeconds(state: ProjectState): number {
     for (const pad of group.bank.pads) {
       if (!pad.stringsPatchId || !steps[pad.id]?.some((velocity) => velocity > 0)) continue
       const patch = group.stringsPatches.find((candidate) => candidate.id === pad.stringsPatchId)
-      if (patch) longest = Math.max(longest, patch.gate * stepSeconds + patch.ampEnvelope.releaseSeconds)
+      if (patch) longest = Math.max(longest, longestEventSpan(steps[pad.id], group.lengths[clip.variant]?.[pad.id]) * patch.gate * stepSeconds + patch.ampEnvelope.releaseSeconds)
     }
   }
   return longest
@@ -287,8 +288,18 @@ function getOrganicBassTailSeconds(state: ProjectState): number {
     for (const pad of group.bank.pads) {
       if (!pad.organicBassPatchId || !steps[pad.id]?.some((velocity) => velocity > 0)) continue
       const patch = group.organicBassPatches.find((candidate) => candidate.id === pad.organicBassPatchId)
-      if (patch) longest = Math.max(longest, patch.gate * stepSeconds + organicBassEnvelopeShape(patch.decay).releaseSeconds)
+      if (patch) longest = Math.max(longest, longestEventSpan(steps[pad.id], group.lengths[clip.variant]?.[pad.id]) * patch.gate * stepSeconds + organicBassEnvelopeShape(patch.decay).releaseSeconds)
     }
+  }
+  return longest
+}
+
+function longestEventSpan(steps: readonly number[], lengths: readonly number[] | undefined): number {
+  let longest = 1
+  const eventLengths = lengths ?? Array(steps.length).fill(1)
+  for (let stepIndex = 0; stepIndex < steps.length; stepIndex += 1) {
+    const event = getStepEventRange(steps, eventLengths, stepIndex)
+    if (event?.headIndex === stepIndex) longest = Math.max(longest, event.length)
   }
   return longest
 }

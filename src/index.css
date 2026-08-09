@@ -88,6 +88,8 @@
   --focus-pressed: var(--accent-terracotta-pressed);
   --music-accent: #a66f91;
   --music-pressed: #774d68;
+  --sequencer-accent: #718b72;
+  --sequencer-pressed: #4d6351;
   --control-active: #7891a3;
   --control-active-pressed: #526878;
   --control-inactive: var(--station-raised);

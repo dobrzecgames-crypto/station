@@ -571,6 +571,9 @@ input[type="text"], input[type="number"], select, textarea {
 /* A full 16-step row becomes too narrow to play once all 16 pads are present.
    The sequence remains a fixed 16 steps; this switch only chooses which
    eight-step half is on the hardware-sized matrix. */
+.sequencer {
+  padding-inline: 8px;
+}
 .sequencer-step-pages {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -583,14 +586,22 @@ input[type="text"], input[type="number"], select, textarea {
 }.sequencer .pattern-matrix {
   overflow-x: hidden;
 }.sequencer .pattern-matrix-row {
-  grid-template-columns: 72px repeat(8, minmax(0, 1fr));
+  grid-template-columns: repeat(9, minmax(0, 1fr));
   min-width: 0;
 }.sequencer .pattern-matrix-row > * {
   width: auto;
   min-width: 0;
-  height: 40px;
-  min-height: 40px;
-}.sequencer .pattern-pad-label { padding: 4px 6px; }
+  height: 44px;
+  min-height: 44px;
+}.sequencer .pattern-pad-label {
+  place-items: center;
+  padding: 0;
+  text-align: center;
+}.sequencer .pattern-matrix-header span:first-child {
+  justify-content: center;
+  padding-left: 0;
+  text-align: center;
+}
 
 /* The one place messages appear, and the only thing on screen that emits rather
    than reflects. Everything else here is a lit surface; this is the light

@@ -25,8 +25,10 @@ Text is ivory `#EEE4D6` with muted text `#C8BCAE`; pure white is not a UI colour
 | --- | --- | --- |
 | Station identity / focus / currently running | `--focus-accent` | `#C86F50` |
 | Pressed Station focus | `--focus-pressed` | `#9F4937` |
-| Pattern / sequenced musical material | `--music-accent` | `#A66F91` |
+| Pattern identity / musical material | `--music-accent` | `#A66F91` |
 | Pressed musical material | `--music-pressed` | `#774D68` |
+| Active SEQ step / merged event | `--sequencer-accent` | `#718B72` |
+| Pressed SEQ step | `--sequencer-pressed` | `#4D6351` |
 | Active function / tool | `--control-active` | `#7891A3` |
 | Pressed function / tool | `--control-active-pressed` | `#526878` |
 | Inactive function / tool | `--control-inactive` | `--scene-control` |
@@ -59,8 +61,8 @@ CHOP is plum, PADS gold, SYNTH moss green, STRINGS dusty blue, SEQ lavender,
 SONG dusty rose and MIX petrol. These
 colours belong to the top navigation, headings and small scope labels only.
 They do not recolour buttons, pads, sequencer steps or panels. Active sequencer
-steps use the fixed `--music-accent`; SEQ lavender continues to identify the
-workspace key only. PROJECT is a
+steps and merged events use the fixed forest-green `--sequencer-accent`; SEQ
+lavender continues to identify the workspace key only. PROJECT is a
 System Display tenant rather than a workspace and therefore uses the display's
 smoke-blue light.
 

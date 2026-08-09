@@ -141,34 +141,37 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
   // SEQ is deliberately just the pattern matrix. The selected step owns the
   // system display, where its musical detail stays next to playback controls.
   return <section className="sequencer" aria-label={`Sequencer, ${group.name} ${selectedVariant}`}>
-    <div className="sequencer-step-pages" role="tablist" aria-label="Step range">
-      <button className={stepPage === 0 ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" role="tab" aria-selected={stepPage === 0} onClick={() => setStepPage(0)}>01-08</button>
-      <button className={stepPage === 1 ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" role="tab" aria-selected={stepPage === 1} onClick={() => setStepPage(1)}>09-16</button>
-    </div>
-    <div className="sequencer-length-editor" aria-label={editedEvent ? `${editedPad.label}, event starting at step ${editedHeadIndex + 1}` : 'Step event actions'}>
-      {/* SCAL is a MOMENTARY action: the hard-plastic face depresses only while
-          pressed. Its cool tool flash confirms a completed action without becoming
-          a persistent latch state. */}
-      <button
-        className="sequencer-merge-action"
-        type="button"
-        data-mechanism="momentary"
-        disabled={!editedEvent || (!editedEvent.merged && !canMerge)}
-        onClick={handleMergeAction}
-      >
-        <span className="sequencer-merge-face" data-mechanism-face>
-          {mergeFeedbackId > 0 && <i className="sequencer-merge-flash" key={mergeFeedbackId} aria-hidden="true" />}
-          <strong>{editedEvent?.merged ? 'ROZDZIEL' : 'SCAL'}</strong>
-          <small>{editedEvent ? `${editedPad.label} / ${editedEvent.merged ? `STEPS ${editedHeadIndex + 1}-${editedEvent.endIndex + 1}` : `STEP ${editedHeadIndex + 1}`}` : 'SELECT ACTIVE STEPS'}</small>
-          <span>{editedEvent ? `${editedEvent.length} STEP${editedEvent.length === 1 ? '' : 'S'}` : '—'}</span>
-        </span>
-      </button>
-      <button
-        className="mixer-toggle sequencer-length-remove"
-        type="button"
-        disabled={!editedEvent}
-        onClick={() => editedEvent && onToggleStep(editedPad.id, editedHeadIndex)}
-      >REMOVE</button>
+    <div className="sequencer-toolbar">
+      <div className="sequencer-step-pages" role="tablist" aria-label="Step range">
+        <button className={stepPage === 0 ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" role="tab" aria-selected={stepPage === 0} onClick={() => setStepPage(0)}>01-08</button>
+        <button className={stepPage === 1 ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" role="tab" aria-selected={stepPage === 1} onClick={() => setStepPage(1)}>09-16</button>
+      </div>
+      <span className="sequencer-toolbar-divider" aria-hidden="true" />
+      <div className="sequencer-length-editor" aria-label={editedEvent ? `${editedPad.label}, event starting at step ${editedHeadIndex + 1}` : 'Step event actions'}>
+        <button
+          className="mixer-toggle sequencer-length-remove"
+          type="button"
+          disabled={!editedEvent}
+          onClick={() => editedEvent && onToggleStep(editedPad.id, editedHeadIndex)}
+        >REMOVE</button>
+        {/* SCAL is a MOMENTARY action: the hard-plastic face depresses only while
+            pressed. Its cool tool flash confirms a completed action without becoming
+            a persistent latch state. */}
+        <button
+          className="sequencer-merge-action"
+          type="button"
+          data-mechanism="momentary"
+          disabled={!editedEvent || (!editedEvent.merged && !canMerge)}
+          onClick={handleMergeAction}
+        >
+          <span className="sequencer-merge-face" data-mechanism-face>
+            {mergeFeedbackId > 0 && <i className="sequencer-merge-flash" key={mergeFeedbackId} aria-hidden="true" />}
+            <strong>{editedEvent?.merged ? 'ROZDZIEL' : 'SCAL'}</strong>
+            <small>{editedEvent ? `${editedPad.label} / ${editedEvent.merged ? `STEPS ${editedHeadIndex + 1}-${editedEvent.endIndex + 1}` : `STEP ${editedHeadIndex + 1}`}` : 'SELECT ACTIVE STEPS'}</small>
+            {editedEvent && <span>{editedEvent.length} STEP{editedEvent.length === 1 ? '' : 'S'}</span>}
+          </span>
+        </button>
+      </div>
     </div>
     <div className="pattern-matrix" aria-label={`Pattern steps ${pageStartStep + 1} through ${pageStartStep + 8}`}>
       <div className="pattern-matrix-row pattern-matrix-header"><span>PAD</span>{pageSteps.map((stepIndex) => <span className={`${playingStep === stepIndex ? 'pattern-step-playing' : ''} ${isDimBeatGroup(stepIndex) ? 'pattern-step-beat-dim' : ''}`} key={stepIndex}>{stepIndex + 1}</span>)}</div>
@@ -176,15 +179,19 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
         const steps = pattern[pad.id]
         const owners = getStepEventOwners(steps, lengths[pad.id])
         const selectedHeadIndex = editedStep.padId === pad.id ? getStepEventRange(steps, lengths[pad.id], editedStep.stepIndex)?.headIndex : undefined
+        const padNumber = pad.label.replace(/^PAD\s+/, '')
+        const sourceLabel = pad.synthPatchId ? 'MONOPOLY' : pad.stringsPatchId ? 'STRINGS' : pad.organicBassPatchId ? 'MONOGORG' : pad.fileName ?? 'EMPTY'
         return <div className="pattern-matrix-row" key={pad.id}>
           <button
             className={pad.id === selectedPadId ? 'pattern-pad-label pattern-pad-selected' : 'pattern-pad-label'}
             type="button"
+            aria-label={`${pad.label}, ${sourceLabel}`}
+            title={`${pad.label} · ${sourceLabel}`}
             onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); onSelectPad(pad.id) }}
             onPointerUp={() => onReleasePad(pad.id)}
             onPointerCancel={() => onReleasePad(pad.id)}
             onLostPointerCapture={() => onReleasePad(pad.id)}
-          >{pad.label}<small>{pad.synthPatchId ? 'MONOPOLY' : pad.stringsPatchId ? 'STRINGS' : pad.organicBassPatchId ? 'MONOGORG' : pad.fileName ?? 'EMPTY'}</small></button>
+          >{padNumber}</button>
           {pageSteps.map((stepIndex) => {
             const headIndex = owners[stepIndex]
             const headVelocity = headIndex === null ? 0 : steps[headIndex]

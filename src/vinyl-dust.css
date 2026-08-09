@@ -82,6 +82,9 @@ select, textarea {
 }
 .main-nav-button {
   --mechanism-hover-border: color-mix(in srgb, var(--station-accent) 52%, #777599);
+  --nav-face-top: #34334d;
+  --nav-face-mid: #24263d;
+  --nav-face-bottom: #151727;
   color: #c8c5d3;
   background: transparent;
   box-shadow: none;
@@ -94,17 +97,17 @@ select, textarea {
   box-shadow: var(--mechanism-rest-shadow);
 }
 @media (hover: hover) and (pointer: fine) {
-  .main-nav-button:hover:not(:disabled) {
+  .main-nav-button:not(.main-nav-button-active):hover:not(:disabled) {
     color: #f0e8df;
   }
-  .main-nav-button:hover:not(:disabled) > [data-mechanism-face] {
+  .main-nav-button:not(.main-nav-button-active):hover:not(:disabled) > [data-mechanism-face] {
     background:
       linear-gradient(180deg, rgb(205 211 246 / 13%) 0%, transparent 36%),
       linear-gradient(180deg, #3d3d5a 0%, #292b47 44%, #181a2d 100%);
   }
 }
 .main-nav-button-active {
-  color: var(--station-bg);
+  color: var(--station-text);
 }
 .main-nav-button-active > [data-mechanism-face] {
   border-color: color-mix(in srgb, var(--station-accent) 76%, var(--accent-gold-light));
@@ -115,21 +118,33 @@ select, textarea {
 /* The tab is allowed to carry the module's colour. The workspace itself is
    not: MIX and PROJECT keep the warmer control accent below, preventing their
    light blue/stone tab colours from bleaching every active control inside. */
-.main-nav-button[data-workspace='chop'].main-nav-button-active { --nav-active: #a5769d; }
-.main-nav-button[data-workspace='pad'].main-nav-button-active { --nav-active: #c69b61; }
-.main-nav-button[data-workspace='synth'].main-nav-button-active { --nav-active: #87a066; }
-.main-nav-button[data-workspace='strings'].main-nav-button-active { --nav-active: #8fa8c7; }
-.main-nav-button[data-workspace='seq'].main-nav-button-active { --nav-active: #9a88c3; }
-.main-nav-button[data-workspace='song'].main-nav-button-active { --nav-active: #b07085; }
-.main-nav-button[data-workspace='tracks'].main-nav-button-active { --nav-active: #5fa88f; }
-.main-nav-button[data-workspace='mix'].main-nav-button-active { --nav-active: #78a1b2; }
-.main-nav-button.main-nav-button-active > [data-mechanism-face] {
-  border-color: color-mix(in srgb, var(--nav-active) 76%, var(--accent-gold-light));
-  /* Selected is an engaged hard key: the light model flips from a bright top
-     edge to a darker upper recess. Colour still identifies the workspace but
-     no longer has to carry the state by itself. */
-  background: linear-gradient(180deg, color-mix(in srgb, var(--nav-active) 76%, #15111a) 0%, var(--nav-active) 56%, color-mix(in srgb, var(--nav-active) 86%, #fff) 100%);
-  box-shadow: var(--mechanism-engaged-shadow);
+.main-nav-button[data-workspace='chop'] { --nav-face-top: #493547; --nav-face-mid: #2e263a; --nav-face-bottom: #191827; }
+.main-nav-button[data-workspace='pad'] { --nav-face-top: #334454; --nav-face-mid: #263444; --nav-face-bottom: #171e2b; }
+.main-nav-button[data-workspace='synth'] { --nav-face-top: #3a4a3a; --nav-face-mid: #283a2a; --nav-face-bottom: #17231a; }
+.main-nav-button[data-workspace='strings'] { --nav-face-top: #354356; --nav-face-mid: #253244; --nav-face-bottom: #16202f; }
+.main-nav-button[data-workspace='seq'] { --nav-face-top: #3e3a62; --nav-face-mid: #2c2b4b; --nav-face-bottom: #19182f; }
+.main-nav-button[data-workspace='song'] { --nav-face-top: #503549; --nav-face-mid: #36263c; --nav-face-bottom: #201827; }
+.main-nav-button[data-workspace='tracks'] { --nav-face-top: #34334d; --nav-face-mid: #24263d; --nav-face-bottom: #151727; }
+.main-nav-button[data-workspace='mix'] { --nav-face-top: #2c4954; --nav-face-mid: #213744; --nav-face-bottom: #14212c; }
+.main-nav-button[data-workspace='project'] { --nav-face-top: #3e4556; --nav-face-mid: #2d3444; --nav-face-bottom: #1a202d; }
+.station-shell .main-nav-button.main-nav-button-active > [data-mechanism-face] {
+  border-color: color-mix(in srgb, var(--nav-face-top) 76%, var(--station-text));
+  color: var(--station-text);
+  /* The engaged key keeps its own material colour. Only the lighting model
+     changes: the top falls into shadow and the lower edge catches a thin,
+     faded trace of the workspace pigment. */
+  background:
+    linear-gradient(180deg, rgb(0 0 0 / 20%) 0%, transparent 40%),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--nav-face-top) 78%, var(--scene-recess)) 0%,
+      color-mix(in srgb, var(--nav-face-mid) 88%, var(--scene-recess)) 52%,
+      color-mix(in srgb, var(--nav-face-bottom) 92%, var(--scene-recess)) 100%);
+  box-shadow:
+    inset 0 2px 4px rgb(0 0 0 / 48%),
+    inset 0 -1px 0 rgb(255 239 220 / 3%),
+    inset 0 -2px 0 color-mix(in srgb, var(--nav-face-top) 58%, transparent),
+    0 1px 1px rgb(0 0 0 / 18%);
+  text-shadow: 0 1px 0 rgb(0 0 0 / 72%);
 }
 /* The inactive rail has gentle per-module night tones. These colours live on
    the keys alone; they do not alter the workspace accent or its controls. */
@@ -513,10 +528,10 @@ select, textarea {
   box-shadow: inset 0 1px 0 rgb(255 239 220 / 6%);
 }
 .step-active, .step-full, .pattern-matrix-row > .pattern-step.step-active {
-  border-color: var(--music-accent);
+  border-color: var(--sequencer-accent);
   color: var(--station-bg);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--music-accent) 86%, #fff), var(--music-accent) 62%, var(--music-pressed));
-  box-shadow: inset 0 1px 0 rgb(255 239 246 / 18%), inset 0 -1px 0 rgb(52 23 43 / 32%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--sequencer-accent) 86%, #fff), var(--sequencer-accent) 62%, var(--sequencer-pressed));
+  box-shadow: inset 0 1px 0 rgb(241 246 231 / 16%), inset 0 -1px 0 rgb(23 42 29 / 34%);
 }
 .sample-loaded {
   border-color: var(--loaded-accent);
@@ -541,8 +556,8 @@ select, textarea {
 /* A merge keeps the grid tracks intact but removes only the event's internal
    seams. The first/last cells retain a precise outer rim. */
 .pattern-matrix-row > .pattern-step.pattern-step-merged {
-  border-top-color: color-mix(in srgb, var(--music-accent) 72%, var(--station-line));
-  border-bottom-color: color-mix(in srgb, var(--music-accent) 72%, var(--station-line));
+  border-top-color: color-mix(in srgb, var(--sequencer-accent) 72%, var(--station-line));
+  border-bottom-color: color-mix(in srgb, var(--sequencer-accent) 72%, var(--station-line));
 }
 
 .pattern-matrix-row > .pattern-step.pattern-step-merged.pattern-step-continues {
@@ -550,11 +565,11 @@ select, textarea {
 }
 
 .pattern-matrix-row > .pattern-step.pattern-step-merged-start {
-  box-shadow: inset 1px 0 0 color-mix(in srgb, var(--music-accent) 72%, var(--station-line)), inset 0 1px 0 rgb(255 239 246 / 18%), inset 0 -1px 0 rgb(52 23 43 / 32%);
+  box-shadow: inset 1px 0 0 color-mix(in srgb, var(--sequencer-accent) 72%, var(--station-line)), inset 0 1px 0 rgb(241 246 231 / 16%), inset 0 -1px 0 rgb(23 42 29 / 34%);
 }
 
 .pattern-matrix-row > .pattern-step.pattern-step-merged-end {
-  border-right-color: color-mix(in srgb, var(--music-accent) 72%, var(--station-line));
+  border-right-color: color-mix(in srgb, var(--sequencer-accent) 72%, var(--station-line));
 }
 
 .pattern-matrix-row > .pattern-step.pattern-step-merged-selected {

@@ -71,13 +71,18 @@ export function TransportBar({ bpm, swing, isPlaying, recording, countingIn, mod
       <button
         className="system-power-switch"
         type="button"
+        data-mechanism="power"
+        data-engaged={audioStatus === 'ready'}
+        data-audio-status={audioStatus}
         disabled={audioDisabled}
         aria-busy={audioStatus === 'starting'}
         aria-label={audioStatus === 'ready' ? 'Audio on' : audioRecovering ? 'Audio interrupted, tap to resume' : audioStatus === 'starting' ? 'Starting audio' : 'Start audio'}
         onClick={onStartAudio}
       >
-        <span className={`status-dot status-${audioStatus}`} aria-hidden="true" />
-        <span className="system-power-label">{audioStatus === 'ready' ? 'ON' : audioRecovering ? 'WAIT' : 'OFF'}</span>
+        <span className="system-power-face" data-mechanism-face>
+          <span className={`status-dot status-${audioStatus}`} aria-hidden="true" />
+          <span className="system-power-label">{audioStatus === 'ready' ? 'ON' : audioRecovering ? 'WAIT' : 'OFF'}</span>
+        </span>
       </button>
       <button className="transport-button transport-icon-button transport-play-button" type="button" disabled={!controlsAwake || isPlaying} aria-label="Play" onClick={onPlay} />
       <button className="mixer-toggle transport-icon-button transport-stop-button" type="button" disabled={!isPlaying && !countingIn} aria-label="Stop" onClick={onStop} />

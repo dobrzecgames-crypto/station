@@ -143,7 +143,7 @@ Suggested fields:
 - whole-step event span: one for an ordinary event, or the exact number of explicitly merged contiguous active cells on the event head,
 - future probability, ratchet and parameter-lock fields.
 
-Adjacent active steps do not merge implicitly. A merged event never wraps from step 16 to step 1, never crosses a pad/track or Pattern boundary, and owns one velocity/SHIFT parameter set. Its first cell is the sole trigger. The persisted span arrays reuse the existing schema-v20 `lengths` field; historical stretched steps normalize to equivalent explicit merged cells, while missing historical spans normalize to independent one-step events. A legacy sample one-shot may retain an internal zero span solely to preserve its formerly unbounded playback, but it resolves as one grid event and cannot create a merged trigger.
+Adjacent active steps do not merge merely because they touch: separate taps remain separate one-step events. One continuous SEQ paint gesture explicitly creates a merged event across every crossed cell. A merged event never wraps from step 16 to step 1, never crosses a pad/track or Pattern boundary, and owns one velocity/SHIFT parameter set. Its first temporal cell is the sole trigger. The persisted span arrays reuse the existing schema-v20 `lengths` field; historical stretched steps normalize to equivalent explicit merged cells, while missing historical spans normalize to independent one-step events. A legacy sample one-shot may retain an internal zero span solely to preserve its formerly unbounded playback, but it resolves as one grid event and cannot create a merged trigger.
 
 Do not add future fields until they are needed, but reserve clean extension points through schema versioning.
 

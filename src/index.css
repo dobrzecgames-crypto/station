@@ -89,8 +89,8 @@
      staying inside the same low-chroma Vinyl Dust palette. */
   --focus-accent: var(--accent-terracotta);
   --focus-pressed: var(--accent-terracotta-pressed);
-  --music-accent: #a66f91;
-  --music-pressed: #774d68;
+  --music-accent: #6e748a;
+  --music-pressed: #50566a;
   --sequencer-accent: #718b72;
   --sequencer-pressed: #4d6351;
   --control-active: #7891a3;

@@ -120,10 +120,9 @@ export function updateVariantStep(groups: readonly PatternGroup[], groupId: stri
   })
 }
 
-/** Paints toward one stable state, so repeated pointer moves over the same cell
- * cannot toggle it back. Existing merged events remain readable: erasing any
- * cell clears their whole stored span, while painted additions are always
- * independent one-step events. */
+/** Sets one cell toward a stable state for taps and erase strokes. Existing
+ * merged events remain readable: erasing any owned cell clears their whole
+ * stored span, while a single-cell addition remains an independent event. */
 export function setVariantStepPresence(groups: readonly PatternGroup[], groupId: string, variant: PatternVariantName, padId: SampleId, stepIndex: number, shouldExist: boolean): PatternGroup[] {
   const group = groups.find((candidate) => candidate.id === groupId)
   const steps = group?.variants[variant]?.[padId]
@@ -131,6 +130,57 @@ export function setVariantStepPresence(groups: readonly PatternGroup[], groupId:
   if (!group || !steps || !lengths || stepIndex < 0 || stepIndex >= patternStepCount) throw new Error('Pattern step is invalid.')
   const exists = getStepEventRange(steps, lengths, stepIndex) !== null
   return exists === shouldExist ? groups.map(clonePatternGroup) : updateVariantStep(groups, groupId, variant, padId, stepIndex)
+}
+
+/** Turns one continuous paint gesture into one musical event. The anchor keeps
+ * its velocity/SHIFT, every crossed cell becomes part of its span, and only
+ * the temporal head is scheduled. Merely adjacent events outside the painted
+ * range remain independent. */
+export function paintVariantStepSpan(groups: readonly PatternGroup[], groupId: string, variant: PatternVariantName, padId: SampleId, anchorIndex: number, endIndex: number): PatternGroup[] {
+  if (![anchorIndex, endIndex].every((index) => Number.isInteger(index) && index >= 0 && index < patternStepCount)) throw new Error('Pattern step is invalid.')
+  return groups.map((group) => {
+    if (group.id !== groupId) return clonePatternGroup(group)
+    const cloned = clonePatternGroup(group)
+    const steps = cloned.variants[variant]?.[padId]
+    const shifts = cloned.shifts[variant]?.[padId]
+    const lengths = cloned.lengths[variant]?.[padId]
+    if (!steps || !shifts || !lengths) throw new Error('Pattern step is invalid.')
+
+    let spanStart = Math.min(anchorIndex, endIndex)
+    let spanEnd = Math.max(anchorIndex, endIndex)
+    let expanded = true
+    while (expanded) {
+      expanded = false
+      for (let index = spanStart; index <= spanEnd; index += 1) {
+        const event = getStepEventRange(steps, lengths, index)
+        if (!event) continue
+        const nextStart = Math.min(spanStart, event.headIndex)
+        const nextEnd = Math.max(spanEnd, event.endIndex)
+        if (nextStart !== spanStart || nextEnd !== spanEnd) expanded = true
+        spanStart = nextStart
+        spanEnd = nextEnd
+      }
+    }
+
+    const velocity = steps[anchorIndex] > 0 ? steps[anchorIndex] : 1
+    const shift = steps[anchorIndex] > 0 ? shifts[anchorIndex] : 0
+    const nextSteps = [...steps]
+    const nextShifts = [...shifts]
+    const nextLengths = [...lengths]
+    for (let index = spanStart; index <= spanEnd; index += 1) {
+      nextSteps[index] = velocity
+      nextShifts[index] = shift
+      nextLengths[index] = 1
+    }
+    nextLengths[spanStart] = spanEnd - spanStart + 1
+
+    return {
+      ...cloned,
+      variants: { ...cloned.variants, [variant]: { ...cloneStepPattern(cloned.variants[variant]!), [padId]: nextSteps } },
+      shifts: { ...cloned.shifts, [variant]: { ...cloneStepShiftPattern(cloned.shifts[variant]!), [padId]: nextShifts } },
+      lengths: { ...cloned.lengths, [variant]: { ...cloneStepLengthPattern(cloned.lengths[variant]!), [padId]: nextLengths } },
+    }
+  })
 }
 
 /** Recording reinforces the whole event when it lands inside a merged block. */

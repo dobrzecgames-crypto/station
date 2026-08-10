@@ -25,8 +25,8 @@ Text is ivory `#EEE4D6` with muted text `#C8BCAE`; pure white is not a UI colour
 | --- | --- | --- |
 | Station identity / focus / currently running | `--focus-accent` | `#C86F50` |
 | Pressed Station focus | `--focus-pressed` | `#9F4937` |
-| Pattern identity / musical material | `--music-accent` | `#A66F91` |
-| Pressed musical material | `--music-pressed` | `#774D68` |
+| Pattern identity / musical material | `--music-accent` | `#6E748A` |
+| Pressed musical material | `--music-pressed` | `#50566A` |
 | Active SEQ step / merged event | `--sequencer-accent` | `#718B72` |
 | Pressed SEQ step | `--sequencer-pressed` | `#4D6351` |
 | Active function / tool | `--control-active` | `#7891A3` |

@@ -20,6 +20,7 @@ interface SequencerControlsProps {
   onSelectPad: (padId: PadState['id']) => void
   onReleasePad: (padId: PadState['id']) => void
   onPaintStep: (padId: PadState['id'], stepIndex: number, shouldExist: boolean) => void
+  onPaintStepSpan: (padId: PadState['id'], anchorIndex: number, endIndex: number) => void
   onVelocityChange: (padId: PadState['id'], stepIndex: number, velocity: number) => void
   onShiftChange: (padId: PadState['id'], stepIndex: number, shift: number) => void
 }
@@ -28,6 +29,7 @@ interface StepPaintStroke {
   padId: PadState['id']
   add: boolean
   pointerId: number
+  anchorStepIndex: number
   lastStepIndex: number
 }
 
@@ -37,7 +39,7 @@ function isDimBeatGroup(stepIndex: number): boolean {
   return Math.floor(stepIndex / 4) % 2 === 1
 }
 
-export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadId, group, selectedVariant, playingStep, onSelectPad, onReleasePad, onPaintStep, onVelocityChange, onShiftChange }: SequencerControlsProps) {
+export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadId, group, selectedVariant, playingStep, onSelectPad, onReleasePad, onPaintStep, onPaintStepSpan, onVelocityChange, onShiftChange }: SequencerControlsProps) {
   const [editedStep, setEditedStep] = useState({ padId: selectedPadId, stepIndex: 0 })
   const [stepPage, setStepPage] = useState<0 | 1>(0)
   const paintStroke = useRef<StepPaintStroke | null>(null)
@@ -106,8 +108,14 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
     if (!stepElement || stepElement.dataset.padId !== current.padId) return
     const stepIndex = Number(stepElement.dataset.stepIndex)
     if (!Number.isInteger(stepIndex) || stepIndex === current.lastStepIndex) return
+    const previousStepIndex = current.lastStepIndex
     current.lastStepIndex = stepIndex
-    onPaintStep(current.padId, stepIndex, current.add)
+    if (current.add) onPaintStepSpan(current.padId, current.anchorStepIndex, stepIndex)
+    else {
+      const eraseStart = Math.min(previousStepIndex, stepIndex)
+      const eraseEnd = Math.max(previousStepIndex, stepIndex)
+      for (let index = eraseStart; index <= eraseEnd; index += 1) onPaintStep(current.padId, index, false)
+    }
     selectStep(current.padId, stepIndex)
   }
 
@@ -115,9 +123,10 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
     if (paintStroke.current || (event.pointerType === 'mouse' && event.button !== 0)) return
     event.preventDefault()
     const add = !filled
-    paintStroke.current = { padId, add, pointerId: event.pointerId, lastStepIndex: stepIndex }
+    paintStroke.current = { padId, add, pointerId: event.pointerId, anchorStepIndex: stepIndex, lastStepIndex: stepIndex }
     event.currentTarget.setPointerCapture(event.pointerId)
-    onPaintStep(padId, stepIndex, add)
+    if (add) onPaintStepSpan(padId, stepIndex, stepIndex)
+    else onPaintStep(padId, stepIndex, false)
     selectStep(padId, stepIndex)
   }
 

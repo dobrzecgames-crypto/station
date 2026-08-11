@@ -6,6 +6,7 @@ import type { PadState } from '../pads/types'
 import type { DisplayTenant } from '../shell/SystemDisplay'
 import { useSystemDisplay } from '../shell/systemDisplayContext'
 import { useDragSlider } from '../shell/useDragSlider'
+import { getStepPageEdgeTarget, sequencerStepPageSize } from './stepPaging.ts'
 import './sequencer.css'
 
 interface SequencerControlsProps {
@@ -41,8 +42,15 @@ function isDimBeatGroup(stepIndex: number): boolean {
 
 export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadId, group, selectedVariant, playingStep, onSelectPad, onReleasePad, onPaintStep, onPaintStepSpan, onVelocityChange, onShiftChange }: SequencerControlsProps) {
   const [editedStep, setEditedStep] = useState({ padId: selectedPadId, stepIndex: 0 })
-  const [stepPage, setStepPage] = useState<0 | 1>(0)
+  const [stepPage, setStepPageState] = useState<0 | 1>(0)
+  const stepPageRef = useRef<0 | 1>(0)
+  const patternMatrixRef = useRef<HTMLDivElement | null>(null)
   const paintStroke = useRef<StepPaintStroke | null>(null)
+  /* After an edge turn, ignore the cells encountered while the pointer travels
+     back to the first cell of the newly visible page. Without this small gate,
+     the unchanged screen coordinate over column eight would turn step 9 into
+     step 16 immediately. */
+  const pendingPageEntryStep = useRef<number | null>(null)
   const { claim, release, ownerId } = useSystemDisplay()
   const [displayActive, setDisplayActive] = useState(true)
   const hasOwnedDisplayRef = useRef(false)
@@ -98,16 +106,20 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
     onShiftPointerDown: shiftDrag.onPointerDown,
   }), [editedPad, editedHeadIndex, velocity, shift, length, velocityDrag.onPointerDown, shiftDrag.onPointerDown])
   const selectStep = (padId: PadState['id'], stepIndex: number) => { setDisplayActive(true); setEditedStep({ padId, stepIndex }) }
-  const pageStartStep = stepPage * 8
-  const pageSteps = Array.from({ length: 8 }, (_, offset) => pageStartStep + offset)
+  const showStepPage = (page: 0 | 1) => {
+    stepPageRef.current = page
+    setStepPageState(page)
+  }
+  const selectStepPage = (page: 0 | 1) => {
+    pendingPageEntryStep.current = null
+    showStepPage(page)
+  }
+  const pageStartStep = stepPage * sequencerStepPageSize
+  const pageSteps = Array.from({ length: sequencerStepPageSize }, (_, offset) => pageStartStep + offset)
 
-  const paintAt = (pointerId: number, clientX: number, clientY: number) => {
+  const continuePaintAtStep = (stepIndex: number) => {
     const current = paintStroke.current
-    if (!current || current.pointerId !== pointerId) return
-    const stepElement = document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>('[data-sequencer-step]')
-    if (!stepElement || stepElement.dataset.padId !== current.padId) return
-    const stepIndex = Number(stepElement.dataset.stepIndex)
-    if (!Number.isInteger(stepIndex) || stepIndex === current.lastStepIndex) return
+    if (!current || stepIndex === current.lastStepIndex) return
     const previousStepIndex = current.lastStepIndex
     current.lastStepIndex = stepIndex
     if (current.add) onPaintStepSpan(current.padId, current.anchorStepIndex, stepIndex)
@@ -119,19 +131,55 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
     selectStep(current.padId, stepIndex)
   }
 
+  const paintAt = (pointerId: number, clientX: number, clientY: number) => {
+    const current = paintStroke.current
+    if (!current || current.pointerId !== pointerId) return
+    const stepElement = document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>('[data-sequencer-step]')
+    const hoveredStepIndex = stepElement?.dataset.padId === current.padId ? Number(stepElement.dataset.stepIndex) : null
+    const pendingEntry = pendingPageEntryStep.current
+    if (pendingEntry !== null) {
+      if (hoveredStepIndex === pendingEntry) pendingPageEntryStep.current = null
+      return
+    }
+
+    const rowSteps = Array.from(patternMatrixRef.current?.querySelectorAll<HTMLElement>('[data-sequencer-step]') ?? [])
+      .filter((element) => element.dataset.padId === current.padId)
+    const firstCell = rowSteps[0]
+    const lastCell = rowSteps[rowSteps.length - 1]
+    if (firstCell && lastCell) {
+      const edgeTarget = getStepPageEdgeTarget(stepPageRef.current, clientX, clientY, firstCell.getBoundingClientRect(), lastCell.getBoundingClientRect())
+      if (edgeTarget !== null) {
+        pendingPageEntryStep.current = edgeTarget
+        showStepPage(edgeTarget >= sequencerStepPageSize ? 1 : 0)
+        continuePaintAtStep(edgeTarget)
+        return
+      }
+    }
+
+    if (hoveredStepIndex === null || !Number.isInteger(hoveredStepIndex)) return
+    continuePaintAtStep(hoveredStepIndex)
+  }
+
   const beginPaint = (event: ReactPointerEvent<HTMLButtonElement>, padId: PadState['id'], stepIndex: number, filled: boolean) => {
     if (paintStroke.current || (event.pointerType === 'mouse' && event.button !== 0)) return
     event.preventDefault()
     const add = !filled
+    pendingPageEntryStep.current = null
     paintStroke.current = { padId, add, pointerId: event.pointerId, anchorStepIndex: stepIndex, lastStepIndex: stepIndex }
-    event.currentTarget.setPointerCapture(event.pointerId)
+    patternMatrixRef.current?.setPointerCapture(event.pointerId)
     if (add) onPaintStepSpan(padId, stepIndex, stepIndex)
     else onPaintStep(padId, stepIndex, false)
     selectStep(padId, stepIndex)
   }
 
+  const endPaint = (pointerId?: number) => {
+    if (pointerId !== undefined && paintStroke.current?.pointerId !== pointerId) return
+    paintStroke.current = null
+    pendingPageEntryStep.current = null
+  }
+
   useEffect(() => {
-    const endStroke = () => { paintStroke.current = null }
+    const endStroke = () => endPaint()
     window.addEventListener('pointerup', endStroke)
     window.addEventListener('pointercancel', endStroke)
     return () => {
@@ -164,11 +212,19 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
   return <section className="sequencer" aria-label={`Sequencer, ${group.name} ${selectedVariant}`}>
     <div className="sequencer-toolbar">
       <div className="sequencer-step-pages" role="tablist" aria-label="Step range">
-        <button className={stepPage === 0 ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" role="tab" aria-selected={stepPage === 0} onClick={() => setStepPage(0)}>01-08</button>
-        <button className={stepPage === 1 ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" role="tab" aria-selected={stepPage === 1} onClick={() => setStepPage(1)}>09-16</button>
+        <button className={stepPage === 0 ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" role="tab" aria-selected={stepPage === 0} onClick={() => selectStepPage(0)}>01-08</button>
+        <button className={stepPage === 1 ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" role="tab" aria-selected={stepPage === 1} onClick={() => selectStepPage(1)}>09-16</button>
       </div>
     </div>
-    <div className="pattern-matrix" aria-label={`Pattern steps ${pageStartStep + 1} through ${pageStartStep + 8}`}>
+    <div
+      ref={patternMatrixRef}
+      className="pattern-matrix"
+      aria-label={`Pattern steps ${pageStartStep + 1} through ${pageStartStep + sequencerStepPageSize}`}
+      onPointerMove={(event) => paintAt(event.pointerId, event.clientX, event.clientY)}
+      onPointerUp={(event) => endPaint(event.pointerId)}
+      onPointerCancel={(event) => endPaint(event.pointerId)}
+      onLostPointerCapture={(event) => endPaint(event.pointerId)}
+    >
       <div className="pattern-matrix-row pattern-matrix-header"><span>PAD</span>{pageSteps.map((stepIndex) => <span className={`${playingStep === stepIndex ? 'pattern-step-playing' : ''} ${isDimBeatGroup(stepIndex) ? 'pattern-step-beat-dim' : ''}`} key={stepIndex}>{stepIndex + 1}</span>)}</div>
       {pads.map((pad) => {
         const steps = pattern[pad.id]
@@ -220,10 +276,6 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
                 data-pad-id={pad.id}
                 data-step-index={stepIndex}
                 onPointerDown={(event) => beginPaint(event, pad.id, stepIndex, headIndex !== null)}
-                onPointerMove={(event) => paintAt(event.pointerId, event.clientX, event.clientY)}
-                onPointerUp={(event) => { if (paintStroke.current?.pointerId === event.pointerId) paintStroke.current = null }}
-                onPointerCancel={(event) => { if (paintStroke.current?.pointerId === event.pointerId) paintStroke.current = null }}
-                onLostPointerCapture={(event) => { if (paintStroke.current?.pointerId === event.pointerId) paintStroke.current = null }}
                 onClick={(event) => {
                   if (event.detail !== 0) return
                   onPaintStep(pad.id, stepIndex, headIndex === null)

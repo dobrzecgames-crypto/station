@@ -3,6 +3,7 @@ import test from 'node:test'
 import { createPadBank } from '../src/pads/padBank.ts'
 import { createInitialPatternGroups, mergeAdjacentVariantSteps, paintVariantStepSpan, setVariantStepPresence, setVariantStepShift, setVariantStepVelocity, updateVariantStep } from '../src/patterns/patternOperations.ts'
 import { getStepEventRange } from '../src/patterns/stepEvents.ts'
+import { getStepPageEdgeTarget } from '../src/sequencer/stepPaging.ts'
 
 const padId = createPadBank()[0].id
 const groupId = 'pattern-group-1'
@@ -38,4 +39,14 @@ test('erase painting is idempotent and safely clears a legacy merged event', () 
 
   assert.deepEqual(groups[0].variants.A![padId].slice(5, 8), [0, 0, 0])
   assert.equal(getStepEventRange(groups[0].variants.A![padId], groups[0].lengths.A![padId], 6), null)
+})
+
+test('paint paging advances at the outer row edge without reacting above or below the row', () => {
+  const firstCell = { left: 100, right: 140, top: 20, bottom: 60 }
+  const lastCell = { left: 380, right: 420, top: 20, bottom: 60 }
+
+  assert.equal(getStepPageEdgeTarget(0, 419, 40, firstCell, lastCell), 8)
+  assert.equal(getStepPageEdgeTarget(1, 101, 40, firstCell, lastCell), 7)
+  assert.equal(getStepPageEdgeTarget(0, 300, 40, firstCell, lastCell), null)
+  assert.equal(getStepPageEdgeTarget(0, 419, 70, firstCell, lastCell), null)
 })

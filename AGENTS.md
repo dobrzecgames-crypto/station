@@ -18,6 +18,14 @@ Do not begin M5 or add product functionality beyond the approved M4 task until M
 
 ## Agent behavior
 
+### Canonical repository workflow
+
+- The only canonical Station working directory is `C:\Users\T470\Documents\station`.
+- Work directly on the local `main` branch in that directory.
+- Do not create or use Git worktrees, detached HEADs or additional branches unless the product owner explicitly requests that exact Git operation.
+- Before editing, verify that the repository root is the canonical directory and that `HEAD` is attached to `main`.
+- If a task starts in another Station checkout or worktree, do not edit there. Stop and report the mismatch so the task can be continued in the canonical directory.
+
 Before changing files:
 
 1. Read `README.md` and all documents relevant to the task.

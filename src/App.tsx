@@ -76,7 +76,7 @@ import { OrganicBassWorkspace } from './organic-bass/OrganicBassWorkspace'
 import {
   addAudioClip, addAudioTrack, collectAudioTrackAssetIds, createAudioClipFromImport, createAudioTrack,
   duplicateAudioClip, maximumClipFadeSeconds, moveAudioClip, moveAudioTrack, removeAudioClip, removeAudioTrack,
-  setAudioTrackEffects, setAudioTrackGain, setAudioTrackMuted, setAudioTrackSolo, splitAudioClipAt,
+  setAudioClipSourceRegion, setAudioTrackEffects, setAudioTrackGain, setAudioTrackMuted, setAudioTrackSolo, splitAudioClipAt,
   trimAudioClipEnd, trimAudioClipStart, updateAudioClip,
 } from './tracks/tracksOperations'
 import { toTimelineSchedulerClips } from './tracks/tracksScheduling'
@@ -86,6 +86,7 @@ import type { AudioTrack, TimelineGridDivision } from './tracks/tracksTypes'
 import { TracksWorkspace } from './tracks/TracksWorkspace'
 import { TracksArranger } from './tracks/TracksArranger'
 import { TrackEditor } from './tracks/TrackEditor'
+import { getClipExportRegion } from './tracks/clipExport'
 import type { TrackMonitorMode } from './tracks/TrackEditor'
 import { useTracksViewState } from './tracks/useTracksViewState'
 import { useTracksLayoutMode } from './tracks/useTracksLayoutMode'
@@ -1482,6 +1483,46 @@ export function App({ audioEngine }: AppProps) {
     } catch (error) { setErrorMessage(toMessage(error)) }
   }
 
+  /**
+   * Encodes exactly the clip's current non-destructive source region. This is
+   * intentionally a raw crop: timeline position, loop length, gain, fades,
+   * pitch, reverse and track effects are not rendered into material intended
+   * for another LASER edit.
+   */
+  const createClipRegionWav = (trackId: string, clipId: string): { blob: Blob; filename: string; durationSeconds: number } => {
+    const clip = audioTracks.find((track) => track.id === trackId)?.clips.find((candidate) => candidate.id === clipId)
+    if (!clip) throw new Error('Select a WAVES clip first.')
+    const buffer = audioEngine.getDecodedSampleAsset(clip.assetId)
+    if (!buffer) throw new Error(`The source audio for ${clip.fileName} is not loaded.`)
+    const region = getClipExportRegion(clip, buffer.sampleRate, buffer.length)
+    return {
+      blob: encodeWav(buffer, { startFrame: region.startFrame, endFrame: region.endFrame }),
+      filename: region.filename,
+      durationSeconds: (region.endFrame - region.startFrame) / buffer.sampleRate,
+    }
+  }
+
+  const exportClipWav = (trackId: string, clipId: string) => {
+    setErrorMessage(undefined)
+    try {
+      const exported = createClipRegionWav(trackId, clipId)
+      downloadBlob(exported.blob, exported.filename)
+      setProjectMessage(`${exported.filename} exported from WAVES.`)
+    } catch (error) { setErrorMessage(toMessage(error)) }
+  }
+
+  const sendClipToLaser = async (trackId: string, clipId: string) => {
+    if (projectBusy) return
+    setErrorMessage(undefined)
+    try {
+      const exported = createClipRegionWav(trackId, clipId)
+      if (!await loadChopSourceBlob(exported.blob, exported.filename)) return
+      if (openTrackEditorId) closeTrackEditor()
+      setProjectMessage(`${exported.filename} opened in LASER (${exported.durationSeconds.toFixed(3)} s).`)
+      enterMainView('chop')
+    } catch (error) { setErrorMessage(toMessage(error)) }
+  }
+
   const requestRemoveTrack = (trackId: string) => {
     const track = audioTracks.find((candidate) => candidate.id === trackId)
     if (!track) return
@@ -1523,6 +1564,11 @@ export function App({ audioEngine }: AppProps) {
     const clip = track?.clips.find((candidate) => candidate.id === clipId)
     if (!clip) return
     updateAudioTracks((current) => trimAudioClipEnd(current, trackId, clipId, endBeat, bpm, clip.assetDurationSeconds))
+  }
+  const setClipSourceRegion = (trackId: string, clipId: string, region: SamplePlaybackRegion) => {
+    const clip = audioTracks.find((track) => track.id === trackId)?.clips.find((candidate) => candidate.id === clipId)
+    if (!clip) return
+    updateAudioTracks((current) => setAudioClipSourceRegion(current, trackId, clipId, region.startSeconds, region.endSeconds, clip.assetDurationSeconds, bpm))
   }
   const splitClipAtPlayhead = (trackId: string, clipId: string) => updateAudioTracks((current) => splitAudioClipAt(current, trackId, clipId, tracksLivePlayheadBeat, createAudioClipId(), bpm))
   const duplicateClip = (trackId: string, clipId: string) => updateAudioTracks((current) => duplicateAudioClip(current, trackId, clipId, createAudioClipId()))
@@ -2087,6 +2133,8 @@ export function App({ audioEngine }: AppProps) {
               onSplitClipAtPlayhead={splitClipAtPlayhead}
               onDuplicateClip={duplicateClip}
               onToggleClipLoop={toggleClipLoop}
+              onExportClipWav={exportClipWav}
+              onSendClipToLaser={(trackId, clipId) => void sendClipToLaser(trackId, clipId)}
               onRequestRemoveClip={requestRemoveClip}
               onOpenTrackEditor={openTrackEditor}
             />
@@ -2215,6 +2263,8 @@ export function App({ audioEngine }: AppProps) {
           onSplitClipAtPlayhead={splitClipAtPlayhead}
           onDuplicateClip={duplicateClip}
           onToggleClipLoop={toggleClipLoop}
+          onExportClipWav={exportClipWav}
+          onSendClipToLaser={(trackId, clipId) => void sendClipToLaser(trackId, clipId)}
           onRequestRemoveClip={requestRemoveClip}
           onOpenTrackEditor={openTrackEditor}
           onExit={() => setMainView(previousMainViewRef.current)}
@@ -2235,13 +2285,18 @@ export function App({ audioEngine }: AppProps) {
           onSnapDivisionChange={setTracksSnapDivision}
           monitorMode={trackMonitorMode}
           onMonitorModeChange={changeTrackMonitorMode}
+          onPlay={startPlayback}
+          onStop={stopPlayback}
           onMoveClip={(clipId, startBeat) => moveClip(editingTrack.id, clipId, startBeat)}
           onTrimClipStart={(clipId, startBeat) => trimClipStart(editingTrack.id, clipId, startBeat)}
           onTrimClipEnd={(clipId, endBeat) => trimClipEnd(editingTrack.id, clipId, endBeat)}
+          onSetClipSourceRegion={(clipId, region) => setClipSourceRegion(editingTrack.id, clipId, region)}
           onSplitClipAtPlayhead={(clipId) => splitClipAtPlayhead(editingTrack.id, clipId)}
           onDuplicateClip={(clipId) => duplicateClip(editingTrack.id, clipId)}
           onRequestRemoveClip={(clipId) => requestRemoveClip(editingTrack.id, clipId)}
           onToggleClipLoop={(clipId) => toggleClipLoop(editingTrack.id, clipId)}
+          onExportClipWav={(clipId) => exportClipWav(editingTrack.id, clipId)}
+          onSendClipToLaser={(clipId) => void sendClipToLaser(editingTrack.id, clipId)}
           onSetClipGain={(clipId, gain) => setClipGain(editingTrack.id, clipId, gain)}
           onSetClipFadeIn={(clipId, seconds) => setClipFadeIn(editingTrack.id, clipId, seconds)}
           onSetClipFadeOut={(clipId, seconds) => setClipFadeOut(editingTrack.id, clipId, seconds)}

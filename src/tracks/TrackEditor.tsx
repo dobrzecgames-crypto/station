@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react'
 import type { SampleAssetId } from '../audio/AudioEngine'
+import type { SamplePlaybackRegion } from '../pads/types'
+import { Waveform } from '../sample-editor/Waveform'
 import { useDragSlider } from '../shell/useDragSlider'
 import { maximumClipFadeSeconds } from './tracksOperations'
 import { snapBeatToGrid } from './timelineGrid'
+import { SnapGridSelect } from './SnapGridSelect'
 import { trackAccentColor } from './trackAccent'
 import { TrackClipWaveform } from './TrackClipWaveform'
-import { timelineGridDivisions } from './tracksTypes'
 import type { AudioClip, AudioTrack, TimelineGridDivision } from './tracksTypes'
+import { useOutsideDismiss } from './useOutsideDismiss'
 // Reuses .tracks-clip-handle/.tracks-clip-selected/.tracks-clip-label/
 // .tracks-playhead/.tracks-ruler-mark/.tracks-snap-control/.tracks-clip/
 // .tracks-timeline-scroll/.tracks-timeline-inner/.tracks-ruler/
@@ -32,13 +35,49 @@ const doubleTapThresholdMs = 350
     TracksArranger's, not a precision surface like DETAIL, so it shares
     TracksArranger's more modest range rather than DETAIL's 8-320. */
 const defaultTimelinePixelsPerBeat = 24
-const minimumTimelinePixelsPerBeat = 10
-const maximumTimelinePixelsPerBeat = 96
-const timelineZoomStepPixelsPerBeat = 8
 
 type EditorViewMode = 'detail' | 'timeline'
 
 export type TrackMonitorMode = 'all' | 'solo' | 'mute'
+
+const monitorModeLabels: Record<TrackMonitorMode, string> = {
+  all: 'ALL',
+  solo: 'SOLO',
+  mute: 'MUTE TRACK',
+}
+
+/** Monitoring is a secondary selector, not a performance control. Keeping
+    its three mutually exclusive states in a compact popover preserves the
+    selected state while removing a permanently mounted row of large keys. */
+function TrackMonitorSelect({ value, onChange }: { value: TrackMonitorMode; onChange: (mode: TrackMonitorMode) => void }) {
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  useOutsideDismiss(containerRef, open, () => setOpen(false))
+
+  return (
+    <div className="track-editor-compact-select" ref={containerRef}>
+      <button type="button" className="mixer-toggle track-editor-compact-trigger" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((current) => !current)}>
+        MONITOR {monitorModeLabels[value]} <span className="tracks-snap-select-caret" aria-hidden="true">▾</span>
+      </button>
+      {open && (
+        <div className="tracks-snap-select-menu" role="listbox" aria-label="Monitoring">
+          {(Object.keys(monitorModeLabels) as TrackMonitorMode[]).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              role="option"
+              aria-selected={value === mode}
+              className={value === mode ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'}
+              onClick={() => { onChange(mode); setOpen(false) }}
+            >
+              {monitorModeLabels[mode]}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 interface TrackEditorProps {
   track: AudioTrack
@@ -50,13 +89,18 @@ interface TrackEditorProps {
   onSnapDivisionChange: (division: TimelineGridDivision) => void
   monitorMode: TrackMonitorMode
   onMonitorModeChange: (mode: TrackMonitorMode) => void
+  onPlay: () => void
+  onStop: () => void
   onMoveClip: (clipId: string, startBeat: number) => void
   onTrimClipStart: (clipId: string, startBeat: number) => void
   onTrimClipEnd: (clipId: string, endBeat: number) => void
+  onSetClipSourceRegion: (clipId: string, region: SamplePlaybackRegion) => void
   onSplitClipAtPlayhead: (clipId: string) => void
   onDuplicateClip: (clipId: string) => void
   onRequestRemoveClip: (clipId: string) => void
   onToggleClipLoop: (clipId: string) => void
+  onExportClipWav: (clipId: string) => void
+  onSendClipToLaser: (clipId: string) => void
   onSetClipGain: (clipId: string, gain: number) => void
   onSetClipFadeIn: (clipId: string, seconds: number) => void
   onSetClipFadeOut: (clipId: string, seconds: number) => void
@@ -89,8 +133,11 @@ function regionFraction(clip: AudioClip): { start: number; end: number } {
  * to exactly where you left off" is satisfied without saving and restoring
  * it by hand.
  */
-export function TrackEditor({ track, waveforms, bpm, isPlaying, playheadBeat, snapDivision, onSnapDivisionChange, monitorMode, onMonitorModeChange, onMoveClip, onTrimClipStart, onTrimClipEnd, onSplitClipAtPlayhead, onDuplicateClip, onRequestRemoveClip, onToggleClipLoop, onSetClipGain, onSetClipFadeIn, onSetClipFadeOut, onSetClipPitch, onToggleClipReversed, onSeekPlayhead, onClose }: TrackEditorProps) {
-  const [viewMode, setViewMode] = useState<EditorViewMode>('detail')
+export function TrackEditor({ track, waveforms, bpm, isPlaying, playheadBeat, snapDivision, onSnapDivisionChange, monitorMode, onMonitorModeChange, onPlay, onStop, onMoveClip, onTrimClipStart, onTrimClipEnd, onSetClipSourceRegion, onSplitClipAtPlayhead, onDuplicateClip, onRequestRemoveClip, onToggleClipLoop, onExportClipWav, onSendClipToLaser, onSetClipGain, onSetClipFadeIn, onSetClipFadeOut, onSetClipPitch, onToggleClipReversed, onSeekPlayhead, onClose }: TrackEditorProps) {
+  // One focused source-editing surface: the old local DETAIL/TIMELINE
+  // switch duplicated navigation already provided by the visible TRACKS
+  // exit, so DETAIL remains the fixed internal layout.
+  const viewMode: EditorViewMode = 'detail'
   const [pixelsPerBeat, setPixelsPerBeat] = useState(defaultPixelsPerBeat)
   const [selectedClipId, setSelectedClipId] = useState<string | null>(track.clips[0]?.id ?? null)
   const [drag, setDrag] = useState<DragState | null>(null)
@@ -125,7 +172,7 @@ export function TrackEditor({ track, waveforms, bpm, isPlaying, playheadBeat, sn
       reset by the other. selectedClipId is the one piece of state both
       branches below actually share - see the two scroll-into-view effects
       further down. */
-  const [timelinePixelsPerBeat, setTimelinePixelsPerBeat] = useState(defaultTimelinePixelsPerBeat)
+  const timelinePixelsPerBeat = defaultTimelinePixelsPerBeat
   const [timelineDrag, setTimelineDrag] = useState<DragState | null>(null)
   const timelineScrollRef = useRef<HTMLDivElement>(null)
   const lastTimelineClipTapRef = useRef<{ clipId: string; time: number } | null>(null)
@@ -198,6 +245,28 @@ export function TrackEditor({ track, waveforms, bpm, isPlaying, playheadBeat, sn
     focusLabel: 'PITCH',
     formatValue: (value) => `${value > 0 ? '+' : ''}${value} st`,
   })
+  const sourceStartDrag = useDragSlider({
+    value: selectedClip?.sourceOffsetSeconds ?? 0,
+    min: 0,
+    max: selectedClip?.assetDurationSeconds ?? 0,
+    step: 0.001,
+    onChange: (value) => {
+      if (selectedClip) onSetClipSourceRegion(selectedClip.id, { startSeconds: value, endSeconds: selectedClip.sourceEndSeconds })
+    },
+    focusLabel: 'LASER START',
+    formatValue: (value) => `${value.toFixed(3)} s`,
+  })
+  const sourceEndDrag = useDragSlider({
+    value: selectedClip?.sourceEndSeconds ?? 0,
+    min: 0,
+    max: selectedClip?.assetDurationSeconds ?? 0,
+    step: 0.001,
+    onChange: (value) => {
+      if (selectedClip) onSetClipSourceRegion(selectedClip.id, { startSeconds: selectedClip.sourceOffsetSeconds, endSeconds: value })
+    },
+    focusLabel: 'LASER END',
+    formatValue: (value) => `${value.toFixed(3)} s`,
+  })
   const canSplitSelected = Boolean(selectedClip && playheadBeat > selectedClip.startBeat + 0.02 && playheadBeat < selectedClip.startBeat + selectedClip.lengthBeats - 0.02)
   const furthestBeat = track.clips.reduce((max, clip) => Math.max(max, clip.startBeat + clip.lengthBeats), 0)
   const totalBeats = Math.max(minimumVisibleBars * barBeats, Math.ceil((furthestBeat + barBeats) / barBeats) * barBeats)
@@ -226,7 +295,6 @@ export function TrackEditor({ track, waveforms, bpm, isPlaying, playheadBeat, sn
       playhead, undo or the audio engine - this is a UI-only mode switch. */
   const switchToDetailForClip = (clipId: string) => {
     setSelectedClipId(clipId)
-    setViewMode('detail')
   }
 
   const checkTimelineDoubleTap = (event: ReactPointerEvent<HTMLDivElement>, clipId: string): boolean => {
@@ -274,8 +342,6 @@ export function TrackEditor({ track, waveforms, bpm, isPlaying, playheadBeat, sn
     if (isPlaying) return
     onSeekPlayhead(snapBeatToGrid(timelineBeatFromClientX(event.clientX), snapDivision))
   }
-  const zoomTimeline = (deltaPerBeat: number) => setTimelinePixelsPerBeat((current) => Math.min(maximumTimelinePixelsPerBeat, Math.max(minimumTimelinePixelsPerBeat, current + deltaPerBeat)))
-
   /** Nudges the selected clip into view whenever a view becomes active -
       "switch to DETAIL keeps the viewport on the selected clip", "switch
       back to TIMELINE shows the selected clip" from the brief - but only
@@ -389,40 +455,21 @@ export function TrackEditor({ track, waveforms, bpm, isPlaying, playheadBeat, sn
   return (
     <section className="track-editor" aria-label={`${track.name} editor`}>
       <header className="track-editor-header">
-        <button type="button" className="mixer-toggle" onClick={onClose}>← TRACKS</button>
+        <button type="button" className="mixer-toggle track-editor-back" onClick={onClose}>← TRACKS</button>
         <strong className="track-editor-title">{track.name}</strong>
+        <div className="track-editor-header-tools">
+          <div className="track-editor-transport" role="group" aria-label="Playback">
+            <button type="button" className="mixer-toggle transport-icon-button transport-play-button" aria-label="Play" disabled={isPlaying} onClick={onPlay} />
+            <button type="button" className="mixer-toggle transport-icon-button transport-stop-button" aria-label="Stop" disabled={!isPlaying} onClick={onStop} />
+          </div>
+          <TrackMonitorSelect value={monitorMode} onChange={onMonitorModeChange} />
+          <SnapGridSelect value={snapDivision} onChange={onSnapDivisionChange} />
+        </div>
         <button type="button" className="transport-button track-editor-done" onClick={onClose}>DONE</button>
       </header>
 
-      <div className="track-editor-view-switch" role="group" aria-label="Editor view">
-        <button type="button" className={viewMode === 'detail' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} aria-pressed={viewMode === 'detail'} onClick={() => setViewMode('detail')}>DETAIL</button>
-        <button type="button" className={viewMode === 'timeline' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} aria-pressed={viewMode === 'timeline'} onClick={() => setViewMode('timeline')}>TIMELINE</button>
-      </div>
-
-      <div className="track-editor-monitor" role="group" aria-label="Monitoring">
-        {(['all', 'solo', 'mute'] as const).map((mode) => (
-          <button key={mode} type="button" className={monitorMode === mode ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} aria-pressed={monitorMode === mode} onClick={() => onMonitorModeChange(mode)}>
-            {mode === 'all' ? 'ALL' : mode === 'solo' ? 'SOLO' : 'MUTE TRACK'}
-          </button>
-        ))}
-        <div className="tracks-snap-control" role="group" aria-label="Snap grid">
-          <span className="context-label">SNAP</span>
-          {timelineGridDivisions.map((division) => (
-            <button key={division} type="button" className={snapDivision === division ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} aria-pressed={snapDivision === division} onClick={() => onSnapDivisionChange(division)}>
-              {division === 'off' ? 'OFF' : division === '1' ? '1 BAR' : division}
-            </button>
-          ))}
-        </div>
-        {viewMode === 'timeline' && (
-          <div className="track-editor-timeline-zoom" role="group" aria-label="Timeline zoom">
-            <button type="button" className="mixer-toggle" aria-label="Zoom out" onClick={() => zoomTimeline(-timelineZoomStepPixelsPerBeat)}>−</button>
-            <button type="button" className="mixer-toggle" aria-label="Zoom in" onClick={() => zoomTimeline(timelineZoomStepPixelsPerBeat)}>+</button>
-          </div>
-        )}
-      </div>
-
       {viewMode === 'detail' ? (
-      <div className="track-editor-scroll" ref={registerDetailScroll} onScroll={(event) => { detailScrollLeftRef.current = event.currentTarget.scrollLeft }}>
+      <div className="track-editor-scroll" hidden aria-hidden="true" ref={registerDetailScroll} onScroll={(event) => { detailScrollLeftRef.current = event.currentTarget.scrollLeft }}>
         <div
           className="track-editor-lane"
           style={{ width: timelineWidth }}
@@ -455,8 +502,8 @@ export function TrackEditor({ track, waveforms, bpm, isPlaying, playheadBeat, sn
               >
                 <TrackClipWaveform peaks={waveforms[clip.assetId] ?? []} regionStart={clipRegion.start} regionEnd={clipRegion.end} />
                 <span className="tracks-clip-label">{clip.fileName}</span>
-                <div className="tracks-clip-handle tracks-clip-handle-start track-editor-handle" onPointerDown={(event) => beginClipDrag(event, 'trim-start', clip)} onPointerMove={updateClipDrag} onPointerUp={commitClipDrag} onPointerCancel={commitClipDrag} onLostPointerCapture={() => setDrag(null)} />
-                <div className="tracks-clip-handle tracks-clip-handle-end track-editor-handle" onPointerDown={(event) => beginClipDrag(event, 'trim-end', clip)} onPointerMove={updateClipDrag} onPointerUp={commitClipDrag} onPointerCancel={commitClipDrag} onLostPointerCapture={() => setDrag(null)} />
+                <div className="tracks-clip-handle tracks-clip-handle-start track-editor-handle" title="Drag to trim the start" onPointerDown={(event) => beginClipDrag(event, 'trim-start', clip)} onPointerMove={updateClipDrag} onPointerUp={commitClipDrag} onPointerCancel={commitClipDrag} onLostPointerCapture={() => setDrag(null)}><span>START</span></div>
+                <div className="tracks-clip-handle tracks-clip-handle-end track-editor-handle" title="Drag to trim the end" onPointerDown={(event) => beginClipDrag(event, 'trim-end', clip)} onPointerMove={updateClipDrag} onPointerUp={commitClipDrag} onPointerCancel={commitClipDrag} onLostPointerCapture={() => setDrag(null)}><span>END</span></div>
               </div>
             )
           })}
@@ -492,10 +539,8 @@ export function TrackEditor({ track, waveforms, bpm, isPlaying, playheadBeat, sn
                   >
                     <TrackClipWaveform peaks={waveforms[clip.assetId] ?? []} regionStart={clipRegion.start} regionEnd={clipRegion.end} color={trackAccent} />
                     <span className="tracks-clip-label">{clip.fileName}</span>
-                    {isSelected && <>
-                      <div className="tracks-clip-handle tracks-clip-handle-start" onPointerDown={(event) => beginTimelineClipDrag(event, 'trim-start', clip)} onPointerMove={updateTimelineClipDrag} onPointerUp={commitTimelineClipDrag} onPointerCancel={commitTimelineClipDrag} onLostPointerCapture={() => setTimelineDrag(null)} />
-                      <div className="tracks-clip-handle tracks-clip-handle-end" onPointerDown={(event) => beginTimelineClipDrag(event, 'trim-end', clip)} onPointerMove={updateTimelineClipDrag} onPointerUp={commitTimelineClipDrag} onPointerCancel={commitTimelineClipDrag} onLostPointerCapture={() => setTimelineDrag(null)} />
-                    </>}
+                    <div className="tracks-clip-handle tracks-clip-handle-start" title="Drag to trim the start" onPointerDown={(event) => beginTimelineClipDrag(event, 'trim-start', clip)} onPointerMove={updateTimelineClipDrag} onPointerUp={commitTimelineClipDrag} onPointerCancel={commitTimelineClipDrag} onLostPointerCapture={() => setTimelineDrag(null)}><span>START</span></div>
+                    <div className="tracks-clip-handle tracks-clip-handle-end" title="Drag to trim the end" onPointerDown={(event) => beginTimelineClipDrag(event, 'trim-end', clip)} onPointerMove={updateTimelineClipDrag} onPointerUp={commitTimelineClipDrag} onPointerCancel={commitTimelineClipDrag} onLostPointerCapture={() => setTimelineDrag(null)}><span>END</span></div>
                   </div>
                 )
               })}
@@ -508,11 +553,45 @@ export function TrackEditor({ track, waveforms, bpm, isPlaying, playheadBeat, sn
 
       {viewMode === 'detail' ? (selectedClip && region ? (
         <div className="track-editor-params">
+          <section className="track-editor-source-selector" aria-labelledby="track-editor-source-title">
+            <div className="track-editor-source-heading">
+              <strong id="track-editor-source-title">TRIM / SELECT FOR LASER</strong>
+              <output>{(selectedClip.sourceEndSeconds - selectedClip.sourceOffsetSeconds).toFixed(3)} s</output>
+            </div>
+            <div className="track-editor-source-waveform">
+              <Waveform
+                peaks={waveforms[selectedClip.assetId] ?? []}
+                durationSeconds={selectedClip.assetDurationSeconds}
+                region={{ startSeconds: selectedClip.sourceOffsetSeconds, endSeconds: selectedClip.sourceEndSeconds }}
+                slices={[]}
+                activeSliceId={null}
+                addingSlice={false}
+                regionSelectionEnabled
+                onRegionChange={(nextRegion) => onSetClipSourceRegion(selectedClip.id, nextRegion)}
+                onAddSlice={() => undefined}
+                onMoveCut={() => undefined}
+                onSelectSlice={() => undefined}
+              />
+              <div className="track-editor-source-selection" style={{ left: `${region.start * 100}%`, right: `${(1 - region.end) * 100}%` }} aria-hidden="true" />
+              <div className="track-editor-source-edge track-editor-source-edge-start" style={{ left: `${region.start * 100}%` }} aria-hidden="true"><span>START</span><i /></div>
+              <div className="track-editor-source-edge track-editor-source-edge-end" style={{ right: `${(1 - region.end) * 100}%` }} aria-hidden="true"><span>END</span><i /></div>
+            </div>
+            <div className="track-editor-source-boundaries">
+              <label htmlFor="track-editor-source-start">START <output>{selectedClip.sourceOffsetSeconds.toFixed(3)} s</output>
+                <input id="track-editor-source-start" type="range" min="0" max={selectedClip.assetDurationSeconds} step="0.001" value={selectedClip.sourceOffsetSeconds} onChange={(event) => onSetClipSourceRegion(selectedClip.id, { startSeconds: Number(event.target.value), endSeconds: selectedClip.sourceEndSeconds })} onPointerDown={sourceStartDrag.onPointerDown} />
+              </label>
+              <label htmlFor="track-editor-source-end">END <output>{selectedClip.sourceEndSeconds.toFixed(3)} s</output>
+                <input id="track-editor-source-end" type="range" min="0" max={selectedClip.assetDurationSeconds} step="0.001" value={selectedClip.sourceEndSeconds} onChange={(event) => onSetClipSourceRegion(selectedClip.id, { startSeconds: selectedClip.sourceOffsetSeconds, endSeconds: Number(event.target.value) })} onPointerDown={sourceEndDrag.onPointerDown} />
+              </label>
+            </div>
+          </section>
           <div className="track-editor-params-actions">
             <button type="button" className="mixer-toggle" disabled={!canSplitSelected} onClick={() => onSplitClipAtPlayhead(selectedClip.id)}>CUT AT PLAYHEAD</button>
             <button type="button" className="mixer-toggle" onClick={() => onDuplicateClip(selectedClip.id)}>DUPLICATE</button>
             <button type="button" className={selectedClip.loop ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} aria-pressed={selectedClip.loop} onClick={() => onToggleClipLoop(selectedClip.id)}>LOOP</button>
             <button type="button" className={selectedClip.reversed ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} aria-pressed={selectedClip.reversed} onClick={() => onToggleClipReversed(selectedClip.id)}>REVERSE</button>
+            <button type="button" className="transport-button" title="Open the raw selected source region in LASER" onClick={() => onSendClipToLaser(selectedClip.id)}>SEND TO LASER</button>
+            <button type="button" className="mixer-toggle" title="Download the raw selected source region as PCM WAV" onClick={() => onExportClipWav(selectedClip.id)}>EXPORT WAV</button>
             <button type="button" className="mixer-toggle compact-danger" onClick={() => onRequestRemoveClip(selectedClip.id)}>DELETE</button>
           </div>
           <label className="track-editor-param" htmlFor="track-editor-gain">
@@ -540,10 +619,12 @@ export function TrackEditor({ track, waveforms, bpm, isPlaying, playheadBeat, sn
         <p className="track-editor-empty-hint">Tap a clip to edit it. Bpm {bpm} · {track.clips.length} clip{track.clips.length === 1 ? '' : 's'}.</p>
       )) : (selectedClip ? (
         <div className="tracks-clip-actions" role="toolbar" aria-label="Selected clip">
-          <span className="tracks-clip-actions-label">{selectedClip.fileName}</span>
+          <span className="tracks-clip-actions-label">{selectedClip.fileName} · {(selectedClip.sourceEndSeconds - selectedClip.sourceOffsetSeconds).toFixed(3)} s</span>
           <button type="button" className="mixer-toggle" disabled={!canSplitSelected} onClick={() => onSplitClipAtPlayhead(selectedClip.id)}>CUT AT PLAYHEAD</button>
           <button type="button" className="mixer-toggle" onClick={() => onDuplicateClip(selectedClip.id)}>DUPLICATE</button>
           <button type="button" className={selectedClip.loop ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} aria-pressed={selectedClip.loop} onClick={() => onToggleClipLoop(selectedClip.id)}>LOOP</button>
+          <button type="button" className="transport-button" title="Open the raw selected source region in LASER" onClick={() => onSendClipToLaser(selectedClip.id)}>SEND TO LASER</button>
+          <button type="button" className="mixer-toggle" title="Download the raw selected source region as PCM WAV" onClick={() => onExportClipWav(selectedClip.id)}>EXPORT WAV</button>
           <button type="button" className="mixer-toggle compact-danger" onClick={() => onRequestRemoveClip(selectedClip.id)}>DELETE</button>
           <button type="button" className="mixer-toggle" onClick={() => switchToDetailForClip(selectedClip.id)}>EDIT</button>
         </div>

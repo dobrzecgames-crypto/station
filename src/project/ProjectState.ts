@@ -413,12 +413,12 @@ export function validateProjectState(project: ProjectState): string[] {
   validateDrumSnarePatch(project.drumSynth?.snare, 'DRUM SYNTH SNARE', errors)
   const pumpRouteIds = new Set<string>()
   for (const route of project.pumpRoutes) {
-    if (pumpRouteIds.has(route.id)) errors.push('Gravity route IDs must be unique.')
+    if (pumpRouteIds.has(route.id)) errors.push('Sidechain route IDs must be unique.')
     pumpRouteIds.add(route.id)
-    if (!Number.isFinite(route.depth) || route.depth < 0 || route.depth > 1) errors.push('Gravity depth must be between 0 and 1.')
-    if (!Number.isFinite(route.lengthBeats) || route.lengthBeats <= 0) errors.push('Gravity length must be positive.')
-    if (!hasPumpPadReference(route.source, project.patternGroups)) errors.push('Gravity route source references a missing group pad.')
-    if (!hasPatternGroup(route.targetGroupId, project.patternGroups)) errors.push('Gravity route target references a missing Pattern Group.')
+    if (!Number.isFinite(route.depth) || route.depth < 0 || route.depth > 1) errors.push('Sidechain depth must be between 0 and 1.')
+    if (!Number.isFinite(route.lengthBeats) || route.lengthBeats <= 0) errors.push('Sidechain length must be positive.')
+    if (!hasPumpPadReference(route.source, project.patternGroups)) errors.push('Sidechain route source references a missing group pad.')
+    if (!hasPatternGroup(route.targetGroupId, project.patternGroups)) errors.push('Sidechain route target references a missing Pattern Group.')
   }
   return errors
 }

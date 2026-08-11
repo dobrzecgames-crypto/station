@@ -7,6 +7,11 @@ export interface WavEncodeOptions {
   /** Skips leading frames, used to drop a render's silent processing latency. */
   startFrame?: number
   /**
+   * Stops before this frame. Together with startFrame this exports a raw
+   * source region without rendering or copying it into a second AudioBuffer.
+   */
+  endFrame?: number
+  /**
    * Linear scale applied while quantising. A render that passed full scale is
    * brought under it by one multiplication — no dynamics, no colour, and no
    * second copy of the buffer.
@@ -20,10 +25,11 @@ export interface WavEncodeOptions {
  * and effects, quantisation noise sits near -96 dBFS, and half-size files
  * matter on a phone. See `docs/DECISIONS.md`.
  */
-export function encodeWav(buffer: AudioBuffer, { startFrame = 0, gain = 1 }: WavEncodeOptions = {}): Blob {
+export function encodeWav(buffer: AudioBuffer, { startFrame = 0, endFrame = buffer.length, gain = 1 }: WavEncodeOptions = {}): Blob {
   const channelCount = buffer.numberOfChannels
   const firstFrame = Math.min(Math.max(0, Math.floor(startFrame)), buffer.length)
-  const frameCount = buffer.length - firstFrame
+  const lastFrame = Math.min(buffer.length, Math.max(firstFrame, Math.floor(endFrame)))
+  const frameCount = lastFrame - firstFrame
   const dataBytes = frameCount * channelCount * bytesPerSample
   const arrayBuffer = new ArrayBuffer(headerBytes + dataBytes)
   const view = new DataView(arrayBuffer)
@@ -44,7 +50,7 @@ export function encodeWav(buffer: AudioBuffer, { startFrame = 0, gain = 1 }: Wav
 
   const channels = Array.from({ length: channelCount }, (_unused, index) => buffer.getChannelData(index))
   let offset = headerBytes
-  for (let frame = firstFrame; frame < buffer.length; frame += 1) {
+  for (let frame = firstFrame; frame < lastFrame; frame += 1) {
     for (const channel of channels) {
       view.setInt16(offset, toPcm16(channel[frame] * gain), true)
       offset += bytesPerSample

@@ -174,8 +174,8 @@ Every candidate should be compared in the actual Station UI using at least:
 `SYNTH`
 `SEQ`
 `MIX`
-`GRAVITY`
-`MASS`
+`SIDECHAIN`
+`DEPTH`
 `DUST`
 `FIRE`
 `PATTERN 04`

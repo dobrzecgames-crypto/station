@@ -58,10 +58,8 @@
   cursor: pointer;
 }
 
-/* Inline SNAP row - only the fullscreen Track Editor still renders this
-   (six always-visible division buttons in its own compact MONITOR row,
-   where there's no toolbar to collapse it into). Both TRACKS views use
-   SnapGridSelect below instead - see its own docs. */
+/* Legacy inline SNAP row retained for any older embedded surface. The
+   fullscreen Track Editor and both TRACKS views now use SnapGridSelect. */
 .tracks-snap-control {
   display: flex;
   flex-wrap: wrap;
@@ -471,19 +469,79 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 20px;
+  z-index: 3;
+  width: 30px;
+  opacity: 0.72;
   touch-action: none;
   cursor: ew-resize;
+  transition: opacity 120ms ease, background-color 120ms ease;
+}
+
+.tracks-clip-handle::before {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: min(42px, calc(100% - 10px));
+  border: 1px solid var(--station-text, #eee4d6);
+  border-radius: 3px;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 2px, rgb(238 228 214 / 58%) 2px 3px),
+    var(--station-accent);
+  box-shadow: 0 0 0 2px rgb(9 10 16 / 78%), 0 0 10px rgb(200 111 80 / 40%);
+  content: '';
+  transform: translateY(-50%);
+}
+
+.tracks-clip-handle > span {
+  position: absolute;
+  top: 5px;
+  padding: 2px 4px;
+  border-radius: 2px;
+  background: rgb(9 10 16 / 88%);
+  color: var(--station-text, #eee4d6);
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tracks-clip-selected .tracks-clip-handle {
+  opacity: 1;
+}
+
+.tracks-clip-selected .tracks-clip-handle > span {
+  opacity: 1;
 }
 
 .tracks-clip-handle-start {
-  left: -2px;
-  border-left: 2px solid var(--station-accent);
+  left: 0;
+  border-left: 4px solid var(--station-accent);
+  background: linear-gradient(90deg, rgb(200 111 80 / 26%), transparent);
+}
+
+.tracks-clip-handle-start::before {
+  left: 2px;
+}
+
+.tracks-clip-handle-start > span {
+  left: 16px;
 }
 
 .tracks-clip-handle-end {
-  right: -2px;
-  border-right: 2px solid var(--station-accent);
+  right: 0;
+  border-right: 4px solid var(--station-accent);
+  background: linear-gradient(270deg, rgb(200 111 80 / 26%), transparent);
+}
+
+.tracks-clip-handle-end::before {
+  right: 2px;
+}
+
+.tracks-clip-handle-end > span {
+  right: 16px;
 }
 
 /* Signal, not selection - the module accent marks what's selected

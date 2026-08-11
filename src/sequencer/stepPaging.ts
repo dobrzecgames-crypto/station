@@ -1,4 +1,6 @@
 export const sequencerStepPageSize = 8
+export const sequencerEdgePaintInitialDelayMs = 260
+export const sequencerEdgePaintStepIntervalMs = 120
 
 export interface StepCellBounds {
   left: number
@@ -25,4 +27,17 @@ export function getStepPageEdgeTarget(
   if (page === 0 && clientX >= lastCell.right - 1) return sequencerStepPageSize
   if (page === 1 && clientX <= firstCell.left + 1) return sequencerStepPageSize - 1
   return null
+}
+
+/**
+ * Holding an active paint gesture against a turned page edge advances through
+ * the new page one step at a time. This is the sequencer equivalent of edge
+ * auto-scroll: the user can release on the intended length without lifting and
+ * starting a second gesture on an already-active (therefore erasable) cell.
+ */
+export function getStepPageEdgeContinuationTarget(edgeTarget: number, elapsedMs: number): number {
+  const direction = edgeTarget >= sequencerStepPageSize ? 1 : -1
+  const elapsedAfterDelay = elapsedMs - sequencerEdgePaintInitialDelayMs
+  const advances = elapsedAfterDelay < 0 ? 0 : Math.floor(elapsedAfterDelay / sequencerEdgePaintStepIntervalMs) + 1
+  return Math.max(0, Math.min((sequencerStepPageSize * 2) - 1, edgeTarget + (advances * direction)))
 }

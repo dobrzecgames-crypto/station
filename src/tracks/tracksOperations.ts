@@ -2,6 +2,7 @@ import type { SampleAssetId } from '../audio/AudioEngine'
 import { cloneEffectRackState, createEmptyEffectRack, isEffectRackState } from '../audio/effects'
 import type { EffectRackState } from '../audio/effects'
 import { beatsToSeconds, secondsToBeats } from './timelineGrid'
+import { resolveClipSourceRegion } from './clipSourceRegion'
 import { maximumAudioTracks } from './tracksTypes'
 import type { AudioClip, AudioTrack } from './tracksTypes'
 
@@ -185,6 +186,17 @@ export function trimAudioClipEnd(tracks: readonly AudioTrack[], trackId: string,
     const actualDeltaBeats = secondsToBeats(clampedEnd - clip.sourceEndSeconds, bpm)
     return { ...clip, lengthBeats: Math.max(secondsToBeats(minimumClipSourceSeconds, bpm), clip.lengthBeats + actualDeltaBeats), sourceEndSeconds: clampedEnd }
   })
+}
+
+/**
+ * Selects a fresh region directly on the full source waveform. Unlike the
+ * timeline's left-edge trim, this keeps the clip anchored at its current
+ * timeline start: the user is choosing source material, not moving it. A
+ * normal clip's visible length follows the selected duration; a looped
+ * clip keeps its independent timeline footprint.
+ */
+export function setAudioClipSourceRegion(tracks: readonly AudioTrack[], trackId: string, clipId: string, startSeconds: number, endSeconds: number, sourceDurationSeconds: number, bpm: number): AudioTrack[] {
+  return mapClip(tracks, trackId, clipId, (clip) => resolveClipSourceRegion(clip, startSeconds, endSeconds, sourceDurationSeconds, bpm))
 }
 
 /** How long a looped clip's timeline footprint is - independent of its

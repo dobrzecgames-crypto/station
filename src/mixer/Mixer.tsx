@@ -105,7 +105,7 @@ function MixerStrip({ audioEngine, patternGroupId, pad, isPumpSource, onVolumeCh
       <span
         className={isPumpSource ? 'mixer-strip-pump mixer-strip-pump-source' : 'mixer-strip-pump'}
         aria-hidden={!isPumpSource}
-        aria-label={isPumpSource ? 'Gravity sidechain source' : undefined}
+        aria-label={isPumpSource ? 'Sidechain source' : undefined}
       />
       <div className="mixer-strip-level">
         <ChannelMeter

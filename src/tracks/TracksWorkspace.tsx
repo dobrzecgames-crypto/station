@@ -42,6 +42,8 @@ interface TracksWorkspaceProps {
   onSplitClipAtPlayhead: (trackId: string, clipId: string) => void
   onDuplicateClip: (trackId: string, clipId: string) => void
   onToggleClipLoop: (trackId: string, clipId: string) => void
+  onExportClipWav: (trackId: string, clipId: string) => void
+  onSendClipToLaser: (trackId: string, clipId: string) => void
   onRequestRemoveClip: (trackId: string, clipId: string) => void
   onOpenTrackEditor: (trackId: string) => void
 }
@@ -59,7 +61,7 @@ function regionFraction(clip: AudioClip): { start: number; end: number } {
  * everything else gets TracksArranger instead, sharing the same gesture
  * logic (useTrackClipDrag) and view state (useTracksViewState).
  */
-export function TracksWorkspace({ tracks, waveforms, audioReady, isPlaying, playheadBeat, snapDivision, maximumTracks, viewState, onSnapDivisionChange, onSeekPlayhead, onImportNewTrack, onImportClipToTrack, onRequestRemoveTrack, onMoveTrackOrder, onSetTrackMuted, onSetTrackSolo, onMoveClip, onTrimClipStart, onTrimClipEnd, onSplitClipAtPlayhead, onDuplicateClip, onToggleClipLoop, onRequestRemoveClip, onOpenTrackEditor }: TracksWorkspaceProps) {
+export function TracksWorkspace({ tracks, waveforms, audioReady, isPlaying, playheadBeat, snapDivision, maximumTracks, viewState, onSnapDivisionChange, onSeekPlayhead, onImportNewTrack, onImportClipToTrack, onRequestRemoveTrack, onMoveTrackOrder, onSetTrackMuted, onSetTrackSolo, onMoveClip, onTrimClipStart, onTrimClipEnd, onSplitClipAtPlayhead, onDuplicateClip, onToggleClipLoop, onExportClipWav, onSendClipToLaser, onRequestRemoveClip, onOpenTrackEditor }: TracksWorkspaceProps) {
   const { selection, setSelection, pixelsPerBeat, scrollLeftRef } = viewState
   const newTrackInputRef = useRef<HTMLInputElement>(null)
 
@@ -162,6 +164,8 @@ export function TracksWorkspace({ tracks, waveforms, audioReady, isPlaying, play
                     onSplitClipAtPlayhead={onSplitClipAtPlayhead}
                     onDuplicateClip={onDuplicateClip}
                     onToggleClipLoop={onToggleClipLoop}
+                    onExportClipWav={onExportClipWav}
+                    onSendClipToLaser={onSendClipToLaser}
                     onRequestRemoveClip={onRequestRemoveClip}
                     onOpenTrackEditor={onOpenTrackEditor}
                   />
@@ -191,10 +195,8 @@ export function TracksWorkspace({ tracks, waveforms, audioReady, isPlaying, play
                           >
                             <TrackClipWaveform peaks={waveforms[clip.assetId] ?? []} regionStart={region.start} regionEnd={region.end} color={accent} />
                             <span className="tracks-clip-label">{clip.fileName}</span>
-                            {isSelected && <>
-                              <div className="tracks-clip-handle tracks-clip-handle-start" onPointerDown={(event) => drag.beginDrag(event, 'trim-start', track, clip)} onPointerMove={drag.updateDrag} onPointerUp={drag.commitDrag} onPointerCancel={drag.commitDrag} onLostPointerCapture={drag.cancelDrag} />
-                              <div className="tracks-clip-handle tracks-clip-handle-end" onPointerDown={(event) => drag.beginDrag(event, 'trim-end', track, clip)} onPointerMove={drag.updateDrag} onPointerUp={drag.commitDrag} onPointerCancel={drag.commitDrag} onLostPointerCapture={drag.cancelDrag} />
-                            </>}
+                            <div className="tracks-clip-handle tracks-clip-handle-start" title="Drag to trim the start" onPointerDown={(event) => drag.beginDrag(event, 'trim-start', track, clip)} onPointerMove={drag.updateDrag} onPointerUp={drag.commitDrag} onPointerCancel={drag.commitDrag} onLostPointerCapture={drag.cancelDrag}><span>START</span></div>
+                            <div className="tracks-clip-handle tracks-clip-handle-end" title="Drag to trim the end" onPointerDown={(event) => drag.beginDrag(event, 'trim-end', track, clip)} onPointerMove={drag.updateDrag} onPointerUp={drag.commitDrag} onPointerCancel={drag.commitDrag} onLostPointerCapture={drag.cancelDrag}><span>END</span></div>
                           </div>
                         )
                       })}

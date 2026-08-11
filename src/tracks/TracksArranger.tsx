@@ -59,6 +59,8 @@ interface TracksArrangerProps {
   onSplitClipAtPlayhead: (trackId: string, clipId: string) => void
   onDuplicateClip: (trackId: string, clipId: string) => void
   onToggleClipLoop: (trackId: string, clipId: string) => void
+  onExportClipWav: (trackId: string, clipId: string) => void
+  onSendClipToLaser: (trackId: string, clipId: string) => void
   onRequestRemoveClip: (trackId: string, clipId: string) => void
   onOpenTrackEditor: (trackId: string) => void
   /** A physical rotation is the normal way out, but a locked-orientation
@@ -88,7 +90,7 @@ function formatBarBeat(beat: number): string {
  * TracksWorkspace - same data, same selection, same zoom, only the
  * arrangement of controls differs. See docs/DECISIONS.md DEC-027.
  */
-export function TracksArranger({ tracks, waveforms, audioReady, isPlaying, playheadBeat, bpm, snapDivision, maximumTracks, viewState, canUndo, canRedo, onUndo, onRedo, onSnapDivisionChange, onSeekPlayhead, onPlay, onStop, onImportNewTrack, onImportClipToTrack, onRequestRemoveTrack, onMoveTrackOrder, onSetTrackMuted, onSetTrackSolo, onMoveClip, onTrimClipStart, onTrimClipEnd, onSplitClipAtPlayhead, onDuplicateClip, onToggleClipLoop, onRequestRemoveClip, onOpenTrackEditor, onExit }: TracksArrangerProps) {
+export function TracksArranger({ tracks, waveforms, audioReady, isPlaying, playheadBeat, bpm, snapDivision, maximumTracks, viewState, canUndo, canRedo, onUndo, onRedo, onSnapDivisionChange, onSeekPlayhead, onPlay, onStop, onImportNewTrack, onImportClipToTrack, onRequestRemoveTrack, onMoveTrackOrder, onSetTrackMuted, onSetTrackSolo, onMoveClip, onTrimClipStart, onTrimClipEnd, onSplitClipAtPlayhead, onDuplicateClip, onToggleClipLoop, onExportClipWav, onSendClipToLaser, onRequestRemoveClip, onOpenTrackEditor, onExit }: TracksArrangerProps) {
   const { selection, setSelection, pixelsPerBeat, setPixelsPerBeat, trackHeightLevel, setTrackHeightLevel, scrollLeftRef } = viewState
   const scrollRef = useRef<HTMLDivElement>(null)
   const railRef = useRef<HTMLDivElement>(null)
@@ -274,6 +276,8 @@ export function TracksArranger({ tracks, waveforms, audioReady, isPlaying, playh
                     onSplitClipAtPlayhead={onSplitClipAtPlayhead}
                     onDuplicateClip={onDuplicateClip}
                     onToggleClipLoop={onToggleClipLoop}
+                    onExportClipWav={onExportClipWav}
+                    onSendClipToLaser={onSendClipToLaser}
                     onRequestRemoveClip={onRequestRemoveClip}
                     onOpenTrackEditor={onOpenTrackEditor}
                   />
@@ -311,10 +315,8 @@ export function TracksArranger({ tracks, waveforms, audioReady, isPlaying, playh
                         >
                           <TrackClipWaveform peaks={waveforms[clip.assetId] ?? []} regionStart={region.start} regionEnd={region.end} color={accent} />
                           <span className="tracks-clip-label">{clip.fileName}</span>
-                          {isSelected && <>
-                            <div className="tracks-clip-handle tracks-clip-handle-start" onPointerDown={(event) => drag.beginDrag(event, 'trim-start', track, clip)} onPointerMove={drag.updateDrag} onPointerUp={drag.commitDrag} onPointerCancel={drag.commitDrag} onLostPointerCapture={drag.cancelDrag} />
-                            <div className="tracks-clip-handle tracks-clip-handle-end" onPointerDown={(event) => drag.beginDrag(event, 'trim-end', track, clip)} onPointerMove={drag.updateDrag} onPointerUp={drag.commitDrag} onPointerCancel={drag.commitDrag} onLostPointerCapture={drag.cancelDrag} />
-                          </>}
+                          <div className="tracks-clip-handle tracks-clip-handle-start" title="Drag to trim the start" onPointerDown={(event) => drag.beginDrag(event, 'trim-start', track, clip)} onPointerMove={drag.updateDrag} onPointerUp={drag.commitDrag} onPointerCancel={drag.commitDrag} onLostPointerCapture={drag.cancelDrag}><span>START</span></div>
+                          <div className="tracks-clip-handle tracks-clip-handle-end" title="Drag to trim the end" onPointerDown={(event) => drag.beginDrag(event, 'trim-end', track, clip)} onPointerMove={drag.updateDrag} onPointerUp={drag.commitDrag} onPointerCancel={drag.commitDrag} onLostPointerCapture={drag.cancelDrag}><span>END</span></div>
                         </div>
                       )
                     })}

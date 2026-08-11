@@ -746,6 +746,7 @@ input[type="text"], input[type="number"], select, textarea {
     0 0 0 2px #111015,
     0 1px 0 #08080b,
     0 2px 4px rgb(0 0 0 / 28%);
+  --mechanism-hover-border: #4a535b;
   display: block;
   position: relative;
   width: 56px;
@@ -773,20 +774,19 @@ input[type="text"], input[type="number"], select, textarea {
   justify-content: center;
   gap: 7px;
   padding: 0 6px;
-  border: 1px solid #695956;
+  border: 1px solid #343a40;
   border-radius: 8px;
   background:
-    radial-gradient(130% 95% at 34% 12%, rgb(255 225 198 / 10%) 0%, transparent 48%),
-    linear-gradient(180deg, #514441 0%, #392e30 48%, #211b20 78%, #151318 100%);
+    linear-gradient(155deg, rgb(238 245 247 / 7%) 0%, transparent 38%),
+    linear-gradient(180deg, #20252a 0%, #12161a 56%, #090b0e 100%);
 }
 .system-power-face::after {
   position: absolute;
   inset: 1px;
   border-radius: inherit;
-  background:
-    radial-gradient(circle, rgb(255 239 220 / 12%) 0 .45px, transparent .7px) 0 0 / 4px 4px,
-    radial-gradient(circle, rgb(0 0 0 / 18%) 0 .5px, transparent .8px) 2px 2px / 5px 5px;
-  opacity: .42;
+  background: linear-gradient(158deg, rgb(235 247 250 / 8%) 0%, transparent 36%);
+  opacity: .7;
+  pointer-events: none;
   content: '';
 }
 .system-power-switch .status-dot {

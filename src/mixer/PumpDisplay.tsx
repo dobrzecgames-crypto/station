@@ -106,7 +106,7 @@ export function PumpDisplayLauncher(props: PumpDisplayLauncherProps) {
   })
 
   return <button className={open ? 'mix-pump-entry mix-pump-entry-active' : 'mix-pump-entry'} type="button" aria-pressed={open} onClick={toggleOpen}>
-    <span className="mix-pump-entry-title">GRAVITY <small className="mix-pump-entry-kind">(sidechain)</small></span>
+    <span className="mix-pump-entry-title">SIDECHAIN</span>
     <strong>{props.routes.length}</strong>
     <small>{props.routes.length === 1 ? 'ROUTE' : 'ROUTES'}</small>
   </button>
@@ -121,8 +121,8 @@ function routeListTenant(routes: readonly PumpRoute[], groups: readonly PatternG
 
   return {
     id: displayId,
-    label: 'Gravity sidechain routes',
-    readout: routes.length === 0 ? 'GRAVITY · NO ROUTES' : `GRAVITY · ${routes.length} ROUTE${routes.length === 1 ? '' : 'S'}`,
+    label: 'Sidechain routes',
+    readout: routes.length === 0 ? 'SIDECHAIN · NO ROUTES' : `SIDECHAIN · ${routes.length} ROUTE${routes.length === 1 ? '' : 'S'}`,
     panel: <>
       <div className="sample-browser-list">
         {routes.map((route) => (
@@ -155,8 +155,8 @@ function routeEditorTenant(route: PumpRoute, groups: readonly PatternGroup[], ha
 
   return {
     id: displayId,
-    label: 'Gravity sidechain route',
-    readout: `GRAVITY ROUTE · ${bankLabel(route.source.patternGroupId, groups)} · ${sourcePadLabel(route.source, groups)} → ${groupLabel(route.targetGroupId, groups)}`,
+    label: 'Sidechain route',
+    readout: `SIDECHAIN ROUTE · ${bankLabel(route.source.patternGroupId, groups)} · ${sourcePadLabel(route.source, groups)} → ${groupLabel(route.targetGroupId, groups)}`,
     panel: <>
       {/* Takes the folder row's place instead of stacking above it, matching
           how the pad sound screen returns to its browser. */}
@@ -180,7 +180,7 @@ function routeEditorTenant(route: PumpRoute, groups: readonly PatternGroup[], ha
         <span>TO GROUP / {groupLabel(route.targetGroupId, groups)}</span>
         <button className="sample-browser-folder-step" type="button" aria-label="Next target group" disabled={targetGroupIndex >= groups.length - 1} onClick={() => stepTargetGroup(1)}>›</button>
       </div>
-      <DisplayRange idPrefix="pump-route" label="MASS" formatValue={(value) => `${Math.round(value * 100)}%`} min="0" max="1" step="0.01" current={route.depth} onChange={(depth) => update({ depth })} />
+      <DisplayRange idPrefix="pump-route" label="DEPTH" formatValue={(value) => `${Math.round(value * 100)}%`} min="0" max="1" step="0.01" current={route.depth} onChange={(depth) => update({ depth })} />
       <div className="display-param">
         <span className="display-param-label">LENGTH</span>
         <div className="display-actions">

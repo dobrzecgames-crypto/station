@@ -25,6 +25,8 @@ interface TrackControlsProps {
   onSplitClipAtPlayhead: (trackId: string, clipId: string) => void
   onDuplicateClip: (trackId: string, clipId: string) => void
   onToggleClipLoop: (trackId: string, clipId: string) => void
+  onExportClipWav: (trackId: string, clipId: string) => void
+  onSendClipToLaser: (trackId: string, clipId: string) => void
   onRequestRemoveClip: (trackId: string, clipId: string) => void
   /** Opens the fullscreen single-track editor. Previously its own always-
       visible "⤢" icon button in the row (a 4th control beside M/S/⋮) - now
@@ -62,7 +64,7 @@ const menuTriggerGap = 6
  * a second .mixer-toggle each - a real popover list, not a stack of
  * buttons; see tracksWorkspace.css for that reasoning.
  */
-export function TrackControls({ track, audioReady, selectedClip, canSplitSelectedClip, onSetTrackMuted, onSetTrackSolo, onMoveTrackOrder, onImportClipToTrack, onRequestRemoveTrack, onSplitClipAtPlayhead, onDuplicateClip, onToggleClipLoop, onRequestRemoveClip, onOpenTrackEditor }: TrackControlsProps) {
+export function TrackControls({ track, audioReady, selectedClip, canSplitSelectedClip, onSetTrackMuted, onSetTrackSolo, onMoveTrackOrder, onImportClipToTrack, onRequestRemoveTrack, onSplitClipAtPlayhead, onDuplicateClip, onToggleClipLoop, onExportClipWav, onSendClipToLaser, onRequestRemoveClip, onOpenTrackEditor }: TrackControlsProps) {
   const [open, setOpen] = useState(false)
   const [position, setPosition] = useState<MenuPosition | null>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -158,6 +160,8 @@ export function TrackControls({ track, audioReady, selectedClip, canSplitSelecte
               <button type="button" className={selectedClip.loop ? 'track-menu-row track-menu-row-value track-menu-row-value-active' : 'track-menu-row track-menu-row-value'} aria-pressed={selectedClip.loop} onClick={() => runAndClose(() => onToggleClipLoop(track.id, selectedClip.id))}>
                 <span>Loop</span><span className="track-menu-row-value-text">{selectedClip.loop ? 'On' : 'Off'}</span>
               </button>
+              <button type="button" className="track-menu-row" onClick={() => runAndClose(() => onSendClipToLaser(track.id, selectedClip.id))}>Send region to LASER</button>
+              <button type="button" className="track-menu-row" onClick={() => runAndClose(() => onExportClipWav(track.id, selectedClip.id))}>Export region as WAV</button>
             </>
           )}
 

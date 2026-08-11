@@ -6,7 +6,7 @@ import type { PadState } from '../pads/types'
 import type { DisplayTenant } from '../shell/SystemDisplay'
 import { useSystemDisplay } from '../shell/systemDisplayContext'
 import { useDragSlider } from '../shell/useDragSlider'
-import { getStepPageEdgeTarget, sequencerStepPageSize } from './stepPaging.ts'
+import { getStepPageEdgeContinuationTarget, getStepPageEdgeTarget, sequencerStepPageSize } from './stepPaging.ts'
 import './sequencer.css'
 
 interface SequencerControlsProps {
@@ -34,6 +34,15 @@ interface StepPaintStroke {
   lastStepIndex: number
 }
 
+interface EdgePaintContinuation {
+  edgeTarget: number
+  direction: -1 | 1
+  startedAt: number
+  rowTop: number
+  rowBottom: number
+  boundaryX: number
+}
+
 const displayId = 'seq-step-controls'
 
 function isDimBeatGroup(stepIndex: number): boolean {
@@ -46,10 +55,11 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
   const stepPageRef = useRef<0 | 1>(0)
   const patternMatrixRef = useRef<HTMLDivElement | null>(null)
   const paintStroke = useRef<StepPaintStroke | null>(null)
-  /* After an edge turn, ignore the cells encountered while the pointer travels
-     back to the first cell of the newly visible page. Without this small gate,
-     the unchanged screen coordinate over column eight would turn step 9 into
-     step 16 immediately. */
+  const edgePaintContinuation = useRef<EdgePaintContinuation | null>(null)
+  const edgePaintFrame = useRef<number | null>(null)
+  /* After an edge turn, the same screen coordinate belongs to the far end of
+     the newly visible page. Keep that remapped cell gated while edge-hold
+     continuation advances through the page in musical order. */
   const pendingPageEntryStep = useRef<number | null>(null)
   const { claim, release, ownerId } = useSystemDisplay()
   const [displayActive, setDisplayActive] = useState(true)
@@ -131,9 +141,55 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
     selectStep(current.padId, stepIndex)
   }
 
+  const stopEdgePaintContinuation = () => {
+    edgePaintContinuation.current = null
+    if (edgePaintFrame.current !== null) cancelAnimationFrame(edgePaintFrame.current)
+    edgePaintFrame.current = null
+  }
+
+  const runEdgePaintContinuation = (timestamp: number) => {
+    const continuation = edgePaintContinuation.current
+    if (!continuation || !paintStroke.current) {
+      stopEdgePaintContinuation()
+      return
+    }
+    const target = getStepPageEdgeContinuationTarget(continuation.edgeTarget, timestamp - continuation.startedAt)
+    continuePaintAtStep(target)
+    const finalTarget = continuation.direction > 0 ? (sequencerStepPageSize * 2) - 1 : 0
+    if (target === finalTarget) {
+      stopEdgePaintContinuation()
+      return
+    }
+    edgePaintFrame.current = requestAnimationFrame(runEdgePaintContinuation)
+  }
+
+  const startEdgePaintContinuation = (edgeTarget: number, clientY: number, firstCell: DOMRect, lastCell: DOMRect) => {
+    stopEdgePaintContinuation()
+    const direction: -1 | 1 = edgeTarget >= sequencerStepPageSize ? 1 : -1
+    edgePaintContinuation.current = {
+      edgeTarget,
+      direction,
+      startedAt: performance.now(),
+      rowTop: Math.min(firstCell.top, lastCell.top),
+      rowBottom: Math.max(firstCell.bottom, lastCell.bottom),
+      boundaryX: direction > 0 ? lastCell.left : firstCell.right,
+    }
+    if (clientY >= edgePaintContinuation.current.rowTop && clientY <= edgePaintContinuation.current.rowBottom) {
+      edgePaintFrame.current = requestAnimationFrame(runEdgePaintContinuation)
+    }
+  }
+
   const paintAt = (pointerId: number, clientX: number, clientY: number) => {
     const current = paintStroke.current
     if (!current || current.pointerId !== pointerId) return
+    const continuation = edgePaintContinuation.current
+    if (continuation) {
+      const stillAtEdge = continuation.direction > 0
+        ? clientX >= continuation.boundaryX
+        : clientX <= continuation.boundaryX
+      if (stillAtEdge && clientY >= continuation.rowTop && clientY <= continuation.rowBottom) return
+      stopEdgePaintContinuation()
+    }
     const stepElement = document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>('[data-sequencer-step]')
     const hoveredStepIndex = stepElement?.dataset.padId === current.padId ? Number(stepElement.dataset.stepIndex) : null
     const pendingEntry = pendingPageEntryStep.current
@@ -147,11 +203,14 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
     const firstCell = rowSteps[0]
     const lastCell = rowSteps[rowSteps.length - 1]
     if (firstCell && lastCell) {
-      const edgeTarget = getStepPageEdgeTarget(stepPageRef.current, clientX, clientY, firstCell.getBoundingClientRect(), lastCell.getBoundingClientRect())
+      const firstBounds = firstCell.getBoundingClientRect()
+      const lastBounds = lastCell.getBoundingClientRect()
+      const edgeTarget = getStepPageEdgeTarget(stepPageRef.current, clientX, clientY, firstBounds, lastBounds)
       if (edgeTarget !== null) {
         pendingPageEntryStep.current = edgeTarget
         showStepPage(edgeTarget >= sequencerStepPageSize ? 1 : 0)
         continuePaintAtStep(edgeTarget)
+        startEdgePaintContinuation(edgeTarget, clientY, firstBounds, lastBounds)
         return
       }
     }
@@ -164,6 +223,7 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
     if (paintStroke.current || (event.pointerType === 'mouse' && event.button !== 0)) return
     event.preventDefault()
     const add = !filled
+    stopEdgePaintContinuation()
     pendingPageEntryStep.current = null
     paintStroke.current = { padId, add, pointerId: event.pointerId, anchorStepIndex: stepIndex, lastStepIndex: stepIndex }
     patternMatrixRef.current?.setPointerCapture(event.pointerId)
@@ -174,6 +234,7 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
 
   const endPaint = (pointerId?: number) => {
     if (pointerId !== undefined && paintStroke.current?.pointerId !== pointerId) return
+    stopEdgePaintContinuation()
     paintStroke.current = null
     pendingPageEntryStep.current = null
   }
@@ -187,6 +248,8 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
       window.removeEventListener('pointercancel', endStroke)
     }
   }, [])
+
+  useEffect(() => () => stopEdgePaintContinuation(), [])
 
   useEffect(() => {
     if (displayActive) claim(tenant)

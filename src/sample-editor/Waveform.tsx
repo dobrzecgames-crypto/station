@@ -16,6 +16,12 @@ interface WaveformProps {
   sliceMarkersDraggable?: boolean
   playheadSeconds?: number | null
   readOnly?: boolean
+  /**
+   * Lets a drag that starts away from either boundary create a brand-new
+   * playback region. Used by WAVES as a source-material selection surface;
+   * the ordinary Sample Editor keeps its existing handle-only behaviour.
+   */
+  regionSelectionEnabled?: boolean
   /** CUT's preview draws its candidate cut boundaries here before SET
       commits them - 'laser' swaps the normal block-handle cut markers for a
       thin glowing line, since these aren't real cuts yet and (CUT being a
@@ -48,7 +54,7 @@ function lerp(from: number, to: number, t: number): number {
   return from + (to - from) * t
 }
 
-type DragState = { kind: 'start' | 'end'; pointerId: number } | { kind: 'cut'; index: number; pointerId: number } | null
+type DragState = { kind: 'start' | 'end'; pointerId: number } | { kind: 'region'; anchorSeconds: number; pointerId: number } | { kind: 'cut'; index: number; pointerId: number } | null
 
 interface WaveformColors {
   background: string
@@ -100,7 +106,7 @@ function getWaveformColors(canvas: HTMLCanvasElement): WaveformColors {
   }
 }
 
-export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId, addingSlice, onRegionChange, onAddSlice, onMoveCut, onSelectSlice, sliceMarkersDraggable = false, playheadSeconds = null, readOnly = false, cutMarkerStyle = 'default', flashCutTimes = null }: WaveformProps) {
+export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId, addingSlice, onRegionChange, onAddSlice, onMoveCut, onSelectSlice, sliceMarkersDraggable = false, playheadSeconds = null, readOnly = false, regionSelectionEnabled = false, cutMarkerStyle = 'default', flashCutTimes = null }: WaveformProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const dragStateRef = useRef<DragState>(null)
   const [draggingMarker, setDraggingMarker] = useState(false)
@@ -254,7 +260,10 @@ export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId
         context.moveTo(x, 0)
         context.lineTo(x, height)
         context.stroke()
-        drawHandle(x, colors.regionHandle)
+        // WAVES overlays larger DOM grips and START/END badges around this
+        // canvas so both source edges stay unmistakable on touch screens.
+        // The ordinary Sample Editor still uses the compact canvas handle.
+        if (!regionSelectionEnabled) drawHandle(x, colors.regionHandle)
       }
 
       context.font = '700 11px Inter, sans-serif'
@@ -335,7 +344,7 @@ export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId
       if (animationFrameId !== null) cancelAnimationFrame(animationFrameId)
       if (reducedMotionTimeoutId !== null) window.clearTimeout(reducedMotionTimeoutId)
     }
-  }, [activeSliceId, cutMarkerStyle, durationSeconds, flashCutTimes, peaks, playheadSeconds, region, slices])
+  }, [activeSliceId, cutMarkerStyle, durationSeconds, flashCutTimes, peaks, playheadSeconds, region, regionSelectionEnabled, slices])
 
   const timeFromPointer = (clientX: number): number | null => {
     const canvas = canvasRef.current
@@ -354,6 +363,15 @@ export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId
       onRegionChange({ startSeconds: Math.min(timeSeconds, region.endSeconds - minimumLength), endSeconds: region.endSeconds })
     } else if (dragState.kind === 'end') {
       onRegionChange({ startSeconds: region.startSeconds, endSeconds: Math.max(timeSeconds, region.startSeconds + minimumLength) })
+    } else if (dragState.kind === 'region') {
+      const movingRight = timeSeconds >= dragState.anchorSeconds
+      let startSeconds = Math.min(dragState.anchorSeconds, timeSeconds)
+      let endSeconds = Math.max(dragState.anchorSeconds, timeSeconds)
+      if (endSeconds - startSeconds < minimumLength) {
+        if (movingRight) endSeconds = Math.min(durationSeconds, startSeconds + minimumLength)
+        else startSeconds = Math.max(0, endSeconds - minimumLength)
+      }
+      onRegionChange({ startSeconds, endSeconds })
     } else if (dragState.kind === 'cut') {
       onMoveCut(dragState.index, timeSeconds)
     }
@@ -371,9 +389,9 @@ export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId
   return (
     <canvas
       ref={canvasRef}
-      className={`waveform ${addingSlice ? 'waveform-adding-slice' : ''} ${sliceMarkersDraggable ? 'waveform-slice-markers' : ''} ${draggingMarker ? 'waveform-dragging-marker' : ''} ${readOnly ? 'waveform-readonly' : ''}`}
+      className={`waveform ${addingSlice ? 'waveform-adding-slice' : ''} ${sliceMarkersDraggable ? 'waveform-slice-markers' : ''} ${regionSelectionEnabled ? 'waveform-region-selection' : ''} ${draggingMarker ? 'waveform-dragging-marker' : ''} ${readOnly ? 'waveform-readonly' : ''}`}
       role="img"
-      aria-label="Sample waveform with playback handles and slice markers"
+      aria-label={regionSelectionEnabled ? 'Source waveform. Drag across it to select the region sent to LASER.' : 'Sample waveform with playback handles and slice markers'}
       onPointerDown={(event) => {
         if (readOnly) return
         const timeSeconds = timeFromPointer(event.clientX)
@@ -395,8 +413,11 @@ export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId
           if (matchingSlice) onSelectSlice(matchingSlice.id)
           if (Math.abs(timeSeconds - region.startSeconds) <= markerThreshold) dragStateRef.current = { kind: 'start', pointerId: event.pointerId }
           else if (Math.abs(timeSeconds - region.endSeconds) <= markerThreshold) dragStateRef.current = { kind: 'end', pointerId: event.pointerId }
+          else if (regionSelectionEnabled) dragStateRef.current = { kind: 'region', anchorSeconds: timeSeconds, pointerId: event.pointerId }
           else return
         }
+        event.preventDefault()
+        setDraggingMarker(true)
         canvas.setPointerCapture(event.pointerId)
       }}
       onPointerMove={(event) => {

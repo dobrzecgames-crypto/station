@@ -1,6 +1,6 @@
 import { libraryAssetUrl } from './libraryAssetUrl'
 
-export type LibraryCategory = 'KICK' | 'SNARE' | 'HAT' | 'SOUND' | 'BREAKS'
+export type LibraryCategory = 'KICK' | 'SNARE' | 'HAT' | 'BREAKS'
 
 export interface LibrarySample {
   id: string
@@ -9,7 +9,7 @@ export interface LibrarySample {
   url: string
 }
 
-export const libraryCategories: readonly LibraryCategory[] = ['KICK', 'SNARE', 'HAT', 'SOUND', 'BREAKS']
+export const libraryCategories: readonly LibraryCategory[] = ['KICK', 'SNARE', 'HAT', 'BREAKS']
 
 const breakFilenames = [
   'A1.wav',
@@ -60,59 +60,31 @@ const breakFilenames = [
   'zalatnay-haddmondjamel.wav',
 ] as const
 
-function numberedDrumSamples(
+function sunkenDrumSamples(
   category: Extract<LibraryCategory, 'KICK' | 'SNARE' | 'HAT'>,
-  count: number,
+  folder: 'kicks' | 'snares' | 'hats',
+  sampleNumbers: readonly number[],
 ): LibrarySample[] {
-  const prefix = category.toLowerCase()
+  const label = category[0] + category.slice(1).toLowerCase()
 
-  return Array.from({ length: count }, (_, index) => {
-    const number = String(index + 1).padStart(2, '0')
-    const id = `${prefix}-${number}`
-    const filename = `${category[0]}${category.slice(1).toLowerCase()} ${number}.wav`
-
+  return sampleNumbers.map((sampleNumber) => {
+    const filename = `1998 - ${label} ${sampleNumber}.wav`
     return {
-      id,
+      id: `sunken11-${category.toLowerCase()}-${String(sampleNumber).padStart(2, '0')}`,
       category,
       filename,
-      url: libraryAssetUrl(`${id}.wav`),
+      url: libraryAssetUrl(`${folder}/${filename}`),
     }
   })
 }
 
-function samplePack(
-  category: Extract<LibraryCategory, 'KICK' | 'SNARE' | 'HAT'>,
-  idPrefix: string,
-  label: string,
-  count: number,
-): LibrarySample[] {
-  return Array.from({ length: count }, (_, index) => {
-    const number = String(index + 1).padStart(3, '0')
-    const id = `${idPrefix}-${number}`
-
-    return {
-      id,
-      category,
-      filename: `${label} ${number}.wav`,
-      url: libraryAssetUrl(`${id}.wav`),
-    }
-  })
-}
+const sequence = (count: number): number[] => Array.from({ length: count }, (_, index) => index + 1)
 
 export const builtInLibrary: readonly LibrarySample[] = [
-  ...numberedDrumSamples('KICK', 12),
-  ...samplePack('KICK', 'top-kick', 'Top Kick', 107),
-  ...numberedDrumSamples('SNARE', 18),
-  ...samplePack('SNARE', 'avr-snare', 'AVR Snare', 25),
-  ...numberedDrumSamples('HAT', 16),
-  ...samplePack('HAT', 'avr-closed-hat', 'AVR Closed Hat', 20),
-  ...samplePack('HAT', 'avr-open-hat', 'AVR Open Hat', 30),
-  ...samplePack('HAT', 'avr-shaker', 'AVR Shaker', 15),
-  ...samplePack('HAT', 'avr-tambourine', 'AVR Tambourine', 5),
-  { id: 'piano-c5', category: 'SOUND', filename: 'Piano C5.wav', url: libraryAssetUrl('piano-c5.wav') },
-  { id: 'pluck-c5', category: 'SOUND', filename: 'Pluck C5.wav', url: libraryAssetUrl('pluck-c5.wav') },
-  { id: 'saw-c5', category: 'SOUND', filename: 'Saw C5.wav', url: libraryAssetUrl('saw-c5.wav') },
-  { id: 'synth-c5', category: 'SOUND', filename: 'Synth C5.wav', url: libraryAssetUrl('synth-c5.wav') },
+  ...sunkenDrumSamples('KICK', 'kicks', sequence(30)),
+  ...sunkenDrumSamples('SNARE', 'snares', sequence(32)),
+  // The source pack skips Hat 25; listing only real files keeps the browser honest.
+  ...sunkenDrumSamples('HAT', 'hats', [...sequence(24), 26, 27]),
   ...breakFilenames.map((filename) => ({
     id: `break-${filename.replace(/\.wav$/i, '')}`,
     category: 'BREAKS' as const,

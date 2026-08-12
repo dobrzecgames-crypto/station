@@ -670,6 +670,18 @@ export class AudioEngine {
     return { dbfs: peak > 0 ? 20 * Math.log10(peak) : -Infinity }
   }
 
+  /**
+   * Copies the real post-fader channel waveform into a caller-owned buffer.
+   * Like the meter API above this is presentation-only and pull-based: it
+   * exposes neither an AudioNode nor an audio-clock dependency to React.
+   */
+  readChannelWaveform(channelId: ChannelId, target: Float32Array<ArrayBuffer>): boolean {
+    const channel = this.channels.get(channelId)
+    if (this.status !== 'ready' || !channel?.meter || target.length === 0) return false
+    channel.meter.getFloatTimeDomainData(target)
+    return true
+  }
+
   setChannelVolume(groupId: GroupId, channelId: ChannelId, volume: number): void {
     const channel = this.ensureChannel(groupId, channelId)
     channel.volume = this.toGain(volume)

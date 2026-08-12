@@ -132,6 +132,8 @@ POLY voices are AudioWorkletNodes whose stereo output connects directly to the o
 
 POLY is capped at eight simultaneous musical notes per patch runtime, separate from oscillator unison. Repeated notes fast-release their predecessor. Allocation prefers an already-releasing voice, then the oldest active voice. Patch edits are posted to active processors, modulation remains on the audio thread, and STOP disconnects sequenced processors through the same lifecycle used by other Station synth voices. Offline rendering loads the same worklet and includes AMP release in its measured tail.
 
+The POLY OSC display reuses the ordinary channel meter analyser as a read-only oscilloscope source. The UI pulls copied post-fader time-domain samples only while the OSC page is mounted, draws at no more than 30 fps and falls back to the selected static wavetable during silence. No AudioNode crosses into React and visualization timing does not participate in synthesis or scheduling.
+
 ## Sequencer timing
 
 The scheduler must:

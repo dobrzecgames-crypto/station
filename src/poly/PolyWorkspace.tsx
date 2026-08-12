@@ -16,6 +16,7 @@ interface Props {
   projectBusy: boolean
   projectKeyLabel: string
   onPatchChange: (patch: PolyPatch) => void
+  readWaveform: (target: Float32Array<ArrayBuffer>) => boolean
   onTrigger: () => void
   onRelease: () => void
   onMapToProjectScale: () => void
@@ -74,7 +75,7 @@ export function PolyWorkspace(props: Props) {
       {page === 'osc' && <>
         <SelectorRow label="Oscillator" options={(['oscillator1', 'oscillator2'] as const)} selected={oscillatorKey} labelFor={(item) => item === 'oscillator1' ? 'OSC 1' : 'OSC 2'} onSelect={(item) => { setOscillatorKey(item); setOscillatorDetail(null) }} />
         <PolyDisplay eyebrow={`${oscillatorKey === 'oscillator1' ? 'OSC 1' : 'OSC 2'} / ${wavetableLabel(oscillator.tableId)}`} value={`${Math.round(oscillator.position * 100)}% POSITION`}>
-          <WavetableVisual tableId={oscillator.tableId} position={oscillator.position} />
+          <WavetableVisual tableId={oscillator.tableId} position={oscillator.position} readWaveform={props.readWaveform} />
         </PolyDisplay>
         <div className="poly-osc-main-controls">
           <label className="poly-table"><span>TABLE</span><select value={oscillator.tableId} onChange={(event) => change({ [oscillatorKey]: { ...oscillator, tableId: event.target.value } })}>{polyWavetableBank.map((item) => <option value={item.id} key={item.id}>{item.family} / {item.name}</option>)}</select></label>
@@ -138,16 +139,21 @@ function SelectorButton({ label, selected, onClick }: { label: string; selected:
 }
 
 function PolyDisplay({ eyebrow, value, children }: { eyebrow: string; value: string; children: React.ReactNode }) {
-  return <div className="poly-display"><div className="poly-display-readout"><span>{eyebrow}</span><output>{value}</output></div><div className="poly-display-visual">{children}</div></div>
+  return <div className="poly-display">
+    <div className="poly-display-glass">
+      <div className="poly-display-readout"><span>{eyebrow}</span><output>{value}</output></div>
+      <div className="poly-display-visual">{children}</div>
+    </div>
+  </div>
 }
 
-function WavetableVisual({ tableId, position }: { tableId: string; position: number }) {
+function WavetableVisual({ tableId, position, readWaveform }: { tableId: string; position: number; readWaveform: Props['readWaveform'] }) {
   const path = useMemo(() => {
     const table = generatePolyWavetable(tableId)
     const frames = table.levels[table.levels.length - 1].frames
     return makePath(180, (ratio) => interpolateWavetablePosition(frames, position, Math.round(ratio * (frames[0].length - 1))))
   }, [position, tableId])
-  return <svg viewBox="0 0 640 180" role="img" aria-label="Current wavetable waveform"><DisplayGrid /><path className="poly-signal-line" d={path} /></svg>
+  return <svg viewBox="0 0 640 180" preserveAspectRatio="none" role="img" aria-label="Current wavetable waveform"><DisplayGrid /><OscilloscopeTrace staticPath={path} readWaveform={readWaveform} /></svg>
 }
 
 function FilterVisual({ mode, cutoffHz, resonance }: { mode: PolyFilterMode; cutoffHz: number; resonance: number }) {
@@ -165,7 +171,7 @@ function FilterVisual({ mode, cutoffHz, resonance }: { mode: PolyFilterMode; cut
       return Math.min(1, Math.max(0, response)) * 1.7 - .85
     })
   }, [cutoffHz, mode, resonance])
-  return <svg viewBox="0 0 640 180" role="img" aria-label={`${mode} filter response`}><DisplayGrid /><path className="poly-signal-line" d={path} /></svg>
+  return <svg viewBox="0 0 640 180" preserveAspectRatio="none" role="img" aria-label={`${mode} filter response`}><DisplayGrid /><SignalTrace path={path} /></svg>
 }
 
 function EnvelopeVisual({ envelope }: { envelope: PolyEnvelopeState }) {
@@ -173,22 +179,100 @@ function EnvelopeVisual({ envelope }: { envelope: PolyEnvelopeState }) {
   const attackX = Math.min(.34, .08 + envelope.attackSeconds / total * .36)
   const decayX = Math.min(.68, attackX + .1 + envelope.decaySeconds / total * .28)
   const releaseX = Math.max(.78, 1 - envelope.releaseSeconds / total * .18)
-  const sustainY = 156 - envelope.sustain * 124
-  const path = `M 20 156 L ${20 + attackX * 600} 24 L ${20 + decayX * 600} ${sustainY} L ${20 + releaseX * 600} ${sustainY} L 620 156`
-  return <svg viewBox="0 0 640 180" role="img" aria-label="Envelope shape"><DisplayGrid /><path className="poly-signal-line" d={path} /></svg>
+  const sustainY = 168 - envelope.sustain * 146
+  const path = `M 10 168 L ${10 + attackX * 620} 12 L ${10 + decayX * 620} ${sustainY} L ${10 + releaseX * 620} ${sustainY} L 630 168`
+  return <svg viewBox="0 0 640 180" preserveAspectRatio="none" role="img" aria-label="Envelope shape"><DisplayGrid /><SignalTrace path={path} /></svg>
 }
 
 function LfoVisual({ value }: { value: PolyLfoState }) {
   const path = useMemo(() => makePath(180, (ratio) => lfoSample(value.shape, ratio + value.phase)), [value.phase, value.shape])
-  return <svg viewBox="0 0 640 180" role="img" aria-label={`${value.shape} LFO waveform`}><DisplayGrid /><path className="poly-signal-line" d={path} /></svg>
+  return <svg viewBox="0 0 640 180" preserveAspectRatio="none" role="img" aria-label={`${value.shape} LFO waveform`}><DisplayGrid /><SignalTrace path={path} /></svg>
 }
 
 function PerformanceModVisual({ source }: { source: 'velocity' | 'keytrack' }) {
-  return <svg viewBox="0 0 640 180" role="img" aria-label={`${sourceLabel(source)} modulation context`}><DisplayGrid /><path className="poly-signal-line" d={source === 'velocity' ? 'M 20 152 C 180 150 300 112 410 70 S 560 28 620 24' : 'M 20 152 L 620 24'} /></svg>
+  const path = source === 'velocity' ? 'M 10 166 C 176 164 300 118 414 66 S 570 18 630 12' : 'M 10 168 L 630 12'
+  return <svg viewBox="0 0 640 180" preserveAspectRatio="none" role="img" aria-label={`${sourceLabel(source)} modulation context`}><DisplayGrid /><SignalTrace path={path} /></svg>
 }
 
 function DisplayGrid() {
-  return <g className="poly-display-grid" aria-hidden="true"><path d="M20 24H620M20 68H620M20 112H620M20 156H620" /><path d="M20 24V156M170 24V156M320 24V156M470 24V156M620 24V156" /></g>
+  return <g aria-hidden="true">
+    <rect className="poly-display-frame" x="10" y="12" width="620" height="156" />
+    <path className="poly-display-grid poly-display-grid-minor" d="M10 38H630M10 90H630M10 142H630M87.5 12V168M242.5 12V168M397.5 12V168M552.5 12V168" />
+    <path className="poly-display-grid poly-display-grid-major" d="M10 12H630M10 64H630M10 116H630M10 168H630M10 12V168M165 12V168M320 12V168M475 12V168M630 12V168" />
+    <path className="poly-display-axis" d="M10 90H630M320 12V168" />
+    <path className="poly-display-ticks" d="M10 85V95M87.5 87V93M165 85V95M242.5 87V93M320 83V97M397.5 87V93M475 85V95M552.5 87V93M630 85V95M315 12H325M317 38H323M315 64H325M317 90H323M315 116H325M317 142H323M315 168H325" />
+  </g>
+}
+
+function SignalTrace({ path }: { path: string }) {
+  return <><path className="poly-signal-persistence" d={path} /><path className="poly-signal-line" d={path} /></>
+}
+
+function OscilloscopeTrace({ staticPath, readWaveform }: { staticPath: string; readWaveform: Props['readWaveform'] }) {
+  const persistenceRef = useRef<SVGPathElement>(null)
+  const traceRef = useRef<SVGPathElement>(null)
+  const staticPathRef = useRef(staticPath)
+  const readWaveformRef = useRef(readWaveform)
+  const renderedPathRef = useRef(staticPath)
+  const liveRef = useRef(false)
+  staticPathRef.current = staticPath
+  readWaveformRef.current = readWaveform
+
+  useEffect(() => {
+    const samples = new Float32Array(1024)
+    let animationFrame = 0
+    let lastDrawAt = 0
+    let quietFrames = 0
+
+    const setPath = (path: string) => {
+      if (path === renderedPathRef.current) return
+      renderedPathRef.current = path
+      persistenceRef.current?.setAttribute('d', path)
+      traceRef.current?.setAttribute('d', path)
+    }
+
+    const draw = (timestamp: number) => {
+      animationFrame = requestAnimationFrame(draw)
+      if (document.hidden || timestamp - lastDrawAt < 1000 / 30) return
+      lastDrawAt = timestamp
+      if (!readWaveformRef.current(samples)) { liveRef.current = false; setPath(staticPathRef.current); return }
+
+      let peak = 0
+      for (const sample of samples) peak = Math.max(peak, Math.abs(sample))
+      if (peak < .002) {
+        quietFrames += 1
+        if (quietFrames >= 6) { liveRef.current = false; setPath(staticPathRef.current) }
+        return
+      }
+
+      quietFrames = 0
+      liveRef.current = true
+      setPath(makeLiveWaveformPath(samples))
+    }
+
+    animationFrame = requestAnimationFrame(draw)
+    return () => cancelAnimationFrame(animationFrame)
+  }, [])
+
+  useEffect(() => {
+    if (!liveRef.current) {
+      renderedPathRef.current = staticPath
+      persistenceRef.current?.setAttribute('d', staticPath)
+      traceRef.current?.setAttribute('d', staticPath)
+    }
+  }, [staticPath])
+
+  return <><path ref={persistenceRef} className="poly-signal-persistence" d={staticPath} /><path ref={traceRef} className="poly-signal-line" d={staticPath} /></>
+}
+
+function makeLiveWaveformPath(samples: Float32Array<ArrayBuffer>): string {
+  let trigger = 0
+  const triggerLimit = Math.floor(samples.length * .45)
+  for (let index = 1; index < triggerLimit; index += 1) {
+    if (samples[index - 1] <= 0 && samples[index] > 0) { trigger = index; break }
+  }
+  const available = Math.max(1, samples.length - trigger)
+  return makePath(180, (ratio) => samples[trigger + Math.min(available - 1, Math.floor(ratio * (available - 1)))] * 1.8)
 }
 
 function EnvelopeControls({ value, onChange }: { value: PolyEnvelopeState; onChange: (value: PolyEnvelopeState) => void }) {
@@ -216,8 +300,8 @@ function Control({ label, value, min = 0, max = 1, step = .01, format, onChange 
 function makePath(points: number, sample: (ratio: number) => number): string {
   return Array.from({ length: points }, (_, index) => {
     const ratio = index / (points - 1)
-    const x = 20 + ratio * 600
-    const y = 90 - Math.min(1, Math.max(-1, sample(ratio))) * 66
+    const x = 10 + ratio * 620
+    const y = 90 - Math.min(1, Math.max(-1, sample(ratio))) * 78
     return `${index === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`
   }).join(' ')
 }

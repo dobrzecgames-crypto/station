@@ -2116,6 +2116,7 @@ export function App({ audioEngine }: AppProps) {
               projectBusy={projectBusy}
               projectKeyLabel={formatProjectKey(projectKey)}
               onPatchChange={updateSelectedPolyPatch}
+              readWaveform={(target) => audioEngine.readChannelWaveform(createChannelId({ patternGroupId: selectedPatternGroupId, padId: selectedPad.id }), target)}
               onTrigger={() => triggerPad(selectedPad.id)}
               onRelease={() => releasePad(selectedPad.id)}
               onMapToProjectScale={mapSelectedPadToProjectScale}

@@ -144,7 +144,7 @@ export function TransportBar({ bpm, swing, isPlaying, recording, countingIn, rec
           <button className="mixer-toggle take-history-button" type="button" role="menuitem" disabled={recording || countingIn || !canRedoTake} onClick={() => runTakeAction(onRedoTake)}>REDO</button>
         </div>}
       </div>
-      <div className="transport-modes" aria-label="Transport mode"><button className={mode === 'pattern' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" disabled={!controlsAwake} onClick={() => onModeChange('pattern')}>PATTERN</button><button className={mode === 'song' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" disabled={!controlsAwake} onClick={() => onModeChange('song')}>SONG</button></div>
+      <div className="transport-modes" aria-label="Transport mode"><button className={mode === 'pattern' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" aria-label="Pattern mode" disabled={!controlsAwake} onClick={() => onModeChange('pattern')}>PAT</button><button className={mode === 'song' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" aria-label="Song mode" disabled={!controlsAwake} onClick={() => onModeChange('song')}>SONG</button></div>
       {/* The system display. Every message in the app lands here rather than in
           whichever panel raised it, so there is one place to look. The panel is
           a slot, and tempo is only its floor: any context can claim it, and

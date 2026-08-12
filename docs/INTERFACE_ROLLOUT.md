@@ -7,10 +7,11 @@ This document turns `INTERFACE_BIBLE.md` into an implementation sequence. It exi
 For UI work use this precedence:
 
 1. `docs/COLOR_BIBLE.md` — colour roles and Vinyl Dust palette.
-2. `docs/INTERFACE_BIBLE.md` — physical interaction, material, motion and typography direction.
-3. `docs/SYSTEM_DISPLAY.md` — display ownership/content behaviour.
-4. Feature-specific documents.
-5. `docs/DESIGN_SYSTEM.md` — useful historical/current implementation context only where it does not conflict with the sources above.
+2. `docs/INTERFACE_BIBLE.md` — physical interaction, material and motion direction.
+3. `docs/TYPOGRAPHY_BIBLE.md` — typography architecture, font roles, hierarchy and font-selection rules.
+4. `docs/SYSTEM_DISPLAY.md` — display ownership/content behaviour.
+5. Feature-specific documents.
+6. `docs/DESIGN_SYSTEM.md` — useful historical/current implementation context only where it does not conflict with the sources above.
 
 Do not reinterpret the palette during this rollout.
 
@@ -146,44 +147,83 @@ Tune dimensions in the real UI; do not freeze arbitrary measurements from design
 
 ### Goal
 
-Replace generic typography with two deliberate Station faces.
+Replace generic typography with the deliberate three-face Station architecture defined in `TYPOGRAPHY_BIBLE.md`:
+
+- `MODULE FACE` — only the seven main physical workspace selector keys;
+- `STATION FACE` — the rest of the physical machine's working language;
+- `DISPLAY FACE` — only the System Display's internal computer language.
+
+This is **two fonts belonging to the machine plus one font belonging to its internal computer**, not three competing visual identities.
 
 ### Important
 
 **Codex must not select the final fonts autonomously.**
 
-Before implementation, the human design pass must approve:
+Before implementation, the human design pass must approve all three families and their relationship.
 
-- `PANEL FACE` — non-digital physical instrument lettering;
-- `DISPLAY FACE` — device/computer/digital lettering;
-- whether a separate numeric mono face is still needed.
+A fourth numeric face should not be introduced unless a concrete functional problem cannot be solved by the chosen Display Face.
 
-Current planned replacements:
+Current planned replacements/evaluation:
 
-- Inter -> replace as panel identity;
-- Rajdhani -> replace as display/headline identity;
-- IBM Plex Mono -> evaluate rather than automatically retain.
+- Inter -> replace; it is not the intended Station panel identity;
+- Rajdhani -> replace; it carries too much generic futuristic/AI UI association;
+- IBM Plex Mono -> evaluate rather than automatically retain as a separate face.
+
+### Step 1 — Typography audit
+
+Before choosing fonts, inventory current typography in the real application and classify each exposed text element as:
+
+- MODULE,
+- STATION,
+- DISPLAY.
+
+Also identify current local font overrides, arbitrary weights, unnecessary bold parameter labels, excessive uppercase tracking and any Display-style typography leaking outside the System Display.
+
+### Step 2 — Typography Lab
+
+Prefer a temporary developer-only Typography Lab inside the real Station interface rather than judging fonts from catalogue specimens.
+
+The lab should let the human designer compare shortlisted candidates in the actual UI without changing product behaviour.
+
+Do not turn the lab into a permanent user-facing feature.
 
 ### Font evaluation specimen
 
-Every candidate should be compared in the actual Station UI using at least:
+Every candidate should be compared using real Station strings including at least:
 
 `STATION`
+
 `LASER`
 `PADS`
 `SYNTH`
 `SEQ`
+`SONG`
+`WAVES`
 `MIX`
-`SIDECHAIN`
-`DEPTH`
-`DUST`
-`FIRE`
-`PATTERN 04`
-`120 BPM`
+
+`PARAMETERS`
+`FILTER`
+`DECAY`
+`TUNE`
+`MASS`
+
+`MONOGORG`
+`MONOPOLY`
+`STRINGS`
+
+`Choose an instrument`
+
+`120 BPM · 0% SWING`
+`BANK 08 · PAT A`
+`PAD 01`
 `-18.0 dB`
 `0123456789`
 
-Evaluate small-size legibility, Polish diacritics where required, numeral stability, and whether the face reads as a deliberate Station choice rather than a fashionable web default.
+Also verify Polish diacritics where required.
+
+Evaluate small-size legibility on the actual phone/browser size, density, numeral stability, weight range, cultural association and whether the faces read as deliberate Station choices rather than fashionable web defaults.
+
+Pause for human typography acceptance before implementation spreads the selected faces across the app.
 
 ---
 

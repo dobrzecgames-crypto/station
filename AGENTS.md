@@ -50,14 +50,15 @@ During implementation:
 For any task that changes visible controls, interaction states, typography, material, animation or layout, read these sources before editing UI code:
 
 1. `docs/COLOR_BIBLE.md` — source of truth for Vinyl Dust colour roles.
-2. `docs/INTERFACE_BIBLE.md` — source of truth for physical interaction, material, motion and typography direction.
-3. `docs/INTERFACE_ROLLOUT.md` — staged implementation order; do not jump ahead without explicit approval.
-4. `docs/SYSTEM_DISPLAY.md` when touching the System Display.
-5. Feature-specific documents for the affected workspace.
+2. `docs/INTERFACE_BIBLE.md` — source of truth for physical interaction, material and motion direction.
+3. `docs/TYPOGRAPHY_BIBLE.md` — source of truth for typography architecture, font roles, hierarchy and font-selection rules whenever text/type is touched.
+4. `docs/INTERFACE_ROLLOUT.md` — staged implementation order; do not jump ahead without explicit approval.
+5. `docs/SYSTEM_DISPLAY.md` when touching the System Display.
+6. Feature-specific documents for the affected workspace.
 
-If an older rule in `docs/DESIGN_SYSTEM.md` conflicts with `COLOR_BIBLE.md` or `INTERFACE_BIBLE.md`, do not silently merge the two styles. Use the newer source-of-truth document for that decision and report the conflict.
+If an older rule in `docs/DESIGN_SYSTEM.md` conflicts with `COLOR_BIBLE.md`, `INTERFACE_BIBLE.md` or `TYPOGRAPHY_BIBLE.md`, do not silently merge the styles. Use the newer source-of-truth document for that decision and report the conflict.
 
-Do not redesign the Vinyl Dust palette during an interaction task. Do not choose or add a final replacement font unless the task explicitly approves that font. Inter and Rajdhani are scheduled for replacement, but the replacement is a human design decision rather than an agent default.
+Do not redesign the Vinyl Dust palette during an interaction task. Do not choose or add a final replacement font unless the task explicitly approves that font. Final MODULE FACE, STATION FACE and DISPLAY FACE choices are human design decisions rather than agent defaults.
 
 When touching a button-like control, classify it as SELECTOR, LATCH, MOMENTARY, PAD or CONTINUOUS CONTROL and implement the physical state appropriate to that family. Do not use a generic web-button treatment as the fallback for all controls.
 

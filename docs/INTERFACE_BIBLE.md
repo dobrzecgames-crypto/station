@@ -1,10 +1,10 @@
 # Station Interface Bible
 
-Status: **source of truth for physical interaction, material, motion and typography direction**.
+Status: **source of truth for physical interaction, material and motion direction**.
 
-This document does not replace `COLOR_BIBLE.md`. `COLOR_BIBLE.md` remains the source of truth for palette and colour semantics. `SYSTEM_DISPLAY.md` remains the source of truth for display ownership/content behaviour. This document defines how Station should *feel* when touched and how its visual language avoids generic app/AI styling.
+This document does not replace `COLOR_BIBLE.md`. `COLOR_BIBLE.md` remains the source of truth for palette and colour semantics. `TYPOGRAPHY_BIBLE.md` remains the source of truth for typography architecture, font roles and hierarchy. `SYSTEM_DISPLAY.md` remains the source of truth for display ownership/content behaviour. This document defines how Station should *feel* when touched and how its visual language avoids generic app/AI styling.
 
-If an older visual rule in `DESIGN_SYSTEM.md` conflicts with this document, use this document for interaction/material/type decisions and `COLOR_BIBLE.md` for colour decisions.
+If an older visual rule in `DESIGN_SYSTEM.md` conflicts with this document, use this document for interaction/material decisions, `TYPOGRAPHY_BIBLE.md` for typography decisions and `COLOR_BIBLE.md` for colour decisions.
 
 ---
 
@@ -25,6 +25,30 @@ This sentence has three separate jobs:
 Do not turn this into synthwave nostalgia, VHS decoration, fake CRT damage, cyberpunk, an MPC clone or a museum replica.
 
 The goal is a future instrument whose design language appears to have evolved continuously from physical electronic equipment instead of converging on generic app UI.
+
+### 1.1 Device model — screen inside a screen
+
+Station is designed as a **virtual physical instrument displayed on a phone**, not as conventional mobile app chrome.
+
+The phone screen is treated as the surface of the instrument itself.
+
+Controls mounted on that surface should therefore answer physical questions:
+
+- Is this a hard selector key?
+- Is this a rubber performance pad?
+- Is this a printed panel label?
+- Is this a fader moving along a track?
+- Is this part of the internal computer?
+
+The System Display is a second conceptual screen **inside** the Station instrument.
+
+It is not merely another React panel.
+
+This is why the display may have its own typography, light behaviour and information density while the surrounding instrument follows a different physical language.
+
+Do not copy historical hardware literally.
+
+The intended effect is a contemporary instrument whose interface logic evolved from physical electronic equipment rather than from generic mobile-app components.
 
 ---
 
@@ -214,60 +238,15 @@ Geometry/depth may communicate physical state. Colour communicates the semantic 
 
 ## 7. Typography architecture
 
-Station has **two primary typographic worlds**, not one universal UI font.
+Typography architecture, font roles, hierarchy and font-selection rules are defined by `TYPOGRAPHY_BIBLE.md`.
 
-### 7.1 PANEL FACE
+Station uses:
 
-Used for physical-panel text: navigation keys, button labels, printed control names and ordinary instrument markings.
+- **MODULE FACE** for the seven main physical workspace selector keys;
+- **STATION FACE** for the rest of the physical machine's working language;
+- **DISPLAY FACE** for the System Display's internal computer language.
 
-Direction:
-
-- non-digital;
-- feels suitable for printing/engraving on an electronic instrument;
-- distinctive enough that Station does not resemble a generic web product;
-- compact and legible at small sizes;
-- not an obvious sci-fi/techno display font;
-- not a fashionable SaaS default;
-- tracking should be intentional and generally restrained;
-- uppercase is allowed where appropriate, but must not be applied to every piece of text merely as decoration.
-
-**Inter is not the target panel identity and is scheduled for replacement.**
-
-The final face must be selected by visual comparison in Station. Coding agents must not autonomously choose a final replacement font just because it is available on Google Fonts.
-
-### 7.2 DISPLAY FACE
-
-Used inside the System Display and for content that visually belongs to Station's internal computer.
-
-Direction:
-
-- digital / device-like / computer-like;
-- can feel related to instrumentation or an imagined machine terminal;
-- should not become a stereotypical pixel font, Matrix terminal or faux-broken CRT;
-- modern high-resolution rendering is allowed and preferred;
-- character comes from the type design and layout, not artificial degradation.
-
-**Rajdhani is scheduled for replacement.** Its current suitability is not a reason to keep a generic futuristic UI identity.
-
-### 7.3 Numeric face
-
-Measurements need stable widths/tabular behaviour. The current IBM Plex Mono solves a functional problem, but it is not automatically protected from replacement.
-
-When the typography pass happens, evaluate whether measurements should:
-
-1. use the Display Face with tabular numerals,
-2. use a dedicated numeric/mono companion,
-3. retain a mono family only where alignment genuinely requires it.
-
-Do not retain a third face merely because it already exists.
-
-### Typography rule for agents
-
-Until the human design pass chooses the final fonts:
-
-- do not introduce additional font families;
-- do not substitute another fashionable web font as a temporary "upgrade";
-- do not rewrite the typography system outside an explicitly approved typography task.
+The final families remain a human design choice. Coding agents must not autonomously choose replacement fonts.
 
 ---
 
@@ -340,7 +319,7 @@ Physical feeling must not break usability.
 
 For any UI task:
 
-1. Read `COLOR_BIBLE.md`, this file, and the relevant feature/system document before changing CSS/components.
+1. Read `COLOR_BIBLE.md`, this file, `TYPOGRAPHY_BIBLE.md` when touching typography, and the relevant feature/system document before changing CSS/components.
 2. Classify every touched control as SELECTOR, LATCH, MOMENTARY, PAD or CONTINUOUS CONTROL.
 3. Do not invent a sixth interaction metaphor because a local component is awkward.
 4. Reuse semantic CSS variables/tokens rather than hard-coding new colours.
@@ -364,7 +343,7 @@ Recommended order:
 3. **Performance pads** — prove the rubber material and pressed/playing/selected separation.
 4. **Momentary and latch controls** — map existing controls to the correct family.
 5. **Continuous controls** — fader/slider/knob geometry and touch feeling.
-6. **Typography selection** — human-reviewed Panel Face + Display Face, then implementation.
+6. **Typography selection** — human-reviewed MODULE FACE + STATION FACE + DISPLAY FACE, then implementation.
 7. **Display typography/layout refinement** without changing its ownership contract.
 8. **Consistency audit** across all workspaces.
 

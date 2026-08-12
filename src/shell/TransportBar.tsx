@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { patternVariantNames, maximumPatternGroups } from '../patterns/patternTypes'
 import type { PatternGroup, PatternVariantName } from '../patterns/patternTypes'
@@ -7,6 +8,7 @@ import type { DisplayTenant } from './SystemDisplay'
 import { BankSelect } from './BankSelect'
 import { tempoTenant } from './TempoPanel'
 import type { AudioEngineStatus } from '../audio/AudioEngine'
+import { useOutsideDismiss } from '../tracks/useOutsideDismiss'
 
 interface TransportBarProps {
   bpm: number
@@ -69,9 +71,22 @@ interface TransportBarProps {
 }
 
 export function TransportBar({ bpm, swing, isPlaying, recording, countingIn, recordingMode, canUndoTake, canRedoTake, mode, loopSong, metronomeEnabled, settingsOpen, onSettingsOpenChange, groups, selectedGroupId, selectedVariant, statusMessage, errorMessage, focusReadout, displayOwner, audioStatus, audioDisabled, controlsAwake, onStartAudio, onBpmChange, onSwingChange, onModeChange, onLoopSongChange, onMetronomeEnabledChange, onRecordToggle, onRecordingModeChange, onUndoTake, onRedoTake, onGroupChange, onGroupRename, onVariantChange, onGroupCreate, onVariantCreate, onGroupDelete, projectControl, onPlay, onStop }: TransportBarProps) {
+  const [recordingMenuOpen, setRecordingMenuOpen] = useState(false)
+  const recordingMenuRef = useRef<HTMLDivElement>(null)
   const groupIndex = groups.findIndex((group) => group.id === selectedGroupId)
   const selectedGroup = groups[groupIndex]
   const audioRecovering = audioStatus === 'suspended' || audioStatus === 'interrupted'
+  useOutsideDismiss(recordingMenuRef, recordingMenuOpen, () => setRecordingMenuOpen(false))
+
+  const selectRecordingMode = (nextMode: PatternRecordingMode) => {
+    onRecordingModeChange(nextMode)
+    setRecordingMenuOpen(false)
+  }
+
+  const runTakeAction = (action: () => void) => {
+    action()
+    setRecordingMenuOpen(false)
+  }
 
   return <section className="transport-bar" aria-label="Transport">
     <div className="transport-controls">
@@ -108,15 +123,28 @@ export function TransportBar({ bpm, swing, isPlaying, recording, countingIn, rec
         style={countingIn ? { '--count-in-beat': `${60 / bpm}s` } as CSSProperties : undefined}
         onClick={onRecordToggle}
       />
-      <div className="transport-modes" aria-label="Transport mode"><button className={mode === 'pattern' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" disabled={!controlsAwake} onClick={() => onModeChange('pattern')}>PATTERN</button><button className={mode === 'song' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" disabled={!controlsAwake} onClick={() => onModeChange('song')}>SONG</button></div>
-      <div className="recording-workflow" aria-label="Pattern recording workflow">
-        <div className="recording-mode-selector" role="group" aria-label="Recording mode">
-          <button className={recordingMode === 'overdub' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" aria-pressed={recordingMode === 'overdub'} disabled={!controlsAwake || recording || countingIn} onClick={() => onRecordingModeChange('overdub')}>OVERDUB</button>
-          <button className={recordingMode === 'replace' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" aria-pressed={recordingMode === 'replace'} disabled={!controlsAwake || recording || countingIn} onClick={() => onRecordingModeChange('replace')}>REPLACE</button>
-        </div>
-        <button className="mixer-toggle take-history-button" type="button" disabled={!controlsAwake || recording || countingIn || !canUndoTake} onClick={onUndoTake}>UNDO</button>
-        <button className="mixer-toggle take-history-button" type="button" disabled={!controlsAwake || recording || countingIn || !canRedoTake} onClick={onRedoTake}>REDO</button>
+      <div className="recording-menu" ref={recordingMenuRef}>
+        <button
+          className={`mixer-toggle recording-menu-trigger${recordingMenuOpen ? ' mixer-toggle-active' : ''}`}
+          type="button"
+          disabled={!controlsAwake}
+          aria-label="Recording options"
+          aria-haspopup="menu"
+          aria-expanded={recordingMenuOpen}
+          aria-controls={recordingMenuOpen ? 'recording-options-menu' : undefined}
+          title={`Recording options: ${recordingMode.toUpperCase()}`}
+          onClick={() => setRecordingMenuOpen((open) => !open)}
+        >
+          <span className="recording-menu-caret" aria-hidden="true" />
+        </button>
+        {recordingMenuOpen && <div className="recording-options-menu" id="recording-options-menu" role="menu" aria-label="Pattern recording options">
+          <button className={recordingMode === 'overdub' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" role="menuitemradio" aria-checked={recordingMode === 'overdub'} disabled={recording || countingIn} onClick={() => selectRecordingMode('overdub')}>OVERDUB</button>
+          <button className={recordingMode === 'replace' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" role="menuitemradio" aria-checked={recordingMode === 'replace'} disabled={recording || countingIn} onClick={() => selectRecordingMode('replace')}>REPLACE</button>
+          <button className="mixer-toggle take-history-button" type="button" role="menuitem" disabled={recording || countingIn || !canUndoTake} onClick={() => runTakeAction(onUndoTake)}>UNDO</button>
+          <button className="mixer-toggle take-history-button" type="button" role="menuitem" disabled={recording || countingIn || !canRedoTake} onClick={() => runTakeAction(onRedoTake)}>REDO</button>
+        </div>}
       </div>
+      <div className="transport-modes" aria-label="Transport mode"><button className={mode === 'pattern' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" disabled={!controlsAwake} onClick={() => onModeChange('pattern')}>PATTERN</button><button className={mode === 'song' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" disabled={!controlsAwake} onClick={() => onModeChange('song')}>SONG</button></div>
       {/* The system display. Every message in the app lands here rather than in
           whichever panel raised it, so there is one place to look. The panel is
           a slot, and tempo is only its floor: any context can claim it, and

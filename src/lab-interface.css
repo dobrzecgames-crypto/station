@@ -1042,18 +1042,20 @@ input[type="text"], input[type="number"], select, textarea {
    recording options and mode. The display stays directly underneath. */
 .station-shell .transport-controls {
   display: grid;
-  grid-template-columns: 56px repeat(4, 34px) minmax(90px, 1fr);
+  grid-template-columns: 56px repeat(3, 40px) 30px minmax(90px, 1fr);
   grid-template-areas:
     'power play stop record record-menu modes'
     'display display display display display display';
   align-items: center;
-  gap: 6px;
+  gap: 2px;
 }
 .station-shell .system-power-switch { grid-area: power; }
 .station-shell .transport-icon-button {
   grid-area: play;
-  width: 34px;
-  min-width: 34px;
+  width: 40px;
+  min-width: 40px;
+  height: 36px;
+  min-height: 36px;
 }
 .station-shell .transport-stop-button {
   grid-area: stop;
@@ -1065,7 +1067,7 @@ input[type="text"], input[type="number"], select, textarea {
   z-index: 40;
   grid-area: record-menu;
   align-self: center;
-  width: 34px;
+  width: 30px;
   height: 30px;
 }
 .station-shell .recording-menu-trigger {
@@ -1121,13 +1123,16 @@ input[type="text"], input[type="number"], select, textarea {
 
 @media (max-width: 370px) {
   .station-shell .transport-controls {
-    grid-template-columns: 56px repeat(4, 32px) minmax(84px, 1fr);
+    grid-template-columns: 56px repeat(3, 38px) 28px minmax(84px, 1fr);
     gap: 2px;
   }
-  .station-shell .transport-icon-button,
+  .station-shell .transport-icon-button {
+    width: 38px;
+    min-width: 38px;
+  }
   .station-shell .recording-menu {
-    width: 32px;
-    min-width: 32px;
+    width: 28px;
+    min-width: 28px;
   }
 }
 

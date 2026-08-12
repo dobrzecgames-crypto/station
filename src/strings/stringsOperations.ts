@@ -52,6 +52,7 @@ export function assignStringsSource(pad: PadState, stringsPatchId: StringsPatchI
     synthPatchId: null,
     stringsPatchId,
     organicBassPatchId: null,
+    polyPatchId: null,
     chordIntervals: [...chordIntervals],
   }
 }

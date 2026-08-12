@@ -13,7 +13,7 @@ interface SequencerControlsProps {
   pattern: StepPattern
   shifts: StepShiftPattern
   lengths: StepLengthPattern
-  pads: readonly Pick<PadState, 'id' | 'label' | 'fileName' | 'synthPatchId' | 'stringsPatchId' | 'organicBassPatchId'>[]
+  pads: readonly Pick<PadState, 'id' | 'label' | 'fileName' | 'synthPatchId' | 'stringsPatchId' | 'organicBassPatchId' | 'polyPatchId'>[]
   selectedPadId: PadState['id']
   group: PatternGroup
   selectedVariant: PatternVariantName
@@ -294,7 +294,7 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
         const owners = getStepEventOwners(steps, lengths[pad.id])
         const selectedHeadIndex = editedStep.padId === pad.id ? getStepEventRange(steps, lengths[pad.id], editedStep.stepIndex)?.headIndex : undefined
         const padNumber = pad.label.replace(/^PAD\s+/, '')
-        const sourceLabel = pad.synthPatchId ? 'MONOPOLY' : pad.stringsPatchId ? 'STRINGS' : pad.organicBassPatchId ? 'MONOGORG' : pad.fileName ?? 'EMPTY'
+        const sourceLabel = pad.synthPatchId ? 'MONOPOLY' : pad.stringsPatchId ? 'STRINGS' : pad.organicBassPatchId ? 'MONOGORG' : pad.polyPatchId ? 'POLY' : pad.fileName ?? 'EMPTY'
         return <div className="pattern-matrix-row" key={pad.id}>
           <button
             className={pad.id === selectedPadId ? 'pattern-pad-label pattern-pad-selected' : 'pattern-pad-label'}

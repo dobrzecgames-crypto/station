@@ -36,6 +36,9 @@ import {
   organicBassWeightMacro,
 } from '../organic-bass/organicBassOperations'
 import type { OrganicBassPatch } from '../organic-bass/organicBassTypes'
+import { choosePolyVoiceToSteal, clonePolyPatch, maximumPolyVoices } from '../poly/polyOperations'
+import type { PolyPatch } from '../poly/polyTypes'
+import polyProcessorUrl from '../poly/polyProcessor.ts?worker&url'
 
 export type SampleId = string
 export type SampleAssetId = string
@@ -303,6 +306,32 @@ interface StringsPatchRuntime {
   motionFilterDepth?: GainNode
 }
 
+export interface PolyPatchRegistration {
+  groupId: GroupId
+  patch: PolyPatch
+}
+
+interface ActivePolyVoice {
+  node: AudioWorkletNode
+  origin: 'manual' | 'sequencer'
+  groupId: GroupId
+  patchKey: string
+  channelId: ChannelId
+  midiNote: number
+  startsAt: number
+  serial: number
+  manualToken?: string
+  stopAt?: number
+  stolen?: boolean
+  cleanedUp: boolean
+}
+
+interface PolyPatchRuntime {
+  groupId: GroupId
+  patch: PolyPatch
+  voices: Set<ActivePolyVoice>
+}
+
 interface Channel {
   groupId: GroupId
   volume: number
@@ -422,6 +451,11 @@ export class AudioEngine {
   private stringsNoiseBuffer?: AudioBuffer
   /** WARMTH's saturation curve - fixed and generated once, ever. A WaveShaper's `.curve` cannot be smoothly ramped, so WARMTH moves a dry/wet blend instead of regenerating this. */
   private stringsWarmthCurve?: Float32Array<ArrayBuffer>
+  private readonly polyPatches = new Map<string, PolyPatchRegistration>()
+  private readonly polyRuntimes = new Map<string, PolyPatchRuntime>()
+  private activePolyVoices = new Set<ActivePolyVoice>()
+  private polyVoiceSerial = 0
+  private polyWorkletReady = false
   /** DRUM SYNTH preview voices only, any instrument - a rendered-to-pad kick or snare plays back as an ordinary sample through `scheduleSample`/`activeVoices`, never through this set. See docs/DECISIONS.md DEC-024/DEC-025. */
   private readonly drumPreviewVoices = new Set<DrumVoiceHandle>()
   private status: AudioEngineStatus = 'inactive'
@@ -466,6 +500,7 @@ export class AudioEngine {
       this.installLifecycleRecovery()
       this.createMasterOutput(this.liveContext)
       this.createChannelNodes()
+      await this.ensurePolyWorklet()
       this.ensureAllSynthRuntimes()
       this.ensureAllOrganicBassRuntimes()
       this.ensureAllStringsRuntimes()
@@ -487,10 +522,11 @@ export class AudioEngine {
    * the scheduling entry points and the mixer setters are the ones live
    * playback uses, so a render cannot quietly grow its own audio behaviour.
    */
-  initializeForRender(context: OfflineAudioContext): void {
+  async initializeForRender(context: OfflineAudioContext): Promise<void> {
     this.context = context
     this.createMasterOutput(context)
     this.createChannelNodes()
+    await this.ensurePolyWorklet()
     this.ensureAllSynthRuntimes()
     this.ensureAllOrganicBassRuntimes()
     this.ensureAllStringsRuntimes()
@@ -676,6 +712,25 @@ export class AudioEngine {
     this.bpm = nextBpm
     this.applySynchronizedDelayTimes()
     for (const runtime of this.synthRuntimes.values()) this.applySynthLfo(runtime)
+    for (const runtime of this.polyRuntimes.values()) for (const voice of runtime.voices) voice.node.port.postMessage({ type: 'bpm', bpm: this.bpm })
+  }
+
+  syncPolyPatches(registrations: readonly PolyPatchRegistration[]): void {
+    const nextKeys = new Set<string>()
+    for (const registration of registrations) {
+      const key = this.polyPatchKey(registration.groupId, registration.patch.id)
+      nextKeys.add(key)
+      this.polyPatches.set(key, { groupId: registration.groupId, patch: clonePolyPatch(registration.patch) })
+      const runtime = this.polyRuntimes.get(key)
+      if (runtime) this.updatePolyRuntime(runtime, registration.patch)
+      else if (this.context && this.polyWorkletReady) this.ensurePolyRuntime(registration.groupId, registration.patch)
+    }
+    for (const key of [...this.polyPatches.keys()]) {
+      if (nextKeys.has(key)) continue
+      this.polyPatches.delete(key)
+      const runtime = this.polyRuntimes.get(key)
+      if (runtime) this.disposePolyRuntime(key, runtime)
+    }
   }
 
   syncSynthPatches(registrations: readonly SynthPatchRegistration[]): void {
@@ -893,6 +948,34 @@ export class AudioEngine {
     }
   }
 
+  triggerPolyPad(groupId: GroupId, channelId: ChannelId, patch: PolyPatch, midiNotes: readonly number[], velocity = 1, manualToken = channelId): void {
+    if (this.status !== 'ready' || !this.context || !this.polyWorkletReady) return
+    const runtime = this.ensurePolyRuntime(groupId, patch)
+    const when = this.context.currentTime
+    this.triggerPumpRoutesForChannel(channelId, when)
+    this.releasePolyPad(manualToken)
+    for (const midiNote of midiNotes.slice(0, maximumPolyVoices)) if (Number.isFinite(midiNote)) this.startPolyVoice(runtime, channelId, midiNote, velocity, when, 'manual', manualToken)
+  }
+
+  releasePolyPad(manualToken: string): void {
+    if (!this.context) return
+    const when = this.context.currentTime
+    for (const runtime of this.polyRuntimes.values()) for (const voice of runtime.voices) if (voice.origin === 'manual' && voice.manualToken === manualToken) this.releasePolyVoice(runtime, voice, when)
+  }
+
+  schedulePolyPad(groupId: GroupId, channelId: ChannelId, patch: PolyPatch, midiNotes: readonly number[], when: number, noteOffWhen: number, velocity: number): void {
+    if (this.status !== 'ready' || !this.context || !this.polyWorkletReady) return
+    const runtime = this.ensurePolyRuntime(groupId, patch)
+    const scheduledWhen = Math.max(this.context.currentTime, when)
+    const scheduledOff = Math.max(scheduledWhen + .005, noteOffWhen)
+    this.triggerPumpRoutesForChannel(channelId, scheduledWhen)
+    for (const midiNote of midiNotes.slice(0, maximumPolyVoices)) {
+      if (!Number.isFinite(midiNote)) continue
+      const voice = this.startPolyVoice(runtime, channelId, midiNote, velocity, scheduledWhen, 'sequencer')
+      if (voice) this.releasePolyVoice(runtime, voice, scheduledOff)
+    }
+  }
+
   /** Cut only the preceding sequenced SMART CHORDS voice in this Pattern
       Group; a stale note-off cannot silence the newer chord. */
   releaseSequencerChordAt(groupId: GroupId, when: number): void {
@@ -903,6 +986,9 @@ export class AudioEngine {
     }
     for (const runtime of this.stringsRuntimes.values()) {
       for (const voice of runtime.voices) if (voice.origin === 'sequencer' && voice.groupId === groupId && voice.startsAt < releaseAt && (voice.stopAt === undefined || voice.stopAt > releaseAt)) this.releaseStringsVoice(runtime, voice, releaseAt, 0.008)
+    }
+    for (const runtime of this.polyRuntimes.values()) {
+      for (const voice of runtime.voices) if (voice.origin === 'sequencer' && voice.groupId === groupId && voice.startsAt < releaseAt && (voice.stopAt === undefined || voice.stopAt > releaseAt)) this.releasePolyVoice(runtime, voice, releaseAt, .008)
     }
   }
 
@@ -1076,6 +1162,7 @@ export class AudioEngine {
     for (const voice of [...this.activeSynthVoices]) this.stopSynthVoiceImmediately(voice)
     for (const voice of [...this.activeOrganicBassVoices]) this.stopOrganicBassVoiceImmediately(voice)
     for (const voice of [...this.activeStringsVoices]) this.stopStringsVoiceImmediately(voice)
+    for (const voice of [...this.activePolyVoices]) this.stopPolyVoiceImmediately(voice)
     for (const voice of [...this.drumPreviewVoices]) voice.stop()
   }
 
@@ -1092,6 +1179,7 @@ export class AudioEngine {
     for (const voice of [...this.activeSynthVoices]) if (voice.origin === 'sequencer') this.stopSynthVoiceImmediately(voice)
     for (const voice of [...this.activeOrganicBassVoices]) if (voice.origin === 'sequencer') this.stopOrganicBassVoiceImmediately(voice)
     for (const voice of [...this.activeStringsVoices]) if (voice.origin === 'sequencer') this.stopStringsVoiceImmediately(voice)
+    for (const voice of [...this.activePolyVoices]) if (voice.origin === 'sequencer') this.stopPolyVoiceImmediately(voice)
   }
 
   /** TRACKS' equivalent of stopSequencerVoices - kept separate (not folded
@@ -1141,10 +1229,11 @@ export class AudioEngine {
     for (const voice of [...this.activeSynthVoices]) if (voice.origin === 'manual') this.stopSynthVoiceImmediately(voice)
     for (const voice of [...this.activeOrganicBassVoices]) if (voice.origin === 'manual') this.stopOrganicBassVoiceImmediately(voice)
     for (const voice of [...this.activeStringsVoices]) if (voice.origin === 'manual') this.stopStringsVoiceImmediately(voice)
+    for (const voice of [...this.activePolyVoices]) if (voice.origin === 'manual') this.stopPolyVoiceImmediately(voice)
   }
 
   getActiveVoiceCount(): number {
-    return this.activeVoices.size + this.activeSynthVoices.size + this.activeOrganicBassVoices.size + this.activeStringsVoices.size
+    return this.activeVoices.size + this.activeSynthVoices.size + this.activeOrganicBassVoices.size + this.activeStringsVoices.size + this.activePolyVoices.size
   }
 
   getCurrentTime(): number {
@@ -1181,6 +1270,10 @@ export class AudioEngine {
     this.stringsEnsembleLfoB = undefined
     this.stringsMotionLfo = undefined
     this.stringsNoiseBuffer = undefined
+    for (const [key, runtime] of this.polyRuntimes) this.disposePolyRuntime(key, runtime)
+    this.polyPatches.clear()
+    this.activePolyVoices.clear()
+    this.polyWorkletReady = false
     for (const channel of this.channels.values()) {
       channel.gain?.disconnect()
       channel.meter?.disconnect()
@@ -2274,6 +2367,82 @@ export class AudioEngine {
     ensemble.spaceDamping.disconnect()
     ensemble.spaceFeedback.disconnect()
     ensemble.spaceWet.disconnect()
+  }
+
+  private async ensurePolyWorklet(): Promise<void> {
+    if (!this.context || this.polyWorkletReady) return
+    await this.context.audioWorklet.addModule(polyProcessorUrl)
+    this.polyWorkletReady = true
+    for (const registration of this.polyPatches.values()) this.ensurePolyRuntime(registration.groupId, registration.patch)
+  }
+
+  private polyPatchKey(groupId: GroupId, patchId: string): string { return `${groupId}:${patchId}` }
+
+  private ensurePolyRuntime(groupId: GroupId, patch: PolyPatch): PolyPatchRuntime {
+    const key = this.polyPatchKey(groupId, patch.id)
+    this.polyPatches.set(key, { groupId, patch: clonePolyPatch(patch) })
+    let runtime = this.polyRuntimes.get(key)
+    if (!runtime) {
+      runtime = { groupId, patch: clonePolyPatch(patch), voices: new Set() }
+      this.polyRuntimes.set(key, runtime)
+    } else this.updatePolyRuntime(runtime, patch)
+    return runtime
+  }
+
+  private updatePolyRuntime(runtime: PolyPatchRuntime, patch: PolyPatch): void {
+    runtime.patch = clonePolyPatch(patch)
+    for (const voice of runtime.voices) voice.node.port.postMessage({ type: 'patch', patch: runtime.patch, bpm: this.bpm })
+  }
+
+  private startPolyVoice(runtime: PolyPatchRuntime, channelId: ChannelId, midiNote: number, velocity: number, when: number, origin: 'manual' | 'sequencer', manualToken?: string): ActivePolyVoice | undefined {
+    if (!this.context || !this.polyWorkletReady) return
+    const channel = this.ensureChannel(runtime.groupId, channelId)
+    if (!channel.gain) return
+    const scheduledWhen = Math.max(this.context.currentTime, when)
+    const duplicate = [...runtime.voices].find((voice) => !voice.cleanedUp && !voice.stolen && voice.midiNote === midiNote && (voice.stopAt === undefined || voice.stopAt > scheduledWhen))
+    if (duplicate) { duplicate.stolen = true; this.releasePolyVoice(runtime, duplicate, scheduledWhen, .008) }
+    const stolen = choosePolyVoiceToSteal([...runtime.voices].filter((voice) => voice !== duplicate), scheduledWhen)
+    if (stolen) { stolen.stolen = true; this.releasePolyVoice(runtime, stolen, scheduledWhen, .008) }
+    const serial = this.polyVoiceSerial++
+    const node = new AudioWorkletNode(this.context, 'station-poly-voice', {
+      numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2],
+      processorOptions: { patch: runtime.patch, midiNote, velocity: this.toGain(velocity), bpm: this.bpm, startTime: scheduledWhen, serial },
+    })
+    const voice: ActivePolyVoice = { node, origin, groupId: runtime.groupId, patchKey: this.polyPatchKey(runtime.groupId, runtime.patch.id), channelId, midiNote, startsAt: scheduledWhen, serial, manualToken, cleanedUp: false }
+    node.connect(channel.gain)
+    node.port.onmessage = (event) => { if (event.data?.type === 'ended') this.cleanUpPolyVoice(runtime, voice) }
+    runtime.voices.add(voice)
+    this.activePolyVoices.add(voice)
+    return voice
+  }
+
+  private releasePolyVoice(runtime: PolyPatchRuntime, voice: ActivePolyVoice, when: number, releaseOverride?: number): void {
+    if (!this.context || voice.cleanedUp) return
+    const releaseAt = Math.max(this.context.currentTime, when)
+    if (voice.stopAt !== undefined && voice.stopAt <= releaseAt) return
+    const release = Math.max(.005, releaseOverride ?? runtime.patch.ampEnvelope.releaseSeconds)
+    voice.node.port.postMessage({ type: 'release', when: releaseAt, releaseSeconds: release })
+    voice.stopAt = releaseAt + release + .01
+  }
+
+  private stopPolyVoiceImmediately(voice: ActivePolyVoice): void {
+    voice.node.port.postMessage({ type: 'stop' })
+    const runtime = this.polyRuntimes.get(voice.patchKey)
+    if (runtime) this.cleanUpPolyVoice(runtime, voice)
+  }
+
+  private cleanUpPolyVoice(runtime: PolyPatchRuntime, voice: ActivePolyVoice): void {
+    if (voice.cleanedUp) return
+    voice.cleanedUp = true
+    runtime.voices.delete(voice)
+    this.activePolyVoices.delete(voice)
+    voice.node.port.onmessage = null
+    voice.node.disconnect()
+  }
+
+  private disposePolyRuntime(key: string, runtime: PolyPatchRuntime): void {
+    for (const voice of [...runtime.voices]) this.stopPolyVoiceImmediately(voice)
+    this.polyRuntimes.delete(key)
   }
 
   private createDriveCurve(drive: number): Float32Array<ArrayBuffer> {

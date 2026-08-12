@@ -54,9 +54,10 @@ export function Pad({
   const isSynth = pad.synthPatchId !== null
   const isStrings = pad.stringsPatchId !== null
   const isOrganicBass = pad.organicBassPatchId !== null
-  const isLoaded = pad.fileName !== null || isSynth || isStrings || isOrganicBass
-  const sourceLabel = isSynth ? 'MONOPOLY' : isStrings ? 'STRINGS' : isOrganicBass ? 'MONOGORG' : pad.fileName
-  const statusLabel = dropSampleName ? 'DROP' : isSynth || isStrings || isOrganicBass ? (audioReady ? (isSynth ? 'SYNTH' : isStrings ? 'STRINGS' : 'BASS') : 'LOCKED') : isLoaded ? (audioReady ? 'READY' : 'LOCKED') : 'EMPTY'
+  const isPoly = pad.polyPatchId !== null
+  const isLoaded = pad.fileName !== null || isSynth || isStrings || isOrganicBass || isPoly
+  const sourceLabel = isSynth ? 'MONOPOLY' : isStrings ? 'STRINGS' : isOrganicBass ? 'MONOGORG' : isPoly ? 'POLY' : pad.fileName
+  const statusLabel = dropSampleName ? 'DROP' : isSynth || isStrings || isOrganicBass || isPoly ? (audioReady ? (isSynth ? 'SYNTH' : isStrings ? 'STRINGS' : isOrganicBass ? 'BASS' : 'POLY') : 'LOCKED') : isLoaded ? (audioReady ? 'READY' : 'LOCKED') : 'EMPTY'
   const isPressed = isPointerPressed || isActivationKeyPressed || isKeyboardPressed
 
   const trigger = () => {

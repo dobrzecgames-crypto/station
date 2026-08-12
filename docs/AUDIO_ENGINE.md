@@ -126,6 +126,12 @@ Manual last-note legato retunes the existing oscillators and leaves their amp/fi
 
 Micro-drift uses two per-patch-runtime sine oscillators at fixed incommensurate rates (0.071 Hz and 0.113 Hz), with depths of +1.1 and -0.85 cents. Their rates and phases are not randomized, so offline renders remain repeatable. Velocity scales amplitude from 0.56 to 1, opens the filter by 0.5-4 semitones and adds up to 18% extra pressure into saturation.
 
+## POLY synthesis
+
+POLY voices are AudioWorkletNodes whose stereo output connects directly to the ordinary requesting pad channel. Each processor runs two continuously morphable wavetable oscillators, normalized deterministic unison, restrained phase modulation from OSC 2 into OSC 1, three envelopes, two LFOs, a typed bipolar modulation routing list and a state-variable multimode filter. Wavetable sample and frame positions are interpolated per sample. Eight harmonic-limited mip levels cap partials below Nyquist for the current oscillator fundamental.
+
+POLY is capped at eight simultaneous musical notes per patch runtime, separate from oscillator unison. Repeated notes fast-release their predecessor. Allocation prefers an already-releasing voice, then the oldest active voice. Patch edits are posted to active processors, modulation remains on the audio thread, and STOP disconnects sequenced processors through the same lifecycle used by other Station synth voices. Offline rendering loads the same worklet and includes AMP release in its measured tail.
+
 ## Sequencer timing
 
 The scheduler must:

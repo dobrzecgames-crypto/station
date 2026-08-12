@@ -4,6 +4,7 @@ import type { PadBankState } from '../pads/padBank'
 import type { SynthPatch } from '../synth/synthTypes'
 import type { StringsPatch } from '../strings/stringsTypes'
 import type { OrganicBassPatch } from '../organic-bass/organicBassTypes'
+import type { PolyPatch } from '../poly/polyTypes'
 import type { ChordAssignment } from '../music/chords'
 
 export const patternVariantNames = ['A', 'B', 'C', 'D'] as const
@@ -37,6 +38,7 @@ export interface PatternGroup {
   synthPatches: SynthPatch[]
   stringsPatches: StringsPatch[]
   organicBassPatches: OrganicBassPatch[]
+  polyPatches: PolyPatch[]
   padMode: PadMode
   chordAssignments: Array<ChordAssignment | null>
   variants: Partial<Record<PatternVariantName, StepPattern>>

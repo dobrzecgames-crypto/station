@@ -278,20 +278,15 @@ select, textarea {
   background: transparent;
 }
 .system-power-switch .system-power-face {
-  border-color: #343a40;
-  background:
-    linear-gradient(155deg, rgb(238 245 247 / 7%) 0%, transparent 38%),
-    linear-gradient(180deg, #20252a 0%, #12161a 56%, #090b0e 100%);
+  border-color: #3d4144;
+  background: linear-gradient(180deg, #292c2e 0%, #1a1c1e 52%, #101214 100%);
 }
 .system-power-switch[data-engaged='true'] .system-power-face {
-  border-color: #35505b;
-  background:
-    linear-gradient(155deg, rgb(221 244 249 / 14%) 0%, transparent 38%),
-    radial-gradient(120% 125% at 48% 46%, rgb(131 190 210 / 32%) 0%, rgb(63 108 124 / 16%) 48%, transparent 72%),
-    linear-gradient(180deg, #263942 0%, #17262d 56%, #0b1216 100%);
+  border-color: #2c3134;
+  background: linear-gradient(180deg, #101214 0%, #17191b 58%, #1d2022 100%);
 }
 .system-power-switch[data-engaged='true'] {
-  --mechanism-hover-border: #4b7180;
+  --mechanism-hover-border: #343a3e;
 }
 .system-power-switch[data-engaged='true'] .system-power-label {
   color: #dce5e3;
@@ -1197,10 +1192,8 @@ output { color: var(--station-text); }
 }
 .station-shell[data-power-phase='off'] .system-power-switch .system-power-face,
 .station-shell[data-power-phase='display'] .system-power-switch .system-power-face {
-  border-color: #343a40;
-  background:
-    linear-gradient(155deg, rgb(238 245 247 / 7%) 0%, transparent 38%),
-    linear-gradient(180deg, #20252a 0%, #12161a 56%, #090b0e 100%);
+  border-color: #3d4144;
+  background: linear-gradient(180deg, #292c2e 0%, #1a1c1e 52%, #101214 100%);
 }
 .station-shell[data-power-phase='off'] .system-power-switch .status-inactive {
   background: #f06a63;
@@ -1211,21 +1204,9 @@ output { color: var(--station-text); }
   background: var(--status-recording);
   box-shadow: 0 0 7px rgb(207 84 80 / 52%);
 }
-.station-shell .system-power-switch[data-audio-status='starting'] .system-power-face,
-.station-shell .system-power-switch[data-audio-status='suspended'] .system-power-face,
-.station-shell .system-power-switch[data-audio-status='interrupted'] .system-power-face {
-  border-color: #5a4b35;
-  background:
-    linear-gradient(155deg, rgb(255 240 208 / 13%) 0%, transparent 38%),
-    radial-gradient(120% 125% at 48% 46%, rgb(212 165 99 / 28%) 0%, rgb(104 75 39 / 13%) 48%, transparent 72%),
-    linear-gradient(180deg, #3c3225 0%, #251e17 56%, #110e0b 100%);
-}
 .station-shell .system-power-switch[data-audio-status='ready'] .system-power-face {
-  border-color: #35505b;
-  background:
-    linear-gradient(155deg, rgb(221 244 249 / 14%) 0%, transparent 38%),
-    radial-gradient(120% 125% at 48% 46%, rgb(131 190 210 / 32%) 0%, rgb(63 108 124 / 16%) 48%, transparent 72%),
-    linear-gradient(180deg, #263942 0%, #17262d 56%, #0b1216 100%);
+  border-color: #2c3134;
+  background: linear-gradient(180deg, #101214 0%, #17191b 58%, #1d2022 100%);
 }
 .station-shell[data-power-phase='off'] .system-display,
 .station-shell[data-power-phase='display'] .system-display {

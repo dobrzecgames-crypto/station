@@ -96,7 +96,7 @@ This is a direction, not permission to scaffold files before the implementation 
 
 ## Current UI shell and Chop Workspace
 
-Station renders one main workspace at a time: CHOP, PAD, SYNTH, SEQ, SONG, SAMPLE or MIX. MONOPOLY, MONOGORG, STRINGS and DRUM SYNTH are selected inside SYNTH rather than becoming top-level workspaces. The transport remains outside those views, so changing views does not recreate audio, Pattern Groups, Playlist, mixer settings, the active pad, synth patches or the current Chop Session.
+Station renders one main workspace at a time: CHOP, PAD, SYNTH, SEQ, SONG, SAMPLE or MIX. MONOPOLY, MONOGORG, STRINGS, POLY and DRUM SYNTH are selected inside SYNTH rather than becoming top-level workspaces. The transport remains outside those views, so changing views does not recreate audio, Pattern Groups, Playlist, mixer settings, the active pad, synth patches or the current Chop Session.
 
 CHOP owns a source-asset reference and serializable slice boundaries; pads own their playback and musical state. A live map applies slice 1–16 to pad 1–16 without placing an AudioBuffer in React. The workspace tracks the pads it currently manages so that shrinking the slice set clears only its own surplus assignments.
 
@@ -143,6 +143,10 @@ STRINGS reuses MONO-3's established boundary for everything generic: it resolves
 ## MONOGORG source boundary
 
 MONOGORG follows the same serializable-patch/runtime-voice split. Pattern Groups own `organicBassPatches`; pads reference one through `organicBassPatchId`; the audio engine alone owns its active mono voice, routing crossfades, oscillator periodic waves, filter nodes, envelopes and fixed-rate drift LFOs. Generic scheduling, mixer, Pump, FX, Scale Map and offline rendering are shared. Its DSP and legato runtime are separate from MONO-3 so the focused nine-control macro design does not alter or constrain the older general-purpose synth.
+
+## POLY source boundary
+
+POLY is another mutually exclusive pad source, but its oscillator, unison, envelopes, LFOs, modulation and multimode filter run in a dedicated AudioWorklet processor. Pattern Groups own serializable `polyPatches`; pads reference one through `polyPatchId`; immutable procedural wavetable data is cached at worklet-module scope. `AudioEngine` owns patch registration, eight-note voice allocation, note/release timestamps, cleanup and the connection from each worklet voice into the requesting pad channel. Realtime and offline paths load the same worklet module and use the same scheduler entry point.
 
 ## AudioWorklet policy
 

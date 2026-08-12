@@ -12,6 +12,7 @@ export interface LibrarySample {
 export const libraryCategories: readonly LibraryCategory[] = ['KICK', 'SNARE', 'HAT', 'SOUND', 'BREAKS']
 
 const breakFilenames = [
+  'A1.wav',
   'aalonbutler-gettinsoul.wav',
   'bigjullien-talk.wav',
   'bis-godsavethequeen1.wav',

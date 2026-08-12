@@ -58,6 +58,7 @@ export function createPadBank(): PadState[] {
     synthPatchId: null,
     stringsPatchId: null,
     organicBassPatchId: null,
+    polyPatchId: null,
     chordIntervals: [0],
   }))
 }
@@ -89,7 +90,7 @@ export function clonePadBank(bank: PadBankState): PadBankState {
   const legacySession = bank.chopSession as ChopSessionState & { pitchSemitones?: unknown }
   return {
     pads: bank.pads.map((pad) => {
-      const legacyPad = pad as PadState & { reversed?: unknown; synthPatchId?: unknown; stringsPatchId?: unknown; organicBassPatchId?: unknown; chordIntervals?: unknown }
+      const legacyPad = pad as PadState & { reversed?: unknown; synthPatchId?: unknown; stringsPatchId?: unknown; organicBassPatchId?: unknown; polyPatchId?: unknown; chordIntervals?: unknown }
       return {
         ...pad,
         region: { ...pad.region },
@@ -98,6 +99,7 @@ export function clonePadBank(bank: PadBankState): PadBankState {
         synthPatchId: legacyPad.synthPatchId === undefined ? null : legacyPad.synthPatchId as PadState['synthPatchId'],
         stringsPatchId: legacyPad.stringsPatchId === undefined ? null : legacyPad.stringsPatchId as PadState['stringsPatchId'],
         organicBassPatchId: legacyPad.organicBassPatchId === undefined ? null : legacyPad.organicBassPatchId as PadState['organicBassPatchId'],
+        polyPatchId: legacyPad.polyPatchId === undefined ? null : legacyPad.polyPatchId as PadState['polyPatchId'],
         chordIntervals: legacyPad.chordIntervals === undefined ? [0] : [...legacyPad.chordIntervals as number[]],
       }
     }),

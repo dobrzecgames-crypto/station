@@ -10,6 +10,7 @@ import { getSynthPatch, resolveSynthPadMidiNotes } from '../synth/synthOperation
 import { getStringsPatch, resolveStringsPadMidiNotes } from '../strings/stringsOperations'
 import { getOrganicBassPatch, resolveOrganicBassPadMidiNote } from '../organic-bass/organicBassOperations'
 import type { ProjectKey } from '../music/scales'
+import { getPolyPatch, resolvePolyPadMidiNotes } from '../poly/polyOperations'
 import { resolveChordMidiNotes } from '../music/chords'
 
 /** Reports whether the audio engine currently holds a decoded asset. */
@@ -66,6 +67,10 @@ function toTracks(variants: readonly (ResolvedVariant | undefined)[], hasSampleA
         : [{ ...common, source: 'strings', patch: stringsPatch, midiNotes: resolveStringsPadMidiNotes(stringsPatch, pad) }]
       const organicBassPatch = getOrganicBassPatch(pattern.group, pad.organicBassPatchId)
       if (organicBassPatch) return [{ ...common, source: 'organicBass', patch: organicBassPatch, midiNote: resolveOrganicBassPadMidiNote(organicBassPatch, pad) }]
+      const polyPatch = getPolyPatch(pattern.group, pad.polyPatchId)
+      if (polyPatch) return chordAssignment
+        ? [{ ...common, source: 'polyChord', chordGroupId: pattern.group.id, patch: polyPatch, midiNotes: resolveChordMidiNotes(pattern.group, pad, chordAssignment, projectKey) }]
+        : [{ ...common, source: 'poly', patch: polyPatch, midiNotes: resolvePolyPadMidiNotes(polyPatch, pad) }]
       if (!pad.assetId || !hasSampleAsset(pad.assetId)) return []
       const samplePad = pad as PadState & { assetId: SampleAssetId }
       return [{

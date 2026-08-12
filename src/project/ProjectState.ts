@@ -25,10 +25,14 @@ import { stringsCharacters, stringsOctaveLayers, stringsOctaves } from '../strin
 import type { StringsPatch } from '../strings/stringsTypes'
 import { maximumOrganicBassMidiNote, minimumOrganicBassMidiNote, resolveOrganicBassPadMidiNote } from '../organic-bass/organicBassOperations'
 import type { OrganicBassPatch } from '../organic-bass/organicBassTypes'
+import { maximumPolyMidiNote, maximumPolyVoices, minimumPolyMidiNote, resolvePolyPadMidiNotes } from '../poly/polyOperations'
+import { polyFilterModes, polyLfoDivisions, polyLfoShapes, polyModDestinations, polyModSources, polyUnisonCounts } from '../poly/polyTypes'
+import type { PolyPatch } from '../poly/polyTypes'
 import { isChordType } from '../music/chords'
 
-export const projectSchemaVersion = 20
-export const previousProjectSchemaVersion = 19
+export const projectSchemaVersion = 21
+export const previousProjectSchemaVersion = 20
+export const v19ProjectSchemaVersion = 19
 export const v18ProjectSchemaVersion = 18
 export const v17ProjectSchemaVersion = 17
 export const v16ProjectSchemaVersion = 16
@@ -134,7 +138,7 @@ export function createProjectState(state: ProjectState): ProjectState {
 export function normalizeProjectState(state: ProjectState): ProjectState {
   const padIds = state.patternGroups[0]?.bank?.pads.map((pad) => pad.id)
   if (!padIds) throw new Error('Project has no Pattern Group bank.')
-  return createProjectState({ ...state, schemaVersion: projectSchemaVersion, master: state.master ? { ...state.master } : { volume: 1, muted: false }, masterEffects: normalizeEffectRackState(state.masterEffects, 'master', createDefaultMasterEffectRack()), drumSynth: normalizeDrumSynthState(state.drumSynth), audioTracks: normalizeAudioTracks(state.audioTracks), patternGroups: ensurePatternGroupLengths(ensurePatternGroupShifts(state.patternGroups, padIds)).map((group) => ({ ...group, synthPatches: group.synthPatches ?? [], stringsPatches: (group.stringsPatches ?? []).map(normalizeStringsPatch), organicBassPatches: group.organicBassPatches ?? [], bank: { ...group.bank, pads: group.bank.pads.map(normalizePadState) }, bus: group.bus ? { ...group.bus } : createGroupBusState(), effects: normalizeEffectRackState(group.effects, group.id) })) })
+  return createProjectState({ ...state, schemaVersion: projectSchemaVersion, master: state.master ? { ...state.master } : { volume: 1, muted: false }, masterEffects: normalizeEffectRackState(state.masterEffects, 'master', createDefaultMasterEffectRack()), drumSynth: normalizeDrumSynthState(state.drumSynth), audioTracks: normalizeAudioTracks(state.audioTracks), patternGroups: ensurePatternGroupLengths(ensurePatternGroupShifts(state.patternGroups, padIds)).map((group) => ({ ...group, synthPatches: group.synthPatches ?? [], stringsPatches: (group.stringsPatches ?? []).map(normalizeStringsPatch), organicBassPatches: group.organicBassPatches ?? [], polyPatches: group.polyPatches ?? [], bank: { ...group.bank, pads: group.bank.pads.map(normalizePadState) }, bus: group.bus ? { ...group.bus } : createGroupBusState(), effects: normalizeEffectRackState(group.effects, group.id) })) })
 }
 
 export function migrateLegacyProjectState(legacy: { pads: ReturnType<typeof createPadBankState>['pads']; patterns?: unknown; [key: string]: unknown }): ProjectState {
@@ -268,6 +272,11 @@ export function migrateV19ProjectState(previous: { [key: string]: unknown }): Pr
   return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
 }
 
+/** v20 predates POLY; normalization adds empty patch lists and null pad references. */
+export function migrateV20ProjectState(previous: { [key: string]: unknown }): ProjectState {
+  return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
+}
+
 export function collectReferencedAssetIds(project: ProjectState): Set<SampleAssetId> {
   const ids = new Set<SampleAssetId>()
   for (const group of project.patternGroups) {
@@ -295,6 +304,7 @@ export function validateProjectState(project: ProjectState): string[] {
   const synthPatchIds = new Set<string>()
   const stringsPatchIds = new Set<string>()
   const organicBassPatchIds = new Set<string>()
+  const polyPatchIds = new Set<string>()
   for (const group of project.patternGroups) {
     if (!group.id || !group.name || !group.variants.A) errors.push('Every Pattern Group requires variant A.')
     if (group.padMode !== 'notes' && group.padMode !== 'chords') errors.push(`${group.name} has an invalid pad mode.`)
@@ -323,6 +333,12 @@ export function validateProjectState(project: ProjectState): string[] {
       if (organicBassPatchIds.has(patch.id)) errors.push('MONOGORG patch IDs must be unique.')
       organicBassPatchIds.add(patch.id)
       validateOrganicBassPatch(patch, `${group.name} MONOGORG patch`, errors)
+    }
+    if (!Array.isArray(group.polyPatches)) errors.push(`${group.name} has an invalid POLY patch collection.`)
+    for (const patch of group.polyPatches ?? []) {
+      if (polyPatchIds.has(patch.id)) errors.push('POLY patch IDs must be unique.')
+      polyPatchIds.add(patch.id)
+      validatePolyPatch(patch, `${group.name} POLY`, errors)
     }
     const bankPadIds = new Set(group.bank?.pads.map((pad) => pad.id))
     if (bankPadIds.size !== group.bank?.pads.length) errors.push(`${group.name} bank pad IDs must be unique.`)
@@ -365,16 +381,21 @@ export function validateProjectState(project: ProjectState): string[] {
       if (pad.assetId && pad.synthPatchId) errors.push(`${group.name} ${pad.id} cannot use a sample and MONOPOLY at the same time.`)
       if (pad.assetId && pad.stringsPatchId) errors.push(`${group.name} ${pad.id} cannot use a sample and STRINGS at the same time.`)
       if (pad.assetId && pad.organicBassPatchId) errors.push(`${group.name} ${pad.id} cannot use a sample and MONOGORG at the same time.`)
+      if (pad.assetId && pad.polyPatchId) errors.push(`${group.name} ${pad.id} cannot use a sample and POLY at the same time.`)
       if (pad.synthPatchId && pad.stringsPatchId) errors.push(`${group.name} ${pad.id} cannot use MONOPOLY and STRINGS at the same time.`)
       if (pad.organicBassPatchId && (pad.synthPatchId || pad.stringsPatchId)) errors.push(`${group.name} ${pad.id} cannot use MONOGORG with another synth at the same time.`)
+      if (pad.polyPatchId && (pad.synthPatchId || pad.stringsPatchId || pad.organicBassPatchId)) errors.push(`${group.name} ${pad.id} cannot use POLY with another synth at the same time.`)
       const patch = pad.synthPatchId ? group.synthPatches.find((candidate) => candidate.id === pad.synthPatchId) : undefined
       if (pad.synthPatchId && !patch) errors.push(`${group.name} ${pad.id} references a missing MONOPOLY patch.`)
       const stringsPatch = pad.stringsPatchId ? group.stringsPatches.find((candidate) => candidate.id === pad.stringsPatchId) : undefined
       if (pad.stringsPatchId && !stringsPatch) errors.push(`${group.name} ${pad.id} references a missing STRINGS patch.`)
       const organicBassPatch = pad.organicBassPatchId ? group.organicBassPatches.find((candidate) => candidate.id === pad.organicBassPatchId) : undefined
       if (pad.organicBassPatchId && !organicBassPatch) errors.push(`${group.name} ${pad.id} references a missing MONOGORG patch.`)
-      validateChordIntervals(pad.chordIntervals, pad.stringsPatchId ? maximumStringsVoices : maximumSynthVoices, `${group.name} ${pad.id}`, errors)
-      if (!pad.synthPatchId && !pad.stringsPatchId && !pad.organicBassPatchId && (pad.chordIntervals.length !== 1 || pad.chordIntervals[0] !== 0)) errors.push(`${group.name} ${pad.id} has chord data without a synth source.`)
+      const polyPatch = pad.polyPatchId ? group.polyPatches.find((candidate) => candidate.id === pad.polyPatchId) : undefined
+      if (pad.polyPatchId && !polyPatch) errors.push(`${group.name} ${pad.id} references a missing POLY patch.`)
+      if (polyPatch && resolvePolyPadMidiNotes(polyPatch, pad).some((note) => note < minimumPolyMidiNote || note > maximumPolyMidiNote)) errors.push(`${group.name} ${pad.id} has POLY notes outside the supported range.`)
+      validateChordIntervals(pad.chordIntervals, pad.polyPatchId ? maximumPolyVoices : pad.stringsPatchId ? maximumStringsVoices : maximumSynthVoices, `${group.name} ${pad.id}`, errors)
+      if (!pad.synthPatchId && !pad.stringsPatchId && !pad.organicBassPatchId && !pad.polyPatchId && (pad.chordIntervals.length !== 1 || pad.chordIntervals[0] !== 0)) errors.push(`${group.name} ${pad.id} has chord data without a synth source.`)
       if (patch?.mode === 'mono' && (pad.chordIntervals.length !== 1 || pad.chordIntervals[0] !== 0)) errors.push(`${group.name} ${pad.id} cannot use a chord in MONO mode.`)
       if (organicBassPatch && (pad.chordIntervals.length !== 1 || pad.chordIntervals[0] !== 0)) errors.push(`${group.name} ${pad.id} cannot use a chord with MONOGORG.`)
       if (patch) for (const note of resolveSynthPadMidiNotes(patch, pad)) {
@@ -499,7 +520,7 @@ function cloneChopSession(session: ChopSessionState): ChopSessionState {
 function normalizePadState(pad: PadState): PadState {
   // Only absent fields are migrated. Present malformed values remain for
   // validation to reject rather than being silently changed on project load.
-  const legacyPad = pad as PadState & { reversed?: unknown; attackMs?: unknown; releaseMs?: unknown; synthPatchId?: unknown; stringsPatchId?: unknown; organicBassPatchId?: unknown; chordIntervals?: unknown }
+  const legacyPad = pad as PadState & { reversed?: unknown; attackMs?: unknown; releaseMs?: unknown; synthPatchId?: unknown; stringsPatchId?: unknown; organicBassPatchId?: unknown; polyPatchId?: unknown; chordIntervals?: unknown }
   return {
     ...pad,
     reversed: legacyPad.reversed === undefined ? false : legacyPad.reversed as boolean,
@@ -508,6 +529,7 @@ function normalizePadState(pad: PadState): PadState {
     synthPatchId: legacyPad.synthPatchId === undefined ? null : legacyPad.synthPatchId as PadState['synthPatchId'],
     stringsPatchId: legacyPad.stringsPatchId === undefined ? null : legacyPad.stringsPatchId as PadState['stringsPatchId'],
     organicBassPatchId: legacyPad.organicBassPatchId === undefined ? null : legacyPad.organicBassPatchId as PadState['organicBassPatchId'],
+    polyPatchId: legacyPad.polyPatchId === undefined ? null : legacyPad.polyPatchId as PadState['polyPatchId'],
     chordIntervals: legacyPad.chordIntervals === undefined ? [0] : legacyPad.chordIntervals as number[],
     slices: pad.slices.map(normalizeSampleSlice),
   }
@@ -642,6 +664,20 @@ function validateOrganicBassPatch(patch: OrganicBassPatch, label: string, errors
   if (!isFiniteInRange(patch.drive, 0, 1)) errors.push(`${label} has an invalid DRIVE.`)
   if (!isFiniteInRange(patch.glide, 0, 1)) errors.push(`${label} has an invalid GLIDE.`)
   if (!isFiniteInRange(patch.gate, 0.05, 2)) errors.push(`${label} has an invalid GATE.`)
+}
+
+function validatePolyPatch(patch: PolyPatch, label: string, errors: string[]): void {
+  if (!patch.id || !patch.name) errors.push(`${label} requires an ID and name.`)
+  if (!isIntegerInRange(patch.baseMidiNote, minimumPolyMidiNote, maximumPolyMidiNote)) errors.push(`${label} has an invalid base note.`)
+  for (const [name, oscillator] of [['OSC 1', patch.oscillator1], ['OSC 2', patch.oscillator2]] as const) {
+    if (!oscillator?.tableId || !isFiniteInRange(oscillator.position, 0, 1) || !isIntegerInRange(oscillator.octave, -2, 2) || !isIntegerInRange(oscillator.semitone, -12, 12) || !isFiniteInRange(oscillator.fineCents, -100, 100) || !isFiniteInRange(oscillator.level, 0, 1) || !polyUnisonCounts.includes(oscillator.unison) || !isFiniteInRange(oscillator.detuneCents, 0, 50) || !isFiniteInRange(oscillator.width, 0, 1)) errors.push(`${label} ${name} is invalid.`)
+  }
+  if (!isFiniteInRange(patch.oscillatorMix, 0, 1) || !isFiniteInRange(patch.fmAmount, 0, 1)) errors.push(`${label} has invalid oscillator mix or FM.`)
+  if (!polyFilterModes.includes(patch.filter?.mode) || !isFiniteInRange(patch.filter?.cutoffHz, 20, 20000) || !isFiniteInRange(patch.filter?.resonance, .5, 20) || !isFiniteInRange(patch.filter?.drive, 0, 1) || !isFiniteInRange(patch.filter?.envelopeAmountSemitones, -60, 60) || !isFiniteInRange(patch.filter?.keytrack, 0, 1)) errors.push(`${label} has invalid filter settings.`)
+  for (const [name, envelope] of [['AMP', patch.ampEnvelope], ['FILTER', patch.filterEnvelope], ['MOD', patch.modEnvelope]] as const) if (!isFiniteInRange(envelope?.attackSeconds, 0, 10) || !isFiniteInRange(envelope?.decaySeconds, 0, 10) || !isFiniteInRange(envelope?.sustain, 0, 1) || !isFiniteInRange(envelope?.releaseSeconds, .005, 15)) errors.push(`${label} has an invalid ${name} envelope.`)
+  for (const [name, lfo] of [['LFO 1', patch.lfo1], ['LFO 2', patch.lfo2]] as const) if (!polyLfoShapes.includes(lfo?.shape) || (lfo?.mode !== 'sync' && lfo?.mode !== 'free') || !polyLfoDivisions.includes(lfo?.division) || !isFiniteInRange(lfo?.rateHz, .01, 30) || !isFiniteInRange(lfo?.phase, 0, 1) || typeof lfo?.retrigger !== 'boolean' || !isFiniteInRange(lfo?.fadeInSeconds, 0, 10)) errors.push(`${label} has invalid ${name} settings.`)
+  if (!Array.isArray(patch.modulation) || patch.modulation.some((route) => !polyModSources.includes(route.source) || !polyModDestinations.includes(route.destination) || !isFiniteInRange(route.amount, -1, 1))) errors.push(`${label} has invalid modulation routes.`)
+  if (!isFiniteInRange(patch.level, 0, 1) || !isFiniteInRange(patch.pan, -1, 1) || !isFiniteInRange(patch.gate, .05, 2)) errors.push(`${label} has invalid output settings.`)
 }
 
 function validateDrumKickPatch(patch: DrumKickPatch | undefined, label: string, errors: string[]): void {

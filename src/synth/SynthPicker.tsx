@@ -1,6 +1,6 @@
 import './SynthPicker.css'
 
-export type SynthPickerInstrument = 'monopoly' | 'organicbass' | 'strings' | 'drumsynth'
+export type SynthPickerInstrument = 'monopoly' | 'organicbass' | 'strings' | 'poly' | 'drumsynth'
 
 interface SynthPickerProps {
   onSelect: (instrument: SynthPickerInstrument) => void
@@ -10,6 +10,7 @@ const instruments: ReadonlyArray<{ id: SynthPickerInstrument; name: string; desc
   { id: 'monopoly', name: 'MONOPOLY', description: 'Monophonic bass, leads and short synth sounds.' },
   { id: 'organicbass', name: 'MONOGORG', description: 'Dark, rounded mono bass for sampled beats.' },
   { id: 'strings', name: 'STRINGS', description: 'Polyphonic strings, pads and analog brass.' },
+  { id: 'poly', name: 'POLY', description: 'Modern polyphonic wavetable synthesizer.' },
   { id: 'drumsynth', name: 'DRUM SYNTH', description: 'Synthesized kicks for electronic drum patterns.' },
 ]
 
@@ -65,6 +66,11 @@ function SynthGlyph({ variant, className }: { variant: SynthPickerInstrument; cl
         <>
           <polyline points="9,15 13,9 17,20 21,10 25,17 29,14 33,14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           <line x1="9" y1="23" x2="16" y2="23" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        </>
+      ) : variant === 'poly' ? (
+        <>
+          <path d="M9 20 C12 8 15 8 18 20 C21 28 24 7 27 15 C30 23 32 12 34 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <path d="M9 24 C14 19 19 26 24 19 C29 13 32 19 34 17" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity=".65" />
         </>
       ) : (
         // A percussive attack/decay envelope - a sharp spike settling back to

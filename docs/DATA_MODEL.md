@@ -62,7 +62,7 @@ Suggested fields:
 
 A Pad must not contain decoded AudioBuffer objects in persisted state.
 
-A pad source is mutually exclusive: `assetId` identifies a sample, `synthPatchId` identifies a MONO-3 patch, `stringsPatchId` identifies a STRINGS patch and `organicBassPatchId` identifies a MONOGORG patch, all in the same Pattern Group, and never more than one at a time. `chordIntervals` stores unique integer semitone offsets and always includes zero - up to five for a MONO-3 pad, up to eight for a STRINGS pad, and exactly `[0]` for MONOGORG.
+A pad source is mutually exclusive: `assetId` identifies a sample, `synthPatchId` identifies a MONO-3 patch, `stringsPatchId` identifies a STRINGS patch, `organicBassPatchId` identifies a MONOGORG patch and `polyPatchId` identifies a POLY patch, all in the same Pattern Group, and never more than one at a time. `chordIntervals` stores unique integer semitone offsets and always includes zero - up to five for a MONO-3 pad, up to eight for STRINGS or POLY, and exactly `[0]` for MONOGORG.
 
 ### MONO-3 SynthPatch
 
@@ -75,6 +75,10 @@ Each Pattern Group also owns a `stringsPatches` collection, structured the same 
 ### MONOGORG Patch
 
 Each Pattern Group owns an `organicBassPatches` collection. A patch stores its base MIDI note, the nine public sound parameters (`shape`, `weight`, `cutoff`, `resonance`, `contour`, `attackSeconds`, `decay`, `drive`, `glide`) and the internal sequencer `gate`. Macro values are normalized 0-1 except ATTACK (0-0.12 seconds); conversion to Hz, seconds, Q, semitones and oscillator balance is an audio/domain concern. Drift phase, active held-note order, AudioNodes and route crossfades are runtime-only.
+
+### POLY Patch
+
+Each Pattern Group owns a `polyPatches` collection. A fully serializable patch stores two wavetable oscillator configurations, oscillator mix/FM, multimode filter, AMP/FILTER/MOD envelopes, two LFOs, typed bipolar modulation routes, output level/pan and sequencer gate. Wavetable sample data, AudioWorkletNodes, phase accumulators, filter memory, active voice state and modulation values are runtime-only.
 
 ### SamplePlaybackRegion
 
@@ -184,7 +188,7 @@ The following must not be serialized into the project:
 
 ## Pre-persistence ProjectState
 
-ProjectState schema v20 is the serializable boundary. Each Pattern Group contains its private bank, CHOP session, MONO-3, STRINGS and MONOGORG patch collections and two-slot serial FX Rack. It contains shared asset references and durations, Pattern Groups and their 16-step velocities, SHIFT values and event spans, selected Pattern Group/variant, Pattern Clips, persisted transport mode and Loop Song, BPM, swing, group-and-pad Pump references, the global Project Key (`root`, `scale`) and a serializable two-slot master FX Rack. Waveform peaks and synth voices are runtime cache/state and are not serialized.
+ProjectState schema v21 is the serializable boundary. Each Pattern Group contains its private bank, CHOP session, MONO-3, STRINGS, MONOGORG and POLY patch collections and two-slot serial FX Rack. It contains shared asset references and durations, Pattern Groups and their 16-step velocities, SHIFT values and event spans, selected Pattern Group/variant, Pattern Clips, persisted transport mode and Loop Song, BPM, swing, group-and-pad Pump references, the global Project Key (`root`, `scale`) and a serializable two-slot master FX Rack. Waveform peaks and synth voices are runtime cache/state and are not serialized.
 
 Project Key is a preference for future Project Scale mappings. A mapping writes normal independent pad configurations that reference one shared SampleAsset and contain their calculated pitch offsets. Existing mapped pads have no runtime link to Project Key and are not retuned when it changes.
 
@@ -192,7 +196,7 @@ It intentionally excludes AudioContext, buffers, nodes, active voices, transport
 
 ## Persistence v1 records
 
-The one saved local project has ID `default-project`. Its manifest contains `ProjectState` with `schemaVersion: 20`; a separate asset record contains each referenced asset ID, filename, MIME type, byte size and original WAV Blob. A shared asset is represented by one asset record even when referenced by many group banks. `lastProjectId` points to the most recently saved project. Historical migrations preserve the older sample/synth/pattern/mixer state. Schema-v19 migration adds an empty `organicBassPatches` collection to every group and `organicBassPatchId: null` to every pad, leaving all existing sources unchanged.
+The one saved local project has ID `default-project`. Its manifest contains `ProjectState` with `schemaVersion: 21`; a separate asset record contains each referenced asset ID, filename, MIME type, byte size and original WAV Blob. A shared asset is represented by one asset record even when referenced by many group banks. `lastProjectId` points to the most recently saved project. Historical migrations preserve the older sample/synth/pattern/mixer state. Schema-v20 migration adds an empty `polyPatches` collection to every group and `polyPatchId: null` to every pad, leaving all existing sources unchanged.
 
 Only assets used by pads or by the active CHOP source are included in a save. Waveform peaks, AudioBuffers, transport playback state, preview state and UI-only Chop editing state are rebuilt or reset on OPEN.
 

@@ -73,6 +73,9 @@ import { StringsWorkspace } from './strings/StringsWorkspace'
 import { assignOrganicBassSource, createDefaultOrganicBassPatch, getOrganicBassPatch, maximumOrganicBassMidiNote, minimumOrganicBassMidiNote, removeUnreferencedOrganicBassPatches, resolveOrganicBassPadMidiNote } from './organic-bass/organicBassOperations'
 import type { OrganicBassPatch } from './organic-bass/organicBassTypes'
 import { OrganicBassWorkspace } from './organic-bass/OrganicBassWorkspace'
+import { assignPolySource, createDefaultPolyPatch, getPolyPatch, maximumPolyMidiNote, minimumPolyMidiNote, removeUnreferencedPolyPatches, resolvePolyPadMidiNotes } from './poly/polyOperations'
+import type { PolyPatch } from './poly/polyTypes'
+import { PolyWorkspace } from './poly/PolyWorkspace'
 import {
   addAudioClip, addAudioTrack, collectAudioTrackAssetIds, createAudioClipFromImport, createAudioTrack,
   duplicateAudioClip, maximumClipFadeSeconds, moveAudioClip, moveAudioTrack, removeAudioClip, removeAudioTrack,
@@ -129,6 +132,7 @@ function createPumpRouteId(): string { return `pump-route-${createRuntimeId()}` 
 function createSynthPatchId(): string { return `synth-patch-${createRuntimeId()}` }
 function createStringsPatchId(): string { return `strings-patch-${createRuntimeId()}` }
 function createOrganicBassPatchId(): string { return `organic-bass-patch-${createRuntimeId()}` }
+function createPolyPatchId(): string { return `poly-patch-${createRuntimeId()}` }
 function createAudioTrackId(): string { return `audio-track-${createRuntimeId()}` }
 function createAudioClipId(): string { return `audio-clip-${createRuntimeId()}` }
 function clearPadAssignment(pad: PadState): PadState {
@@ -136,7 +140,7 @@ function clearPadAssignment(pad: PadState): PadState {
 }
 
 function removeUnreferencedInstrumentPatches(group: PatternGroup): PatternGroup {
-  return removeUnreferencedOrganicBassPatches(removeUnreferencedStringsPatches(removeUnreferencedSynthPatches(group)))
+  return removeUnreferencedPolyPatches(removeUnreferencedOrganicBassPatches(removeUnreferencedStringsPatches(removeUnreferencedSynthPatches(group))))
 }
 
 export function App({ audioEngine }: AppProps) {
@@ -278,8 +282,11 @@ export function App({ audioEngine }: AppProps) {
   const selectedStringsBaseRange = selectedStringsPatch ? getSharedStringsPatchBaseMidiRange(selectedGroup, selectedStringsPatch.id) : [minimumSynthMidiNote, maximumSynthMidiNote] as const
   const selectedOrganicBassPatch = getOrganicBassPatch(selectedGroup, selectedPad.organicBassPatchId)
   const selectedOrganicBassUsageCount = selectedOrganicBassPatch ? pads.filter((pad) => pad.organicBassPatchId === selectedOrganicBassPatch.id).length : 0
+  const selectedPolyPatch = getPolyPatch(selectedGroup, selectedPad.polyPatchId)
+  const selectedPolyUsageCount = selectedPolyPatch ? pads.filter((pad) => pad.polyPatchId === selectedPolyPatch.id).length : 0
   const chordModeAvailable = pads.every((pad) => pad.synthPatchId !== null && pad.synthPatchId === pads[0].synthPatchId)
     || pads.every((pad) => pad.stringsPatchId !== null && pad.stringsPatchId === pads[0].stringsPatchId)
+    || pads.every((pad) => pad.polyPatchId !== null && pad.polyPatchId === pads[0].polyPatchId)
   const audioReady = audioStatus === 'ready'
   const audioRecovering = audioStatus === 'suspended' || audioStatus === 'interrupted'
   const controlsAwake = audioReady && powerVisualPhase === 'on'
@@ -447,6 +454,7 @@ export function App({ audioEngine }: AppProps) {
   useEffect(() => { audioEngine.syncSynthPatches(patternGroups.flatMap((group) => group.synthPatches.map((patch) => ({ groupId: group.id, patch })))) }, [audioEngine, patternGroups])
   useEffect(() => { audioEngine.syncStringsPatches(patternGroups.flatMap((group) => group.stringsPatches.map((patch) => ({ groupId: group.id, patch })))) }, [audioEngine, patternGroups])
   useEffect(() => { audioEngine.syncOrganicBassPatches(patternGroups.flatMap((group) => group.organicBassPatches.map((patch) => ({ groupId: group.id, patch })))) }, [audioEngine, patternGroups])
+  useEffect(() => { audioEngine.syncPolyPatches(patternGroups.flatMap((group) => group.polyPatches.map((patch) => ({ groupId: group.id, patch })))) }, [audioEngine, patternGroups])
   useEffect(() => { audioEngine.setMasterEffects(masterEffects) }, [audioEngine, masterEffects])
   useEffect(() => { for (const group of patternGroups) audioEngine.setGroupEffects(group.id, group.effects) }, [audioEngine, patternGroups])
   useEffect(() => audioEngine.subscribeToStatus((status) => {
@@ -471,19 +479,20 @@ export function App({ audioEngine }: AppProps) {
     const patch = getSynthPatch(selectedGroup, pad.synthPatchId)
     const padIndex = pads.indexOf(pad)
     const chordAssignment = selectedGroup.padMode === 'chords' ? selectedGroup.chordAssignments[padIndex] : null
-    if (chordAssignment && (patch || pad.stringsPatchId)) {
+    if (chordAssignment && (patch || pad.stringsPatchId || pad.polyPatchId)) {
       const { token, previousToken } = chordPriorityRef.current.press(selectedPatternGroupId, padId)
       if (previousToken) {
         audioEngine.releaseSynthPad(previousToken)
         audioEngine.releaseStringsPad(previousToken)
         audioEngine.releaseOrganicBassPad(previousToken)
+        audioEngine.releasePolyPad(previousToken)
       }
       const notes = resolveChordMidiNotes(selectedGroup, pad, chordAssignment, projectKey)
       if (patch) audioEngine.triggerSynthChord(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), patch, notes, 1, token)
-      else {
+      else if (pad.stringsPatchId) {
         const stringsPatch = getStringsPatch(selectedGroup, pad.stringsPatchId)
         if (stringsPatch) audioEngine.triggerStringsPad(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), stringsPatch, notes, 1, token)
-      }
+      } else { const polyPatch = getPolyPatch(selectedGroup, pad.polyPatchId); if (polyPatch) audioEngine.triggerPolyPad(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), polyPatch, notes, 1, token) }
       setActivePadId(padId)
       recordPadHit(padId, audioEngine.getCurrentTime())
       return
@@ -508,6 +517,11 @@ export function App({ audioEngine }: AppProps) {
       recordPadHit(padId, audioEngine.getCurrentTime())
       return
     }
+    const polyPatch = getPolyPatch(selectedGroup, pad.polyPatchId)
+    if (polyPatch) {
+      audioEngine.triggerPolyPad(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), polyPatch, resolvePolyPadMidiNotes(polyPatch, pad), 1, manualPadToken(selectedPatternGroupId, padId))
+      setActivePadId(padId); recordPadHit(padId, audioEngine.getCurrentTime()); return
+    }
     if (!pad.assetId || !audioEngine.hasSampleAsset(pad.assetId)) return
     if (cutOnPadTrigger) audioEngine.stopManualVoices()
     const startedAt = audioEngine.getCurrentTime()
@@ -524,14 +538,16 @@ export function App({ audioEngine }: AppProps) {
       audioEngine.releaseSynthPad(token)
       audioEngine.releaseStringsPad(token)
       audioEngine.releaseOrganicBassPad(token)
+      audioEngine.releasePolyPad(token)
       setActivePadId((current) => current === padId ? null : current)
       return
     }
     audioEngine.releaseSynthPad(manualPadToken(selectedPatternGroupId, padId))
     audioEngine.releaseStringsPad(manualPadToken(selectedPatternGroupId, padId))
     audioEngine.releaseOrganicBassPad(manualPadToken(selectedPatternGroupId, padId))
+    audioEngine.releasePolyPad(manualPadToken(selectedPatternGroupId, padId))
     const releasedPad = pads.find((pad) => pad.id === padId)
-    if (releasedPad?.synthPatchId || releasedPad?.stringsPatchId || releasedPad?.organicBassPatchId) setActivePadId((current) => current === padId ? null : current)
+    if (releasedPad?.synthPatchId || releasedPad?.stringsPatchId || releasedPad?.organicBassPatchId || releasedPad?.polyPatchId) setActivePadId((current) => current === padId ? null : current)
   }
 
   const setKeyboardPadPressed = (padId: PadState['id'], pressed: boolean) => {
@@ -734,6 +750,7 @@ export function App({ audioEngine }: AppProps) {
       audioEngine.syncSynthPatches(state.patternGroups.flatMap((group) => group.synthPatches.map((patch) => ({ groupId: group.id, patch }))))
       audioEngine.syncStringsPatches(state.patternGroups.flatMap((group) => group.stringsPatches.map((patch) => ({ groupId: group.id, patch }))))
       audioEngine.syncOrganicBassPatches(state.patternGroups.flatMap((group) => group.organicBassPatches.map((patch) => ({ groupId: group.id, patch }))))
+      audioEngine.syncPolyPatches(state.patternGroups.flatMap((group) => group.polyPatches.map((patch) => ({ groupId: group.id, patch }))))
       audioEngine.setPumpRoutes(state.pumpRoutes.map((route) => ({ id: route.id, sourceChannelId: createChannelId(route.source), targetGroupId: route.targetGroupId, depth: route.depth, lengthSeconds: 60 / state.bpm * route.lengthBeats, curve: route.curve })))
       setPatternGroups(state.patternGroups)
       setSelectedPatternGroupId(state.selectedPatternGroupId)
@@ -805,6 +822,9 @@ export function App({ audioEngine }: AppProps) {
   const updateSelectedOrganicBassPatch = (patch: OrganicBassPatch) => {
     setPatternGroups((groups) => groups.map((group) => group.id === selectedPatternGroupId ? { ...group, organicBassPatches: group.organicBassPatches.map((candidate) => candidate.id === patch.id ? patch : candidate) } : group))
   }
+  const updateSelectedPolyPatch = (patch: PolyPatch) => {
+    setPatternGroups((groups) => groups.map((group) => group.id === selectedPatternGroupId ? { ...group, polyPatches: group.polyPatches.map((candidate) => candidate.id === patch.id ? patch : candidate) } : group))
+  }
   const updateSelectedStringsChord = (chordIntervals: number[]) => {
     if (!selectedStringsPatch) return
     const next = [...new Set(chordIntervals)]
@@ -853,8 +873,8 @@ export function App({ audioEngine }: AppProps) {
     if (!audioReady || projectBusy || loadingLibrarySampleId) return false
     const targetPad = pads.find((pad) => pad.id === targetPadId)
     if (!targetPad) return false
-    if ((targetPad.synthPatchId || targetPad.stringsPatchId || targetPad.organicBassPatchId) && !confirmed) {
-      const sourceName = targetPad.organicBassPatchId ? 'MONOGORG' : targetPad.stringsPatchId ? 'STRINGS' : 'MONOPOLY'
+    if ((targetPad.synthPatchId || targetPad.stringsPatchId || targetPad.organicBassPatchId || targetPad.polyPatchId) && !confirmed) {
+      const sourceName = targetPad.polyPatchId ? 'POLY' : targetPad.organicBassPatchId ? 'MONOGORG' : targetPad.stringsPatchId ? 'STRINGS' : 'MONOPOLY'
       requestConfirmation(`Replace the ${sourceName} source on ${targetPad.label} with ${sample.filename}?`, 'REPLACE', () => {
         void loadLibrarySample(sample, targetPadId, true).then((loaded) => {
           if (loaded) setSelectedLibrarySample(null)
@@ -871,7 +891,7 @@ export function App({ audioEngine }: AppProps) {
       const loadedSample = await audioEngine.loadSampleBlob(assetId, await response.blob(), sample.filename)
       const waveform = audioEngine.getWaveformPeaks(assetId) ?? []
       const previousAssetId = targetPad.assetId
-      const bank = { ...selectedGroup.bank, pads: pads.map((pad) => pad.id === targetPad.id ? { ...pad, assetId, fileName: loadedSample.filename, durationSeconds: loadedSample.durationSeconds, region: { startSeconds: 0, endSeconds: loadedSample.durationSeconds }, reversed: false, slices: [], chopSessionId: null, synthPatchId: null, stringsPatchId: null, organicBassPatchId: null, chordIntervals: [0] } : pad) }
+      const bank = { ...selectedGroup.bank, pads: pads.map((pad) => pad.id === targetPad.id ? { ...pad, assetId, fileName: loadedSample.filename, durationSeconds: loadedSample.durationSeconds, region: { startSeconds: 0, endSeconds: loadedSample.durationSeconds }, reversed: false, slices: [], chopSessionId: null, synthPatchId: null, stringsPatchId: null, organicBassPatchId: null, polyPatchId: null, chordIntervals: [0] } : pad) }
       const groups = patternGroups.map((group) => group.id === selectedPatternGroupId ? removeUnreferencedInstrumentPatches({ ...group, bank }) : group)
       setPatternGroups(groups)
       setSelectedPadId(targetPad.id)
@@ -927,7 +947,7 @@ export function App({ audioEngine }: AppProps) {
     if (!sound) return false
     const targetPad = pads.find((pad) => pad.id === targetPadId)
     if (!targetPad) return false
-    if ((targetPad.assetId || targetPad.synthPatchId || targetPad.stringsPatchId || targetPad.organicBassPatchId) && !confirmed) {
+    if ((targetPad.assetId || targetPad.synthPatchId || targetPad.stringsPatchId || targetPad.organicBassPatchId || targetPad.polyPatchId) && !confirmed) {
       requestConfirmation(`Replace the sound on ${targetPad.label} with this ${sound.instrument}?`, 'REPLACE', () => { void dropDrumSoundOnPad(targetPadId, true) })
       return false
     }
@@ -937,7 +957,7 @@ export function App({ audioEngine }: AppProps) {
       const loadedSample = await audioEngine.loadSampleBlob(assetId, sound.blob, sound.filename)
       const waveform = audioEngine.getWaveformPeaks(assetId) ?? []
       const previousAssetId = targetPad.assetId
-      const bank = { ...selectedGroup.bank, pads: pads.map((pad) => pad.id === targetPad.id ? { ...pad, assetId, fileName: loadedSample.filename, durationSeconds: loadedSample.durationSeconds, region: { startSeconds: 0, endSeconds: loadedSample.durationSeconds }, reversed: false, slices: [], chopSessionId: null, synthPatchId: null, stringsPatchId: null, organicBassPatchId: null, chordIntervals: [0] } : pad) }
+      const bank = { ...selectedGroup.bank, pads: pads.map((pad) => pad.id === targetPad.id ? { ...pad, assetId, fileName: loadedSample.filename, durationSeconds: loadedSample.durationSeconds, region: { startSeconds: 0, endSeconds: loadedSample.durationSeconds }, reversed: false, slices: [], chopSessionId: null, synthPatchId: null, stringsPatchId: null, organicBassPatchId: null, polyPatchId: null, chordIntervals: [0] } : pad) }
       const groups = patternGroups.map((group) => group.id === selectedPatternGroupId ? removeUnreferencedInstrumentPatches({ ...group, bank }) : group)
       setPatternGroups(groups)
       setSelectedPadId(targetPad.id)
@@ -991,6 +1011,7 @@ export function App({ audioEngine }: AppProps) {
     audioEngine.releaseSynthPad(manualPadToken(selectedPatternGroupId, selectedPadId))
     audioEngine.releaseStringsPad(manualPadToken(selectedPatternGroupId, selectedPadId))
     audioEngine.releaseOrganicBassPad(manualPadToken(selectedPatternGroupId, selectedPadId))
+    audioEngine.releasePolyPad(manualPadToken(selectedPatternGroupId, selectedPadId))
     const bank = { ...selectedGroup.bank, pads: pads.map((pad) => pad.id === selectedPadId ? clearPadAssignment(pad) : pad) }
     const groups = patternGroups.map((group) => group.id === selectedPatternGroupId ? removeUnreferencedInstrumentPatches({ ...group, bank }) : group)
     setPatternGroups(groups)
@@ -999,7 +1020,7 @@ export function App({ audioEngine }: AppProps) {
   }
 
   const mapSelectedPadToProjectScale = (confirmed = false) => {
-    if (projectBusy || (!selectedPad.assetId && !selectedPad.synthPatchId && !selectedPad.stringsPatchId && !selectedPad.organicBassPatchId)) return
+    if (projectBusy || (!selectedPad.assetId && !selectedPad.synthPatchId && !selectedPad.stringsPatchId && !selectedPad.organicBassPatchId && !selectedPad.polyPatchId)) return
     const conflicts = findProjectScaleMapConflicts(pads, selectedPad.id)
     if (conflicts.length > 0 && !confirmed) {
       requestConfirmation(`Replace ${conflicts.length} occupied pad${conflicts.length === 1 ? '' : 's'} with the Project Scale map?`, 'REPLACE', () => mapSelectedPadToProjectScale(true))
@@ -1018,6 +1039,7 @@ export function App({ audioEngine }: AppProps) {
       setErrorMessage('This Project Scale map would place MONOGORG notes outside C0-C7.')
       return
     }
+    if (selectedPolyPatch && result.pads.some((pad) => pad.polyPatchId === selectedPolyPatch.id && resolvePolyPadMidiNotes(selectedPolyPatch, pad).some((note) => note < minimumPolyMidiNote || note > maximumPolyMidiNote))) { setErrorMessage('This Project Scale map would place POLY notes outside C0-C8.'); return }
     replaceActiveBank({ ...selectedGroup.bank, pads: result.pads })
     setProjectMessage(`Mapped ${result.mappedPadCount} pad${result.mappedPadCount === 1 ? '' : 's'} to ${formatProjectKey(projectKey)}.`)
   }
@@ -1043,7 +1065,7 @@ export function App({ audioEngine }: AppProps) {
 
   const applyChopMapping = (nextSlices: SampleSlice[], nextSession: ChopSessionState, confirmed = false, onApplied?: () => void): boolean => {
     if (!chopSession.assetId || !chopSession.durationSeconds) return false
-    const conflicts = pads.slice(0, nextSlices.length).filter((pad) => (pad.assetId || pad.synthPatchId || pad.stringsPatchId || pad.organicBassPatchId) && pad.chopSessionId !== chopSession.id)
+    const conflicts = pads.slice(0, nextSlices.length).filter((pad) => (pad.assetId || pad.synthPatchId || pad.stringsPatchId || pad.organicBassPatchId || pad.polyPatchId) && pad.chopSessionId !== chopSession.id)
     if (conflicts.length > 0 && !confirmed) {
       requestConfirmation(`Replace ${conflicts.length} occupied pad${conflicts.length === 1 ? '' : 's'} with live Chop slices?`, 'REPLACE', () => {
         applyChopMapping(nextSlices, nextSession, true, onApplied)
@@ -1058,7 +1080,7 @@ export function App({ audioEngine }: AppProps) {
       // Unlike pitch, reverse has no session-wide default to fall back to - it
       // is always this exact slice's own value, so it overwrites unconditionally
       // on every re-slice, the same way region does.
-      if (slice) return { ...pad, assetId: chopSession.assetId!, fileName: chopSession.fileName, durationSeconds: chopSession.durationSeconds, region: { startSeconds: slice.startSeconds, endSeconds: slice.endSeconds }, reversed: slice.reversed, slices: [], chopSessionId: chopSession.id, pitchSemitones: pad.chopSessionId === chopSession.id ? pad.pitchSemitones : chopSession.pitchSemitones, synthPatchId: null, stringsPatchId: null, organicBassPatchId: null, chordIntervals: [0] }
+      if (slice) return { ...pad, assetId: chopSession.assetId!, fileName: chopSession.fileName, durationSeconds: chopSession.durationSeconds, region: { startSeconds: slice.startSeconds, endSeconds: slice.endSeconds }, reversed: slice.reversed, slices: [], chopSessionId: chopSession.id, pitchSemitones: pad.chopSessionId === chopSession.id ? pad.pitchSemitones : chopSession.pitchSemitones, synthPatchId: null, stringsPatchId: null, organicBassPatchId: null, polyPatchId: null, chordIntervals: [0] }
       return pad.chopSessionId === chopSession.id ? clearPadAssignment(pad) : pad
     }), chopSession: nextSession }
     setPatternGroups((groups) => groups.map((group) => group.id === selectedPatternGroupId ? removeUnreferencedInstrumentPatches({ ...group, bank }) : group))
@@ -1341,7 +1363,7 @@ export function App({ audioEngine }: AppProps) {
     if (!audioReady) { setErrorMessage('Start audio before playing the sequencer.'); return }
     if (transportMode === 'song' && playlist.length === 0) { setTransportNotice(emptySongPlaylistNotice); return }
     const hasTrackContent = audioTracks.some((track) => track.clips.length > 0)
-    if (sequenceConfigRef.current.getTracksForSlot(1).length === 0 && !pads.some((pad) => (pad.assetId && audioEngine.hasSampleAsset(pad.assetId)) || pad.synthPatchId || pad.stringsPatchId || pad.organicBassPatchId) && !metronomeEnabled && !hasTrackContent) { setErrorMessage('Load a sample or create a synth patch first.'); return }
+    if (sequenceConfigRef.current.getTracksForSlot(1).length === 0 && !pads.some((pad) => (pad.assetId && audioEngine.hasSampleAsset(pad.assetId)) || pad.synthPatchId || pad.stringsPatchId || pad.organicBassPatchId || pad.polyPatchId) && !metronomeEnabled && !hasTrackContent) { setErrorMessage('Load a sample or create a synth patch first.'); return }
     sequencerRef.current.start(() => sequenceConfigRef.current)
     // TRACKS plays independently of PATTERN/SONG mode - it is arrangement
     // content, not another pattern to pick, so both schedulers always start
@@ -1621,7 +1643,7 @@ export function App({ audioEngine }: AppProps) {
     if (transportMode === 'song') return
     if (isPlaying) { recordingArmedRef.current = true; setRecording(true); return }
     if (!audioReady) { setErrorMessage('Start audio before recording.'); return }
-    if (sequenceConfigRef.current.getTracksForSlot(1).length === 0 && !pads.some((pad) => (pad.assetId && audioEngine.hasSampleAsset(pad.assetId)) || pad.synthPatchId || pad.stringsPatchId || pad.organicBassPatchId) && !metronomeEnabled) { setErrorMessage('Load a sample or create a synth patch first.'); return }
+    if (sequenceConfigRef.current.getTracksForSlot(1).length === 0 && !pads.some((pad) => (pad.assetId && audioEngine.hasSampleAsset(pad.assetId)) || pad.synthPatchId || pad.stringsPatchId || pad.organicBassPatchId || pad.polyPatchId) && !metronomeEnabled) { setErrorMessage('Load a sample or create a synth patch first.'); return }
     const beatSeconds = 60 / bpm
     const now = audioEngine.getCurrentTime()
     const startsAt = now + 4 * beatSeconds
@@ -1689,7 +1711,7 @@ export function App({ audioEngine }: AppProps) {
      narrower parameter type here makes routing it through the pattern-group-
      creating flow a compile error rather than a behaviour to remember. */
   const requestOpenInstrumentOnNewPattern = (instrument: Exclude<SynthPickerInstrument, 'drumsynth'>) => {
-    const label = instrument === 'monopoly' ? 'MONOPOLY' : instrument === 'organicbass' ? 'MONOGORG' : 'STRINGS'
+    const label = instrument === 'monopoly' ? 'MONOPOLY' : instrument === 'organicbass' ? 'MONOGORG' : instrument === 'poly' ? 'POLY' : 'STRINGS'
     requestConfirmation(`Open ${label} on a new pattern? This creates a new Bank with PATTERN A - your current pattern stays untouched.`, 'OPEN ON NEW PATTERN', () => openInstrumentOnNewPattern(instrument))
   }
   const selectSynthInstrument = (instrument: SynthPickerInstrument) => {
@@ -1737,6 +1759,14 @@ export function App({ audioEngine }: AppProps) {
         mappedPadCount = inRange ? mapped.mappedPadCount : 1
         return { ...group, bank: { ...group.bank, pads: inRange ? mapped.pads : assignedPads }, organicBassPatches: [patch] }
       }
+      if (instrument === 'poly') {
+        const patch = createDefaultPolyPatch(createPolyPatchId())
+        const assignedPads = group.bank.pads.map((pad) => pad.id === targetPadId ? assignPolySource(pad, patch.id) : pad)
+        const mapped = mapPadBankToProjectScale(assignedPads, targetPadId, projectKey)
+        const inRange = mapped.pads.every((pad) => pad.polyPatchId !== patch.id || resolvePolyPadMidiNotes(patch, pad).every((note) => note >= minimumPolyMidiNote && note <= maximumPolyMidiNote))
+        mappedPadCount = inRange ? mapped.mappedPadCount : 1
+        return { ...group, bank: { ...group.bank, pads: inRange ? mapped.pads : assignedPads }, polyPatches: [patch] }
+      }
       const patch = createDefaultStringsPatch(createStringsPatchId())
       const assignedPads = group.bank.pads.map((pad) => pad.id === targetPadId ? assignStringsSource(pad, patch.id) : pad)
       const mapped = mapPadBankToProjectScale(assignedPads, targetPadId, projectKey)
@@ -1752,7 +1782,7 @@ export function App({ audioEngine }: AppProps) {
     setSelectedPatternVariant('A')
     setSelectedPadId(targetPadId)
     setSynthPickerForced(false)
-    const label = instrument === 'monopoly' ? 'MONOPOLY' : instrument === 'organicbass' ? 'MONOGORG' : 'STRINGS'
+    const label = instrument === 'monopoly' ? 'MONOPOLY' : instrument === 'organicbass' ? 'MONOGORG' : instrument === 'poly' ? 'POLY' : 'STRINGS'
     setProjectMessage(mappedPadCount > 1 ? `${label} created and mapped across ${mappedPadCount} pads.` : `${label} created on a new pattern.`)
     enterMainView('synth')
   }
@@ -1772,7 +1802,7 @@ export function App({ audioEngine }: AppProps) {
       ? { volume: selectedMixTrack?.gain ?? 1, muted: selectedMixTrack?.muted ?? false, solo: selectedMixTrack?.solo ?? false }
       : { volume: selectedGroup.bus!.volume, muted: selectedGroup.bus!.muted, solo: selectedGroup.bus!.solo }
   const mixBusLabel = mixScope === 'master' ? 'MASTER' : mixScope === 'track' ? `T${audioTracks.findIndex((track) => track.id === mixTrackId) + 1}` : `G${patternGroups.findIndex((group) => group.id === selectedPatternGroupId) + 1}`
-  const synthShowsPicker = synthPickerForced || (!drumSynthPanelOpen && !selectedSynthPatch && !selectedStringsPatch && !selectedOrganicBassPatch)
+  const synthShowsPicker = synthPickerForced || (!drumSynthPanelOpen && !selectedSynthPatch && !selectedStringsPatch && !selectedOrganicBassPatch && !selectedPolyPatch)
   // The SYNTH tab keeps STRINGS'/DRUM SYNTH's own accent colour while their editor is
   // actually on screen, and falls back to the shared SYNTH accent for the picker and MONOPOLY.
   const accentView = mainView === 'synth' && !synthShowsPicker && drumSynthPanelOpen ? 'drumsynth' : mainView === 'synth' && !synthShowsPicker && selectedStringsPatch ? 'strings' : mainView
@@ -1977,7 +2007,7 @@ export function App({ audioEngine }: AppProps) {
                     onDropSample={dropArmedItemOnPad}
                     onFeedbackEnd={(padId) => {
                       const pad = pads.find((candidate) => candidate.id === padId)
-                      if (selectedGroup.padMode !== 'chords' && !pad?.synthPatchId && !pad?.stringsPatchId && !pad?.organicBassPatchId) setActivePadId((current) => current === padId ? null : current)
+                      if (selectedGroup.padMode !== 'chords' && !pad?.synthPatchId && !pad?.stringsPatchId && !pad?.organicBassPatchId && !pad?.polyPatchId) setActivePadId((current) => current === padId ? null : current)
                     }}
                     chordLabels={chordLabels}
                   />
@@ -2077,13 +2107,29 @@ export function App({ audioEngine }: AppProps) {
               onBack={() => setSynthPickerForced(true)}
             />
           )}
+          {mainView === "synth" && !synthShowsPicker && !drumSynthPanelOpen && selectedPolyPatch && (
+            <PolyWorkspace
+              pad={selectedPad}
+              patch={selectedPolyPatch}
+              usageCount={selectedPolyUsageCount}
+              audioReady={audioReady}
+              projectBusy={projectBusy}
+              projectKeyLabel={formatProjectKey(projectKey)}
+              onPatchChange={updateSelectedPolyPatch}
+              onTrigger={() => triggerPad(selectedPad.id)}
+              onRelease={() => releasePad(selectedPad.id)}
+              onMapToProjectScale={mapSelectedPadToProjectScale}
+              onClear={clearSelectedPad}
+              onBack={() => setSynthPickerForced(true)}
+            />
+          )}
           {mainView === "seq" && (
             <SequencerControls
               pattern={selectedPattern}
               shifts={selectedPatternShifts}
               lengths={selectedPatternLengths}
               pads={pads.filter(
-                (pad) => pad.fileName || pad.synthPatchId || pad.stringsPatchId || pad.organicBassPatchId || pad.id === selectedPad.id,
+                (pad) => pad.fileName || pad.synthPatchId || pad.stringsPatchId || pad.organicBassPatchId || pad.polyPatchId || pad.id === selectedPad.id,
               )}
               selectedPadId={selectedPad.id}
               group={selectedGroup}

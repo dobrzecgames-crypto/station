@@ -104,7 +104,8 @@ export function formatChordAssignment(group: PatternGroup, pad: PadState, assign
 export function chordRootMidiNote(group: PatternGroup, pad: PadState, projectKey: ProjectKey): number {
   const synth = pad.synthPatchId ? group.synthPatches.find((patch) => patch.id === pad.synthPatchId) : undefined
   const strings = pad.stringsPatchId ? group.stringsPatches.find((patch) => patch.id === pad.stringsPatchId) : undefined
-  const sourceBase = synth?.baseMidiNote ?? strings?.baseMidiNote ?? 36
+  const poly = pad.polyPatchId ? group.polyPatches.find((patch) => patch.id === pad.polyPatchId) : undefined
+  const sourceBase = synth?.baseMidiNote ?? strings?.baseMidiNote ?? poly?.baseMidiNote ?? 36
   const octaveOffset = strings?.octave ? strings.octave * 12 : 0
   const projectRoot = noteNames.indexOf(projectKey.root)
   return Math.floor(sourceBase / 12) * 12 + projectRoot + pad.pitchSemitones + octaveOffset

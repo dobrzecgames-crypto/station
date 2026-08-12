@@ -2,6 +2,7 @@ import type { AudioEngine, ChannelId, GroupId, SampleAssetId, TriggerSampleOptio
 import type { SynthPatch } from '../synth/synthTypes'
 import type { StringsPatch } from '../strings/stringsTypes'
 import type { OrganicBassPatch } from '../organic-bass/organicBassTypes'
+import type { PolyPatch } from '../poly/polyTypes'
 import { getStepEventRange } from '../patterns/stepEvents.ts'
 
 export interface StepSequencerConfig {
@@ -66,7 +67,20 @@ export interface OrganicBassSequencerTrack extends StepSequencerTrackBase {
   midiNote: number
 }
 
-export type StepSequencerTrack = SampleSequencerTrack | SynthSequencerTrack | SynthChordSequencerTrack | StringsSequencerTrack | StringsChordSequencerTrack | OrganicBassSequencerTrack
+export interface PolySequencerTrack extends StepSequencerTrackBase {
+  source: 'poly'
+  patch: PolyPatch
+  midiNotes: readonly number[]
+}
+
+export interface PolyChordSequencerTrack extends StepSequencerTrackBase {
+  source: 'polyChord'
+  patch: PolyPatch
+  midiNotes: readonly number[]
+  chordGroupId: string
+}
+
+export type StepSequencerTrack = SampleSequencerTrack | SynthSequencerTrack | SynthChordSequencerTrack | StringsSequencerTrack | StringsChordSequencerTrack | OrganicBassSequencerTrack | PolySequencerTrack | PolyChordSequencerTrack
 
 /**
  * Decides when the next scheduling pass happens. Live playback wakes on a
@@ -164,10 +178,10 @@ export class StepSequencer {
       const orderedTracks = activeTracks.sort((left, right) => left.when - right.when)
       const lastSimultaneousChord = new Map<string, number>()
       orderedTracks.forEach(({ track, when }, index) => {
-        if (track.source === 'synthChord' || track.source === 'stringsChord') lastSimultaneousChord.set(`${track.chordGroupId}:${when}`, index)
+        if (track.source === 'synthChord' || track.source === 'stringsChord' || track.source === 'polyChord') lastSimultaneousChord.set(`${track.chordGroupId}:${when}`, index)
       })
       for (const [index, { track, velocity, length, unboundedSample, when }] of orderedTracks.entries()) {
-        if ((track.source === 'synthChord' || track.source === 'stringsChord') && lastSimultaneousChord.get(`${track.chordGroupId}:${when}`) !== index) continue
+        if ((track.source === 'synthChord' || track.source === 'stringsChord' || track.source === 'polyChord') && lastSimultaneousChord.get(`${track.chordGroupId}:${when}`) !== index) continue
         if (track.source === 'sample') {
           if (track.chokeGroupId) this.audioEngine.stopSequencerChokeGroupAt(track.chokeGroupId, when)
           const maxDurationSeconds = unboundedSample ? undefined : length * stepDuration
@@ -182,6 +196,11 @@ export class StepSequencer {
           this.audioEngine.scheduleStringsPad(track.groupId, track.channelId, track.patch, track.midiNotes, when, when + Math.max(1, length) * track.patch.gate * stepDuration, velocity)
         } else if (track.source === 'organicBass') {
           this.audioEngine.scheduleOrganicBassPad(track.groupId, track.channelId, track.patch, track.midiNote, when, when + Math.max(1, length) * track.patch.gate * stepDuration, velocity)
+        } else if (track.source === 'polyChord') {
+          this.audioEngine.releaseSequencerChordAt(track.chordGroupId, when)
+          this.audioEngine.schedulePolyPad(track.groupId, track.channelId, track.patch, track.midiNotes, when, when + Math.max(1, length) * track.patch.gate * stepDuration, velocity)
+        } else if (track.source === 'poly') {
+          this.audioEngine.schedulePolyPad(track.groupId, track.channelId, track.patch, track.midiNotes, when, when + Math.max(1, length) * track.patch.gate * stepDuration, velocity)
         } else {
           this.audioEngine.scheduleStringsPad(track.groupId, track.channelId, track.patch, track.midiNotes, when, when + Math.max(1, length) * track.patch.gate * stepDuration, velocity)
         }

@@ -53,6 +53,12 @@
   background: color-mix(in srgb, var(--accent-strings) 7%, var(--station-raised));
 }
 
+.synth-picker-card-poly {
+  color: color-mix(in srgb, var(--accent-synth) 68%, var(--control-active));
+  border-color: color-mix(in srgb, var(--accent-synth) 45%, var(--station-line));
+  background: color-mix(in srgb, var(--accent-synth) 7%, var(--station-raised));
+}
+
 .synth-picker-card-drumsynth {
   color: var(--accent-drumsynth);
   border-color: color-mix(in srgb, var(--accent-drumsynth) 45%, var(--station-line));

@@ -251,9 +251,9 @@
   color: var(--station-text);
   cursor: pointer;
   font-family: var(--station-display-font);
-  font-size: .62rem;
-  font-weight: 800;
-  letter-spacing: .1em;
+  font-size: .6rem;
+  font-weight: 400;
+  letter-spacing: .08em;
   list-style: none;
 }
 
@@ -380,15 +380,16 @@
 .pump-source-control > span {
   color: var(--station-text-muted);
   font-size: .56rem;
-  font-weight: 800;
-  letter-spacing: .1em;
+  font-weight: 400;
+  letter-spacing: .08em;
 }
 
 .pump-source-control > strong {
   overflow: hidden;
   color: var(--station-accent);
   font-family: var(--station-display-font);
-  font-size: .66rem;
+  font-size: .6rem;
+  font-weight: 400;
   letter-spacing: .08em;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -524,12 +525,18 @@
   text-align: left;
 }
 
+/* Only the token redirect (family -> Inter) was applied here during the
+   STATION hierarchy pass; size/weight were never individually reviewed and
+   still carried their old values - .76rem/800 made SIDECHAIN read bigger
+   and bolder than MODULE itself. Regular weight throughout, matching the
+   post-review rule that bold is reserved for MODULE alone; sizes capped at
+   or below MODULE's .58rem. */
 .mix-pump-entry span,
 .mix-pump-entry strong,
 .mix-pump-entry small {
   font-family: var(--station-display-font);
   font-size: .6rem;
-  font-weight: 800;
+  font-weight: 400;
   letter-spacing: .08em;
 }
 
@@ -542,14 +549,14 @@
 }
 
 .mix-pump-entry .mix-pump-entry-title {
-  font-size: .76rem;
-  letter-spacing: .1em;
+  font-size: .6rem;
+  letter-spacing: .08em;
 }
 
 .mix-pump-entry .mix-pump-entry-kind {
   margin-left: 3px;
   font-size: .52rem;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: .03em;
   opacity: .68;
 }

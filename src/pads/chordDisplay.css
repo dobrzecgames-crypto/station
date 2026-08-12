@@ -5,7 +5,7 @@
 .chord-suggestion-list .display-action { flex: 0 0 auto; min-width: 58px; min-height: 44px; }
 .chord-suggestion-active { color: #111313; border-color: rgb(var(--display-light)); background: rgb(var(--display-light)); }
 .pad-grid-toolbar { display: flex; min-height: 24px; align-items: center; justify-content: flex-end; margin-bottom: 4px; }
-.pad-chord-mode-toggle { display: inline-flex; min-height: 24px; align-items: center; gap: 6px; padding: 2px 5px; border: 0; border-radius: 4px; color: #858c89; background: transparent; font-family: var(--station-display-font); font-size: .52rem; font-weight: 800; letter-spacing: .08em; cursor: pointer; }
+.pad-chord-mode-toggle { display: inline-flex; min-height: 24px; align-items: center; gap: 6px; padding: 2px 5px; border: 0; border-radius: 4px; color: #858c89; background: transparent; font-family: var(--station-display-font); font-size: .52rem; font-weight: 400; letter-spacing: .08em; cursor: pointer; }
 .pad-chord-mode-toggle:hover:not(:disabled), .pad-chord-mode-toggle:focus-visible { color: #c6cbc5; background: rgb(255 255 255 / 4%); outline: none; }
 .pad-chord-mode-toggle:focus-visible { box-shadow: 0 0 0 1px rgb(194 200 193 / 35%); }
 .pad-chord-mode-toggle:disabled { cursor: default; opacity: .3; }

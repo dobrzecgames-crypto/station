@@ -78,9 +78,18 @@
 }
 
 .synth-picker-card-name {
-  font-family: var(--station-mono-font);
+  /* IDENTITY level (docs/TYPOGRAPHY_BIBLE.md §6): Inter, not the numeric
+     mono face - MONOGORG/MONOPOLY/STRINGS/POLY are instrument identity, not
+     a measurement. Individually wired (rather than through
+     --station-mono-font, whose other consumers are real numeric readouts
+     that must stay mono) - still overridable by the Typography Lab's
+     STATION role for future weight/size tuning. Regular, not the 700 it
+     carried as a leftover mono weight: revised after live review - bold is
+     reserved for real interactive buttons, identity gets its presence from
+     size (.78rem, already the largest STATION-role text) instead. */
+  font-family: var(--type-station-face, var(--station-display-font));
   font-size: .78rem;
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: .06em;
 }
 

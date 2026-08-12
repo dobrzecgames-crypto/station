@@ -32,6 +32,7 @@ import type { MainView } from './shell/MainNavigation'
 import { StationConfirm } from './shell/StationConfirm'
 import { TransportBar } from './shell/TransportBar'
 import { SystemDisplayProvider, useSystemDisplayHost } from './shell/systemDisplayContext'
+import { TypographyLab } from './dev/TypographyLab'
 import { applyKickPreset, applySnarePreset, createDefaultDrumSynthState } from './drumsynth/drumSynthOperations'
 import type { KickPresetName, SnarePresetName } from './drumsynth/drumSynthOperations'
 import type { DrumInstrumentType, DrumKickPatch, DrumSnarePatch, DrumSynthState } from './drumsynth/drumSynthTypes'
@@ -2450,6 +2451,7 @@ export function App({ audioEngine }: AppProps) {
         />
       )}
     </main>
+    <TypographyLab />
     </SystemDisplayProvider>
   );
 }

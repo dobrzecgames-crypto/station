@@ -2,9 +2,7 @@
 
 Status: **source of truth for typography architecture, font roles, hierarchy and font-selection rules in Station.**
 
-This document does not choose the final typefaces yet.
-
-Final font families are a human design decision and must be evaluated inside the real Station interface before adoption.
+**Family decision (accepted):** Inter is the one family for the entire physical machine — it carries both the MODULE and STATION roles. The System Display keeps a separate mono family. This was a human design decision, made after the Typography Lab pass; it is recorded here, not proposed. What remains open is weight/size/tracking tuning inside that decision, not the family count.
 
 `COLOR_BIBLE.md` remains the source of truth for colour.  
 `INTERFACE_BIBLE.md` remains the source of truth for physical interaction, material and motion.  
@@ -35,19 +33,21 @@ Do not attempt to make all typography look like one conventional app design syst
 
 ---
 
-## 2. Three fonts, but only two belong to the machine
+## 2. Two fonts: one for the machine, one for its computer
 
-Station may use **three typefaces**.
+Station uses **two typefaces**.
 
-This does not mean three competing visual identities.
+One typeface is the entire physical Station instrument — chassis, keys, panel, controls, alike.
 
-Two typefaces form the physical Station instrument.
-
-The third belongs exclusively to its internal computer.
+The other belongs exclusively to its internal computer.
 
 The architecture is:
 
-### A. MODULE FACE
+### A. MACHINE FACE — Inter
+
+Inter is the single family for the whole physical instrument. It carries two roles, MODULE and STATION, that differ in **treatment** (weight, size, tracking, casing, how the text sits in its control) rather than in typeface. Section 3 below defines that relationship; sections 4-8 define what each role needs from Inter.
+
+#### A1. MODULE role
 
 Used only for the main physical workspace selector keys:
 
@@ -67,11 +67,11 @@ Each workspace is a major organ of the instrument and may contain enough functio
 
 Changing workspace changes both the working surface and the available System Display context.
 
-The MODULE FACE therefore has a privileged role and must not spread casually into the rest of the interface.
+The MODULE role therefore has a privileged role and must not spread casually into the rest of the interface — not as a font choice (there is only one machine font now), but as a *treatment*: its weight/size/tracking/casing combination belongs to these seven keys and nowhere else.
 
-### B. STATION FACE
+#### A2. STATION role
 
-The primary working typeface of the physical machine.
+The primary working typography of the physical machine.
 
 Used for essentially all non-display interface typography outside the seven main module keys:
 
@@ -89,13 +89,13 @@ Used for essentially all non-display interface typography outside the seven main
 - secondary navigation,
 - buttons other than the main module selector keys.
 
-This face provides continuity across the instrument.
+This role provides continuity across the instrument.
 
 It must work across several weights and sizes without becoming visually noisy.
 
-### C. DISPLAY FACE
+### B. DISPLAY FACE
 
-Used **only inside the System Display** and for content that conceptually belongs to its internal computer.
+Used **only inside the System Display** and for content that conceptually belongs to its internal computer. A separate mono family from Inter — see section 9.
 
 Examples:
 
@@ -117,30 +117,29 @@ The DISPLAY FACE must not leak into ordinary panel labels merely because it look
 
 ---
 
-## 3. The two machine fonts must belong together
+## 3. MODULE and STATION are one font, two treatments
 
-MODULE FACE and STATION FACE appear on the same physical instrument.
+MODULE and STATION are both Inter. The distinction between them is no longer a font choice — it is everything *around* the font choice:
 
-They therefore need visual compatibility.
+- weight,
+- size,
+- tracking,
+- casing,
+- how the text is embedded in its control (a key's engraved legend vs. a panel label sitting flat),
+- hierarchy/position.
 
-They do **not** need to look alike.
-
-A useful relationship is:
+A useful relationship, unchanged in spirit from the earlier two-font version of this document:
 
 > MODULE = strong character  
 > STATION = controlled character
 
-The MODULE FACE may be more unusual because it appears in only seven permanent labels.
+MODULE may sit heavier and tighter because it appears in only seven permanent labels. STATION must carry a large amount of information and therefore needs greater restraint - lighter weights, calmer tracking, more levels of hierarchy (section 6).
 
-The STATION FACE must carry a large amount of information and therefore needs greater restraint.
-
-Do not choose two fonts that merely look like slightly different versions of the same fashionable geometric sans.
-
-Contrast should look intentional.
+Contrast between the two should still look intentional and legible at a glance, even though it is now built from the same typeface's own range rather than from two different families.
 
 ---
 
-## 4. MODULE FACE — physical key lettering
+## 4. MODULE role — physical key lettering
 
 Mental model:
 
@@ -197,9 +196,9 @@ The lettering should appear to belong to the key material rather than float abov
 
 ---
 
-## 5. STATION FACE — the working language of the instrument
+## 5. STATION role — the working language of the instrument
 
-The Station Face carries almost everything else.
+The Station role carries almost everything else.
 
 It needs character, but its primary job is clarity.
 
@@ -531,7 +530,7 @@ Accent colour must not be used to make every heading "interesting".
 
 Coding agents must **never autonomously select final Station fonts**.
 
-Font selection is a human-reviewed design task.
+Font selection is a human-reviewed design task. **This is how the MACHINE FACE decision was actually made**: a temporary Typography Lab was built inside real Station (`src/dev/TypographyLab.tsx`, dev-only - excluded from every production build), MODULE/STATION/DISPLAY were compared live against the specimen below with local system fonts as a technical test set, and Inter was chosen for the whole machine from that comparison — not picked by an agent from a catalogue. The Lab is still present as of this writing; removing it is a separate, later decision, not implied by the family decision itself. The same comparison process applies to any future DISPLAY FACE reconsideration.
 
 Do not browse a font catalogue and decide from marketing specimens.
 
@@ -598,7 +597,7 @@ Are numeric values excellent?
 Does the family provide useful regular/medium/semibold behaviour?
 
 ### COMPATIBILITY
-Do MODULE and STATION faces clearly differ but feel manufactured for the same machine?
+Now that MODULE and STATION share one family, this criterion is about the *treatment* relationship, not typeface choice: does MODULE's weight/size/tracking read as clearly its own thing next to STATION's, while still feeling like the same machine? (Applies as-is to any future DISPLAY FACE candidate against MACHINE FACE, where the families genuinely do differ.)
 
 ### CULTURAL ASSOCIATION
 Does the result immediately resemble generic AI/tech/SaaS design?
@@ -612,13 +611,13 @@ Will it still feel like Station after current font trends change?
 
 Unless a typography task explicitly says otherwise:
 
-1. Do not introduce a new font family.
-2. Do not replace fonts autonomously.
+1. Do not introduce a new font family. (Inter for the machine and the existing mono for the Display are the accepted set - see the family decision at the top of this document.)
+2. Do not replace either accepted family autonomously.
 3. Do not use a trendy Google Font as a temporary improvement.
-4. Do not spread the MODULE FACE beyond the seven main selector keys.
-5. Do not use the DISPLAY FACE outside the System Display.
+4. Do not spread the MODULE role's weight/size/tracking treatment beyond the seven main selector keys.
+5. Do not use the DISPLAY FACE (or its mono family) outside the System Display.
 6. Do not make dense parameter labels bold merely to create hierarchy.
-7. Use STATION FACE weights and sizes to express section -> parameter -> identity -> reading-text hierarchy.
+7. Use STATION role weights and sizes to express section -> parameter -> identity -> reading-text hierarchy.
 8. Do not increase letter-spacing mechanically on uppercase labels.
 9. Do not turn typography into decorative retro imitation.
 10. When a typography decision is ambiguous, preserve the existing implementation and report it for human design review.
@@ -637,6 +636,6 @@ The final typography succeeds when:
 - the System Display visibly belongs to a different computational layer;
 - the Display Face remains contained inside the display;
 - numbers are stable and easy to read;
-- the three-font system feels like **two fonts belonging to one machine plus one font belonging to its internal computer**;
+- the two-font system feels like **one font belonging to the whole machine, plus one font belonging to its internal computer** - not one undifferentiated typographic surface;
 - no font looks chosen because it was the obvious result of an AI "futuristic interface" prompt;
 - removing the Station logo still leaves a recognisable typographic character.

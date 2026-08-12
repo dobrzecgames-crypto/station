@@ -159,8 +159,8 @@
   color: var(--station-text-muted, #7f8886);
   font-family: var(--station-display-font);
   font-size: .5rem;
-  font-weight: 700;
-  letter-spacing: .14em;
+  font-weight: 400;
+  letter-spacing: .08em;
 }/* The current bank has enough face area for its name; opening it reveals the
    full bank list and the one contextual text action, rename. */
 .bank-menu {
@@ -178,7 +178,7 @@
   padding: 0 8px;
   font-family: var(--station-control-font);
   font-size: .56rem;
-  font-weight: 600;
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
   letter-spacing: .04em;
   text-align: left;
@@ -212,7 +212,7 @@
   background: var(--control-inactive);
   font-family: var(--station-control-font);
   font-size: .55rem;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: .06em;
   cursor: pointer;
 }.bank-select-option {
@@ -233,7 +233,7 @@
 }.bank-rename-form label {
   color: var(--station-text-muted);
   font-size: .5rem;
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: .08em;
 }.bank-rename-form input {
   width: 100%;
@@ -356,10 +356,17 @@ input[type="range"] {
 }/* ---------- 10. Type ---------------------------------------------------- */
 
 .eyebrow {
+  /* SECTION/GROUP level (docs/TYPOGRAPHY_BIBLE.md §6). Regular, not
+     semibold: revised after live review - bold is reserved for real
+     interactive buttons (MODULE keys chief among them), everything else
+     carries hierarchy through size/tracking/colour instead. .16em read as
+     the futuristic-dashboard tracking the anti-generic rule warns about;
+     .08em matches the most common tracking value already used elsewhere in
+     Station rather than inventing a new number. */
   color: var(--station-accent);
   font-size: .6rem;
-  font-weight: 800;
-  letter-spacing: .16em;
+  font-weight: 400;
+  letter-spacing: .08em;
   text-transform: uppercase;
 }/* Small uppercase label, .mixer-strip-label, .pad-footer, .sample-info {
   color: var(--station-text-muted);
@@ -567,8 +574,8 @@ input[type="text"], input[type="number"], select, textarea {
   overflow: hidden;
   color: var(--station-text-muted);
   font-family: var(--station-display-font);
-  font-size: .62rem;
-  font-weight: 600;
+  font-size: .6rem;
+  font-weight: 400;
   letter-spacing: .04em;
   white-space: nowrap;
 }

@@ -88,10 +88,13 @@ select, textarea {
   color: color-mix(in srgb, var(--station-text) 92%, var(--nav-face-top));
   background: transparent;
   box-shadow: none;
+  /* MODULE role (docs/TYPOGRAPHY_BIBLE.md §4): the heaviest weight and the
+     tightest tracking anywhere in Station, justified by the object's
+     physical role - seven keys only, never copied to parameter labels. */
   font-family: var(--station-nav-font);
   font-size: .58rem;
-  font-weight: 600;
-  letter-spacing: .045em;
+  font-weight: 700;
+  letter-spacing: .03em;
 }
 .main-nav-button > [data-mechanism-face] {
   border-color: #4a4660;

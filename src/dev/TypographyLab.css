@@ -1,0 +1,184 @@
+/* Typography Lab - deliberately NOT styled like Station. Plain, functional,
+   high-contrast dev chrome so it never reads as a real part of the
+   instrument. Self-contained: does not reference Vinyl Dust tokens, so
+   removing this file can never leave a dangling variable behind. */
+
+.type-lab {
+  position: fixed;
+  right: 10px;
+  bottom: 10px;
+  z-index: 9999;
+}
+
+.type-lab-toggle {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid #ff7a1a;
+  border-radius: 6px;
+  color: #ff7a1a;
+  background: #111;
+  font: 700 11px/1 monospace;
+  letter-spacing: .08em;
+  cursor: pointer;
+}
+
+.type-lab-panel {
+  position: absolute;
+  right: 0;
+  bottom: 52px;
+  /* Deliberately small and content-sized, not viewport-relative - the
+     first version was 86vw/70vh, which is most of a real phone screen.
+     The 3 rows + toggle button is ~150px tall closed; only the optional,
+     collapsed-by-default specimen block can push it taller, capped well
+     short of the full viewport even then. */
+  width: 200px;
+  max-width: 60vw;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid #ff7a1a;
+  border-radius: 8px;
+  background: #0a0a0a;
+  color: #eee;
+  font-family: monospace;
+  box-shadow: 0 8px 30px rgb(0 0 0 / 60%);
+}
+
+.type-lab-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #333;
+  color: #ff7a1a;
+  font-size: 11px;
+  letter-spacing: .1em;
+}
+
+.type-lab-close {
+  min-width: 28px;
+  min-height: 28px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #eee;
+  background: #1a1a1a;
+  cursor: pointer;
+}
+
+.type-lab-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.type-lab-row-label {
+  flex: 0 0 44px;
+  color: #888;
+  font-size: 9px;
+  letter-spacing: .06em;
+}
+
+.type-lab-cycle {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 2px;
+}
+
+/* 30px was the right minimum for a real touch target elsewhere in this
+   panel; here it would eat most of a 200px-wide row on its own, so these
+   two buttons trade the 44px accessibility minimum for their small size -
+   acceptable for a temporary dev tool operated with a fingertip's edge or
+   a mouse, not for anything shipped. */
+.type-lab-cycle button {
+  min-width: 22px;
+  min-height: 26px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #ff7a1a;
+  background: #1a1a1a;
+  font: 700 12px/1 monospace;
+  cursor: pointer;
+}
+
+.type-lab-cycle-name {
+  flex: 1;
+  overflow: hidden;
+  padding: 0 2px;
+  color: #eee;
+  font-size: 9px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.type-lab-specimens-toggle {
+  width: 100%;
+  min-height: 26px;
+  margin-top: 4px;
+  border: 1px dashed #444;
+  border-radius: 4px;
+  color: #999;
+  background: transparent;
+  font: 700 9px/1 monospace;
+  letter-spacing: .04em;
+  cursor: pointer;
+}
+
+.type-lab-specimens {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #333;
+}
+
+.type-lab-specimens-heading {
+  margin: 8px 0 4px;
+  color: #ff7a1a;
+  font-size: 9px;
+  letter-spacing: .1em;
+}
+
+.type-lab-specimens-heading span {
+  color: #666;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.type-lab-specimen-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-bottom: 4px;
+}
+
+.type-lab-specimen {
+  color: #eee;
+  font-size: 11px;
+}
+
+.type-lab-specimen sup {
+  color: #ff7a1a;
+}
+
+.type-lab-note {
+  margin: 8px 0 0;
+  color: #666;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .type-lab-panel {
+    animation: type-lab-in 90ms ease-out;
+  }
+}
+
+@keyframes type-lab-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}

@@ -379,6 +379,8 @@ select, textarea {
 .transport-record-active {
   border-color: #b9615c;
   background: linear-gradient(180deg, #52292c, #34191d);
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / 56%), inset 0 -1px 0 rgb(255 239 220 / 8%);
+  transform: translateY(1px);
 }
 .transport-record-active::before {
   background: #ff6f68;

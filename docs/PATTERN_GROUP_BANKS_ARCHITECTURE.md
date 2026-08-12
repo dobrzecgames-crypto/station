@@ -18,7 +18,7 @@ The current product already includes:
 
 - one browser-based audio engine built on Web Audio API;
 - 16-pad sequencing;
-- Pattern Groups with variants A–D;
+- Pattern Groups with consecutive sections A–D;
 - Pattern Playlist and PATTERN / SONG modes;
 - local project persistence;
 - Project Key and Scale Map;
@@ -66,11 +66,11 @@ Each Pattern Group owns:
 
 - stable Pattern Group ID;
 - label or display index;
-- variants A–D;
+- consecutive 16-step sections A–D (persisted under the historical variant field names);
 - exactly one private 16-pad bank;
 - future Group Bus settings.
 
-Variants A–D share the bank of their Pattern Group.
+Sections A–D share the bank of their Pattern Group. PATTERN mode plays the existing section chain in order; SONG clips may still reference one section directly.
 
 They differ only in sequencer data:
 
@@ -224,7 +224,7 @@ Pattern Group 2 → Bank → PAD 01
 
 It must not modify PAD 01 in any other Pattern Group.
 
-Switching variants A–D does not switch banks.
+Switching sections A–D does not switch banks.
 
 Switching Pattern Groups does switch banks.
 
@@ -334,13 +334,13 @@ Future Group Pump may allow one group's kick to pump another Group Bus, but that
 Project persistence must save:
 
 - all Pattern Groups;
-- variants A–D;
+- sections A–D;
 - one private 16-pad bank per Pattern Group;
 - all pad settings per bank;
 - shared asset references;
 - independent CHOP state per relevant group, if the product preserves it;
 - Pump references using group-aware identity;
-- selected Pattern Group and variant;
+- selected Pattern Group and section;
 - Playlist clips.
 
 Persistence must not duplicate asset blobs per bank.
@@ -367,9 +367,9 @@ The exact migration rule must be based on the actual schema currently in the rep
 The task must preserve:
 
 - maximum eight Pattern Groups;
-- variants A–D only;
+- sections A–D only;
 - 16 pads per bank;
-- 16 steps per variant;
+- 16 steps per section and 16/32/48/64 steps per Pattern Group;
 - shared SampleAssets;
 - browser-first architecture;
 - Web Audio timing authority;

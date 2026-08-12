@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
+import { patternVariantNames } from '../patterns/patternTypes'
 import type { PatternGroup, PatternVariantName, StepPattern, StepShiftPattern, StepLengthPattern } from '../patterns/patternTypes'
 import { getStepEventOwners, getStepEventRange } from '../patterns/stepEvents.ts'
 import type { PadState } from '../pads/types'
@@ -67,6 +68,8 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
   const editedPad = pads.find((pad) => pad.id === editedStep.padId) ?? pads[0]
   const editedEvent = getStepEventRange(pattern[editedPad.id], lengths[editedPad.id], editedStep.stepIndex)
   const editedHeadIndex = editedEvent?.headIndex ?? editedStep.stepIndex
+  const sectionStartStep = patternVariantNames.indexOf(selectedVariant) * 16
+  const editedDisplayStepNumber = sectionStartStep + editedHeadIndex + 1
   const velocity = pattern[editedPad.id][editedHeadIndex]
   const shift = shifts[editedPad.id][editedHeadIndex]
   const length = editedEvent?.length ?? 1
@@ -107,6 +110,7 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
   const tenant = useMemo<DisplayTenant>(() => stepTenant({
     pad: editedPad,
     stepIndex: editedHeadIndex,
+    displayStepNumber: editedDisplayStepNumber,
     velocity,
     shift,
     length,
@@ -114,7 +118,7 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
     onShiftChange: (padId, stepIndex, nextShift) => onShiftChangeRef.current(padId, stepIndex, nextShift),
     onVelocityPointerDown: velocityDrag.onPointerDown,
     onShiftPointerDown: shiftDrag.onPointerDown,
-  }), [editedPad, editedHeadIndex, velocity, shift, length, velocityDrag.onPointerDown, shiftDrag.onPointerDown])
+  }), [editedPad, editedHeadIndex, editedDisplayStepNumber, velocity, shift, length, velocityDrag.onPointerDown, shiftDrag.onPointerDown])
   const selectStep = (padId: PadState['id'], stepIndex: number) => { setDisplayActive(true); setEditedStep({ padId, stepIndex }) }
   const showStepPage = (page: 0 | 1) => {
     stepPageRef.current = page
@@ -125,6 +129,7 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
     showStepPage(page)
   }
   const pageStartStep = stepPage * sequencerStepPageSize
+  const displayPageStartStep = sectionStartStep + pageStartStep
   const pageSteps = Array.from({ length: sequencerStepPageSize }, (_, offset) => pageStartStep + offset)
 
   const continuePaintAtStep = (stepIndex: number) => {
@@ -275,20 +280,20 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
   return <section className="sequencer" aria-label={`Sequencer, ${group.name} ${selectedVariant}`}>
     <div className="sequencer-toolbar">
       <div className="sequencer-step-pages" role="tablist" aria-label="Step range">
-        <button className={stepPage === 0 ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" role="tab" aria-selected={stepPage === 0} onClick={() => selectStepPage(0)}>01-08</button>
-        <button className={stepPage === 1 ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" role="tab" aria-selected={stepPage === 1} onClick={() => selectStepPage(1)}>09-16</button>
+        <button className={stepPage === 0 ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" role="tab" aria-selected={stepPage === 0} onClick={() => selectStepPage(0)}>{formatStepRange(sectionStartStep + 1, sectionStartStep + 8)}</button>
+        <button className={stepPage === 1 ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" role="tab" aria-selected={stepPage === 1} onClick={() => selectStepPage(1)}>{formatStepRange(sectionStartStep + 9, sectionStartStep + 16)}</button>
       </div>
     </div>
     <div
       ref={patternMatrixRef}
       className="pattern-matrix"
-      aria-label={`Pattern steps ${pageStartStep + 1} through ${pageStartStep + sequencerStepPageSize}`}
+      aria-label={`Pattern steps ${displayPageStartStep + 1} through ${displayPageStartStep + sequencerStepPageSize}`}
       onPointerMove={(event) => paintAt(event.pointerId, event.clientX, event.clientY)}
       onPointerUp={(event) => endPaint(event.pointerId)}
       onPointerCancel={(event) => endPaint(event.pointerId)}
       onLostPointerCapture={(event) => endPaint(event.pointerId)}
     >
-      <div className="pattern-matrix-row pattern-matrix-header"><span>PAD</span>{pageSteps.map((stepIndex) => <span className={`${playingStep === stepIndex ? 'pattern-step-playing' : ''} ${isDimBeatGroup(stepIndex) ? 'pattern-step-beat-dim' : ''}`} key={stepIndex}>{stepIndex + 1}</span>)}</div>
+      <div className="pattern-matrix-row pattern-matrix-header"><span>PAD</span>{pageSteps.map((stepIndex) => <span className={`${playingStep === stepIndex ? 'pattern-step-playing' : ''} ${isDimBeatGroup(stepIndex) ? 'pattern-step-beat-dim' : ''}`} key={stepIndex}>{sectionStartStep + stepIndex + 1}</span>)}</div>
       {pads.map((pad) => {
         const steps = pattern[pad.id]
         const owners = getStepEventOwners(steps, lengths[pad.id])
@@ -333,7 +338,7 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
                 key={stepIndex}
                 className={className}
                 type="button"
-                aria-label={`${pad.label}, step ${stepIndex + 1}, ${headIndex !== null ? 'active' : 'empty'}`}
+                aria-label={`${pad.label}, step ${sectionStartStep + stepIndex + 1}, ${headIndex !== null ? 'active' : 'empty'}`}
                 aria-pressed={headIndex !== null}
                 data-sequencer-step
                 data-pad-id={pad.id}
@@ -356,6 +361,7 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
 interface StepTenantProps {
   pad: Pick<PadState, 'id' | 'label'>
   stepIndex: number
+  displayStepNumber: number
   velocity: number
   shift: number
   length: number
@@ -367,12 +373,12 @@ interface StepTenantProps {
   onShiftPointerDown: (event: ReactPointerEvent<HTMLInputElement>) => void
 }
 
-function stepTenant({ pad, stepIndex, velocity, shift, length, onVelocityChange, onShiftChange, onVelocityPointerDown, onShiftPointerDown }: StepTenantProps): DisplayTenant {
+function stepTenant({ pad, stepIndex, displayStepNumber, velocity, shift, length, onVelocityChange, onShiftChange, onVelocityPointerDown, onShiftPointerDown }: StepTenantProps): DisplayTenant {
   const lengthLabel = length > 0 ? `${length} STEP${length === 1 ? '' : 'S'}` : 'FULL'
   return {
     id: displayId,
-    label: `${pad.label}, step ${stepIndex + 1}`,
-    readout: `SEQ / ${pad.label} / STEP ${stepIndex + 1} / ${Math.round(velocity * 100)}% / ${lengthLabel}`,
+    label: `${pad.label}, step ${displayStepNumber}`,
+    readout: `SEQ / ${pad.label} / STEP ${displayStepNumber} / ${Math.round(velocity * 100)}% / ${lengthLabel}`,
     panel: <>
       <label className="display-param" htmlFor="seq-step-velocity">
         <span className="display-param-label">VELOCITY</span>
@@ -386,4 +392,8 @@ function stepTenant({ pad, stepIndex, velocity, shift, length, onVelocityChange,
       </label>
     </>,
   }
+}
+
+function formatStepRange(start: number, end: number): string {
+  return `${String(start).padStart(2, '0')}-${String(end).padStart(2, '0')}`
 }

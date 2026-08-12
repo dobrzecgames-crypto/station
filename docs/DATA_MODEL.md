@@ -127,11 +127,11 @@ For a non-looped clip `lengthBeats` tracks the source region's natural (rate-1) 
 
 ### Pattern Group and variants
 
-A Pattern Group is one musical idea. It owns one private 16-pad bank and has an always-present A variant with optional B, C and D variants. Each existing variant is a complete 16-pad, 16-step pattern with velocity, SHIFT and an event-span value for each step. An ordinary active step has a span of one. Explicitly merging a contiguous active run stores the run length on its first step; the following active cells remain visible length cells but do not trigger. SHIFT is constrained to −50% through +50% of one 16th-note duration. Creating a variation copies steps, velocity, SHIFT and event spans only; it never copies or changes the group's bank. The A–D limit is intentional.
+A Pattern Group is one musical idea. It owns one private 16-pad bank and has an always-present 16-step A section with optional consecutive B, C and D sections. The persisted fields retain the historical `variants` name, but PATTERN transport treats them as one 16/32/48/64-step chain. Each section stores velocity, SHIFT and an event-span value for every pad and local step. An ordinary active step has a span of one. Explicitly merging a contiguous active run stores the run length on its first step; the following active cells remain visible length cells but do not trigger. SHIFT is constrained to −50% through +50% of one 16th-note duration. Creating or duplicating a section changes sequencer data only; it never copies or changes the group's bank. The A–D/64-step limit is intentional.
 
 ### Pattern Clip / Playlist
 
-A Pattern Clip contains `patternGroupId`, `variant` and a positive `startSlot`. One slot always means one 16-step pass. Clips point to the live variant data rather than copying it, and any number of clips may share a slot. The Playlist grows with its clips and has no user-visible short length cap. It is not a general DAW timeline: clips cannot be stretched, cut, audio-based or automated.
+A Pattern Clip contains `patternGroupId`, the historically named `variant` field identifying one A–D section, and a positive `startSlot`. One slot always means one 16-step section pass. Clips point to the live section data rather than copying it, and any number of clips may share a slot. The Playlist grows with its clips and has no user-visible short length cap. It is not a general DAW timeline: clips cannot be stretched, cut, audio-based or automated.
 
 ### StepEvent
 
@@ -215,7 +215,7 @@ The already-written schema-v1 manifest remains compatible with pre-Project-Key s
 
 - Exactly one 16-pad bank per Pattern Group.
 - One to eight Pattern Groups, each with A and optional B–D variants.
-- Exactly 16 steps.
+- Pattern lengths of exactly 16, 32, 48 or 64 steps, stored as A–D 16-step sections.
 - One track associated with each pad.
 - WAV is the only guaranteed import format.
 

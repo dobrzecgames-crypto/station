@@ -150,7 +150,7 @@ The visual playhead may use animation frames, but it reads transport position; i
 
 ## Current scheduler and transport status
 
-The current implementation schedules all loaded pad tracks against one 16-step timeline, not only the selected pad. It wakes every 25 ms and uses a 100 ms look-ahead window; each voice receives an absolute AudioContext.currentTime timestamp.
+The current implementation schedules all loaded pad tracks against the selected Pattern Group's complete A–D section chain: 16, 32, 48 or 64 steps. Each section remains a local 16-step scheduler page, and the audio-clock scheduler advances or loops the section index only at its boundary. It wakes every 25 ms and uses a 100 ms look-ahead window; each voice receives an absolute AudioContext.currentTime timestamp.
 
 Transport STOP cancels further scheduling and stops voices created by the sequencer. Manual pad voices and source-preview voices remain separate; source preview has its own STOP SOURCE control. The engine reports a suspended or interrupted context to the UI, which stops the transport and its voices. After an explicit initial START AUDIO, it requests a resume when the page becomes visible again and retries from the next pointer or keyboard gesture when browser policy requires fresh interaction. START AUDIO remains the explicit fallback. Suspend/resume and timing behavior still require acceptance testing in current Chrome and Edge, and interruption recovery requires a real iPhone Safari check.
 

@@ -50,8 +50,12 @@ import { ChordPriority } from './music/chordPriority'
 import { findProjectScaleMapConflicts, mapPadBankToProjectScale } from './music/scaleMapping'
 import { projectRepository } from './storage/ProjectRepository'
 import { defaultProjectId } from './storage/storageTypes'
-import { addPatternGroup, clearVariant, createInitialPatternGroups, duplicateVariant, getVariant, getVariantLengths, getVariantShifts, paintVariantStepSpan, patternStepCount, recordVariantStep, renamePatternGroup, repairPatternGroupChords, setPatternGroupChordAssignment, setPatternGroupPadMode, setVariantStepPresence, setVariantStepShift, setVariantStepVelocity } from './patterns/patternOperations'
+import { addPatternGroup, clearVariant, createInitialPatternGroups, duplicateVariant, getVariant, getVariantLengths, getVariantShifts, paintVariantStepSpan, patternStepCount, renamePatternGroup, repairPatternGroupChords, setPatternGroupChordAssignment, setPatternGroupPadMode, setVariantStepPresence, setVariantStepShift, setVariantStepVelocity } from './patterns/patternOperations'
+import { patternVariantNames } from './patterns/patternTypes'
 import type { PadMode, PatternGroup, PatternVariantName } from './patterns/patternTypes'
+import { applyPatternTakeHit, commitPatternTake, createPatternTake, getPatternLengthSteps, getPatternSectionCount, patternVariantForSection, restorePatternSequence } from './patterns/patternRecording'
+import type { PatternRecordingMode, PatternTake } from './patterns/patternRecording'
+import { usePatternTakeHistory } from './patterns/usePatternTakeHistory'
 import { addPatternClip, getLastOccupiedSlot, removeClipsForGroup, removeClipsForVariant, removePatternClip } from './song/songOperations'
 import type { PatternClip, TransportMode } from './song/songTypes'
 import { getPatternTracks, getSongTracksForSlot } from './song/songTracks'
@@ -103,9 +107,10 @@ interface AppProps { audioEngine: AudioEngine }
 interface FxContext { scope: 'group' | 'track' | 'master'; slotIndex: 0 | 1 }
 interface PendingConfirmation { message: string; confirmLabel: string; onConfirm: () => void }
 interface WaveformPlayback { assetId: SampleAssetId; startedAt: number; startSeconds: number; endSeconds: number }
-interface SequencerPlayhead { stepIndex: number; startsAt: number; durationSeconds: number }
+interface SequencerPlayhead { stepIndex: number; sectionIndex: number; startsAt: number; durationSeconds: number }
 /** Anchor for quantizing a live pad hit to the nearest step - refreshed every time step 0 of a loop is scheduled. */
-interface RecordingGrid { startsAt: number; stepDurationSeconds: number }
+interface RecordingGrid { startsAt: number; stepDurationSeconds: number; sectionIndex: number }
+interface RecordingTakeClock { startsAt: number; stepDurationSeconds: number }
 
 const emptySongPlaylistNotice = 'Add at least one Pattern Clip before playing SONG.'
 
@@ -211,6 +216,7 @@ export function App({ audioEngine }: AppProps) {
       while mainView === 'tracks' - this hook itself never changes tabs. */
   const tracksLayoutMode = useTracksLayoutMode()
   const tracksHistory = useTracksHistory()
+  const patternTakeHistory = usePatternTakeHistory()
   /** Always-current mirror of audioTracks, assigned fresh every render (same
       shape as sequenceConfigRef/tracksSchedulerConfigRef below) - lets
       updateAudioTracks read the latest value imperatively without a nested
@@ -219,6 +225,8 @@ export function App({ audioEngine }: AppProps) {
       phase instead of a plain event-handler call). */
   const audioTracksRef = useRef(audioTracks)
   audioTracksRef.current = audioTracks
+  const patternGroupsRef = useRef(patternGroups)
+  patternGroupsRef.current = patternGroups
   const [transportMode, setTransportMode] = useState<TransportMode>('pattern')
   const [loopSong, setLoopSong] = useState(false)
   const [metronomeEnabled, setMetronomeEnabled] = useState(false)
@@ -226,6 +234,7 @@ export function App({ audioEngine }: AppProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [recording, setRecording] = useState(false)
   const [countingIn, setCountingIn] = useState(false)
+  const [patternRecordingMode, setPatternRecordingMode] = useState<PatternRecordingMode>('overdub')
   const [pumpRoutes, setPumpRoutes] = useState<PumpRoute[]>([])
   const [waveforms, setWaveforms] = useState<Record<string, number[]>>({})
   const [chopAddingSlice, setChopAddingSlice] = useState(false)
@@ -258,6 +267,8 @@ export function App({ audioEngine }: AppProps) {
       spot instead of resetting it. */
   const tracksPlaybackAnchorRef = useRef<{ startBeat: number; startedAt: number } | null>(null)
   const recordingGridRef = useRef<RecordingGrid | null>(null)
+  const recordingTakeRef = useRef<PatternTake | null>(null)
+  const recordingTakeClockRef = useRef<RecordingTakeClock | null>(null)
   /** Set right before a count-in's `start()` call, consumed by the first `onStepScheduled(0, ...)` that follows - the signal that recording should actually arm now that step 0 is truly about to sound. While it is set, the count-in is still running. */
   const pendingRecordingStartRef = useRef(false)
   /* Whether a hit should be captured, held in a ref rather than read off `recording`.
@@ -294,7 +305,8 @@ export function App({ audioEngine }: AppProps) {
   const waveformPlayheadSeconds = waveformPlayback && visualAudioTime >= waveformPlayback.startedAt && visualAudioTime <= waveformPlayback.startedAt + waveformPlayback.endSeconds - waveformPlayback.startSeconds
     ? waveformPlayback.startSeconds + visualAudioTime - waveformPlayback.startedAt
     : null
-  const playingStep = sequencerPlayhead && visualAudioTime >= sequencerPlayhead.startsAt && visualAudioTime < sequencerPlayhead.startsAt + sequencerPlayhead.durationSeconds
+  const selectedPatternSectionIndex = patternVariantNames.indexOf(selectedPatternVariant)
+  const playingStep = sequencerPlayhead && sequencerPlayhead.sectionIndex === selectedPatternSectionIndex && visualAudioTime >= sequencerPlayhead.startsAt && visualAudioTime < sequencerPlayhead.startsAt + sequencerPlayhead.durationSeconds
     ? sequencerPlayhead.stepIndex
     : null
   const selectedChordAssignment = selectedGroup.padMode === 'chords' ? selectedGroup.chordAssignments[pads.indexOf(selectedPad)] : null
@@ -401,6 +413,15 @@ export function App({ audioEngine }: AppProps) {
 
   const hasSampleAsset = (assetId: SampleAssetId) => audioEngine.hasSampleAsset(assetId)
 
+  const finishPatternTake = () => {
+    const take = recordingTakeRef.current
+    recordingTakeRef.current = null
+    recordingTakeClockRef.current = null
+    if (!take) return
+    const commit = commitPatternTake(patternGroupsRef.current, take)
+    if (commit) patternTakeHistory.record(commit)
+  }
+
   const sequenceConfigRef = useRef<StepSequencerConfig>({ bpm, swing, metronomeEnabled: false, mode: 'pattern', loopSong: false, lastSongSlot: null, getTracksForSlot: () => [] })
 
   sequenceConfigRef.current = {
@@ -416,14 +437,19 @@ export function App({ audioEngine }: AppProps) {
     mode: transportMode,
     loopSong,
     lastSongSlot: getLastOccupiedSlot(playlist),
+    getPatternSectionCount: () => {
+      const group = patternGroupsRef.current.find((candidate) => candidate.id === selectedPatternGroupId)
+      return group ? getPatternSectionCount(group) : 1
+    },
+    shouldAutoExtendPattern: () => Boolean(recordingArmedRef.current && recordingTakeRef.current?.autoExtend),
     getTracksForSlot: (slot) => transportMode === 'song'
-      ? getSongTracksForSlot(patternGroups, playlist, slot, hasSampleAsset, projectKey)
-      : getPatternTracks(patternGroups, selectedPatternGroupId, selectedPatternVariant, hasSampleAsset, projectKey),
+      ? getSongTracksForSlot(patternGroupsRef.current, playlist, slot, hasSampleAsset, projectKey)
+      : getPatternTracks(patternGroupsRef.current, selectedPatternGroupId, patternVariantForSection(slot - 1), hasSampleAsset, projectKey),
     onSongSlotChange: setPlayingSongSlot,
     onSongComplete: () => { setIsPlaying(false); setPlayingSongSlot(null); setSequencerPlayhead(null) },
-    onStepScheduled: (stepIndex, scheduledTime, durationSeconds) => {
+    onStepScheduled: (stepIndex, scheduledTime, durationSeconds, sectionIndex) => {
       if (stepIndex === 0) {
-        recordingGridRef.current = { startsAt: scheduledTime, stepDurationSeconds: durationSeconds }
+        recordingGridRef.current = { startsAt: scheduledTime, stepDurationSeconds: durationSeconds, sectionIndex }
         if (pendingRecordingStartRef.current) {
           pendingRecordingStartRef.current = false
           setIsPlaying(true)
@@ -431,7 +457,7 @@ export function App({ audioEngine }: AppProps) {
           setRecording(true)
         }
       }
-      setSequencerPlayhead({ stepIndex, startsAt: scheduledTime, durationSeconds })
+      setSequencerPlayhead({ stepIndex, sectionIndex, startsAt: scheduledTime, durationSeconds })
     },
   }
 
@@ -462,6 +488,7 @@ export function App({ audioEngine }: AppProps) {
     if ((status === 'suspended' || status === 'interrupted') && sequencerRef.current.isRunning()) {
       sequencerRef.current.stop()
       audioEngine.stopSequencerVoices()
+      finishPatternTake()
       recordingArmedRef.current = false
       pendingRecordingStartRef.current = false
       recordingGridRef.current = null
@@ -752,6 +779,8 @@ export function App({ audioEngine }: AppProps) {
       audioEngine.syncOrganicBassPatches(state.patternGroups.flatMap((group) => group.organicBassPatches.map((patch) => ({ groupId: group.id, patch }))))
       audioEngine.syncPolyPatches(state.patternGroups.flatMap((group) => group.polyPatches.map((patch) => ({ groupId: group.id, patch }))))
       audioEngine.setPumpRoutes(state.pumpRoutes.map((route) => ({ id: route.id, sourceChannelId: createChannelId(route.source), targetGroupId: route.targetGroupId, depth: route.depth, lengthSeconds: 60 / state.bpm * route.lengthBeats, curve: route.curve })))
+      patternTakeHistory.clear()
+      patternGroupsRef.current = state.patternGroups
       setPatternGroups(state.patternGroups)
       setSelectedPatternGroupId(state.selectedPatternGroupId)
       setSelectedPatternVariant(state.selectedPatternVariant)
@@ -1287,11 +1316,19 @@ export function App({ audioEngine }: AppProps) {
   const selectedPattern = getVariant(patternGroups, selectedPatternGroupId, selectedPatternVariant)!
   const selectedPatternShifts = getVariantShifts(patternGroups, selectedPatternGroupId, selectedPatternVariant)!
   const selectedPatternLengths = getVariantLengths(patternGroups, selectedPatternGroupId, selectedPatternVariant)!
-  const paintStep = (padId: PadState['id'], stepIndex: number, shouldExist: boolean) => setPatternGroups((current) => setVariantStepPresence(current, selectedPatternGroupId, selectedPatternVariant, padId, stepIndex, shouldExist))
-  const paintStepSpan = (padId: PadState['id'], anchorIndex: number, endIndex: number) => setPatternGroups((current) => paintVariantStepSpan(current, selectedPatternGroupId, selectedPatternVariant, padId, anchorIndex, endIndex))
+  const updatePatternSequenceManually = (updater: (current: PatternGroup[]) => PatternGroup[]) => {
+    patternTakeHistory.clear()
+    setPatternGroups((current) => {
+      const next = updater(current)
+      patternGroupsRef.current = next
+      return next
+    })
+  }
+  const paintStep = (padId: PadState['id'], stepIndex: number, shouldExist: boolean) => updatePatternSequenceManually((current) => setVariantStepPresence(current, selectedPatternGroupId, selectedPatternVariant, padId, stepIndex, shouldExist))
+  const paintStepSpan = (padId: PadState['id'], anchorIndex: number, endIndex: number) => updatePatternSequenceManually((current) => paintVariantStepSpan(current, selectedPatternGroupId, selectedPatternVariant, padId, anchorIndex, endIndex))
   const renameBank = (groupId: string, name: string) => setPatternGroups((current) => renamePatternGroup(current, groupId, name))
-  const setStepVelocity = (padId: PadState['id'], stepIndex: number, velocity: number) => setPatternGroups((current) => setVariantStepVelocity(current, selectedPatternGroupId, selectedPatternVariant, padId, stepIndex, velocity))
-  const setStepShift = (padId: PadState['id'], stepIndex: number, shift: number) => setPatternGroups((current) => setVariantStepShift(current, selectedPatternGroupId, selectedPatternVariant, padId, stepIndex, shift))
+  const setStepVelocity = (padId: PadState['id'], stepIndex: number, velocity: number) => updatePatternSequenceManually((current) => setVariantStepVelocity(current, selectedPatternGroupId, selectedPatternVariant, padId, stepIndex, velocity))
+  const setStepShift = (padId: PadState['id'], stepIndex: number, shift: number) => updatePatternSequenceManually((current) => setVariantStepShift(current, selectedPatternGroupId, selectedPatternVariant, padId, stepIndex, shift))
   /* Identity comes from the position in the list, not from the stored `name`.
      A group is called "Pattern 1" in saved projects, which is the word this UI
      now uses for the variants inside it - renaming the stored value would split
@@ -1299,6 +1336,7 @@ export function App({ audioEngine }: AppProps) {
   const bankNumber = (groupId: string) => patternGroups.findIndex((group) => group.id === groupId) + 1
   const createNewPatternGroup = () => {
     try {
+      patternTakeHistory.clear()
       const next = addPatternGroup(patternGroups, createPatternGroupId(), pads.map((pad) => pad.id))
       setPatternGroups(next)
       setSelectedPatternGroupId(next.at(-1)!.id)
@@ -1310,7 +1348,7 @@ export function App({ audioEngine }: AppProps) {
      creating one and clearing one are the same operation - the difference is
      only whether anything was there, and that decides whether we ask first. */
   const createPatternVariant = (variant: PatternVariantName) => {
-    setPatternGroups((current) => clearVariant(current, selectedPatternGroupId, variant, pads.map((pad) => pad.id)))
+    updatePatternSequenceManually((current) => clearVariant(current, selectedPatternGroupId, variant, pads.map((pad) => pad.id)))
     setSelectedPatternVariant(variant)
   }
   const duplicateCurrentVariant = (target: PatternVariantName, confirmed = false) => {
@@ -1320,7 +1358,7 @@ export function App({ audioEngine }: AppProps) {
       requestConfirmation(`Overwrite BANK ${bankNumber(group.id)} PATTERN ${target} with PATTERN ${selectedPatternVariant}? Its pattern data will be replaced.`, 'OVERWRITE', () => duplicateCurrentVariant(target, true))
       return
     }
-    try { setPatternGroups((current) => duplicateVariant(current, selectedPatternGroupId, selectedPatternVariant, target, exists)); setSelectedPatternVariant(target) } catch (error) { setErrorMessage(toMessage(error)) }
+    try { updatePatternSequenceManually((current) => duplicateVariant(current, selectedPatternGroupId, selectedPatternVariant, target, exists)); setSelectedPatternVariant(target) } catch (error) { setErrorMessage(toMessage(error)) }
   }
   const clearCurrentVariant = (confirmed = false) => {
     const group = patternGroups.find((item) => item.id === selectedPatternGroupId)!
@@ -1331,7 +1369,7 @@ export function App({ audioEngine }: AppProps) {
       requestConfirmation(warning, 'CLEAR', () => clearCurrentVariant(true))
       return
     }
-    setPatternGroups((current) => clearVariant(current, selectedPatternGroupId, selectedPatternVariant, pads.map((pad) => pad.id)))
+    updatePatternSequenceManually((current) => clearVariant(current, selectedPatternGroupId, selectedPatternVariant, pads.map((pad) => pad.id)))
     if (references.length > 0) setPlaylist((current) => removeClipsForVariant(current, group.id, selectedPatternVariant))
   }
   const deleteCurrentPatternGroup = (confirmed = false) => {
@@ -1343,12 +1381,33 @@ export function App({ audioEngine }: AppProps) {
       requestConfirmation(warning, 'DELETE', () => deleteCurrentPatternGroup(true))
       return
     }
+    patternTakeHistory.clear()
     const next = patternGroups.filter((item) => item.id !== group.id)
     setPatternGroups(next)
     setPlaylist((current) => removeClipsForGroup(current, group.id))
     setPumpRoutes((current) => current.filter((route) => route.source.patternGroupId !== group.id && route.targetGroupId !== group.id))
     for (const assetId of group.bank.pads.map((pad) => pad.assetId).concat(group.bank.chopSession.assetId ?? [])) removeAssetIfUnused(assetId, next)
     setSelectedPatternGroupId(next[0].id)
+    setSelectedPatternVariant('A')
+  }
+  const undoPatternTake = () => {
+    if (recording || countingIn) return
+    const commit = patternTakeHistory.undo()
+    if (!commit) return
+    const next = restorePatternSequence(patternGroupsRef.current, commit.groupId, commit.before)
+    patternGroupsRef.current = next
+    setPatternGroups(next)
+    setSelectedPatternGroupId(commit.groupId)
+    setSelectedPatternVariant('A')
+  }
+  const redoPatternTake = () => {
+    if (recording || countingIn) return
+    const commit = patternTakeHistory.redo()
+    if (!commit) return
+    const next = restorePatternSequence(patternGroupsRef.current, commit.groupId, commit.after)
+    patternGroupsRef.current = next
+    setPatternGroups(next)
+    setSelectedPatternGroupId(commit.groupId)
     setSelectedPatternVariant('A')
   }
   // paintPlaylistSlot with shouldExist:true covers what the old addPlaylistClip
@@ -1383,6 +1442,7 @@ export function App({ audioEngine }: AppProps) {
       setTracksPlayheadBeat(Math.max(0, anchor.startBeat + secondsToBeats(audioEngine.getCurrentTime() - anchor.startedAt, bpm)))
       tracksPlaybackAnchorRef.current = null
     }
+    finishPatternTake()
     recordingArmedRef.current = false
     pendingRecordingStartRef.current = false
     recordingGridRef.current = null
@@ -1617,23 +1677,27 @@ export function App({ audioEngine }: AppProps) {
       evictUnusedTrackAssets(nextTracks, new Set([clip.assetId]))
     })
   }
-  /* Quantizes a live pad hit onto the pattern grid rather than recording audio - the
-     step it lands on is whichever is nearest in real time to the loop's last step 0,
-     wrapped modulo patternStepCount so a hit just before the next downbeat still
-     resolves to the run-out step of the pattern that's actually playing. */
+  /* Quantizes live performance onto one take-relative grid. The take keeps its
+     unwrapped step distance, while the domain maps that distance onto the fixed
+     current length or the first take's A-D auto-extension path. */
   const recordPadHit = (padId: PadState['id'], atTime: number) => {
     if (!recordingArmedRef.current) return
-    const grid = recordingGridRef.current
-    if (!grid) return
-    const stepsFromZero = (atTime - grid.startsAt) / grid.stepDurationSeconds
+    const take = recordingTakeRef.current
+    const clock = recordingTakeClockRef.current
+    if (!take || !clock) return
+    const stepsFromOrigin = (atTime - clock.startsAt) / clock.stepDurationSeconds
     /* Still counting in: the grid points at a downbeat that has not arrived yet, so a
        hit lands here with a negative offset. Playing the downbeat a shade early is how
        people actually play it, and rounding already puts anything within half a step
        onto step 1 - only what falls further back is the player counting along rather
        than starting the take, and that is all this drops. */
-    if (pendingRecordingStartRef.current && stepsFromZero <= -0.5) return
-    const stepIndex = ((Math.round(stepsFromZero) % patternStepCount) + patternStepCount) % patternStepCount
-    setPatternGroups((groups) => recordVariantStep(groups, selectedPatternGroupId, selectedPatternVariant, padId, stepIndex))
+    if (pendingRecordingStartRef.current && stepsFromOrigin <= -0.5) return
+    const takeStepIndex = Math.round(stepsFromOrigin)
+    if (takeStepIndex < 0) return
+    const result = applyPatternTakeHit(patternGroupsRef.current, take, padId, takeStepIndex)
+    patternGroupsRef.current = result.groups
+    recordingTakeRef.current = result.take
+    setPatternGroups(result.groups)
   }
   /* Already playing: arm immediately, punch-in style - the grid is already live, no
      count-in needed. Stopped: count in one bar of always-audible clicks at the current
@@ -1641,7 +1705,20 @@ export function App({ audioEngine }: AppProps) {
      (see the StepSequencer.start `startAt` handoff above `sequenceConfigRef`). */
   const startRecording = () => {
     if (transportMode === 'song') return
-    if (isPlaying) { recordingArmedRef.current = true; setRecording(true); return }
+    if (isPlaying) {
+      const grid = recordingGridRef.current
+      const group = patternGroupsRef.current.find((candidate) => candidate.id === selectedPatternGroupId)
+      if (!grid || !group) return
+      const now = audioEngine.getCurrentTime()
+      const localStepOffset = Math.round((now - grid.startsAt) / grid.stepDurationSeconds)
+      const patternLength = getPatternLengthSteps(group)
+      const originPatternStep = ((grid.sectionIndex * patternStepCount + localStepOffset) % patternLength + patternLength) % patternLength
+      recordingTakeRef.current = createPatternTake(group, patternRecordingMode, originPatternStep)
+      recordingTakeClockRef.current = { startsAt: grid.startsAt + localStepOffset * grid.stepDurationSeconds, stepDurationSeconds: grid.stepDurationSeconds }
+      recordingArmedRef.current = true
+      setRecording(true)
+      return
+    }
     if (!audioReady) { setErrorMessage('Start audio before recording.'); return }
     if (sequenceConfigRef.current.getTracksForSlot(1).length === 0 && !pads.some((pad) => (pad.assetId && audioEngine.hasSampleAsset(pad.assetId)) || pad.synthPatchId || pad.stringsPatchId || pad.organicBassPatchId || pad.polyPatchId) && !metronomeEnabled) { setErrorMessage('Load a sample or create a synth patch first.'); return }
     const beatSeconds = 60 / bpm
@@ -1651,7 +1728,10 @@ export function App({ audioEngine }: AppProps) {
     /* The downbeat's timestamp is known the moment the count-in is scheduled, so the
        grid is published now rather than when step 0 comes round. That is what lets a
        hit played fractionally ahead of the beat still find a step to land on. */
-    recordingGridRef.current = { startsAt, stepDurationSeconds: beatSeconds / 4 }
+    const stepDurationSeconds = beatSeconds / 4
+    recordingGridRef.current = { startsAt, stepDurationSeconds, sectionIndex: 0 }
+    recordingTakeRef.current = createPatternTake(patternGroupsRef.current.find((candidate) => candidate.id === selectedPatternGroupId)!, patternRecordingMode, 0)
+    recordingTakeClockRef.current = { startsAt, stepDurationSeconds }
     recordingArmedRef.current = true
     pendingRecordingStartRef.current = true
     setCountingIn(true)
@@ -1661,6 +1741,7 @@ export function App({ audioEngine }: AppProps) {
      outright. Mid recording, playback keeps going - this is a punch-out, not a stop. */
   const stopRecording = () => {
     recordingArmedRef.current = false
+    finishPatternTake()
     if (countingIn) {
       sequencerRef.current.stop()
       pendingRecordingStartRef.current = false
@@ -1688,6 +1769,7 @@ export function App({ audioEngine }: AppProps) {
   const selectedPumpSourcePadIds = pumpRoutes.filter((route) => route.source.patternGroupId === selectedPatternGroupId).map((route) => route.source.padId)
   const selectPatternGroup = (groupId: string) => {
     if (groupId === selectedPatternGroupId) return
+    if (recording || countingIn) stopRecording()
     audioEngine.stopManualVoices()
     chordPriorityRef.current.clear()
     audioEngine.stopPreview()
@@ -1851,6 +1933,9 @@ export function App({ audioEngine }: AppProps) {
               isPlaying={isPlaying}
               recording={recording}
               countingIn={countingIn}
+              recordingMode={patternRecordingMode}
+              canUndoTake={patternTakeHistory.canUndo}
+              canRedoTake={patternTakeHistory.canRedo}
               mode={transportMode}
               loopSong={loopSong}
               metronomeEnabled={metronomeEnabled}
@@ -1871,6 +1956,9 @@ export function App({ audioEngine }: AppProps) {
               onSwingChange={setSwing}
               onModeChange={changeTransportMode}
               onRecordToggle={toggleRecording}
+              onRecordingModeChange={setPatternRecordingMode}
+              onUndoTake={undoPatternTake}
+              onRedoTake={redoPatternTake}
               onLoopSongChange={setLoopSong}
               onMetronomeEnabledChange={setMetronomeEnabled}
               onGroupChange={selectPatternGroup}

@@ -12,8 +12,12 @@ export interface StepSequencerConfig {
   mode: 'pattern' | 'song'
   loopSong: boolean
   lastSongSlot: number | null
+  /** PATTERN mode walks the existing 16-step A-D sections in order. */
+  getPatternSectionCount?: () => number
+  /** A first take may continue through all four sections before they exist. */
+  shouldAutoExtendPattern?: () => boolean
   getTracksForSlot: (slot: number) => readonly StepSequencerTrack[]
-  onStepScheduled?: (stepIndex: number, scheduledTime: number, durationSeconds: number) => void
+  onStepScheduled?: (stepIndex: number, scheduledTime: number, durationSeconds: number, patternSectionIndex: number) => void
   onSongSlotChange?: (slot: number) => void
   onSongComplete?: () => void
 }
@@ -118,6 +122,7 @@ export class StepSequencer {
   private nextStepTime = 0
   private nextStepIndex = 0
   private currentSongSlot = 1
+  private currentPatternSection = 0
   private running = false
   private readonly audioEngine: AudioEngine
   private readonly ticker: SequencerTicker
@@ -139,6 +144,7 @@ export class StepSequencer {
     this.running = true
     this.nextStepIndex = 0
     this.currentSongSlot = 1
+    this.currentPatternSection = 0
     this.nextStepTime = startAt
     this.schedule(getConfig)
   }
@@ -157,14 +163,15 @@ export class StepSequencer {
     const stepDuration = 60 / config.bpm / 4
     if (this.nextStepTime < now - this.lookAheadSeconds) {
       this.nextStepIndex = 0
+      this.currentPatternSection = 0
       this.nextStepTime = now
     }
     while (this.nextStepTime < now + this.lookAheadSeconds) {
       const scheduledTime = this.nextStepTime + (this.nextStepIndex % 2 === 1 ? stepDuration * config.swing * 0.5 : 0)
-      config.onStepScheduled?.(this.nextStepIndex, scheduledTime, stepDuration)
+      config.onStepScheduled?.(this.nextStepIndex, scheduledTime, stepDuration, this.currentPatternSection)
       if (config.metronomeEnabled && this.nextStepIndex % 4 === 0) this.audioEngine.scheduleMetronome(scheduledTime, this.nextStepIndex === 0)
       if (config.mode === 'song' && this.nextStepIndex === 0) config.onSongSlotChange?.(this.currentSongSlot)
-      const tracks = config.getTracksForSlot(config.mode === 'song' ? this.currentSongSlot : 1)
+      const tracks = config.getTracksForSlot(config.mode === 'song' ? this.currentSongSlot : this.currentPatternSection + 1)
       const activeTracks = tracks.flatMap((track) => {
         const velocity = track.steps[this.nextStepIndex]
         if (velocity <= 0) return []
@@ -208,6 +215,11 @@ export class StepSequencer {
       const wasLastStep = this.nextStepIndex === 15
       this.nextStepIndex = (this.nextStepIndex + 1) % 16
       this.nextStepTime += stepDuration
+      if (config.mode === 'pattern' && wasLastStep) {
+        const requestedSectionCount = config.shouldAutoExtendPattern?.() ? 4 : config.getPatternSectionCount?.() ?? 1
+        const sectionCount = Math.min(4, Math.max(1, Math.floor(requestedSectionCount)))
+        this.currentPatternSection = (this.currentPatternSection + 1) % sectionCount
+      }
       if (config.mode === 'song' && wasLastStep) {
         if (config.lastSongSlot === null || this.currentSongSlot >= config.lastSongSlot) {
           if (config.loopSong && config.lastSongSlot !== null) this.currentSongSlot = 1

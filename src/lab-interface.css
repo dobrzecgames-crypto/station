@@ -1046,6 +1046,7 @@ input[type="text"], input[type="number"], select, textarea {
   grid-template-columns: 56px repeat(3, 42px) minmax(0, 1fr);
   grid-template-areas:
     'power play stop record modes'
+    'workflow workflow workflow workflow workflow'
     'display display display display display';
   align-items: center;
   gap: 6px;
@@ -1067,6 +1068,22 @@ input[type="text"], input[type="number"], select, textarea {
 .station-shell .transport-controls .transport-modes .mixer-toggle {
   min-width: 0;
   padding: 0 4px;
+  white-space: nowrap;
+}
+.station-shell .recording-workflow {
+  grid-area: workflow;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) repeat(2, minmax(64px, 1fr));
+  gap: 4px;
+}
+.station-shell .recording-mode-selector {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+.station-shell .recording-workflow .mixer-toggle {
+  min-width: 0;
+  padding-inline: 6px;
   white-space: nowrap;
 }
 .station-shell .transport-controls .system-display { grid-area: display; }

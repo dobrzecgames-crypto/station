@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { patternVariantNames, maximumPatternGroups } from '../patterns/patternTypes'
 import type { PatternGroup, PatternVariantName } from '../patterns/patternTypes'
+import type { PatternRecordingMode } from '../patterns/patternRecording'
 import { SystemDisplay } from './SystemDisplay'
 import type { DisplayTenant } from './SystemDisplay'
 import { BankSelect } from './BankSelect'
@@ -15,6 +16,9 @@ interface TransportBarProps {
   recording: boolean
   /** The four metronome clicks before recording arms. Nothing is written yet. */
   countingIn: boolean
+  recordingMode: PatternRecordingMode
+  canUndoTake: boolean
+  canRedoTake: boolean
   mode: 'pattern' | 'song'
   loopSong: boolean
   metronomeEnabled: boolean
@@ -45,6 +49,9 @@ interface TransportBarProps {
   onMetronomeEnabledChange: (enabled: boolean) => void
   /** Starts the count-in, punches in on a running transport, or punches out. */
   onRecordToggle: () => void
+  onRecordingModeChange: (mode: PatternRecordingMode) => void
+  onUndoTake: () => void
+  onRedoTake: () => void
   onGroupChange: (groupId: string) => void
   onGroupRename: (groupId: string, name: string) => void
   onVariantChange: (variant: PatternVariantName) => void
@@ -61,7 +68,7 @@ interface TransportBarProps {
   onStop: () => void
 }
 
-export function TransportBar({ bpm, swing, isPlaying, recording, countingIn, mode, loopSong, metronomeEnabled, settingsOpen, onSettingsOpenChange, groups, selectedGroupId, selectedVariant, statusMessage, errorMessage, focusReadout, displayOwner, audioStatus, audioDisabled, controlsAwake, onStartAudio, onBpmChange, onSwingChange, onModeChange, onLoopSongChange, onMetronomeEnabledChange, onRecordToggle, onGroupChange, onGroupRename, onVariantChange, onGroupCreate, onVariantCreate, onGroupDelete, projectControl, onPlay, onStop }: TransportBarProps) {
+export function TransportBar({ bpm, swing, isPlaying, recording, countingIn, recordingMode, canUndoTake, canRedoTake, mode, loopSong, metronomeEnabled, settingsOpen, onSettingsOpenChange, groups, selectedGroupId, selectedVariant, statusMessage, errorMessage, focusReadout, displayOwner, audioStatus, audioDisabled, controlsAwake, onStartAudio, onBpmChange, onSwingChange, onModeChange, onLoopSongChange, onMetronomeEnabledChange, onRecordToggle, onRecordingModeChange, onUndoTake, onRedoTake, onGroupChange, onGroupRename, onVariantChange, onGroupCreate, onVariantCreate, onGroupDelete, projectControl, onPlay, onStop }: TransportBarProps) {
   const groupIndex = groups.findIndex((group) => group.id === selectedGroupId)
   const selectedGroup = groups[groupIndex]
   const audioRecovering = audioStatus === 'suspended' || audioStatus === 'interrupted'
@@ -102,6 +109,14 @@ export function TransportBar({ bpm, swing, isPlaying, recording, countingIn, mod
         onClick={onRecordToggle}
       />
       <div className="transport-modes" aria-label="Transport mode"><button className={mode === 'pattern' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" disabled={!controlsAwake} onClick={() => onModeChange('pattern')}>PATTERN</button><button className={mode === 'song' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" disabled={!controlsAwake} onClick={() => onModeChange('song')}>SONG</button></div>
+      <div className="recording-workflow" aria-label="Pattern recording workflow">
+        <div className="recording-mode-selector" role="group" aria-label="Recording mode">
+          <button className={recordingMode === 'overdub' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" aria-pressed={recordingMode === 'overdub'} disabled={!controlsAwake || recording || countingIn} onClick={() => onRecordingModeChange('overdub')}>OVERDUB</button>
+          <button className={recordingMode === 'replace' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" aria-pressed={recordingMode === 'replace'} disabled={!controlsAwake || recording || countingIn} onClick={() => onRecordingModeChange('replace')}>REPLACE</button>
+        </div>
+        <button className="mixer-toggle take-history-button" type="button" disabled={!controlsAwake || recording || countingIn || !canUndoTake} onClick={onUndoTake}>UNDO</button>
+        <button className="mixer-toggle take-history-button" type="button" disabled={!controlsAwake || recording || countingIn || !canRedoTake} onClick={onRedoTake}>REDO</button>
+      </div>
       {/* The system display. Every message in the app lands here rather than in
           whichever panel raised it, so there is one place to look. The panel is
           a slot, and tempo is only its floor: any context can claim it, and

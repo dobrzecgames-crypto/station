@@ -60,11 +60,11 @@ export function PolyWorkspace(props: Props) {
     change({ modulation })
   }
 
-  return <section className="poly-workspace" aria-label={`POLY editor for ${props.pad.label}`}>
+  return <section className="poly-workspace" aria-label={`ZOLA-X editor for ${props.pad.label}`}>
     <div className="poly-back-row"><button className="mixer-toggle" type="button" onClick={props.onBack}>← BACK TO SYNTHS</button></div>
     <header className="poly-heading">
-      <div><p className="eyebrow">POLY / {props.pad.label}</p><h2>{patch.name}</h2><p>{props.usageCount} PADS SHARE PATCH / 8 VOICES</p></div>
-      <button className="poly-audition" type="button" disabled={!props.audioReady} aria-label="Hold to play POLY" onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); props.onTrigger() }} onPointerUp={props.onRelease} onPointerCancel={props.onRelease} onLostPointerCapture={props.onRelease} />
+      <div><p className="eyebrow">ZOLA-X / {props.pad.label}</p><h2>{patch.name}</h2><p>{props.usageCount} PADS SHARE PATCH / 8 VOICES</p></div>
+      <button className="poly-audition" type="button" disabled={!props.audioReady} aria-label="Hold to play ZOLA-X" onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); props.onTrigger() }} onPointerUp={props.onRelease} onPointerCancel={props.onRelease} onLostPointerCapture={props.onRelease} />
     </header>
 
     <label className="poly-preset"><span>STARTING PATCH</span><select value={polyFactoryPatches.find((item) => item.name === patch.name)?.id ?? ''} onChange={(event) => props.onPatchChange(applyPolyFactoryPatch(patch, event.target.value))}><option value="" disabled>CUSTOM</option>{polyFactoryPatches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>

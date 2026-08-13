@@ -904,7 +904,7 @@ export function App({ audioEngine }: AppProps) {
     const targetPad = pads.find((pad) => pad.id === targetPadId)
     if (!targetPad) return false
     if ((targetPad.synthPatchId || targetPad.stringsPatchId || targetPad.organicBassPatchId || targetPad.polyPatchId) && !confirmed) {
-      const sourceName = targetPad.polyPatchId ? 'POLY' : targetPad.organicBassPatchId ? 'MONOGORG' : targetPad.stringsPatchId ? 'STRINGS' : 'MONOPOLY'
+      const sourceName = targetPad.polyPatchId ? 'ZOLA-X' : targetPad.organicBassPatchId ? 'MONOGORG' : targetPad.stringsPatchId ? 'STRINGS' : 'BASSIC'
       requestConfirmation(`Replace the ${sourceName} source on ${targetPad.label} with ${sample.filename}?`, 'REPLACE', () => {
         void loadLibrarySample(sample, targetPadId, true).then((loaded) => {
           if (loaded) setSelectedLibrarySample(null)
@@ -1794,7 +1794,7 @@ export function App({ audioEngine }: AppProps) {
      narrower parameter type here makes routing it through the pattern-group-
      creating flow a compile error rather than a behaviour to remember. */
   const requestOpenInstrumentOnNewPattern = (instrument: Exclude<SynthPickerInstrument, 'drumsynth'>) => {
-    const label = instrument === 'monopoly' ? 'MONOPOLY' : instrument === 'organicbass' ? 'MONOGORG' : instrument === 'poly' ? 'POLY' : 'STRINGS'
+    const label = instrument === 'monopoly' ? 'BASSIC' : instrument === 'organicbass' ? 'MONOGORG' : instrument === 'poly' ? 'ZOLA-X' : 'STRINGS'
     requestConfirmation(`Open ${label} on a new pattern? This creates a new Bank with PATTERN A - your current pattern stays untouched.`, 'OPEN ON NEW PATTERN', () => openInstrumentOnNewPattern(instrument))
   }
   const selectSynthInstrument = (instrument: SynthPickerInstrument) => {
@@ -1865,7 +1865,7 @@ export function App({ audioEngine }: AppProps) {
     setSelectedPatternVariant('A')
     setSelectedPadId(targetPadId)
     setSynthPickerForced(false)
-    const label = instrument === 'monopoly' ? 'MONOPOLY' : instrument === 'organicbass' ? 'MONOGORG' : instrument === 'poly' ? 'POLY' : 'STRINGS'
+    const label = instrument === 'monopoly' ? 'BASSIC' : instrument === 'organicbass' ? 'MONOGORG' : instrument === 'poly' ? 'ZOLA-X' : 'STRINGS'
     setProjectMessage(mappedPadCount > 1 ? `${label} created and mapped across ${mappedPadCount} pads.` : `${label} created on a new pattern.`)
     enterMainView('synth')
   }

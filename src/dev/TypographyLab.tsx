@@ -146,7 +146,7 @@ export function TypographyLab() {
 
           <p className="type-lab-specimens-heading">STATION <span>(most are also live elsewhere on screen)</span></p>
           <div className="type-lab-specimen-line">
-            {['PROJECT', 'BANK', 'PAT', 'MONOGORG', 'MONOPOLY', 'STRINGS'].map((word) => <Specimen key={word} role="station" text={word} />)}
+            {['PROJECT', 'BANK', 'PAT', 'MONOGORG', 'BASSIC', 'STRINGS'].map((word) => <Specimen key={word} role="station" text={word} />)}
           </div>
           <div className="type-lab-specimen-line">
             <Specimen role="station" text="FILTER" sample />

@@ -8,7 +8,7 @@ export const minimumChordInterval = -24
 export const maximumChordInterval = 24
 export const maximumSynthVoices = 5
 
-export function createDefaultSynthPatch(id: SynthPatchId, name = 'MONOPOLY'): SynthPatch {
+export function createDefaultSynthPatch(id: SynthPatchId, name = 'BASSIC'): SynthPatch {
   return {
     id,
     name,

@@ -30,7 +30,7 @@ export function SynthWorkspace(props: SynthWorkspaceProps) {
 
   if (!patch) return null
 
-  const patchName = patch.name === 'MONO-3' ? 'MONOPOLY' : patch.name
+  const patchName = patch.name === 'MONO-3' || patch.name === 'MONOPOLY' ? 'BASSIC' : patch.name
   const change = (changes: Partial<SynthPatch>) => props.onPatchChange({ ...patch, ...changes })
   const changeOscillator = (key: 'oscillator1' | 'oscillator2', changes: Partial<SynthPatch['oscillator1']>) => {
     change({ [key]: { ...patch[key], ...changes } })
@@ -51,13 +51,13 @@ export function SynthWorkspace(props: SynthWorkspaceProps) {
       onClear={props.onClear}
     />
 
-    <section className="synth-workspace" aria-label={`MONOPOLY editor for ${pad.label}`}>
+    <section className="synth-workspace" aria-label={`BASSIC editor for ${pad.label}`}>
       <div className="synth-back-row">
         <button className="mixer-toggle" type="button" onClick={props.onBack}>← BACK TO SYNTHS</button>
       </div>
       <header className="synth-heading">
         <div>
-          <p className="eyebrow">MONOPOLY / {pad.label}</p>
+          <p className="eyebrow">BASSIC / {pad.label}</p>
           <h2>{patchName}</h2>
           <p>{props.usageCount} PAD{props.usageCount === 1 ? '' : 'S'} SHARE PATCH</p>
         </div>

@@ -55,9 +55,14 @@ export function Pad({
   const isStrings = pad.stringsPatchId !== null
   const isOrganicBass = pad.organicBassPatchId !== null
   const isPoly = pad.polyPatchId !== null
-  const isLoaded = pad.fileName !== null || isSynth || isStrings || isOrganicBass || isPoly
-  const sourceLabel = isSynth ? 'MONOPOLY' : isStrings ? 'STRINGS' : isOrganicBass ? 'MONOGORG' : isPoly ? 'POLY' : pad.fileName
-  const statusLabel = dropSampleName ? 'DROP' : isSynth || isStrings || isOrganicBass || isPoly ? (audioReady ? (isSynth ? 'SYNTH' : isStrings ? 'STRINGS' : isOrganicBass ? 'BASS' : 'POLY') : 'LOCKED') : isLoaded ? (audioReady ? 'READY' : 'LOCKED') : 'EMPTY'
+  const isInstrument = isSynth || isStrings || isOrganicBass || isPoly
+  const isLoaded = pad.fileName !== null || isInstrument
+  const sourceLabel = isSynth ? 'BASSIC' : isStrings ? 'STRINGS' : isOrganicBass ? 'MONOGORG' : isPoly ? 'ZOLA-X' : pad.fileName
+  // One line, not two: an instrument pad's name IS its status once loaded -
+  // "BASSIC" beats "BASSIC" over "SYNTH" for the same reason it beat "POLY"
+  // for ZOLA-X. Real sample pads still show their filename + READY/LOCKED,
+  // since those two lines actually say different things.
+  const statusLabel = dropSampleName ? 'DROP' : isInstrument ? (audioReady ? sourceLabel : 'LOCKED') : isLoaded ? (audioReady ? 'READY' : 'LOCKED') : 'EMPTY'
   const isPressed = isPointerPressed || isActivationKeyPressed || isKeyboardPressed
 
   const trigger = () => {
@@ -159,7 +164,7 @@ export function Pad({
       <span className="pad-number">{pad.label}</span>
       {chordName
         ? <span className="pad-file pad-chord-name" title={`${chordName} · ${chordRoot ?? ''}`}>{chordName}</span>
-        : isLoaded && <span className="pad-file" title={sourceLabel ?? undefined}>{sourceLabel}</span>}
+        : isLoaded && !isInstrument && <span className="pad-file" title={sourceLabel ?? undefined}>{sourceLabel}</span>}
       <span className="pad-footer">{chordName ? chordRoot : statusLabel}</span>
     </button>
   )

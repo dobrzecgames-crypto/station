@@ -7,10 +7,10 @@ interface SynthPickerProps {
 }
 
 const instruments: ReadonlyArray<{ id: SynthPickerInstrument; name: string; description: string }> = [
-  { id: 'monopoly', name: 'MONOPOLY', description: 'Monophonic bass, leads and short synth sounds.' },
+  { id: 'monopoly', name: 'BASSIC', description: 'Monophonic bass, leads and short synth sounds.' },
   { id: 'organicbass', name: 'MONOGORG', description: 'Dark, rounded mono bass for sampled beats.' },
   { id: 'strings', name: 'STRINGS', description: 'Polyphonic strings, pads and analog brass.' },
-  { id: 'poly', name: 'POLY', description: 'Modern polyphonic wavetable synthesizer.' },
+  { id: 'poly', name: 'ZOLA-X', description: 'Modern polyphonic wavetable synthesizer.' },
   { id: 'drumsynth', name: 'DRUM SYNTH', description: 'Synthesized kicks for electronic drum patterns.' },
 ]
 

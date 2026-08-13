@@ -299,7 +299,7 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
         const owners = getStepEventOwners(steps, lengths[pad.id])
         const selectedHeadIndex = editedStep.padId === pad.id ? getStepEventRange(steps, lengths[pad.id], editedStep.stepIndex)?.headIndex : undefined
         const padNumber = pad.label.replace(/^PAD\s+/, '')
-        const sourceLabel = pad.synthPatchId ? 'MONOPOLY' : pad.stringsPatchId ? 'STRINGS' : pad.organicBassPatchId ? 'MONOGORG' : pad.polyPatchId ? 'POLY' : pad.fileName ?? 'EMPTY'
+        const sourceLabel = pad.synthPatchId ? 'BASSIC' : pad.stringsPatchId ? 'STRINGS' : pad.organicBassPatchId ? 'MONOGORG' : pad.polyPatchId ? 'ZOLA-X' : pad.fileName ?? 'EMPTY'
         return <div className="pattern-matrix-row" key={pad.id}>
           <button
             className={pad.id === selectedPadId ? 'pattern-pad-label pattern-pad-selected' : 'pattern-pad-label'}

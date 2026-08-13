@@ -1032,13 +1032,24 @@ output { color: var(--station-text); }
   --mechanism-release-duration: var(--mechanism-pad-release-duration);
   --mechanism-ease: var(--mechanism-pad-ease);
   --mechanism-rest-shadow:
-    inset 0 0 0 1px rgb(255 239 220 / 3%),
-    inset 0 0 7px rgb(0 0 0 / 18%),
-    0 2px 3px rgb(0 0 0 / 34%);
+    inset 0 0 0 1px rgb(255 239 220 / 13%),
+    inset 0 0 10px rgb(0 0 0 / 32%),
+    0 2px 5px rgb(0 0 0 / 38%);
   --mechanism-engaged-shadow:
     inset 0 0 0 1px rgb(0 0 0 / 22%),
     inset 0 0 9px rgb(0 0 0 / 44%),
     0 1px 1px rgb(0 0 0 / 24%);
+  /* Convexity comes from a dead-centre radial highlight, not a directional
+     top-to-bottom gradient - that reads as a web button/skeuomorphic AI tell
+     the moment it has an obvious light side. A soft, symmetric centre-bright
+     is how a domed rubber pad looks under ambient (not single-source) light.
+     Three stops (not two) give the falloff a rounder profile - a bright
+     crown, a shoulder where the curve steepens, then the flat base tone -
+     closer to how a real dome actually shades than one smooth blend. */
+  --pad-face: radial-gradient(circle at 50% 50%,
+    color-mix(in srgb, var(--scene-control) 100%, #fff 17%) 0%,
+    color-mix(in srgb, var(--scene-control) 100%, #fff 7%) 42%,
+    var(--scene-control) 84%);
   --pad-underlight: var(--loaded-accent);
   position: relative;
   isolation: isolate;
@@ -1059,15 +1070,18 @@ output { color: var(--station-text); }
   flex-direction: column;
   justify-content: space-between;
   color: var(--station-text);
-  background: var(--scene-control);
+  background: var(--pad-face);
   box-shadow: var(--mechanism-rest-shadow);
   transform: translateY(0);
   text-align: left;
 }
 
-/* A hit briefly exposes the lamp beneath the rubber at its seam. The light is
-   kept inside the pad silhouette so it reads as old hardware under-lighting,
-   not as an external web-style glow. */
+/* A hit briefly exposes the lamp beneath the rubber, seen as a thin glow in
+   the gap running around the pad's whole base - not a seam at one edge. A
+   single non-offset inset shadow is symmetric on all four sides by
+   construction, so there is no accidentally-brighter side to fix by hand
+   (an earlier version built this from positioned ellipses and one side
+   always ended up reading stronger than the others). */
 .station-shell .pad[data-mechanism='pad']::after {
   content: '';
   position: absolute;
@@ -1075,18 +1089,14 @@ output { color: var(--station-text); }
   border-radius: inherit;
   pointer-events: none;
   opacity: 0;
-  background:
-    radial-gradient(ellipse 82% 24% at 50% 104%, color-mix(in srgb, var(--pad-underlight) 66%, transparent), transparent 72%),
-    radial-gradient(ellipse 18% 68% at -3% 54%, color-mix(in srgb, var(--pad-underlight) 34%, transparent), transparent 76%),
-    radial-gradient(ellipse 18% 68% at 103% 54%, color-mix(in srgb, var(--pad-underlight) 34%, transparent), transparent 76%);
-  box-shadow: inset 0 -7px 10px -9px color-mix(in srgb, var(--pad-underlight) 56%, transparent);
+  box-shadow: inset 0 0 7px 1px color-mix(in srgb, var(--pad-underlight) 55%, transparent);
 }
 
 /* Keep legacy workspace skins off the performance pads without turning the
    button itself into a transparent wrapper. */
 .station-shell[data-view] .pad[data-mechanism='pad'] {
   border: 1px solid var(--scene-line);
-  background: var(--scene-control);
+  background: var(--pad-face);
   box-shadow: var(--mechanism-rest-shadow);
 }
 
@@ -1097,16 +1107,26 @@ output { color: var(--station-text); }
   text-align: center;
 }
 
-/* Loaded, selected and playing are edge/light states. They never relight the
-   rubber surface itself. */
-.station-shell .pad[data-mechanism='pad'].pad-loaded {
-  border-color: var(--loaded-accent);
-}
+/* Loaded no longer tints the border. With every pad in a bank typically
+   loaded at once, a coloured ring on all sixteen did two things wrong: it
+   buried the one pad that's actually selected, and it put a bright colour
+   edge on every face, fighting the matte/rubber read the surface is going
+   for. Loaded is already unambiguous from the pad's own printed content
+   (name vs "EMPTY") - the border stays reserved for the one state that
+   needs to be found at a glance. */
 
-/* Selection stays on the pad's outer seam. An inset outline made the rubber
-   look like a second, smaller button nested inside the pad. */
+/* Selection stays on the pad's outer seam - now the only thing that puts
+   colour there, so it can't get lost among fifteen identically-tinted
+   loaded pads. An inset outline made the rubber look like a second,
+   smaller button nested inside the pad, which is why it lives on the
+   outer border instead. Mixed toward the dark neutral --scene-line (not
+   the bright --station-text) so it reads as a quiet warm cast on the
+   existing edge, not a lit-up ring. A synth patch shared across all 16
+   pads gives every pad identical text - the border is then the ONLY
+   differentiator, so it can't be tuned as quiet as it could when the
+   pad's own content (a filename, say) was doing some of that work too. */
 .station-shell .pad[data-mechanism='pad'].pad-selected {
-  border-color: color-mix(in srgb, var(--loaded-accent) 76%, var(--station-text));
+  border-color: color-mix(in srgb, var(--loaded-accent) 65%, var(--scene-line));
   outline: none;
 }
 
@@ -1118,25 +1138,24 @@ output { color: var(--station-text); }
   animation: pad-feedback 220ms cubic-bezier(.18, .72, .2, 1);
 }
 
-/* A held hit keeps the old lamp under the rubber visibly energised. The glow
-   follows the gold loaded-material rim instead of introducing another hue. */
+/* A held hit keeps the old lamp under the rubber visibly energised - the
+   whole gap ring brightens together (same symmetric inset technique as the
+   rest state, just tighter and stronger), because the whole pad is
+   compressing, not just one edge tipping down. The glow follows the gold
+   loaded-material rim instead of introducing another hue. */
 .station-shell .pad[data-mechanism='pad'][data-pressed='true']::after,
 .station-shell .pad[data-mechanism='pad']:active:not(:disabled)::after {
-  opacity: .94;
+  opacity: .92;
   animation: none;
-  background:
-    radial-gradient(ellipse 94% 34% at 50% 106%, color-mix(in srgb, var(--pad-underlight) 86%, transparent), transparent 72%),
-    radial-gradient(ellipse 24% 76% at -4% 54%, color-mix(in srgb, var(--pad-underlight) 58%, transparent), transparent 76%),
-    radial-gradient(ellipse 24% 76% at 104% 54%, color-mix(in srgb, var(--pad-underlight) 58%, transparent), transparent 76%),
-    radial-gradient(ellipse 72% 16% at 50% -3%, color-mix(in srgb, var(--pad-underlight) 34%, transparent), transparent 76%);
-  box-shadow:
-    inset 0 -9px 13px -9px color-mix(in srgb, var(--pad-underlight) 82%, transparent),
-    inset 0 0 7px -4px color-mix(in srgb, var(--pad-underlight) 66%, transparent);
+  box-shadow: inset 0 0 9px 2px color-mix(in srgb, var(--pad-underlight) 88%, transparent);
 }
 
 .station-shell .pad[data-mechanism='pad'][data-pressed='true'],
 .station-shell .pad[data-mechanism='pad']:active:not(:disabled) {
-  background-color: color-mix(in srgb, var(--scene-control) 92%, #000);
+  /* The dome flattens on contact instead of just sliding down: background is
+     the full shorthand (not background-color) so it actually replaces
+     --pad-face's radial highlight rather than layering under it. */
+  background: color-mix(in srgb, var(--scene-control) 92%, #000);
   box-shadow: var(--mechanism-engaged-shadow);
   transform: translateY(var(--mechanism-travel));
 }

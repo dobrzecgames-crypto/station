@@ -316,11 +316,11 @@ export function validateProjectState(project: ProjectState): string[] {
     if (!group.bus || !Number.isFinite(group.bus.volume) || group.bus.volume < 0 || group.bus.volume > 1 || typeof group.bus.muted !== 'boolean' || typeof group.bus.solo !== 'boolean') errors.push(`${group.name} has an invalid Group Bus.`)
     if (!isEffectRackState(group.effects, group.id)) errors.push(`${group.name} has invalid effects.`)
     if (!group.bank || group.bank.pads.length !== padCount) errors.push(`${group.name} must contain exactly ${padCount} bank pads.`)
-    if (!Array.isArray(group.synthPatches)) errors.push(`${group.name} has an invalid MONOPOLY patch collection.`)
+    if (!Array.isArray(group.synthPatches)) errors.push(`${group.name} has an invalid BASSIC patch collection.`)
     for (const patch of group.synthPatches ?? []) {
-      if (synthPatchIds.has(patch.id)) errors.push('MONOPOLY patch IDs must be unique.')
+      if (synthPatchIds.has(patch.id)) errors.push('BASSIC patch IDs must be unique.')
       synthPatchIds.add(patch.id)
-      validateSynthPatch(patch, `${group.name} MONOPOLY patch`, errors)
+      validateSynthPatch(patch, `${group.name} BASSIC patch`, errors)
     }
     if (!Array.isArray(group.stringsPatches)) errors.push(`${group.name} has an invalid STRINGS patch collection.`)
     for (const patch of group.stringsPatches ?? []) {
@@ -334,11 +334,11 @@ export function validateProjectState(project: ProjectState): string[] {
       organicBassPatchIds.add(patch.id)
       validateOrganicBassPatch(patch, `${group.name} MONOGORG patch`, errors)
     }
-    if (!Array.isArray(group.polyPatches)) errors.push(`${group.name} has an invalid POLY patch collection.`)
+    if (!Array.isArray(group.polyPatches)) errors.push(`${group.name} has an invalid ZOLA-X patch collection.`)
     for (const patch of group.polyPatches ?? []) {
-      if (polyPatchIds.has(patch.id)) errors.push('POLY patch IDs must be unique.')
+      if (polyPatchIds.has(patch.id)) errors.push('ZOLA-X patch IDs must be unique.')
       polyPatchIds.add(patch.id)
-      validatePolyPatch(patch, `${group.name} POLY`, errors)
+      validatePolyPatch(patch, `${group.name} ZOLA-X`, errors)
     }
     const bankPadIds = new Set(group.bank?.pads.map((pad) => pad.id))
     if (bankPadIds.size !== group.bank?.pads.length) errors.push(`${group.name} bank pad IDs must be unique.`)

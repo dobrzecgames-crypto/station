@@ -98,7 +98,7 @@ In **SEQ**, tapping an empty square creates one independent one-step event. Drag
 
 ### Local project persistence
 
-**SAVE PROJECT** stores one local project in IndexedDB: its schema-v21 manifest and each referenced source WAV under a stable asset ID. **OPEN PROJECT** restores the last saved project after **START AUDIO**; it re-decodes WAV data, regenerates waveform caches, restores samples, MONO-3, MONOGORG, STRINGS and POLY patches and chord assignments, all Pattern Group banks, Playlist, mixer, Pump, FX racks and Project Key settings, and leaves transport stopped. Older projects migrate safely; schema-v20 and earlier projects receive empty POLY collections and null pad references without changing their existing sound.
+**SAVE PROJECT** stores one local project in IndexedDB: its schema-v22 manifest and each referenced source WAV under a stable asset ID. **OPEN PROJECT** restores the last saved project after **START AUDIO**; it re-decodes WAV data, regenerates waveform caches, restores samples, MONO-3, MONOGORG, STRINGS and POLY patches and chord assignments, Smart Chords performance settings, all Pattern Group banks, Playlist, mixer, Pump, FX racks and Project Key settings, and leaves transport stopped. Older projects migrate safely; schema-v21 projects receive safe Smart Chords performance defaults without changing their existing assignments, while schema-v20 and earlier projects retain their established migrations.
 
 There is no autosave, project browser, rename, duplicate, delete or export/import. IndexedDB quota is browser-managed, so saving large WAV projects can fail when local storage is full.
 

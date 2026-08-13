@@ -127,7 +127,7 @@ For a non-looped clip `lengthBeats` tracks the source region's natural (rate-1) 
 
 ### Pattern Group and variants
 
-A Pattern Group is one musical idea. It owns one private 16-pad bank and has an always-present 16-step A section with optional consecutive B, C and D sections. The persisted fields retain the historical `variants` name, but PATTERN transport treats them as one 16/32/48/64-step chain. Each section stores velocity, SHIFT and an event-span value for every pad and local step. An ordinary active step has a span of one. Explicitly merging a contiguous active run stores the run length on its first step; the following active cells remain visible length cells but do not trigger. SHIFT is constrained to −50% through +50% of one 16th-note duration. Creating or duplicating a section changes sequencer data only; it never copies or changes the group's bank. The A–D/64-step limit is intentional.
+A Pattern Group is one musical idea. It owns one private 16-pad bank, one Smart Chords performance configuration (`strum`, `dynamics`, `humanize`, each 0–100), and has an always-present 16-step A section with optional consecutive B, C and D sections. The persisted fields retain the historical `variants` name, but PATTERN transport treats them as one 16/32/48/64-step chain. Each section stores velocity, SHIFT and an event-span value for every pad and local step. An ordinary active step has a span of one. Explicitly merging a contiguous active run stores the run length on its first step; the following active cells remain visible length cells but do not trigger. SHIFT is constrained to −50% through +50% of one 16th-note duration. Creating or duplicating a section changes sequencer data only; it never copies or changes the group's bank. The A–D/64-step limit is intentional.
 
 ### Pattern Clip / Playlist
 
@@ -188,7 +188,7 @@ The following must not be serialized into the project:
 
 ## Pre-persistence ProjectState
 
-ProjectState schema v21 is the serializable boundary. Each Pattern Group contains its private bank, CHOP session, MONO-3, STRINGS, MONOGORG and POLY patch collections and two-slot serial FX Rack. It contains shared asset references and durations, Pattern Groups and their 16-step velocities, SHIFT values and event spans, selected Pattern Group/variant, Pattern Clips, persisted transport mode and Loop Song, BPM, swing, group-and-pad Pump references, the global Project Key (`root`, `scale`) and a serializable two-slot master FX Rack. Waveform peaks and synth voices are runtime cache/state and are not serialized.
+ProjectState schema v22 is the serializable boundary. Each Pattern Group contains its private bank, CHOP session, MONO-3, STRINGS, MONOGORG and POLY patch collections, Smart Chords performance settings and two-slot serial FX Rack. It contains shared asset references and durations, Pattern Groups and their 16-step velocities, SHIFT values and event spans, selected Pattern Group/variant, Pattern Clips, persisted transport mode and Loop Song, BPM, swing, group-and-pad Pump references, the global Project Key (`root`, `scale`) and a serializable two-slot master FX Rack. Waveform peaks, active performance counters and synth voices are runtime cache/state and are not serialized.
 
 Project Key is a preference for future Project Scale mappings. A mapping writes normal independent pad configurations that reference one shared SampleAsset and contain their calculated pitch offsets. Existing mapped pads have no runtime link to Project Key and are not retuned when it changes.
 
@@ -196,7 +196,7 @@ It intentionally excludes AudioContext, buffers, nodes, active voices, transport
 
 ## Persistence v1 records
 
-The one saved local project has ID `default-project`. Its manifest contains `ProjectState` with `schemaVersion: 21`; a separate asset record contains each referenced asset ID, filename, MIME type, byte size and original WAV Blob. A shared asset is represented by one asset record even when referenced by many group banks. `lastProjectId` points to the most recently saved project. Historical migrations preserve the older sample/synth/pattern/mixer state. Schema-v20 migration adds an empty `polyPatches` collection to every group and `polyPatchId: null` to every pad, leaving all existing sources unchanged.
+The one saved local project has ID `default-project`. Its manifest contains `ProjectState` with `schemaVersion: 22`; a separate asset record contains each referenced asset ID, filename, MIME type, byte size and original WAV Blob. A shared asset is represented by one asset record even when referenced by many group banks. `lastProjectId` points to the most recently saved project. Historical migrations preserve the older sample/synth/pattern/mixer state. Schema-v20 migration adds an empty `polyPatches` collection to every group and `polyPatchId: null` to every pad, leaving all existing sources unchanged. Schema-v21 projects receive default Smart Chords performance settings without regenerating chord assignments or banks.
 
 Only assets used by pads or by the active CHOP source are included in a save. Waveform peaks, AudioBuffers, transport playback state, preview state and UI-only Chop editing state are rebuilt or reset on OPEN.
 

@@ -70,7 +70,11 @@ Responsibilities:
 - migration between supported schema versions,
 - recovery and user-facing errors.
 
-Persistence v1 uses IndexedDB only: `projects` stores the versioned manifest, `assets` stores original WAV `Blob`s by stable asset ID, and `metadata` stores `lastProjectId`. SAVE writes referenced assets, manifest and last-project metadata in one read/write transaction. OPEN validates the manifest and reads every required asset before asking the audio engine to re-decode it. OPFS remains a future option only if measured asset-library needs justify it.
+Local persistence uses IndexedDB only: `projects` stores any number of named, versioned manifests keyed by an identity independent of the name; `assets` stores original WAV `Blob`s by stable asset ID; and `metadata` stores `lastProjectId` plus one-time legacy-recovery state. A project's first explicit SAVE creates its identity and enables debounced autosave. Local create/update/replace operations write referenced assets and the manifest transactionally; OPEN validates and migrates the manifest and reads every required asset before asking the audio engine to re-decode it. The former single `default-project` record is read only through the legacy-recovery path and is never silently renamed or overwritten.
+
+User presets for BASSIC, MONOGORG, STRINGS and ZOLA-X live in a separate versioned IndexedDB database rather than in project manifests. Each instrument kind has an isolated library, and applying a preset preserves the destination patch ID so existing pad references and patch sharing remain intact. This library is device/browser-profile local, contains no audio blobs or runtime nodes, and is deliberately independent from project SAVE/OPEN.
+
+Portable `.station` serialization is a separate layer over the same validated `ProjectState`. Its outer file schema is versioned independently from the musical-state schema. Portable v1 records stable Station-library references and contains no WAV blobs; export fails clearly when any referenced audio has no portable Station resource identity. Import validates the envelope, migrates/validates its state through the same decoder used by local loads, resolves its built-in resources, and requires an explicit OPEN AS COPY or REPLACE decision on a local `projectId` conflict. OPFS remains a future option only if measured asset-library needs justify it.
 
 ## Suggested module boundaries
 

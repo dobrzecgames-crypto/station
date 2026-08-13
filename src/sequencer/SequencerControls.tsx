@@ -88,8 +88,12 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
      EffectDisplay and BusDisplay. */
   const onVelocityChangeRef = useRef(onVelocityChange)
   const onShiftChangeRef = useRef(onShiftChange)
+  const onCopyPatternRef = useRef(onCopyPattern)
+  const onPastePatternRef = useRef(onPastePattern)
   onVelocityChangeRef.current = onVelocityChange
   onShiftChangeRef.current = onShiftChange
+  onCopyPatternRef.current = onCopyPattern
+  onPastePatternRef.current = onPastePattern
   // stepTenant below is a plain function, not a component (it is built inside
   // useMemo) - it cannot call a hook itself, so the two drags are started here,
   // at the component's own top level, and handed down as plain handlers.
@@ -117,9 +121,13 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
     velocity,
     shift,
     length,
+    patternVariant: selectedVariant,
+    canPastePattern,
+    onCopyPattern: () => onCopyPatternRef.current(),
+    onPastePattern: () => onPastePatternRef.current(),
     velocityInputProps: velocityDrag.inputProps,
     shiftInputProps: shiftDrag.inputProps,
-  }), [editedPad, editedHeadIndex, editedDisplayStepNumber, velocity, shift, length, velocityDrag.inputProps, shiftDrag.inputProps])
+  }), [editedPad, editedHeadIndex, editedDisplayStepNumber, velocity, shift, length, selectedVariant, canPastePattern, velocityDrag.inputProps, shiftDrag.inputProps])
   const selectStep = (padId: PadState['id'], stepIndex: number) => { setDisplayActive(true); setEditedStep({ padId, stepIndex }) }
   const showStepPage = (page: 0 | 1) => {
     stepPageRef.current = page
@@ -296,10 +304,6 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
         <button className={stepPage === 0 ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" role="tab" aria-selected={stepPage === 0} onClick={() => selectStepPage(0)}>{formatStepRange(sectionStartStep + 1, sectionStartStep + 8)}</button>
         <button className={stepPage === 1 ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" role="tab" aria-selected={stepPage === 1} onClick={() => selectStepPage(1)}>{formatStepRange(sectionStartStep + 9, sectionStartStep + 16)}</button>
       </div>
-      <div className="sequencer-clipboard-actions" role="group" aria-label="Pattern clipboard">
-        <button className="mixer-toggle" type="button" aria-label="Copy pattern sequence" onClick={onCopyPattern}>COPY</button>
-        <button className="mixer-toggle" type="button" aria-label="Paste pattern sequence" disabled={!canPastePattern} onClick={onPastePattern}>PASTE</button>
-      </div>
     </div>
     <div
       ref={patternMatrixRef}
@@ -381,19 +385,30 @@ interface StepTenantProps {
   velocity: number
   shift: number
   length: number
+  patternVariant: PatternVariantName
+  canPastePattern: boolean
+  onCopyPattern: () => void
+  onPastePattern: () => void
   /** Built by useDragSlider back in SequencerControls, which - unlike this
       plain object-returning function - is allowed to call hooks. */
   velocityInputProps: DragSliderInputProps
   shiftInputProps: DragSliderInputProps
 }
 
-function stepTenant({ pad, displayStepNumber, velocity, shift, length, velocityInputProps, shiftInputProps }: StepTenantProps): DisplayTenant {
+function stepTenant({ pad, displayStepNumber, velocity, shift, length, patternVariant, canPastePattern, onCopyPattern, onPastePattern, velocityInputProps, shiftInputProps }: StepTenantProps): DisplayTenant {
   const lengthLabel = length > 0 ? `${length} STEP${length === 1 ? '' : 'S'}` : 'FULL'
   return {
     id: displayId,
     label: `${pad.label}, step ${displayStepNumber}`,
     readout: `SEQ / ${pad.label} / STEP ${displayStepNumber} / ${Math.round(velocity * 100)}% / ${lengthLabel}`,
     panel: <>
+      <div className="display-param">
+        <span className="display-param-label">PATTERN {patternVariant}</span>
+        <div className="display-actions" role="group" aria-label="Pattern clipboard">
+          <button className="display-action" type="button" aria-label="Copy pattern sequence" onClick={onCopyPattern}>COPY</button>
+          <button className="display-action" type="button" aria-label="Paste pattern sequence" disabled={!canPastePattern} onClick={onPastePattern}>PASTE</button>
+        </div>
+      </div>
       <label className="display-param" htmlFor="seq-step-velocity">
         <span className="display-param-label">VELOCITY</span>
         <output htmlFor="seq-step-velocity">{Math.round(velocity * 100)}%</output>

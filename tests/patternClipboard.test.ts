@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import test from 'node:test'
 import { createPadBank } from '../src/pads/padBank.ts'
 import { addPatternGroup, copyVariantSequence, createInitialPatternGroups, paintVariantStepSpan, pasteVariantSequence, setVariantStepShift, setVariantStepVelocity } from '../src/patterns/patternOperations.ts'
@@ -36,4 +38,15 @@ test('pattern clipboard is detached from later source and destination edits', ()
   const pasted = pasteVariantSequence(groups, 'pattern-group-1', 'B', clipboard)
   pasted[0].variants.B![padIds[1]][7] = 0.5
   assert.equal(clipboard.pattern[padIds[1]][7], 0.75)
+})
+
+test('pattern clipboard actions live in the SEQ System Display and leave paging full-width', () => {
+  const source = readFileSync(join(import.meta.dirname, '..', 'src', 'sequencer', 'SequencerControls.tsx'), 'utf8')
+  const toolbar = source.match(/<div className="sequencer-toolbar">[\s\S]*?<\/div>\s*<\/div>/)?.[0] ?? ''
+  const displayPanel = source.match(/panel: <>[\s\S]*?<label className="display-param" htmlFor="seq-step-velocity">/)?.[0] ?? ''
+
+  assert.doesNotMatch(toolbar, /COPY|PASTE|sequencer-clipboard-actions/)
+  assert.match(displayPanel, /PATTERN \{patternVariant\}/)
+  assert.match(displayPanel, /aria-label="Copy pattern sequence"/)
+  assert.match(displayPanel, /aria-label="Paste pattern sequence"/)
 })

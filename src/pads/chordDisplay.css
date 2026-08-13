@@ -4,6 +4,9 @@
 .chord-suggestion-list { display: flex; min-width: 0; flex-wrap: wrap; gap: 5px; }
 .chord-suggestion-list .display-action { flex: 0 0 auto; min-width: 58px; min-height: 44px; }
 .chord-suggestion-active { color: #111313; border-color: rgb(var(--display-light)); background: rgb(var(--display-light)); }
+.chord-performance { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 10px; padding-top: 7px; border-top: 1px solid rgb(var(--display-light) / 24%); }
+.chord-performance-heading { grid-column: 1 / -1; color: rgb(var(--display-light) / 62%); font-family: var(--station-display-font); font-size: .52rem; letter-spacing: .08em; }
+.chord-performance .display-param { min-width: 0; }
 .pad-grid-toolbar { display: flex; min-height: 24px; align-items: center; justify-content: flex-end; margin-bottom: 4px; }
 .pad-chord-mode-toggle { display: inline-flex; min-height: 24px; align-items: center; gap: 6px; padding: 2px 5px; border: 0; border-radius: 4px; color: #858c89; background: transparent; font-family: var(--station-display-font); font-size: .52rem; font-weight: 400; letter-spacing: .08em; cursor: pointer; }
 .pad-chord-mode-toggle:hover:not(:disabled), .pad-chord-mode-toggle:focus-visible { color: #c6cbc5; background: rgb(255 255 255 / 4%); outline: none; }
@@ -14,4 +17,4 @@
 .pad-chord-mode-toggle-active .pad-chord-mode-led { border-color: var(--station-accent); background: var(--station-accent); box-shadow: 0 0 7px rgb(var(--station-accent-rgb) / 55%); }
 .pad-chord-name { font-size: clamp(.62rem, 2.6vw, .9rem); letter-spacing: -.02em; text-overflow: clip; }
 .pad-chord-selected:not(.pad-playing) { outline-color: var(--action-accent); }
-@media (max-width: 520px) { .chord-display-summary { grid-template-columns: 1fr; font-size: .5rem; } }
+@media (max-width: 520px) { .chord-display-summary { grid-template-columns: 1fr; font-size: .5rem; } .chord-performance { grid-template-columns: 1fr; } }

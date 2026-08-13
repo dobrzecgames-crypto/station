@@ -14,13 +14,16 @@ export function normalizePatternChordFields(value: { padMode?: unknown; chordAss
   const chordAssignments = value.chordAssignments === undefined
     ? Array(padCount).fill(null)
     : Array.isArray(value.chordAssignments)
-      ? value.chordAssignments.map((assignment) => assignment && typeof assignment === 'object' ? { ...assignment } : assignment) as Array<ChordAssignment | null>
+      ? value.chordAssignments.map((assignment) => assignment && typeof assignment === 'object'
+        ? (assignment as { type?: unknown }).type === 'rootOctave' ? null : { ...assignment }
+        : assignment) as Array<ChordAssignment | null>
       : value.chordAssignments as Array<ChordAssignment | null>
   return { padMode, chordAssignments }
 }
 
 export function chordFieldsForMode(pads: readonly PadState[], current: PatternChordFields, mode: PadMode, projectKey: ProjectKey): PatternChordFields {
-  return { padMode: mode, chordAssignments: mode === 'chords' ? createChordAssignments(pads, projectKey, current.chordAssignments) : cloneAssignments(current.chordAssignments) }
+  const preserved = current.padMode === 'chords' ? current.chordAssignments : undefined
+  return { padMode: mode, chordAssignments: mode === 'chords' ? createChordAssignments(pads, projectKey, preserved) : cloneAssignments(current.chordAssignments) }
 }
 
 export function repairedChordFields(pads: readonly PadState[], current: PatternChordFields, projectKey: ProjectKey): PatternChordFields {

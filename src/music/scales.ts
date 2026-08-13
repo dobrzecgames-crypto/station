@@ -54,6 +54,24 @@ export function getScalePitchOffsets(scaleId: ScaleId, count: number): number[] 
   return Array.from({ length: Math.max(0, count) }, (_, index) => intervals[index % intervals.length] + Math.floor(index / intervals.length) * 12)
 }
 
+export function getScalePitchOffset(scaleId: ScaleId, degree: number): number {
+  const intervals = scaleDefinitions[scaleId].intervals
+  const octave = Math.floor(degree / intervals.length)
+  const degreeInOctave = ((degree % intervals.length) + intervals.length) % intervals.length
+  return intervals[degreeInOctave] + octave * 12
+}
+
+/** A complete SMART CHORDS bank is a continuous window of scale degrees. Its
+    reference tonic sits as close as possible to the geometric centre; an even
+    pad count uses the lower of the two centre pads so the window keeps one
+    extra degree above. The window may therefore begin on any scale degree. */
+export function getCenteredScalePitchOffsets(scaleId: ScaleId, count: number): number[] {
+  const padCount = Math.max(0, count)
+  if (padCount === 0) return []
+  const centralTonicIndex = Math.floor((padCount - 1) / 2)
+  return Array.from({ length: padCount }, (_, index) => getScalePitchOffset(scaleId, index - centralTonicIndex))
+}
+
 export function isNoteName(value: unknown): value is NoteName {
   return typeof value === 'string' && noteNames.includes(value as NoteName)
 }

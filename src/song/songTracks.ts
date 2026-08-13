@@ -11,7 +11,7 @@ import { getStringsPatch, resolveStringsPadMidiNotes } from '../strings/stringsO
 import { getOrganicBassPatch, resolveOrganicBassPadMidiNote } from '../organic-bass/organicBassOperations'
 import type { ProjectKey } from '../music/scales'
 import { getPolyPatch, resolvePolyPadMidiNotes } from '../poly/polyOperations'
-import { resolveChordMidiNotes } from '../music/chords'
+import { resolveChordVoicing } from '../music/chords'
 
 /** Reports whether the audio engine currently holds a decoded asset. */
 export type SampleAssetPredicate = (assetId: SampleAssetId) => boolean
@@ -56,21 +56,22 @@ function toTracks(variants: readonly (ResolvedVariant | undefined)[], hasSampleA
         shifts: pattern.shifts[pad.id],
         lengths: pattern.lengths[pad.id],
       }
-      const chordAssignment = pattern.group.padMode === 'chords' ? pattern.group.chordAssignments[padIndex] : null
+      const chordMode = pattern.group.padMode === 'chords'
+      const chordAssignment = chordMode ? pattern.group.chordAssignments[padIndex] : null
       const patch = getSynthPatch(pattern.group, pad.synthPatchId)
       if (patch) return chordAssignment
-        ? [{ ...common, source: 'synthChord', chordGroupId: pattern.group.id, patch, midiNotes: resolveChordMidiNotes(pattern.group, pad, chordAssignment, projectKey) }]
-        : [{ ...common, source: 'synth', patch, midiNotes: resolveSynthPadMidiNotes(patch, pad) }]
+        ? [{ ...common, source: 'synthChord', chordGroupId: pattern.group.id, patch, voices: resolveChordVoicing(pattern.group, pad, chordAssignment, projectKey), performance: pattern.group.chordPerformance }]
+        : chordMode ? [] : [{ ...common, source: 'synth', patch, midiNotes: resolveSynthPadMidiNotes(patch, pad) }]
       const stringsPatch = getStringsPatch(pattern.group, pad.stringsPatchId)
       if (stringsPatch) return chordAssignment
-        ? [{ ...common, source: 'stringsChord', chordGroupId: pattern.group.id, patch: stringsPatch, midiNotes: resolveChordMidiNotes(pattern.group, pad, chordAssignment, projectKey) }]
-        : [{ ...common, source: 'strings', patch: stringsPatch, midiNotes: resolveStringsPadMidiNotes(stringsPatch, pad) }]
+        ? [{ ...common, source: 'stringsChord', chordGroupId: pattern.group.id, patch: stringsPatch, voices: resolveChordVoicing(pattern.group, pad, chordAssignment, projectKey), performance: pattern.group.chordPerformance }]
+        : chordMode ? [] : [{ ...common, source: 'strings', patch: stringsPatch, midiNotes: resolveStringsPadMidiNotes(stringsPatch, pad) }]
       const organicBassPatch = getOrganicBassPatch(pattern.group, pad.organicBassPatchId)
       if (organicBassPatch) return [{ ...common, source: 'organicBass', patch: organicBassPatch, midiNote: resolveOrganicBassPadMidiNote(organicBassPatch, pad) }]
       const polyPatch = getPolyPatch(pattern.group, pad.polyPatchId)
       if (polyPatch) return chordAssignment
-        ? [{ ...common, source: 'polyChord', chordGroupId: pattern.group.id, patch: polyPatch, midiNotes: resolveChordMidiNotes(pattern.group, pad, chordAssignment, projectKey) }]
-        : [{ ...common, source: 'poly', patch: polyPatch, midiNotes: resolvePolyPadMidiNotes(polyPatch, pad) }]
+        ? [{ ...common, source: 'polyChord', chordGroupId: pattern.group.id, patch: polyPatch, voices: resolveChordVoicing(pattern.group, pad, chordAssignment, projectKey), performance: pattern.group.chordPerformance }]
+        : chordMode ? [] : [{ ...common, source: 'poly', patch: polyPatch, midiNotes: resolvePolyPadMidiNotes(polyPatch, pad) }]
       if (!pad.assetId || !hasSampleAsset(pad.assetId)) return []
       const samplePad = pad as PadState & { assetId: SampleAssetId }
       return [{

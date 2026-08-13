@@ -1,5 +1,5 @@
 import type { PadState } from '../pads/types'
-import { getScalePitchOffsets } from './scales.ts'
+import { getCenteredScalePitchOffsets, getScalePitchOffsets } from './scales.ts'
 import type { ProjectKey } from './scales'
 import type { PatternGroup } from '../patterns/patternTypes'
 
@@ -111,29 +111,23 @@ export function mapPadBankToProjectScale(pads: readonly PadState[], sourcePadId:
   }
 }
 
-/** Re-map a complete one-instrument bank when its SMART CHORDS Project Key
-    changes. Mixed or partially populated banks stay untouched. */
+/** Re-map a complete one-instrument SMART CHORDS bank around a useful central
+    tonic. Mixed or partially populated banks stay untouched. */
 export function remapScalarChordBank(group: PatternGroup, projectKey: ProjectKey): PatternGroup {
   const pads = group.bank.pads
-  const sourceIndex = pads.findIndex((pad) => pad.synthPatchId !== null || pad.stringsPatchId !== null || pad.polyPatchId !== null)
-  const source = pads[sourceIndex]
+  const source = pads[0]
   if (!source) return group
   const sourceKind = source.synthPatchId ? 'synth' : source.stringsPatchId ? 'strings' : 'poly'
   const sourceId = source.synthPatchId ?? source.stringsPatchId ?? source.polyPatchId
-  const canRemap = pads.slice(sourceIndex).every((pad) => {
-    const isEmpty = pad.assetId === null && pad.synthPatchId === null && pad.stringsPatchId === null && pad.organicBassPatchId == null && pad.polyPatchId == null
-    const matches = sourceKind === 'synth'
+  if (!sourceId) return group
+  const canRemap = pads.every((pad) => {
+    return sourceKind === 'synth'
       ? pad.assetId === null && pad.synthPatchId === sourceId && pad.stringsPatchId === null && pad.organicBassPatchId == null && pad.polyPatchId == null
       : sourceKind === 'strings'
         ? pad.assetId === null && pad.stringsPatchId === sourceId && pad.synthPatchId === null && pad.organicBassPatchId == null && pad.polyPatchId == null
         : pad.assetId === null && pad.polyPatchId === sourceId && pad.synthPatchId === null && pad.stringsPatchId === null && pad.organicBassPatchId == null
-    return isEmpty || matches
   })
   if (!canRemap) return group
-  try {
-    const mapped = mapPadBankToProjectScale(pads, source.id, projectKey)
-    return { ...group, bank: { ...group.bank, pads: mapped.pads } }
-  } catch {
-    return group
-  }
+  const pitchOffsets = getCenteredScalePitchOffsets(projectKey.scale, pads.length)
+  return { ...group, bank: { ...group.bank, pads: pads.map((pad, index) => ({ ...pad, pitchSemitones: pitchOffsets[index] })) } }
 }

@@ -46,12 +46,13 @@ import { renderSongToBuffer } from './project/renderSong'
 import type { RenderSongResult } from './project/renderSong'
 import { defaultProjectKey, formatProjectKey } from './music/scales'
 import type { ProjectKey } from './music/scales'
-import { chordRootMidiNote, formatChordAssignment, formatMidiNoteName, resolveChordMidiNotes } from './music/chords'
+import { chordRootMidiNote, formatChordAssignment, formatMidiNoteName, resolveChordVoicing } from './music/chords'
 import { ChordPriority } from './music/chordPriority'
 import { findProjectScaleMapConflicts, mapPadBankToProjectScale } from './music/scaleMapping'
 import { projectRepository } from './storage/ProjectRepository'
 import { defaultProjectId } from './storage/storageTypes'
-import { addPatternGroup, clearVariant, createInitialPatternGroups, duplicateVariant, getVariant, getVariantLengths, getVariantShifts, paintVariantStepSpan, patternStepCount, renamePatternGroup, repairPatternGroupChords, setPatternGroupChordAssignment, setPatternGroupPadMode, setVariantStepPresence, setVariantStepShift, setVariantStepVelocity } from './patterns/patternOperations'
+import { addPatternGroup, clearVariant, createInitialPatternGroups, duplicateVariant, getVariant, getVariantLengths, getVariantShifts, paintVariantStepSpan, patternStepCount, renamePatternGroup, repairPatternGroupChords, setPatternGroupChordAssignment, setPatternGroupChordPerformance, setPatternGroupPadMode, setVariantStepPresence, setVariantStepShift, setVariantStepVelocity } from './patterns/patternOperations'
+import type { ChordPerformanceSettings } from './music/chordPerformance'
 import { patternVariantNames } from './patterns/patternTypes'
 import type { PadMode, PatternGroup, PatternVariantName } from './patterns/patternTypes'
 import { applyPatternTakeHit, commitPatternTake, createPatternTake, getPatternLengthSteps, getPatternSectionCount, patternVariantForSection, restorePatternSequence } from './patterns/patternRecording'
@@ -515,16 +516,17 @@ export function App({ audioEngine }: AppProps) {
         audioEngine.releaseOrganicBassPad(previousToken)
         audioEngine.releasePolyPad(previousToken)
       }
-      const notes = resolveChordMidiNotes(selectedGroup, pad, chordAssignment, projectKey)
-      if (patch) audioEngine.triggerSynthChord(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), patch, notes, 1, token)
+      const voices = resolveChordVoicing(selectedGroup, pad, chordAssignment, projectKey)
+      if (patch) audioEngine.triggerSynthChord(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), patch, voices, selectedGroup.chordPerformance, 1, token)
       else if (pad.stringsPatchId) {
         const stringsPatch = getStringsPatch(selectedGroup, pad.stringsPatchId)
-        if (stringsPatch) audioEngine.triggerStringsPad(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), stringsPatch, notes, 1, token)
-      } else { const polyPatch = getPolyPatch(selectedGroup, pad.polyPatchId); if (polyPatch) audioEngine.triggerPolyPad(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), polyPatch, notes, 1, token) }
+        if (stringsPatch) audioEngine.triggerStringsChord(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), stringsPatch, voices, selectedGroup.chordPerformance, 1, token)
+      } else { const polyPatch = getPolyPatch(selectedGroup, pad.polyPatchId); if (polyPatch) audioEngine.triggerPolyChord(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), polyPatch, voices, selectedGroup.chordPerformance, 1, token) }
       setActivePadId(padId)
       recordPadHit(padId, audioEngine.getCurrentTime())
       return
     }
+    if (selectedGroup.padMode === 'chords') return
     if (patch) {
       audioEngine.triggerSynthPad(selectedPatternGroupId, createChannelId({ patternGroupId: selectedPatternGroupId, padId }), patch, resolveSynthPadMidiNotes(patch, pad), 1, manualPadToken(selectedPatternGroupId, padId))
       setActivePadId(padId)
@@ -1197,6 +1199,10 @@ export function App({ audioEngine }: AppProps) {
   const changeSelectedChordAssignment = (assignment: NonNullable<typeof selectedChordAssignment>) => {
     const padIndex = pads.findIndex((pad) => pad.id === selectedPadId)
     setPatternGroups((groups) => setPatternGroupChordAssignment(groups, selectedPatternGroupId, padIndex, assignment))
+  }
+
+  const changeChordPerformance = (settings: ChordPerformanceSettings) => {
+    setPatternGroups((groups) => setPatternGroupChordPerformance(groups, selectedPatternGroupId, settings))
   }
 
   const loadChopSource = (event: ChangeEvent<HTMLInputElement>) => {
@@ -2062,7 +2068,7 @@ export function App({ audioEngine }: AppProps) {
           {mainView === "pad" && (
             <>
               {selectedGroup.padMode === 'chords' && selectedChordAssignment
-                ? <ChordDisplayLauncher group={selectedGroup} pad={selectedPad} assignment={selectedChordAssignment} projectKey={projectKey} onAssignmentChange={changeSelectedChordAssignment} />
+                ? <ChordDisplayLauncher group={selectedGroup} pad={selectedPad} assignment={selectedChordAssignment} projectKey={projectKey} onAssignmentChange={changeSelectedChordAssignment} onPerformanceChange={changeChordPerformance} />
                 : <PadDisplayLauncher
                     pad={selectedPad}
                     audioReady={audioReady}

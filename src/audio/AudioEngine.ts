@@ -38,6 +38,10 @@ import {
 import type { OrganicBassPatch } from '../organic-bass/organicBassTypes'
 import { choosePolyVoiceToSteal, clonePolyPatch, maximumPolyVoices } from '../poly/polyOperations'
 import type { PolyPatch } from '../poly/polyTypes'
+import { maximumChordVoices, scaleChordVoiceVelocity } from '../music/chords'
+import type { ChordVoice } from '../music/chords'
+import { isPendingChordVoice, performChordVoices } from '../music/chordPerformance'
+import type { ChordPerformanceSettings } from '../music/chordPerformance'
 import polyProcessorUrl from '../poly/polyProcessor.ts?worker&url'
 
 export type SampleId = string
@@ -455,6 +459,7 @@ export class AudioEngine {
   private readonly polyRuntimes = new Map<string, PolyPatchRuntime>()
   private activePolyVoices = new Set<ActivePolyVoice>()
   private polyVoiceSerial = 0
+  private readonly chordPerformanceOccurrences = new Map<string, number>()
   private polyWorkletReady = false
   /** DRUM SYNTH preview voices only, any instrument - a rendered-to-pad kick or snare plays back as an ordinary sample through `scheduleSample`/`activeVoices`, never through this set. See docs/DECISIONS.md DEC-024/DEC-025. */
   private readonly drumPreviewVoices = new Set<DrumVoiceHandle>()
@@ -828,14 +833,15 @@ export class AudioEngine {
 
   /** SMART CHORDS treats the Pattern Group as the monophonic unit while the
       notes inside its active chord remain polyphonic. */
-  triggerSynthChord(groupId: GroupId, channelId: ChannelId, patch: SynthPatch, midiNotes: readonly number[], velocity = 1, manualToken = channelId): void {
+  triggerSynthChord(groupId: GroupId, channelId: ChannelId, patch: SynthPatch, voices: readonly ChordVoice[], performance: ChordPerformanceSettings, velocity = 1, manualToken = channelId): void {
     if (this.status !== 'ready' || !this.context) return
     const runtime = this.ensureSynthRuntime(groupId, patch)
     const when = this.context.currentTime
     this.triggerPumpRoutesForChannel(channelId, when)
     this.releaseSynthPad(manualToken)
-    for (const midiNote of midiNotes.slice(0, maximumSynthVoices)) {
-      if (Number.isFinite(midiNote)) this.startSynthVoice(runtime, groupId, channelId, midiNote, velocity * 0.42, when, 'manual', manualToken)
+    const performed = performChordVoices(voices.slice(0, maximumChordVoices), performance, this.nextChordPerformanceOccurrence('manual', groupId, channelId))
+    for (const voice of performed) {
+      if (Number.isFinite(voice.midiNote)) this.startSynthVoice(runtime, groupId, channelId, voice.midiNote, scaleChordVoiceVelocity(velocity, voice.performanceVelocity) * 0.42, when + voice.delaySeconds, 'manual', manualToken)
     }
   }
 
@@ -845,7 +851,10 @@ export class AudioEngine {
     for (const runtime of this.synthRuntimes.values()) {
       const wasLastHeld = runtime.heldMonoNotes.at(-1)?.token === manualToken
       runtime.heldMonoNotes = runtime.heldMonoNotes.filter((held) => held.token !== manualToken)
-      for (const voice of runtime.voices) if (voice.origin === 'manual' && voice.manualToken === manualToken) this.releaseSynthVoice(runtime, voice, when)
+      for (const voice of [...runtime.voices]) if (voice.origin === 'manual' && voice.manualToken === manualToken) {
+        if (isPendingChordVoice(voice.startsAt, when)) this.stopSynthVoiceImmediately(voice)
+        else this.releaseSynthVoice(runtime, voice, when)
+      }
       if (runtime.patch.mode !== 'mono' || !wasLastHeld) continue
       const fallback = runtime.heldMonoNotes.at(-1)
       if (fallback) this.startMonoSynthVoice(runtime, fallback.groupId, fallback.channelId, fallback.midiNote, fallback.velocity, when, 'manual', fallback.token)
@@ -872,16 +881,18 @@ export class AudioEngine {
     }
   }
 
-  scheduleSynthChord(groupId: GroupId, channelId: ChannelId, patch: SynthPatch, midiNotes: readonly number[], when: number, noteOffWhen: number, velocity: number): void {
+  scheduleSynthChord(groupId: GroupId, channelId: ChannelId, patch: SynthPatch, voices: readonly ChordVoice[], performance: ChordPerformanceSettings, when: number, noteOffWhen: number, velocity: number): void {
     if (this.status !== 'ready' || !this.context) return
     const runtime = this.ensureSynthRuntime(groupId, patch)
     const scheduledWhen = Math.max(this.context.currentTime, when)
-    const scheduledOff = Math.max(scheduledWhen + 0.005, noteOffWhen)
+    const duration = Math.max(0.005, noteOffWhen - when)
     this.triggerPumpRoutesForChannel(channelId, scheduledWhen)
-    for (const midiNote of midiNotes.slice(0, maximumSynthVoices)) {
-      if (!Number.isFinite(midiNote)) continue
-      const voice = this.startSynthVoice(runtime, groupId, channelId, midiNote, velocity * 0.42, scheduledWhen, 'sequencer')
-      if (voice) this.releaseSynthVoice(runtime, voice, scheduledOff)
+    const performed = performChordVoices(voices.slice(0, maximumChordVoices), performance, this.nextChordPerformanceOccurrence('sequencer', groupId, channelId), duration)
+    for (const chordVoice of performed) {
+      if (!Number.isFinite(chordVoice.midiNote)) continue
+      const noteOn = scheduledWhen + chordVoice.delaySeconds
+      const voice = this.startSynthVoice(runtime, groupId, channelId, chordVoice.midiNote, scaleChordVoiceVelocity(velocity, chordVoice.performanceVelocity) * 0.42, noteOn, 'sequencer')
+      if (voice) this.releaseSynthVoice(runtime, voice, noteOn + duration)
     }
   }
 
@@ -939,11 +950,26 @@ export class AudioEngine {
     }
   }
 
+  triggerStringsChord(groupId: GroupId, channelId: ChannelId, patch: StringsPatch, voices: readonly ChordVoice[], performance: ChordPerformanceSettings, velocity = 1, manualToken = channelId): void {
+    if (this.status !== 'ready' || !this.context) return
+    const runtime = this.ensureStringsRuntime(groupId, patch)
+    const when = this.context.currentTime
+    this.triggerPumpRoutesForChannel(channelId, when)
+    this.releaseStringsPad(manualToken)
+    const performed = performChordVoices(voices.slice(0, maximumChordVoices), performance, this.nextChordPerformanceOccurrence('manual', groupId, channelId))
+    for (const voice of performed) {
+      if (Number.isFinite(voice.midiNote)) this.startStringsVoice(runtime, channelId, voice.midiNote, scaleChordVoiceVelocity(velocity, voice.performanceVelocity), when + voice.delaySeconds, 'manual', manualToken)
+    }
+  }
+
   releaseStringsPad(manualToken: string): void {
     if (!this.context) return
     const when = this.context.currentTime
     for (const runtime of this.stringsRuntimes.values()) {
-      for (const voice of runtime.voices) if (voice.origin === 'manual' && voice.manualToken === manualToken) this.releaseStringsVoice(runtime, voice, when)
+      for (const voice of [...runtime.voices]) if (voice.origin === 'manual' && voice.manualToken === manualToken) {
+        if (isPendingChordVoice(voice.startsAt, when)) this.stopStringsVoiceImmediately(voice)
+        else this.releaseStringsVoice(runtime, voice, when)
+      }
     }
   }
 
@@ -960,6 +986,21 @@ export class AudioEngine {
     }
   }
 
+  scheduleStringsChord(groupId: GroupId, channelId: ChannelId, patch: StringsPatch, voices: readonly ChordVoice[], performance: ChordPerformanceSettings, when: number, noteOffWhen: number, velocity: number): void {
+    if (this.status !== 'ready' || !this.context) return
+    const runtime = this.ensureStringsRuntime(groupId, patch)
+    const scheduledWhen = Math.max(this.context.currentTime, when)
+    const duration = Math.max(0.005, noteOffWhen - when)
+    this.triggerPumpRoutesForChannel(channelId, scheduledWhen)
+    const performed = performChordVoices(voices.slice(0, maximumChordVoices), performance, this.nextChordPerformanceOccurrence('sequencer', groupId, channelId), duration)
+    for (const chordVoice of performed) {
+      if (!Number.isFinite(chordVoice.midiNote)) continue
+      const noteOn = scheduledWhen + chordVoice.delaySeconds
+      const voice = this.startStringsVoice(runtime, channelId, chordVoice.midiNote, scaleChordVoiceVelocity(velocity, chordVoice.performanceVelocity), noteOn, 'sequencer')
+      if (voice) this.releaseStringsVoice(runtime, voice, noteOn + duration)
+    }
+  }
+
   triggerPolyPad(groupId: GroupId, channelId: ChannelId, patch: PolyPatch, midiNotes: readonly number[], velocity = 1, manualToken = channelId): void {
     if (this.status !== 'ready' || !this.context || !this.polyWorkletReady) return
     const runtime = this.ensurePolyRuntime(groupId, patch)
@@ -969,10 +1010,25 @@ export class AudioEngine {
     for (const midiNote of midiNotes.slice(0, maximumPolyVoices)) if (Number.isFinite(midiNote)) this.startPolyVoice(runtime, channelId, midiNote, velocity, when, 'manual', manualToken)
   }
 
+  triggerPolyChord(groupId: GroupId, channelId: ChannelId, patch: PolyPatch, voices: readonly ChordVoice[], performance: ChordPerformanceSettings, velocity = 1, manualToken = channelId): void {
+    if (this.status !== 'ready' || !this.context || !this.polyWorkletReady) return
+    const runtime = this.ensurePolyRuntime(groupId, patch)
+    const when = this.context.currentTime
+    this.triggerPumpRoutesForChannel(channelId, when)
+    this.releasePolyPad(manualToken)
+    const performed = performChordVoices(voices.slice(0, maximumChordVoices), performance, this.nextChordPerformanceOccurrence('manual', groupId, channelId))
+    for (const voice of performed) {
+      if (Number.isFinite(voice.midiNote)) this.startPolyVoice(runtime, channelId, voice.midiNote, scaleChordVoiceVelocity(velocity, voice.performanceVelocity), when + voice.delaySeconds, 'manual', manualToken)
+    }
+  }
+
   releasePolyPad(manualToken: string): void {
     if (!this.context) return
     const when = this.context.currentTime
-    for (const runtime of this.polyRuntimes.values()) for (const voice of runtime.voices) if (voice.origin === 'manual' && voice.manualToken === manualToken) this.releasePolyVoice(runtime, voice, when)
+    for (const runtime of this.polyRuntimes.values()) for (const voice of [...runtime.voices]) if (voice.origin === 'manual' && voice.manualToken === manualToken) {
+      if (isPendingChordVoice(voice.startsAt, when)) this.stopPolyVoiceImmediately(voice)
+      else this.releasePolyVoice(runtime, voice, when)
+    }
   }
 
   schedulePolyPad(groupId: GroupId, channelId: ChannelId, patch: PolyPatch, midiNotes: readonly number[], when: number, noteOffWhen: number, velocity: number): void {
@@ -988,20 +1044,53 @@ export class AudioEngine {
     }
   }
 
+  schedulePolyChord(groupId: GroupId, channelId: ChannelId, patch: PolyPatch, voices: readonly ChordVoice[], performance: ChordPerformanceSettings, when: number, noteOffWhen: number, velocity: number): void {
+    if (this.status !== 'ready' || !this.context || !this.polyWorkletReady) return
+    const runtime = this.ensurePolyRuntime(groupId, patch)
+    const scheduledWhen = Math.max(this.context.currentTime, when)
+    const duration = Math.max(0.005, noteOffWhen - when)
+    this.triggerPumpRoutesForChannel(channelId, scheduledWhen)
+    const performed = performChordVoices(voices.slice(0, maximumChordVoices), performance, this.nextChordPerformanceOccurrence('sequencer', groupId, channelId), duration)
+    for (const chordVoice of performed) {
+      if (!Number.isFinite(chordVoice.midiNote)) continue
+      const noteOn = scheduledWhen + chordVoice.delaySeconds
+      const voice = this.startPolyVoice(runtime, channelId, chordVoice.midiNote, scaleChordVoiceVelocity(velocity, chordVoice.performanceVelocity), noteOn, 'sequencer')
+      if (voice) this.releasePolyVoice(runtime, voice, noteOn + duration)
+    }
+  }
+
   /** Cut only the preceding sequenced SMART CHORDS voice in this Pattern
       Group; a stale note-off cannot silence the newer chord. */
   releaseSequencerChordAt(groupId: GroupId, when: number): void {
     if (!this.context) return
     const releaseAt = Math.max(this.context.currentTime, when)
     for (const runtime of this.synthRuntimes.values()) {
-      for (const voice of runtime.voices) if (voice.origin === 'sequencer' && voice.groupId === groupId && voice.startsAt < releaseAt && (voice.stopAt === undefined || voice.stopAt > releaseAt)) this.releaseSynthVoice(runtime, voice, releaseAt, 0.008)
+      for (const voice of [...runtime.voices]) if (voice.origin === 'sequencer' && voice.groupId === groupId && (voice.stopAt === undefined || voice.stopAt > releaseAt)) {
+        if (isPendingChordVoice(voice.startsAt, releaseAt)) this.stopSynthVoiceImmediately(voice)
+        else this.releaseSynthVoice(runtime, voice, releaseAt, 0.008)
+      }
     }
     for (const runtime of this.stringsRuntimes.values()) {
-      for (const voice of runtime.voices) if (voice.origin === 'sequencer' && voice.groupId === groupId && voice.startsAt < releaseAt && (voice.stopAt === undefined || voice.stopAt > releaseAt)) this.releaseStringsVoice(runtime, voice, releaseAt, 0.008)
+      for (const voice of [...runtime.voices]) if (voice.origin === 'sequencer' && voice.groupId === groupId && (voice.stopAt === undefined || voice.stopAt > releaseAt)) {
+        if (isPendingChordVoice(voice.startsAt, releaseAt)) this.stopStringsVoiceImmediately(voice)
+        else this.releaseStringsVoice(runtime, voice, releaseAt, 0.008)
+      }
     }
     for (const runtime of this.polyRuntimes.values()) {
-      for (const voice of runtime.voices) if (voice.origin === 'sequencer' && voice.groupId === groupId && voice.startsAt < releaseAt && (voice.stopAt === undefined || voice.stopAt > releaseAt)) this.releasePolyVoice(runtime, voice, releaseAt, .008)
+      for (const voice of [...runtime.voices]) if (voice.origin === 'sequencer' && voice.groupId === groupId && (voice.stopAt === undefined || voice.stopAt > releaseAt)) {
+        if (isPendingChordVoice(voice.startsAt, releaseAt)) this.stopPolyVoiceImmediately(voice)
+        else this.releasePolyVoice(runtime, voice, releaseAt, .008)
+      }
     }
+  }
+
+  private nextChordPerformanceOccurrence(origin: 'manual' | 'sequencer', groupId: GroupId, channelId: ChannelId): number {
+    const key = `${origin}:${groupId}:${channelId}`
+    const occurrence = this.chordPerformanceOccurrences.get(key) ?? 0
+    this.chordPerformanceOccurrences.set(key, occurrence + 1)
+    let seed = 0x811c9dc5
+    for (let index = 0; index < key.length; index += 1) seed = Math.imul(seed ^ key.charCodeAt(index), 0x01000193)
+    return (seed ^ Math.imul(occurrence + 1, 0x9e3779b1)) >>> 0
   }
 
   previewAsset(assetId: SampleAssetId, options: TriggerSampleOptions = {}, onEnded?: () => void): void {

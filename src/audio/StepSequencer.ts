@@ -4,6 +4,8 @@ import type { StringsPatch } from '../strings/stringsTypes'
 import type { OrganicBassPatch } from '../organic-bass/organicBassTypes'
 import type { PolyPatch } from '../poly/polyTypes'
 import { getStepEventRange } from '../patterns/stepEvents.ts'
+import type { ChordVoice } from '../music/chords'
+import type { ChordPerformanceSettings } from '../music/chordPerformance'
 
 export interface StepSequencerConfig {
   bpm: number
@@ -48,7 +50,8 @@ export interface SynthSequencerTrack extends StepSequencerTrackBase {
 export interface SynthChordSequencerTrack extends StepSequencerTrackBase {
   source: 'synthChord'
   patch: SynthPatch
-  midiNotes: readonly number[]
+  voices: readonly ChordVoice[]
+  performance: ChordPerformanceSettings
   chordGroupId: string
 }
 
@@ -61,7 +64,8 @@ export interface StringsSequencerTrack extends StepSequencerTrackBase {
 export interface StringsChordSequencerTrack extends StepSequencerTrackBase {
   source: 'stringsChord'
   patch: StringsPatch
-  midiNotes: readonly number[]
+  voices: readonly ChordVoice[]
+  performance: ChordPerformanceSettings
   chordGroupId: string
 }
 
@@ -80,7 +84,8 @@ export interface PolySequencerTrack extends StepSequencerTrackBase {
 export interface PolyChordSequencerTrack extends StepSequencerTrackBase {
   source: 'polyChord'
   patch: PolyPatch
-  midiNotes: readonly number[]
+  voices: readonly ChordVoice[]
+  performance: ChordPerformanceSettings
   chordGroupId: string
 }
 
@@ -195,17 +200,17 @@ export class StepSequencer {
           this.audioEngine.scheduleSample(track.groupId, track.channelId, track.assetId, when, { ...track.options, gain: (track.options.gain ?? 1) * velocity, chokeGroupId: track.chokeGroupId, maxDurationSeconds }, 'sequencer')
         } else if (track.source === 'synthChord') {
           this.audioEngine.releaseSequencerChordAt(track.chordGroupId, when)
-          this.audioEngine.scheduleSynthChord(track.groupId, track.channelId, track.patch, track.midiNotes, when, when + Math.max(1, length) * track.patch.gate * stepDuration, velocity)
+          this.audioEngine.scheduleSynthChord(track.groupId, track.channelId, track.patch, track.voices, track.performance, when, when + Math.max(1, length) * track.patch.gate * stepDuration, velocity)
         } else if (track.source === 'synth') {
           this.audioEngine.scheduleSynthPad(track.groupId, track.channelId, track.patch, track.midiNotes, when, when + Math.max(1, length) * track.patch.gate * stepDuration, velocity)
         } else if (track.source === 'stringsChord') {
           this.audioEngine.releaseSequencerChordAt(track.chordGroupId, when)
-          this.audioEngine.scheduleStringsPad(track.groupId, track.channelId, track.patch, track.midiNotes, when, when + Math.max(1, length) * track.patch.gate * stepDuration, velocity)
+          this.audioEngine.scheduleStringsChord(track.groupId, track.channelId, track.patch, track.voices, track.performance, when, when + Math.max(1, length) * track.patch.gate * stepDuration, velocity)
         } else if (track.source === 'organicBass') {
           this.audioEngine.scheduleOrganicBassPad(track.groupId, track.channelId, track.patch, track.midiNote, when, when + Math.max(1, length) * track.patch.gate * stepDuration, velocity)
         } else if (track.source === 'polyChord') {
           this.audioEngine.releaseSequencerChordAt(track.chordGroupId, when)
-          this.audioEngine.schedulePolyPad(track.groupId, track.channelId, track.patch, track.midiNotes, when, when + Math.max(1, length) * track.patch.gate * stepDuration, velocity)
+          this.audioEngine.schedulePolyChord(track.groupId, track.channelId, track.patch, track.voices, track.performance, when, when + Math.max(1, length) * track.patch.gate * stepDuration, velocity)
         } else if (track.source === 'poly') {
           this.audioEngine.schedulePolyPad(track.groupId, track.channelId, track.patch, track.midiNotes, when, when + Math.max(1, length) * track.patch.gate * stepDuration, velocity)
         } else {

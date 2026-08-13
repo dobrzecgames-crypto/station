@@ -29,9 +29,12 @@ import { maximumPolyMidiNote, maximumPolyVoices, minimumPolyMidiNote, resolvePol
 import { polyFilterModes, polyLfoDivisions, polyLfoShapes, polyModDestinations, polyModSources, polyUnisonCounts } from '../poly/polyTypes'
 import type { PolyPatch } from '../poly/polyTypes'
 import { isChordType } from '../music/chords'
+import { normalizeChordPerformance } from '../music/chordPerformance'
+import { remapScalarChordBank } from '../music/scaleMapping'
 
-export const projectSchemaVersion = 21
-export const previousProjectSchemaVersion = 20
+export const projectSchemaVersion = 22
+export const previousProjectSchemaVersion = 21
+export const v20ProjectSchemaVersion = 20
 export const v19ProjectSchemaVersion = 19
 export const v18ProjectSchemaVersion = 18
 export const v17ProjectSchemaVersion = 17
@@ -138,7 +141,13 @@ export function createProjectState(state: ProjectState): ProjectState {
 export function normalizeProjectState(state: ProjectState): ProjectState {
   const padIds = state.patternGroups[0]?.bank?.pads.map((pad) => pad.id)
   if (!padIds) throw new Error('Project has no Pattern Group bank.')
-  return createProjectState({ ...state, schemaVersion: projectSchemaVersion, master: state.master ? { ...state.master } : { volume: 1, muted: false }, masterEffects: normalizeEffectRackState(state.masterEffects, 'master', createDefaultMasterEffectRack()), drumSynth: normalizeDrumSynthState(state.drumSynth), audioTracks: normalizeAudioTracks(state.audioTracks), patternGroups: ensurePatternGroupLengths(ensurePatternGroupShifts(state.patternGroups, padIds)).map((group) => ({ ...group, synthPatches: group.synthPatches ?? [], stringsPatches: (group.stringsPatches ?? []).map(normalizeStringsPatch), organicBassPatches: group.organicBassPatches ?? [], polyPatches: group.polyPatches ?? [], bank: { ...group.bank, pads: group.bank.pads.map(normalizePadState) }, bus: group.bus ? { ...group.bus } : createGroupBusState(), effects: normalizeEffectRackState(group.effects, group.id) })) })
+  const normalizedGroups = ensurePatternGroupLengths(ensurePatternGroupShifts(state.patternGroups, padIds)).map((group) => ({ ...group, chordPerformance: normalizeChordPerformance(group.chordPerformance), synthPatches: group.synthPatches ?? [], stringsPatches: (group.stringsPatches ?? []).map(normalizeStringsPatch), organicBassPatches: group.organicBassPatches ?? [], polyPatches: group.polyPatches ?? [], bank: { ...group.bank, pads: group.bank.pads.map(normalizePadState) }, bus: group.bus ? { ...group.bus } : createGroupBusState(), effects: normalizeEffectRackState(group.effects, group.id) }))
+  // OPEN recentres complete SMART CHORDS banks from Task 1, but it must not
+  // silently regenerate a user's supported saved ChordAssignments.
+  const patternGroups = isNoteName(state.projectKey?.root) && isScaleId(state.projectKey?.scale)
+    ? normalizedGroups.map((group) => group.padMode === 'chords' ? remapScalarChordBank(group, state.projectKey) : group)
+    : normalizedGroups
+  return createProjectState({ ...state, schemaVersion: projectSchemaVersion, master: state.master ? { ...state.master } : { volume: 1, muted: false }, masterEffects: normalizeEffectRackState(state.masterEffects, 'master', createDefaultMasterEffectRack()), drumSynth: normalizeDrumSynthState(state.drumSynth), audioTracks: normalizeAudioTracks(state.audioTracks), patternGroups })
 }
 
 export function migrateLegacyProjectState(legacy: { pads: ReturnType<typeof createPadBankState>['pads']; patterns?: unknown; [key: string]: unknown }): ProjectState {
@@ -277,6 +286,12 @@ export function migrateV20ProjectState(previous: { [key: string]: unknown }): Pr
   return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
 }
 
+export function migrateV21ProjectState(previous: { [key: string]: unknown }): ProjectState {
+  // v21 predates per-Pattern Smart Chords performance settings. Normalization
+  // adds defaults only; saved assignments and the scalar bank stay intact.
+  return normalizeProjectState({ ...previous, schemaVersion: projectSchemaVersion } as ProjectState)
+}
+
 export function collectReferencedAssetIds(project: ProjectState): Set<SampleAssetId> {
   const ids = new Set<SampleAssetId>()
   for (const group of project.patternGroups) {
@@ -311,8 +326,8 @@ export function validateProjectState(project: ProjectState): string[] {
     if (!Array.isArray(group.chordAssignments) || group.chordAssignments.length !== padCount) errors.push(`${group.name} must contain exactly ${padCount} chord assignments.`)
     else {
       for (const assignment of group.chordAssignments) if (assignment !== null && (typeof assignment !== 'object' || !isChordType(assignment.type))) errors.push(`${group.name} has an invalid chord assignment.`)
-      if (group.padMode === 'chords' && group.chordAssignments.some((assignment) => assignment === null)) errors.push(`${group.name} SMART CHORDS mode requires an assignment for every pad.`)
     }
+    if (!group.chordPerformance || ![group.chordPerformance.strum, group.chordPerformance.dynamics, group.chordPerformance.humanize].every((value) => Number.isFinite(value) && value >= 0 && value <= 100)) errors.push(`${group.name} has invalid Smart Chords performance settings.`)
     if (!group.bus || !Number.isFinite(group.bus.volume) || group.bus.volume < 0 || group.bus.volume > 1 || typeof group.bus.muted !== 'boolean' || typeof group.bus.solo !== 'boolean') errors.push(`${group.name} has an invalid Group Bus.`)
     if (!isEffectRackState(group.effects, group.id)) errors.push(`${group.name} has invalid effects.`)
     if (!group.bank || group.bank.pads.length !== padCount) errors.push(`${group.name} must contain exactly ${padCount} bank pads.`)

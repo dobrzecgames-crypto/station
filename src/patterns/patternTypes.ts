@@ -6,6 +6,7 @@ import type { StringsPatch } from '../strings/stringsTypes'
 import type { OrganicBassPatch } from '../organic-bass/organicBassTypes'
 import type { PolyPatch } from '../poly/polyTypes'
 import type { ChordAssignment } from '../music/chords'
+import type { ChordPerformanceSettings } from '../music/chordPerformance'
 
 export const patternVariantNames = ['A', 'B', 'C', 'D'] as const
 export const maximumPatternGroups = 8
@@ -41,6 +42,7 @@ export interface PatternGroup {
   polyPatches: PolyPatch[]
   padMode: PadMode
   chordAssignments: Array<ChordAssignment | null>
+  chordPerformance: ChordPerformanceSettings
   variants: Partial<Record<PatternVariantName, StepPattern>>
   shifts: Partial<Record<PatternVariantName, StepShiftPattern>>
   lengths: Partial<Record<PatternVariantName, StepLengthPattern>>

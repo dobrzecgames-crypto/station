@@ -58,12 +58,12 @@ function TempoPanel({ bpm, swing, mode, loopSong, metronomeEnabled, onBpmChange,
     <label className="display-param" htmlFor="bpm">
       <span className="display-param-label">BPM</span>
       <output htmlFor="bpm">{bpm}</output>
-      <input id="bpm" type="range" min="60" max="200" value={bpm} onChange={(event) => onBpmChange(Number(event.target.value))} onPointerDown={bpmDrag.onPointerDown} />
+      <input id="bpm" type="range" min="60" max="200" value={bpm} {...bpmDrag.inputProps} />
     </label>
     <label className="display-param" htmlFor="swing">
       <span className="display-param-label">SWING</span>
       <output htmlFor="swing">{Math.round(swing * 100)}%</output>
-      <input id="swing" type="range" min="0" max="0.5" step="0.01" value={swing} onChange={(event) => onSwingChange(Number(event.target.value))} onPointerDown={swingDrag.onPointerDown} />
+      <input id="swing" type="range" min="0" max="0.5" step="0.01" value={swing} {...swingDrag.inputProps} />
     </label>
   </>
 }

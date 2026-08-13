@@ -3,10 +3,27 @@ import type { ProjectState } from '../project/ProjectState'
 
 export const defaultProjectId = 'default-project'
 
+export interface ProjectSummary {
+  projectId: string
+  name: string
+  createdAt: string
+  modifiedAt: string
+  schemaVersion: number
+  bpm: number
+}
+
+export interface ProjectDocument extends ProjectSummary {
+  state: ProjectState
+}
+
 export interface StoredProjectRecord {
   id: string
+  projectId: string
+  name: string
+  createdAt: string
+  modifiedAt: string
+  schemaVersion: number
   state: ProjectState
-  savedAt: string
 }
 
 export interface StoredAssetRecord {
@@ -19,6 +36,11 @@ export interface StoredAssetRecord {
 
 export interface LoadedProject {
   projectId: string
+  name: string | null
+  createdAt: string | null
+  modifiedAt: string
+  schemaVersion: number
+  legacy: boolean
   state: ProjectState
   assets: StoredAssetRecord[]
 }

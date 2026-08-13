@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { PadState } from '../pads/types'
 import { useDragSlider } from '../shell/useDragSlider'
+import { UserSynthPresetControls } from '../synth-presets/UserSynthPresetControls'
 import { organicBassCutoffHz, organicBassDecaySeconds, organicBassGlideSeconds } from './organicBassOperations'
 import type { OrganicBassPatch } from './organicBassTypes'
 import './OrganicBassWorkspace.css'
@@ -56,6 +57,8 @@ export function OrganicBassWorkspace(props: OrganicBassWorkspaceProps) {
         />
       </header>
 
+      <UserSynthPresetControls kind="monogorg" instrumentLabel="MONOGORG" patch={patch} onApply={props.onPatchChange} />
+
       <div className="organic-bass-controls">
         <BassControl label="SHAPE" value={patch.shape} format={percent} onChange={(shape) => change({ shape })} />
         <BassControl label="WEIGHT" value={patch.weight} format={percent} onChange={(weight) => change({ weight })} />
@@ -94,7 +97,7 @@ function BassControl({ label, value, min = 0, max = 1, step = 0.01, format, onCh
     <label className="organic-bass-control">
       <span>{label}</span>
       <output>{format(value)}</output>
-      <input type="range" value={value} min={min} max={max} step={step} onChange={(event) => onChange(Number(event.target.value))} onPointerDown={drag.onPointerDown} />
+      <input type="range" value={value} min={min} max={max} step={step} {...drag.inputProps} />
     </label>
   )
 }

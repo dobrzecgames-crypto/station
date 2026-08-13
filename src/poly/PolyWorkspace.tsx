@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PadState } from '../pads/types'
 import { useDragSlider } from '../shell/useDragSlider'
+import { UserSynthPresetControls } from '../synth-presets/UserSynthPresetControls'
 import { applyPolyFactoryPatch, polyFactoryPatches } from './polyPresets'
 import { clampModulationAmount } from './polyOperations'
 import { polyFilterModes, polyLfoDivisions, polyLfoShapes, polyModDestinations, polyUnisonCounts } from './polyTypes'
@@ -68,6 +69,7 @@ export function PolyWorkspace(props: Props) {
     </header>
 
     <label className="poly-preset"><span>STARTING PATCH</span><select value={polyFactoryPatches.find((item) => item.name === patch.name)?.id ?? ''} onChange={(event) => props.onPatchChange(applyPolyFactoryPatch(patch, event.target.value))}><option value="" disabled>CUSTOM</option>{polyFactoryPatches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+    <UserSynthPresetControls kind="zola-x" instrumentLabel="ZOLA-X" patch={patch} onApply={props.onPatchChange} />
 
     <SelectorRow label="POLY section" className="poly-pages" options={(['osc', 'filter', 'env', 'mod'] as const)} selected={page} labelFor={(item) => pageLabels[item]} onSelect={(item) => { setPage(item); setRoutePickerOpen(false) }} />
 
@@ -294,7 +296,7 @@ function LfoControls({ value, onChange }: { value: PolyLfoState; onChange: (valu
 
 function Control({ label, value, min = 0, max = 1, step = .01, format, onChange }: { label: string; value: number; min?: number; max?: number; step?: number; format: (value: number) => string; onChange: (value: number) => void }) {
   const drag = useDragSlider({ value, min, max, step, onChange, focusLabel: label, formatValue: format })
-  return <label className="poly-control"><span>{label}</span><output>{format(value)}</output><input type="range" value={value} min={min} max={max} step={step} onChange={(event) => onChange(Number(event.target.value))} onPointerDown={drag.onPointerDown} /></label>
+  return <label className="poly-control"><span>{label}</span><output>{format(value)}</output><input type="range" value={value} min={min} max={max} step={step} {...drag.inputProps} /></label>
 }
 
 function makePath(points: number, sample: (ratio: number) => number): string {

@@ -578,10 +578,10 @@ export function TrackEditor({ track, waveforms, bpm, isPlaying, playheadBeat, sn
             </div>
             <div className="track-editor-source-boundaries">
               <label htmlFor="track-editor-source-start">START <output>{selectedClip.sourceOffsetSeconds.toFixed(3)} s</output>
-                <input id="track-editor-source-start" type="range" min="0" max={selectedClip.assetDurationSeconds} step="0.001" value={selectedClip.sourceOffsetSeconds} onChange={(event) => onSetClipSourceRegion(selectedClip.id, { startSeconds: Number(event.target.value), endSeconds: selectedClip.sourceEndSeconds })} onPointerDown={sourceStartDrag.onPointerDown} />
+                <input id="track-editor-source-start" type="range" min="0" max={selectedClip.assetDurationSeconds} step="0.001" value={selectedClip.sourceOffsetSeconds} {...sourceStartDrag.inputProps} />
               </label>
               <label htmlFor="track-editor-source-end">END <output>{selectedClip.sourceEndSeconds.toFixed(3)} s</output>
-                <input id="track-editor-source-end" type="range" min="0" max={selectedClip.assetDurationSeconds} step="0.001" value={selectedClip.sourceEndSeconds} onChange={(event) => onSetClipSourceRegion(selectedClip.id, { startSeconds: selectedClip.sourceOffsetSeconds, endSeconds: Number(event.target.value) })} onPointerDown={sourceEndDrag.onPointerDown} />
+                <input id="track-editor-source-end" type="range" min="0" max={selectedClip.assetDurationSeconds} step="0.001" value={selectedClip.sourceEndSeconds} {...sourceEndDrag.inputProps} />
               </label>
             </div>
           </section>
@@ -597,22 +597,22 @@ export function TrackEditor({ track, waveforms, bpm, isPlaying, playheadBeat, sn
           <label className="track-editor-param" htmlFor="track-editor-gain">
             <span>GAIN</span>
             <output htmlFor="track-editor-gain">{Math.round(selectedClip.gain * 100)}%</output>
-            <input id="track-editor-gain" type="range" min="0" max="1" step="0.01" value={selectedClip.gain} onChange={(event) => onSetClipGain(selectedClip.id, Number(event.target.value))} onPointerDown={gainDrag.onPointerDown} />
+            <input id="track-editor-gain" type="range" min="0" max="1" step="0.01" value={selectedClip.gain} {...gainDrag.inputProps} />
           </label>
           <label className="track-editor-param" htmlFor="track-editor-fade-in">
             <span>FADE IN</span>
             <output htmlFor="track-editor-fade-in">{selectedClip.fadeInSeconds.toFixed(2)} s</output>
-            <input id="track-editor-fade-in" type="range" min="0" max={maximumClipFadeSeconds} step="0.05" value={selectedClip.fadeInSeconds} onChange={(event) => onSetClipFadeIn(selectedClip.id, Number(event.target.value))} onPointerDown={fadeInDrag.onPointerDown} />
+            <input id="track-editor-fade-in" type="range" min="0" max={maximumClipFadeSeconds} step="0.05" value={selectedClip.fadeInSeconds} {...fadeInDrag.inputProps} />
           </label>
           <label className="track-editor-param" htmlFor="track-editor-fade-out">
             <span>FADE OUT</span>
             <output htmlFor="track-editor-fade-out">{selectedClip.fadeOutSeconds.toFixed(2)} s</output>
-            <input id="track-editor-fade-out" type="range" min="0" max={maximumClipFadeSeconds} step="0.05" value={selectedClip.fadeOutSeconds} onChange={(event) => onSetClipFadeOut(selectedClip.id, Number(event.target.value))} onPointerDown={fadeOutDrag.onPointerDown} />
+            <input id="track-editor-fade-out" type="range" min="0" max={maximumClipFadeSeconds} step="0.05" value={selectedClip.fadeOutSeconds} {...fadeOutDrag.inputProps} />
           </label>
           <label className="track-editor-param" htmlFor="track-editor-pitch">
             <span>PITCH</span>
             <output htmlFor="track-editor-pitch">{selectedClip.pitchSemitones > 0 ? '+' : ''}{selectedClip.pitchSemitones} st</output>
-            <input id="track-editor-pitch" type="range" min="-24" max="24" step="1" value={selectedClip.pitchSemitones} onChange={(event) => onSetClipPitch(selectedClip.id, Number(event.target.value))} onPointerDown={pitchDrag.onPointerDown} />
+            <input id="track-editor-pitch" type="range" min="-24" max="24" step="1" value={selectedClip.pitchSemitones} {...pitchDrag.inputProps} />
           </label>
         </div>
       ) : (

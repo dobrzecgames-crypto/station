@@ -49,10 +49,10 @@ export function SampleEditor({ pad, peaks, playheadSeconds, audioReady, onPrevie
       <Waveform peaks={peaks} durationSeconds={durationSeconds} region={pad.region} slices={[]} activeSliceId={null} addingSlice={false} playheadSeconds={playheadSeconds} onRegionChange={onRegionChange} onAddSlice={() => undefined} onMoveCut={() => undefined} onSelectSlice={() => undefined} />
       <div className="region-controls">
         <label htmlFor="region-start">START <output>{pad.region.startSeconds.toFixed(3)} s</output>
-          <input id="region-start" type="range" min="0" max={durationSeconds} step="0.001" value={pad.region.startSeconds} onChange={(event) => updateStart(Number(event.target.value))} onPointerDown={startDrag.onPointerDown} />
+          <input id="region-start" type="range" min="0" max={durationSeconds} step="0.001" value={pad.region.startSeconds} {...startDrag.inputProps} />
         </label>
         <label htmlFor="region-end">END <output>{pad.region.endSeconds.toFixed(3)} s</output>
-          <input id="region-end" type="range" min="0" max={durationSeconds} step="0.001" value={pad.region.endSeconds} onChange={(event) => updateEnd(Number(event.target.value))} onPointerDown={endDrag.onPointerDown} />
+          <input id="region-end" type="range" min="0" max={durationSeconds} step="0.001" value={pad.region.endSeconds} {...endDrag.inputProps} />
         </label>
         <p className="region-length">REGION LENGTH <output>{(pad.region.endSeconds - pad.region.startSeconds).toFixed(3)} s</output></p>
         <button className={pad.reversed ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" aria-pressed={pad.reversed} onClick={onToggleReversed}>REVERSE</button>

@@ -48,8 +48,7 @@ export function DisplayRange({ label, formatValue, min, max, step, current, idPr
       step={step}
       disabled={disabled}
       value={current}
-      onChange={(event) => onChange(Number(event.target.value))}
-      onPointerDown={drag.onPointerDown}
+      {...drag.inputProps}
     />
   </label>
 }

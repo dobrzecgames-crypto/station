@@ -47,5 +47,7 @@ export function useTracksHistory() {
     return target
   }
 
-  return { canUndo: past.length > 0, canRedo: future.length > 0, record, undo, redo }
+  const clear = (): void => { setPast([]); setFuture([]) }
+
+  return { canUndo: past.length > 0, canRedo: future.length > 0, record, undo, redo, clear }
 }

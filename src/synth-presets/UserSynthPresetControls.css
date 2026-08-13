@@ -1,0 +1,110 @@
+.user-synth-presets {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 8px;
+  margin-top: 12px;
+  padding: 8px;
+  border: 1px solid var(--station-line);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--scene-recess) 78%, transparent);
+}
+
+.user-synth-preset-picker {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  color: var(--station-text-muted);
+  font-size: .5rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+}
+
+.user-synth-preset-picker select {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 8px;
+  border: 1px solid var(--station-line);
+  border-radius: 3px;
+  color: var(--station-text);
+  background: var(--station-raised);
+}
+
+.user-synth-preset-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(48px, auto));
+  gap: 4px;
+  align-self: end;
+}
+
+.user-synth-preset-actions button,
+.synth-preset-name-frame button {
+  min-height: 40px;
+  padding: 0 8px;
+  border: 1px solid var(--station-line);
+  border-radius: 3px;
+  color: var(--station-text);
+  background: linear-gradient(180deg, var(--station-raised), var(--control-inactive));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 8%), 0 2px 0 rgb(0 0 0 / 55%);
+  font: inherit;
+  font-size: .5rem;
+  cursor: pointer;
+}
+
+.user-synth-preset-actions button:active,
+.synth-preset-name-frame button:active { transform: translateY(1px); }
+
+.user-synth-preset-actions button:disabled,
+.synth-preset-name-frame button:disabled,
+.user-synth-preset-picker select:disabled { cursor: not-allowed; opacity: .42; }
+
+.user-synth-preset-actions .user-synth-preset-delete { color: #efaaa2; }
+
+.user-synth-preset-notice {
+  grid-column: 1 / -1;
+  min-height: .7rem;
+  margin: 0;
+  color: var(--station-text-muted);
+  font-size: .46rem;
+  letter-spacing: .05em;
+}
+
+.user-synth-preset-notice-active { color: var(--signal-accent); }
+
+.synth-preset-name-dialog {
+  width: min(calc(100vw - 32px), 390px);
+  max-width: none;
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--station-line-strong);
+  border-radius: 5px;
+  color: var(--station-text);
+  background: var(--scene-panel);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 8%), 0 3px 0 #07070a, 0 20px 54px rgb(0 0 0 / 70%);
+}
+
+.synth-preset-name-dialog::backdrop { background: rgb(4 4 7 / 78%); backdrop-filter: blur(2px); }
+
+.synth-preset-name-frame {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border-top: 3px solid var(--accent-synth);
+}
+
+.synth-preset-name-frame > p,
+.synth-preset-name-frame h2 { margin: 0; }
+
+.synth-preset-name-frame > p { color: var(--accent-synth); font-size: .5rem; letter-spacing: .1em; }
+.synth-preset-name-frame h2 { font-size: .82rem; }
+
+.synth-preset-name-frame label { display: grid; gap: 7px; color: var(--station-text-muted); font-size: .52rem; }
+.synth-preset-name-frame input { min-height: 42px; padding: 0 10px; border: 1px solid var(--station-line); border-radius: 3px; color: var(--station-text); background: var(--scene-recess); }
+.synth-preset-name-frame > div { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.synth-preset-name-frame > div button:last-child { color: #121313; border-color: var(--accent-synth); background: var(--accent-synth); }
+
+@media (max-width: 430px) {
+  .user-synth-presets { grid-template-columns: 1fr; }
+  .user-synth-preset-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .user-synth-preset-actions button { min-height: 42px; }
+}

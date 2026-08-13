@@ -7,6 +7,7 @@ import type { PadState } from '../pads/types'
 import type { DisplayTenant } from '../shell/SystemDisplay'
 import { useSystemDisplay } from '../shell/systemDisplayContext'
 import { useDragSlider } from '../shell/useDragSlider'
+import type { DragSliderInputProps } from '../shell/useDragSlider'
 import { getStepPageEdgeContinuationTarget, getStepPageEdgeTarget, sequencerStepPageSize } from './stepPaging.ts'
 import './sequencer.css'
 
@@ -25,6 +26,9 @@ interface SequencerControlsProps {
   onPaintStepSpan: (padId: PadState['id'], anchorIndex: number, endIndex: number) => void
   onVelocityChange: (padId: PadState['id'], stepIndex: number, velocity: number) => void
   onShiftChange: (padId: PadState['id'], stepIndex: number, shift: number) => void
+  canPastePattern: boolean
+  onCopyPattern: () => void
+  onPastePattern: () => void
 }
 
 interface StepPaintStroke {
@@ -50,7 +54,7 @@ function isDimBeatGroup(stepIndex: number): boolean {
   return Math.floor(stepIndex / 4) % 2 === 1
 }
 
-export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadId, group, selectedVariant, playingStep, onSelectPad, onReleasePad, onPaintStep, onPaintStepSpan, onVelocityChange, onShiftChange }: SequencerControlsProps) {
+export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadId, group, selectedVariant, playingStep, onSelectPad, onReleasePad, onPaintStep, onPaintStepSpan, onVelocityChange, onShiftChange, canPastePattern, onCopyPattern, onPastePattern }: SequencerControlsProps) {
   const [editedStep, setEditedStep] = useState({ padId: selectedPadId, stepIndex: 0 })
   const [stepPage, setStepPageState] = useState<0 | 1>(0)
   const stepPageRef = useRef<0 | 1>(0)
@@ -109,16 +113,13 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
   })
   const tenant = useMemo<DisplayTenant>(() => stepTenant({
     pad: editedPad,
-    stepIndex: editedHeadIndex,
     displayStepNumber: editedDisplayStepNumber,
     velocity,
     shift,
     length,
-    onVelocityChange: (padId, stepIndex, nextVelocity) => onVelocityChangeRef.current(padId, stepIndex, nextVelocity),
-    onShiftChange: (padId, stepIndex, nextShift) => onShiftChangeRef.current(padId, stepIndex, nextShift),
-    onVelocityPointerDown: velocityDrag.onPointerDown,
-    onShiftPointerDown: shiftDrag.onPointerDown,
-  }), [editedPad, editedHeadIndex, editedDisplayStepNumber, velocity, shift, length, velocityDrag.onPointerDown, shiftDrag.onPointerDown])
+    velocityInputProps: velocityDrag.inputProps,
+    shiftInputProps: shiftDrag.inputProps,
+  }), [editedPad, editedHeadIndex, editedDisplayStepNumber, velocity, shift, length, velocityDrag.inputProps, shiftDrag.inputProps])
   const selectStep = (padId: PadState['id'], stepIndex: number) => { setDisplayActive(true); setEditedStep({ padId, stepIndex }) }
   const showStepPage = (page: 0 | 1) => {
     stepPageRef.current = page
@@ -244,6 +245,18 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
     pendingPageEntryStep.current = null
   }
 
+  /* The 01-08 / 09-16 page is editing context, not musical project state.
+     Carrying page 2 into a different BANK or PATTERN makes a fresh section
+     look as if its beginning is empty, so every scope change starts at step 1. */
+  useEffect(() => {
+    stopEdgePaintContinuation()
+    paintStroke.current = null
+    pendingPageEntryStep.current = null
+    stepPageRef.current = 0
+    setStepPageState(0)
+    setEditedStep((current) => ({ ...current, stepIndex: 0 }))
+  }, [group.id, selectedVariant])
+
   useEffect(() => {
     const endStroke = () => endPaint()
     window.addEventListener('pointerup', endStroke)
@@ -282,6 +295,10 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
       <div className="sequencer-step-pages" role="tablist" aria-label="Step range">
         <button className={stepPage === 0 ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" role="tab" aria-selected={stepPage === 0} onClick={() => selectStepPage(0)}>{formatStepRange(sectionStartStep + 1, sectionStartStep + 8)}</button>
         <button className={stepPage === 1 ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'} type="button" role="tab" aria-selected={stepPage === 1} onClick={() => selectStepPage(1)}>{formatStepRange(sectionStartStep + 9, sectionStartStep + 16)}</button>
+      </div>
+      <div className="sequencer-clipboard-actions" role="group" aria-label="Pattern clipboard">
+        <button className="mixer-toggle" type="button" aria-label="Copy pattern sequence" onClick={onCopyPattern}>COPY</button>
+        <button className="mixer-toggle" type="button" aria-label="Paste pattern sequence" disabled={!canPastePattern} onClick={onPastePattern}>PASTE</button>
       </div>
     </div>
     <div
@@ -360,20 +377,17 @@ export function SequencerControls({ pattern, shifts, lengths, pads, selectedPadI
 
 interface StepTenantProps {
   pad: Pick<PadState, 'id' | 'label'>
-  stepIndex: number
   displayStepNumber: number
   velocity: number
   shift: number
   length: number
-  onVelocityChange: (padId: PadState['id'], stepIndex: number, velocity: number) => void
-  onShiftChange: (padId: PadState['id'], stepIndex: number, shift: number) => void
   /** Built by useDragSlider back in SequencerControls, which - unlike this
       plain object-returning function - is allowed to call hooks. */
-  onVelocityPointerDown: (event: ReactPointerEvent<HTMLInputElement>) => void
-  onShiftPointerDown: (event: ReactPointerEvent<HTMLInputElement>) => void
+  velocityInputProps: DragSliderInputProps
+  shiftInputProps: DragSliderInputProps
 }
 
-function stepTenant({ pad, stepIndex, displayStepNumber, velocity, shift, length, onVelocityChange, onShiftChange, onVelocityPointerDown, onShiftPointerDown }: StepTenantProps): DisplayTenant {
+function stepTenant({ pad, displayStepNumber, velocity, shift, length, velocityInputProps, shiftInputProps }: StepTenantProps): DisplayTenant {
   const lengthLabel = length > 0 ? `${length} STEP${length === 1 ? '' : 'S'}` : 'FULL'
   return {
     id: displayId,
@@ -383,12 +397,12 @@ function stepTenant({ pad, stepIndex, displayStepNumber, velocity, shift, length
       <label className="display-param" htmlFor="seq-step-velocity">
         <span className="display-param-label">VELOCITY</span>
         <output htmlFor="seq-step-velocity">{Math.round(velocity * 100)}%</output>
-        <input id="seq-step-velocity" type="range" min="0" max="1" step="0.01" value={velocity} onChange={(event) => onVelocityChange(pad.id, stepIndex, Number(event.target.value))} onPointerDown={onVelocityPointerDown} />
+        <input id="seq-step-velocity" type="range" min="0" max="1" step="0.01" value={velocity} {...velocityInputProps} />
       </label>
       <label className="display-param" htmlFor="seq-step-shift">
         <span className="display-param-label">SHIFT</span>
         <output htmlFor="seq-step-shift">{Math.round(shift * 100)}%</output>
-        <input id="seq-step-shift" type="range" min="-0.5" max="0.5" step="0.01" value={shift} onChange={(event) => onShiftChange(pad.id, stepIndex, Number(event.target.value))} onPointerDown={onShiftPointerDown} />
+        <input id="seq-step-shift" type="range" min="-0.5" max="0.5" step="0.01" value={shift} {...shiftInputProps} />
       </label>
     </>,
   }

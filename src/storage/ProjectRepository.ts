@@ -1,35 +1,190 @@
 import type { RuntimeSampleAsset, SampleAssetId } from '../audio/AudioEngine'
-import { createProjectState, legacyProjectSchemaVersion, migrateLegacyProjectState, migrateV2ProjectState, migrateV3ProjectState, migrateV4ProjectState, migrateV5ProjectState, migrateV6ProjectState, migrateV7ProjectState, migrateV8ProjectState, migrateV9ProjectState, migrateV10ProjectState, migrateV11ProjectState, migrateV12ProjectState, migrateV13ProjectState, migrateV14ProjectState, migrateV15ProjectState, migrateV16ProjectState, migrateV17ProjectState, migrateV18ProjectState, migrateV19ProjectState, migrateV20ProjectState, migrateV21ProjectState, normalizeProjectState, previousProjectSchemaVersion, projectSchemaVersion, v2ProjectSchemaVersion, v3ProjectSchemaVersion, v4ProjectSchemaVersion, v5ProjectSchemaVersion, v6ProjectSchemaVersion, v7ProjectSchemaVersion, v8ProjectSchemaVersion, v9ProjectSchemaVersion, v10ProjectSchemaVersion, v11ProjectSchemaVersion, v12ProjectSchemaVersion, v13ProjectSchemaVersion, v14ProjectSchemaVersion, v15ProjectSchemaVersion, v16ProjectSchemaVersion, v17ProjectSchemaVersion, v18ProjectSchemaVersion, v19ProjectSchemaVersion, v20ProjectSchemaVersion, validateProjectState } from '../project/ProjectState'
-import { defaultProjectKey } from '../music/scales'
+import { createProjectState, validateProjectState } from '../project/ProjectState'
+import type { ProjectState } from '../project/ProjectState'
+import { decodeProjectState } from '../project/projectStateCodec'
 import { assetStoreName, metadataStoreName, openStationDatabase, projectStoreName, requestResult, transactionComplete } from './StationDatabase'
 import { defaultProjectId } from './storageTypes'
-import type { LoadedProject, StoredAssetRecord, StoredProjectRecord } from './storageTypes'
+import type { LoadedProject, ProjectDocument, ProjectSummary, StoredAssetRecord, StoredProjectRecord } from './storageTypes'
 
 const lastProjectKey = 'lastProjectId'
+const legacyRecoveredKey = 'legacyProjectRecovered'
 
 export class ProjectRepository {
-  async saveProject(projectId: string, snapshot: ReturnType<typeof createProjectState>, runtimeAssets: ReadonlyMap<SampleAssetId, RuntimeSampleAsset>): Promise<void> {
-    const errors = validateProjectState(snapshot)
-    if (errors.length > 0) throw new Error(`Project cannot be saved: ${errors[0]}`)
+  async listProjects(): Promise<ProjectSummary[]> {
+    const database = await openStationDatabase()
+    const transaction = database.transaction(projectStoreName, 'readonly')
+    const records = await requestResult(transaction.objectStore(projectStoreName).getAll(), 'Could not read the project library.') as unknown[]
+    await transactionComplete(transaction, 'Could not read the project library.')
+    return records
+      .filter(isStoredProjectRecord)
+      .map(projectSummary)
+      .sort((left, right) => right.modifiedAt.localeCompare(left.modifiedAt))
+  }
 
-    const referencedAssetIds = new Set(snapshot.assets.map((asset) => asset.id))
-    if (runtimeAssets.size !== referencedAssetIds.size || [...referencedAssetIds].some((id) => !runtimeAssets.has(id))) throw new Error('Project cannot be saved because a referenced WAV is unavailable.')
-
+  async createProject(document: ProjectDocument, runtimeAssets: ReadonlyMap<SampleAssetId, RuntimeSampleAsset>): Promise<ProjectDocument> {
+    validateDocument(document)
+    assertRuntimeAssets(document.state, runtimeAssets)
     const database = await openStationDatabase()
     const transaction = database.transaction([projectStoreName, assetStoreName, metadataStoreName], 'readwrite')
     const projects = transaction.objectStore(projectStoreName)
-    const assets = transaction.objectStore(assetStoreName)
-    const metadata = transaction.objectStore(metadataStoreName)
-
-    for (const assetId of referencedAssetIds) {
-      const asset = runtimeAssets.get(assetId)!
-      const record: StoredAssetRecord = { id: assetId, filename: asset.filename, mimeType: asset.blob.type, size: asset.blob.size, blob: asset.blob }
-      assets.put(record)
+    const existing = await requestResult(projects.get(document.projectId), 'Could not check the project ID.')
+    if (existing) {
+      transaction.abort()
+      throw new Error('A project with this ID already exists.')
     }
-    const project: StoredProjectRecord = { id: projectId, state: snapshot, savedAt: new Date().toISOString() }
-    projects.put(project)
-    metadata.put({ key: lastProjectKey, projectId })
+    writeRuntimeAssets(transaction.objectStore(assetStoreName), document.state, runtimeAssets)
+    projects.add(toStoredRecord(document))
+    transaction.objectStore(metadataStoreName).put({ key: lastProjectKey, projectId: document.projectId })
     await transactionComplete(transaction, 'Project save did not complete. Check available storage and try again.')
+    return cloneDocument(document)
+  }
+
+  async updateProject(projectId: string, state: ProjectState, runtimeAssets: ReadonlyMap<SampleAssetId, RuntimeSampleAsset>): Promise<ProjectDocument> {
+    const errors = validateProjectState(state)
+    if (errors.length > 0) throw new Error(`Project cannot be saved: ${errors[0]}`)
+    assertRuntimeAssets(state, runtimeAssets)
+    const database = await openStationDatabase()
+    const transaction = database.transaction([projectStoreName, assetStoreName, metadataStoreName], 'readwrite')
+    const projects = transaction.objectStore(projectStoreName)
+    const currentValue = await requestResult(projects.get(projectId), 'Could not read the project being saved.')
+    if (!isStoredProjectRecord(currentValue)) {
+      transaction.abort()
+      throw new Error('The project no longer exists in the local library.')
+    }
+    const next: ProjectDocument = {
+      projectId,
+      name: currentValue.name,
+      createdAt: currentValue.createdAt,
+      modifiedAt: new Date().toISOString(),
+      schemaVersion: state.schemaVersion,
+      bpm: state.bpm,
+      state: createProjectState(state),
+    }
+    writeRuntimeAssets(transaction.objectStore(assetStoreName), state, runtimeAssets)
+    projects.put(toStoredRecord(next))
+    await deleteAssetsNoLongerReferenced(transaction, currentValue.state.assets.map((asset) => asset.id))
+    transaction.objectStore(metadataStoreName).put({ key: lastProjectKey, projectId })
+    await transactionComplete(transaction, 'Project save did not complete. Check available storage and try again.')
+    return next
+  }
+
+  async replaceProject(document: ProjectDocument, runtimeAssets: ReadonlyMap<SampleAssetId, RuntimeSampleAsset>): Promise<ProjectDocument> {
+    validateDocument(document)
+    assertRuntimeAssets(document.state, runtimeAssets)
+    const database = await openStationDatabase()
+    const transaction = database.transaction([projectStoreName, assetStoreName, metadataStoreName], 'readwrite')
+    const projects = transaction.objectStore(projectStoreName)
+    const existing = await requestResult(projects.get(document.projectId), 'Could not read the project being replaced.')
+    if (!isStoredProjectRecord(existing)) {
+      transaction.abort()
+      throw new Error('The project to replace no longer exists.')
+    }
+    writeRuntimeAssets(transaction.objectStore(assetStoreName), document.state, runtimeAssets)
+    projects.put(toStoredRecord(document))
+    await deleteAssetsNoLongerReferenced(transaction, existing.state.assets.map((asset) => asset.id))
+    transaction.objectStore(metadataStoreName).put({ key: lastProjectKey, projectId: document.projectId })
+    await transactionComplete(transaction, 'Project replacement did not complete.')
+    return cloneDocument(document)
+  }
+
+  async renameProject(projectId: string, name: string): Promise<ProjectSummary> {
+    if (name.trim().length === 0) throw new Error('Project name cannot be empty.')
+    const database = await openStationDatabase()
+    const transaction = database.transaction(projectStoreName, 'readwrite')
+    const projects = transaction.objectStore(projectStoreName)
+    const value = await requestResult(projects.get(projectId), 'Could not read the project being renamed.')
+    if (!isStoredProjectRecord(value)) {
+      transaction.abort()
+      throw new Error('The project no longer exists in the local library.')
+    }
+    const record: StoredProjectRecord = { ...value, name, modifiedAt: new Date().toISOString() }
+    projects.put(record)
+    await transactionComplete(transaction, 'Project rename did not complete.')
+    return projectSummary(record)
+  }
+
+  async duplicateProject(sourceProjectId: string, newProjectId: string, name: string): Promise<ProjectSummary> {
+    if (name.trim().length === 0) throw new Error('Project name cannot be empty.')
+    const database = await openStationDatabase()
+    const transaction = database.transaction([projectStoreName, assetStoreName], 'readwrite')
+    const projects = transaction.objectStore(projectStoreName)
+    const sourceValue = await requestResult(projects.get(sourceProjectId), 'Could not read the project being duplicated.')
+    const existing = await requestResult(projects.get(newProjectId), 'Could not check the duplicate project ID.')
+    if (!isStoredProjectRecord(sourceValue) || existing) {
+      transaction.abort()
+      throw new Error(existing ? 'A project with the new ID already exists.' : 'The project being duplicated no longer exists.')
+    }
+    const now = new Date().toISOString()
+    const state = decodeProjectState(sourceValue.state)
+    const assets = transaction.objectStore(assetStoreName)
+    await Promise.all(state.assets.map(async ({ id }) => readStoredAsset(
+      await requestResult(assets.get(id), 'Could not verify a WAV used by the project being duplicated.'),
+      id,
+    )))
+    const duplicate: ProjectDocument = {
+      projectId: newProjectId,
+      name,
+      createdAt: now,
+      modifiedAt: now,
+      schemaVersion: state.schemaVersion,
+      bpm: state.bpm,
+      state,
+    }
+    projects.add(toStoredRecord(duplicate))
+    await transactionComplete(transaction, 'Project duplication did not complete.')
+    return projectSummary(toStoredRecord(duplicate))
+  }
+
+  async deleteProject(projectId: string): Promise<void> {
+    const database = await openStationDatabase()
+    const transaction = database.transaction([projectStoreName, assetStoreName, metadataStoreName], 'readwrite')
+    const projects = transaction.objectStore(projectStoreName)
+    const removedValue = await requestResult(projects.get(projectId), 'Could not read the project being deleted.')
+    if (!isStoredProjectRecord(removedValue)) {
+      transaction.abort()
+      throw new Error('The project no longer exists in the local library.')
+    }
+    projects.delete(projectId)
+    const remainingValues = await requestResult(projects.getAll(), 'Could not update project assets after deletion.') as unknown[]
+    const referenced = new Set<string>()
+    for (const value of remainingValues) {
+      if (!isRecord(value) || !isRecord(value.state) || !Array.isArray(value.state.assets)) continue
+      for (const asset of value.state.assets) if (isRecord(asset) && typeof asset.id === 'string') referenced.add(asset.id)
+    }
+    const assets = transaction.objectStore(assetStoreName)
+    for (const asset of removedValue.state.assets) if (!referenced.has(asset.id)) assets.delete(asset.id)
+    const metadata = transaction.objectStore(metadataStoreName)
+    const last = await requestResult(metadata.get(lastProjectKey), 'Could not update the last project.') as { projectId?: unknown } | undefined
+    if (last?.projectId === projectId) metadata.delete(lastProjectKey)
+    await transactionComplete(transaction, 'Project deletion did not complete.')
+  }
+
+  async projectExists(projectId: string): Promise<boolean> {
+    const database = await openStationDatabase()
+    const transaction = database.transaction(projectStoreName, 'readonly')
+    const value = await requestResult(transaction.objectStore(projectStoreName).get(projectId), 'Could not check the project library.')
+    await transactionComplete(transaction, 'Could not check the project library.')
+    return isStoredProjectRecord(value)
+  }
+
+  async loadProject(projectId: string): Promise<LoadedProject> {
+    const database = await openStationDatabase()
+    const projectTransaction = database.transaction(projectStoreName, 'readonly')
+    const value = await requestResult(projectTransaction.objectStore(projectStoreName).get(projectId), 'Could not read the saved project.')
+    await transactionComplete(projectTransaction, 'Could not read the saved project.')
+    if (!isStoredProjectRecord(value)) throw new Error('No saved project.')
+    const state = decodeProjectState(value.state)
+    const assets = await loadAssets(database, state)
+    return {
+      projectId,
+      name: value.name,
+      createdAt: value.createdAt,
+      modifiedAt: value.modifiedAt,
+      schemaVersion: state.schemaVersion,
+      legacy: false,
+      state,
+      assets,
+    }
   }
 
   async loadLastProject(): Promise<LoadedProject> {
@@ -41,94 +196,125 @@ export class ProjectRepository {
     return this.loadProject(record.projectId)
   }
 
-  async hasSavedProject(): Promise<boolean> {
-    try {
-      await this.loadLastProject()
-      return true
-    } catch (error) {
-      if (error instanceof Error && error.message === 'No saved project.') return false
-      throw error
-    }
+  async hasLegacyProject(): Promise<boolean> {
+    const database = await openStationDatabase()
+    const transaction = database.transaction([projectStoreName, metadataStoreName], 'readonly')
+    const legacy = await requestResult(transaction.objectStore(projectStoreName).get(defaultProjectId), 'Could not inspect the legacy save.')
+    const recovered = await requestResult(transaction.objectStore(metadataStoreName).get(legacyRecoveredKey), 'Could not inspect the legacy save.') as { recovered?: unknown } | undefined
+    await transactionComplete(transaction, 'Could not inspect the legacy save.')
+    return isLegacyProjectRecord(legacy) && recovered?.recovered !== true
   }
 
-  async loadProject(projectId = defaultProjectId): Promise<LoadedProject> {
+  async loadLegacyProject(): Promise<LoadedProject> {
     const database = await openStationDatabase()
-    const projectTransaction = database.transaction(projectStoreName, 'readonly')
-    const record = await requestResult(projectTransaction.objectStore(projectStoreName).get(projectId), 'Could not read the saved project.')
-    await transactionComplete(projectTransaction, 'Could not read the saved project.')
-    if (!record) throw new Error('No saved project.')
+    const transaction = database.transaction(projectStoreName, 'readonly')
+    const value = await requestResult(transaction.objectStore(projectStoreName).get(defaultProjectId), 'Could not read the legacy project.')
+    await transactionComplete(transaction, 'Could not read the legacy project.')
+    if (!isLegacyProjectRecord(value)) throw new Error('No legacy project save.')
+    const state = decodeProjectState(value.state)
+    const assets = await loadAssets(database, state)
+    const modifiedAt = typeof value.savedAt === 'string' ? value.savedAt : new Date(0).toISOString()
+    return { projectId: defaultProjectId, name: null, createdAt: null, modifiedAt, schemaVersion: state.schemaVersion, legacy: true, state, assets }
+  }
 
-    const state = readProjectState(record)
-    const requiredIds = state.assets.map((asset) => asset.id)
-    const assetTransaction = database.transaction(assetStoreName, 'readonly')
-    const assets = await Promise.all(requiredIds.map(async (assetId) => {
-      const asset = await requestResult(assetTransaction.objectStore(assetStoreName).get(assetId), 'Could not read a project WAV.')
-      return readStoredAsset(asset, assetId)
-    }))
-    await transactionComplete(assetTransaction, 'Could not read the saved project WAV files.')
-    return { projectId, state, assets }
+  async markLegacyRecovered(): Promise<void> {
+    const database = await openStationDatabase()
+    const transaction = database.transaction(metadataStoreName, 'readwrite')
+    transaction.objectStore(metadataStoreName).put({ key: legacyRecoveredKey, recovered: true })
+    await transactionComplete(transaction, 'Could not finish legacy project recovery.')
   }
 }
 
 export const projectRepository = new ProjectRepository()
 
-function readProjectState(record: unknown): ReturnType<typeof createProjectState> {
-  if (!isRecord(record) || !isRecord(record.state)) throw new Error('Saved project manifest is corrupted.')
-  const schemaVersion = record.state.schemaVersion
-  if (schemaVersion !== projectSchemaVersion && schemaVersion !== previousProjectSchemaVersion && schemaVersion !== v20ProjectSchemaVersion && schemaVersion !== v19ProjectSchemaVersion && schemaVersion !== v18ProjectSchemaVersion && schemaVersion !== v17ProjectSchemaVersion && schemaVersion !== v16ProjectSchemaVersion && schemaVersion !== v15ProjectSchemaVersion && schemaVersion !== v14ProjectSchemaVersion && schemaVersion !== v13ProjectSchemaVersion && schemaVersion !== v12ProjectSchemaVersion && schemaVersion !== v11ProjectSchemaVersion && schemaVersion !== v10ProjectSchemaVersion && schemaVersion !== v9ProjectSchemaVersion && schemaVersion !== v8ProjectSchemaVersion && schemaVersion !== v7ProjectSchemaVersion && schemaVersion !== v6ProjectSchemaVersion && schemaVersion !== v5ProjectSchemaVersion && schemaVersion !== v4ProjectSchemaVersion && schemaVersion !== v3ProjectSchemaVersion && schemaVersion !== v2ProjectSchemaVersion && schemaVersion !== legacyProjectSchemaVersion) throw new Error(`Unsupported project schema version: ${String(schemaVersion)}.`)
-  const baseState = {
-    ...record.state,
-    // Schema v1 projects written before Project Key used the same stable fields;
-    // the new preference can therefore safely default during validation.
-    projectKey: 'projectKey' in record.state ? record.state.projectKey : { ...defaultProjectKey },
+async function loadAssets(database: IDBDatabase, state: ProjectState): Promise<StoredAssetRecord[]> {
+  if (state.assets.length === 0) return []
+  const transaction = database.transaction(assetStoreName, 'readonly')
+  const assets = await Promise.all(state.assets.map(async ({ id }) => readStoredAsset(
+    await requestResult(transaction.objectStore(assetStoreName).get(id), 'Could not read a project WAV.'),
+    id,
+  )))
+  await transactionComplete(transaction, 'Could not read the saved project WAV files.')
+  return assets
+}
+
+function writeRuntimeAssets(store: IDBObjectStore, state: ProjectState, runtimeAssets: ReadonlyMap<SampleAssetId, RuntimeSampleAsset>): void {
+  for (const { id } of state.assets) {
+    const asset = runtimeAssets.get(id)!
+    const record: StoredAssetRecord = { id, filename: asset.filename, mimeType: asset.blob.type, size: asset.blob.size, blob: asset.blob }
+    store.put(record)
   }
-  const migratedState = schemaVersion === legacyProjectSchemaVersion
-    ? migrateLegacyProjectState(baseState as unknown as Parameters<typeof migrateLegacyProjectState>[0])
-    : schemaVersion === v2ProjectSchemaVersion
-      ? migrateV2ProjectState(baseState as unknown as Parameters<typeof migrateV2ProjectState>[0])
-      : schemaVersion === v3ProjectSchemaVersion
-        ? migrateV3ProjectState(baseState)
-        : schemaVersion === v4ProjectSchemaVersion
-          ? migrateV4ProjectState(baseState)
-          : schemaVersion === v5ProjectSchemaVersion
-            ? migrateV5ProjectState(baseState)
-            : schemaVersion === v6ProjectSchemaVersion
-              ? migrateV6ProjectState(baseState)
-              : schemaVersion === v7ProjectSchemaVersion
-                ? migrateV7ProjectState(baseState)
-                : schemaVersion === v8ProjectSchemaVersion
-                  ? migrateV8ProjectState(baseState)
-                  : schemaVersion === v9ProjectSchemaVersion
-                    ? migrateV9ProjectState(baseState)
-                    : schemaVersion === v10ProjectSchemaVersion
-                      ? migrateV10ProjectState(baseState)
-                      : schemaVersion === v11ProjectSchemaVersion
-                        ? migrateV11ProjectState(baseState)
-                        : schemaVersion === v12ProjectSchemaVersion
-                          ? migrateV12ProjectState(baseState)
-                          : schemaVersion === v13ProjectSchemaVersion
-                            ? migrateV13ProjectState(baseState)
-                            : schemaVersion === v14ProjectSchemaVersion
-                              ? migrateV14ProjectState(baseState)
-                              : schemaVersion === v15ProjectSchemaVersion
-                                ? migrateV15ProjectState(baseState)
-                                : schemaVersion === v16ProjectSchemaVersion
-                                  ? migrateV16ProjectState(baseState)
-                                  : schemaVersion === v17ProjectSchemaVersion
-                                    ? migrateV17ProjectState(baseState)
-                                    : schemaVersion === v18ProjectSchemaVersion
-                                      ? migrateV18ProjectState(baseState)
-                                      : schemaVersion === v19ProjectSchemaVersion
-                                        ? migrateV19ProjectState(baseState)
-                                        : schemaVersion === v20ProjectSchemaVersion
-                                          ? migrateV20ProjectState(baseState)
-                                          : schemaVersion === previousProjectSchemaVersion
-                                            ? migrateV21ProjectState(baseState)
-                                            : baseState as ReturnType<typeof createProjectState>
-  const state = normalizeProjectState(migratedState)
-  const errors = validateProjectState(state)
-  if (errors.length > 0) throw new Error(`Saved project manifest is corrupted: ${errors[0]}`)
-  return createProjectState(state)
+}
+
+async function deleteAssetsNoLongerReferenced(transaction: IDBTransaction, candidates: readonly SampleAssetId[]): Promise<void> {
+  if (candidates.length === 0) return
+  const values = await requestResult(transaction.objectStore(projectStoreName).getAll(), 'Could not clean up unused project WAVs.') as unknown[]
+  const referenced = new Set<string>()
+  for (const value of values) {
+    if (!isRecord(value) || !isRecord(value.state) || !Array.isArray(value.state.assets)) continue
+    for (const asset of value.state.assets) if (isRecord(asset) && typeof asset.id === 'string') referenced.add(asset.id)
+  }
+  const assets = transaction.objectStore(assetStoreName)
+  for (const assetId of candidates) if (!referenced.has(assetId)) assets.delete(assetId)
+}
+
+function assertRuntimeAssets(state: ProjectState, runtimeAssets: ReadonlyMap<SampleAssetId, RuntimeSampleAsset>): void {
+  const referenced = new Set(state.assets.map((asset) => asset.id))
+  if (runtimeAssets.size !== referenced.size || [...referenced].some((id) => !runtimeAssets.has(id))) throw new Error('Project cannot be saved because a referenced WAV is unavailable.')
+}
+
+function validateDocument(document: ProjectDocument): void {
+  if (document.projectId.length === 0) throw new Error('Project ID cannot be empty.')
+  if (document.name.trim().length === 0) throw new Error('Project name cannot be empty.')
+  if (!Number.isFinite(Date.parse(document.createdAt)) || !Number.isFinite(Date.parse(document.modifiedAt))) throw new Error('Project timestamps are invalid.')
+  const errors = validateProjectState(document.state)
+  if (errors.length > 0) throw new Error(`Project cannot be saved: ${errors[0]}`)
+}
+
+function toStoredRecord(document: ProjectDocument): StoredProjectRecord {
+  return {
+    id: document.projectId,
+    projectId: document.projectId,
+    name: document.name,
+    createdAt: document.createdAt,
+    modifiedAt: document.modifiedAt,
+    schemaVersion: document.state.schemaVersion,
+    state: createProjectState(document.state),
+  }
+}
+
+function cloneDocument(document: ProjectDocument): ProjectDocument {
+  return { ...document, state: createProjectState(document.state) }
+}
+
+function projectSummary(record: StoredProjectRecord): ProjectSummary {
+  return {
+    projectId: record.projectId,
+    name: record.name,
+    createdAt: record.createdAt,
+    modifiedAt: record.modifiedAt,
+    schemaVersion: record.schemaVersion,
+    bpm: record.state.bpm,
+  }
+}
+
+function isStoredProjectRecord(value: unknown): value is StoredProjectRecord {
+  return isRecord(value)
+    && typeof value.id === 'string'
+    && typeof value.projectId === 'string'
+    && value.id === value.projectId
+    && typeof value.name === 'string'
+    && value.name.trim().length > 0
+    && typeof value.createdAt === 'string'
+    && typeof value.modifiedAt === 'string'
+    && typeof value.schemaVersion === 'number'
+    && isRecord(value.state)
+    && Array.isArray(value.state.assets)
+    && typeof value.state.bpm === 'number'
+}
+
+function isLegacyProjectRecord(value: unknown): value is { id: string; state: Record<string, unknown>; savedAt?: unknown } {
+  return isRecord(value) && value.id === defaultProjectId && !('projectId' in value) && isRecord(value.state)
 }
 
 function readStoredAsset(value: unknown, expectedId: SampleAssetId): StoredAssetRecord {

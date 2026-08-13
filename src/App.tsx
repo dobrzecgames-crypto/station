@@ -11,7 +11,9 @@ import type { TimelineSchedulerConfig } from './audio/TimelineScheduler'
 import { encodeWav } from './audio/wavEncoder'
 import { ChopDisplayLauncher } from './chop/ChopDisplay'
 import { ChopWorkspace } from './chop/ChopWorkspace'
+import { builtInLibrary } from './library/builtInLibrary'
 import type { LibrarySample } from './library/builtInLibrary'
+import { builtInLibrarySampleIdFromAssetId, createBuiltInLibraryAssetId } from './library/libraryAssetIdentity'
 import { Mixer } from './mixer/Mixer'
 import { BusDisplayLauncher } from './mixer/BusDisplay'
 import { MixTargetSelector } from './mixer/GroupMixPanel'
@@ -39,9 +41,15 @@ import type { DrumInstrumentType, DrumKickPatch, DrumSnarePatch, DrumSynthState 
 import { DrumSynthWorkspace } from './drumsynth/DrumSynthWorkspace'
 import { renderKickToBuffer } from './drumsynth/renderKick'
 import { renderSnareToBuffer } from './drumsynth/renderSnare'
-import { collectReferencedAssetIds, createProjectState, projectSchemaVersion, validateProjectState } from './project/ProjectState'
+import { collectReferencedAssetIds, createEmptyProjectState, createProjectState, projectSchemaVersion, validateProjectState } from './project/ProjectState'
 import type { PumpRoute } from './project/ProjectState'
 import { ProjectDisplayButton } from './project/ProjectDisplay'
+import { ProjectConflictDialog } from './project/ProjectConflictDialog'
+import { ProjectLibraryDialog } from './project/ProjectLibraryDialog'
+import { ProjectNameDialog } from './project/ProjectNameDialog'
+import { createNamedProjectDocument, duplicateProjectDocument } from './project/projectDocument'
+import { createStationProjectFile, parseStationProjectFile, serializeStationProjectFile, stationProjectFilename } from './project/stationProjectFile'
+import type { ParsedStationProject } from './project/stationProjectFile'
 import { renderSongToBuffer } from './project/renderSong'
 import type { RenderSongResult } from './project/renderSong'
 import { defaultProjectKey, formatProjectKey } from './music/scales'
@@ -50,8 +58,9 @@ import { chordRootMidiNote, formatChordAssignment, formatMidiNoteName, resolveCh
 import { ChordPriority } from './music/chordPriority'
 import { findProjectScaleMapConflicts, mapPadBankToProjectScale } from './music/scaleMapping'
 import { projectRepository } from './storage/ProjectRepository'
-import { defaultProjectId } from './storage/storageTypes'
-import { addPatternGroup, clearVariant, createInitialPatternGroups, duplicateVariant, getVariant, getVariantLengths, getVariantShifts, paintVariantStepSpan, patternStepCount, renamePatternGroup, repairPatternGroupChords, setPatternGroupChordAssignment, setPatternGroupChordPerformance, setPatternGroupPadMode, setVariantStepPresence, setVariantStepShift, setVariantStepVelocity } from './patterns/patternOperations'
+import type { LoadedProject, ProjectDocument, ProjectSummary } from './storage/storageTypes'
+import { addPatternGroup, clearVariant, copyVariantSequence, createInitialPatternGroups, duplicateVariant, getVariant, getVariantLengths, getVariantShifts, paintVariantStepSpan, pasteVariantSequence, patternStepCount, renamePatternGroup, repairPatternGroupChords, setPatternGroupChordAssignment, setPatternGroupChordPerformance, setPatternGroupPadMode, setVariantStepPresence, setVariantStepShift, setVariantStepVelocity } from './patterns/patternOperations'
+import type { PatternSequenceClipboard } from './patterns/patternOperations'
 import type { ChordPerformanceSettings } from './music/chordPerformance'
 import { patternVariantNames } from './patterns/patternTypes'
 import type { PadMode, PatternGroup, PatternVariantName } from './patterns/patternTypes'
@@ -108,6 +117,11 @@ import './lab-interface.css'
 interface AppProps { audioEngine: AudioEngine }
 interface FxContext { scope: 'group' | 'track' | 'master'; slotIndex: 0 | 1 }
 interface PendingConfirmation { message: string; confirmLabel: string; onConfirm: () => void }
+type ProjectNameAction =
+  | { kind: 'save' }
+  | { kind: 'rename'; project: ProjectSummary }
+  | { kind: 'duplicate'; project: ProjectSummary }
+interface PendingProjectImport { parsed: ParsedStationProject }
 interface WaveformPlayback { assetId: SampleAssetId; startedAt: number; startSeconds: number; endSeconds: number }
 interface SequencerPlayhead { stepIndex: number; sectionIndex: number; startsAt: number; durationSeconds: number }
 /** Anchor for quantizing a live pad hit to the nearest step - refreshed every time step 0 of a loop is scheduled. */
@@ -199,6 +213,7 @@ export function App({ audioEngine }: AppProps) {
   const [patternGroups, setPatternGroups] = useState<PatternGroup[]>(() => createInitialPatternGroups(createPadBank().map((pad) => pad.id)))
   const [selectedPatternGroupId, setSelectedPatternGroupId] = useState('pattern-group-1')
   const [selectedPatternVariant, setSelectedPatternVariant] = useState<PatternVariantName>('A')
+  const [patternClipboard, setPatternClipboard] = useState<(PatternSequenceClipboard & { sourceLabel: string }) | null>(null)
   const [playlist, setPlaylist] = useState<PatternClip[]>([])
   const [audioTracks, setAudioTracks] = useState<AudioTrack[]>([])
   /** Paused/scrub position in beats - the live position while playing is
@@ -251,6 +266,13 @@ export function App({ audioEngine }: AppProps) {
   const [projectMessage, setProjectMessage] = useState<string>()
   const [transportNotice, setTransportNotice] = useState<string>()
   const [projectBusy, setProjectBusy] = useState(false)
+  const [currentProject, setCurrentProject] = useState<ProjectSummary | null>(null)
+  const [projectLibrary, setProjectLibrary] = useState<ProjectSummary[]>([])
+  const [projectLibraryOpen, setProjectLibraryOpen] = useState(false)
+  const [legacyProjectAvailable, setLegacyProjectAvailable] = useState(false)
+  const [legacyRecoveryActive, setLegacyRecoveryActive] = useState(false)
+  const [projectNameAction, setProjectNameAction] = useState<ProjectNameAction | null>(null)
+  const [pendingProjectImport, setPendingProjectImport] = useState<PendingProjectImport | null>(null)
   const [renderProgress, setRenderProgress] = useState<number | null>(null)
   const [hotRender, setHotRender] = useState<{ result: RenderSongResult; filename: string } | null>(null)
   const [projectKey, setProjectKey] = useState<ProjectKey>(defaultProjectKey)
@@ -278,6 +300,8 @@ export function App({ audioEngine }: AppProps) {
      it by a render - long enough to silently drop the very first hit of a take. */
   const recordingArmedRef = useRef(false)
   const renderAbortRef = useRef<AbortController | null>(null)
+  const autosaveTimerRef = useRef<number | null>(null)
+  const projectSaveQueueRef = useRef<Promise<void>>(Promise.resolve())
   const renderBusy = renderProgress !== null
   /* SOLO is honoured by the render, so a render started with one latched
      silently drops every other channel. The panel says so before it happens. */
@@ -326,6 +350,18 @@ export function App({ audioEngine }: AppProps) {
     const timer = window.setTimeout(() => setProjectMessage(undefined), 4000)
     return () => window.clearTimeout(timer)
   }, [projectMessage])
+
+  useEffect(() => {
+    let cancelled = false
+    void Promise.all([projectRepository.listProjects(), projectRepository.hasLegacyProject()])
+      .then(([projects, legacyAvailable]) => {
+        if (cancelled) return
+        setProjectLibrary(projects)
+        setLegacyProjectAvailable(legacyAvailable)
+      })
+      .catch((error) => { if (!cancelled) setErrorMessage(toMessage(error)) })
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     if (!errorMessage) return
@@ -673,21 +709,50 @@ export function App({ audioEngine }: AppProps) {
     })
   }
 
+  const runtimeAssetsForProject = (snapshot: ReturnType<typeof createCurrentProjectState>) => {
+    const runtimeAssets = new Map<SampleAssetId, NonNullable<ReturnType<AudioEngine['getRuntimeSampleAsset']>>>()
+    for (const assetId of collectReferencedAssetIds(snapshot)) {
+      const asset = audioEngine.getRuntimeSampleAsset(assetId)
+      if (!asset) throw new Error('Project cannot be saved because a referenced WAV is unavailable.')
+      runtimeAssets.set(assetId, asset)
+    }
+    return runtimeAssets
+  }
+
+  const enqueueProjectWrite = <T,>(task: () => Promise<T>): Promise<T> => {
+    const run = projectSaveQueueRef.current.then(task, task)
+    projectSaveQueueRef.current = run.then(() => undefined, () => undefined)
+    return run
+  }
+
+  const refreshProjectLibrary = async () => {
+    const [projects, legacyAvailable] = await Promise.all([projectRepository.listProjects(), projectRepository.hasLegacyProject()])
+    setProjectLibrary(projects)
+    setLegacyProjectAvailable(legacyAvailable)
+  }
+
+  const clearPendingAutosave = () => {
+    if (autosaveTimerRef.current === null) return
+    window.clearTimeout(autosaveTimerRef.current)
+    autosaveTimerRef.current = null
+  }
+
   const saveProject = async () => {
     if (projectBusy) return
+    if (!currentProject) {
+      setProjectNameAction({ kind: 'save' })
+      return
+    }
+    clearPendingAutosave()
     setProjectBusy(true)
     setProjectMessage(undefined)
     try {
       const snapshot = createCurrentProjectState()
       const validationErrors = validateProjectState(snapshot)
       if (validationErrors.length > 0) throw new Error(`Project cannot be saved: ${validationErrors[0]}`)
-      const runtimeAssets = new Map<SampleAssetId, NonNullable<ReturnType<AudioEngine['getRuntimeSampleAsset']>>>()
-      for (const assetId of collectReferencedAssetIds(snapshot)) {
-        const asset = audioEngine.getRuntimeSampleAsset(assetId)
-        if (!asset) throw new Error('Project cannot be saved because a referenced WAV is unavailable.')
-        runtimeAssets.set(assetId, asset)
-      }
-      await projectRepository.saveProject(defaultProjectId, snapshot, runtimeAssets)
+      const saved = await enqueueProjectWrite(() => projectRepository.updateProject(currentProject.projectId, snapshot, runtimeAssetsForProject(snapshot)))
+      setCurrentProject(projectSummaryFromDocument(saved))
+      await refreshProjectLibrary()
       setProjectMessage('Project saved.')
     } catch (error) {
       setErrorMessage(toMessage(error))
@@ -695,6 +760,32 @@ export function App({ audioEngine }: AppProps) {
       setProjectBusy(false)
     }
   }
+
+  useEffect(() => {
+    if (!currentProject) return
+    const projectId = currentProject.projectId
+    const timer = window.setTimeout(() => {
+      if (autosaveTimerRef.current === timer) autosaveTimerRef.current = null
+      try {
+        const snapshot = createCurrentProjectState()
+        const runtimeAssets = runtimeAssetsForProject(snapshot)
+        void enqueueProjectWrite(() => projectRepository.updateProject(projectId, snapshot, runtimeAssets))
+          .then((saved) => {
+            const summary = projectSummaryFromDocument(saved)
+            setCurrentProject((current) => current?.projectId === projectId ? summary : current)
+            setProjectLibrary((projects) => sortProjectSummaries(projects.map((project) => project.projectId === projectId ? summary : project)))
+          })
+          .catch((error) => setErrorMessage(`Autosave failed: ${toMessage(error)}`))
+      } catch (error) {
+        setErrorMessage(`Autosave failed: ${toMessage(error)}`)
+      }
+    }, 1500)
+    autosaveTimerRef.current = timer
+    return () => {
+      window.clearTimeout(timer)
+      if (autosaveTimerRef.current === timer) autosaveTimerRef.current = null
+    }
+  }, [currentProject?.projectId, projectKey, patternGroups, selectedPatternGroupId, selectedPatternVariant, playlist, audioTracks, transportMode, loopSong, bpm, swing, master, masterEffects, pumpRoutes, drumSynth])
 
   /* Renders the SONG playlist offline and hands the user a WAV. The transport
      mode does not matter: a render is always the song, from slot one to the
@@ -735,11 +826,8 @@ export function App({ audioEngine }: AppProps) {
     setProjectMessage(trimmed ? `Rendered with a ${formatDb(gain)} trim.` : `Rendered 1:1, ${result.clippedSampleCount.toLocaleString()} samples clipped.`)
   }
 
-  const openProject = async () => {
-    if (projectBusy) return
-    if (!audioReady) { setErrorMessage('Start audio before opening a project.'); return }
-    setProjectBusy(true)
-    setProjectMessage(undefined)
+  const prepareForProjectSwitch = () => {
+    clearPendingAutosave()
     stopPlayback()
     audioEngine.stopManualVoices()
     chordPriorityRef.current.clear()
@@ -747,65 +835,294 @@ export function App({ audioEngine }: AppProps) {
     setSourcePreviewing(false)
     setPreviewingLibrarySampleId(null)
     setWaveformPlayback(null)
+  }
+
+  const applyLoadedProject = async (loadedProject: LoadedProject) => {
+    prepareForProjectSwitch()
+    const nextWaveforms: Record<string, number[]> = {}
+    for (const asset of loadedProject.assets) {
+      await audioEngine.loadSampleBlob(asset.id, asset.blob, asset.filename)
+      nextWaveforms[asset.id] = audioEngine.getWaveformPeaks(asset.id) ?? []
+    }
+    const state = loadedProject.state
+    const openedAssetIds = new Set(loadedProject.assets.map((asset) => asset.id))
+    for (const assetId of audioEngine.getSampleAssetIds()) if (!openedAssetIds.has(assetId)) audioEngine.removeSampleAsset(assetId)
+    for (const group of patternGroups) audioEngine.setGroupSolo(group.id, false)
+    for (const track of audioTracks) audioEngine.setGroupSolo(track.id, false)
+    for (const group of state.patternGroups) for (const pad of group.bank.pads) {
+      const channelId = createChannelId({ patternGroupId: group.id, padId: pad.id })
+      audioEngine.setChannelVolume(group.id, channelId, pad.volume)
+      audioEngine.setChannelMuted(group.id, channelId, pad.muted)
+      audioEngine.setChannelSolo(group.id, channelId, pad.solo)
+    }
+    for (const group of state.patternGroups) {
+      audioEngine.setGroupVolume(group.id, group.bus!.volume)
+      audioEngine.setGroupMuted(group.id, group.bus!.muted)
+      audioEngine.setGroupSolo(group.id, group.bus!.solo)
+    }
+    audioEngine.setMasterVolume(state.master.volume)
+    audioEngine.setMasterMuted(state.master.muted)
+    audioEngine.setBpm(state.bpm)
+    audioEngine.setMasterEffects(state.masterEffects)
+    for (const group of state.patternGroups) audioEngine.setGroupEffects(group.id, group.effects)
+    for (const track of state.audioTracks) syncTrackBusToEngine(track)
+    audioEngine.syncSynthPatches(state.patternGroups.flatMap((group) => group.synthPatches.map((patch) => ({ groupId: group.id, patch }))))
+    audioEngine.syncStringsPatches(state.patternGroups.flatMap((group) => group.stringsPatches.map((patch) => ({ groupId: group.id, patch }))))
+    audioEngine.syncOrganicBassPatches(state.patternGroups.flatMap((group) => group.organicBassPatches.map((patch) => ({ groupId: group.id, patch }))))
+    audioEngine.syncPolyPatches(state.patternGroups.flatMap((group) => group.polyPatches.map((patch) => ({ groupId: group.id, patch }))))
+    audioEngine.setPumpRoutes(state.pumpRoutes.map((route) => ({ id: route.id, sourceChannelId: createChannelId(route.source), targetGroupId: route.targetGroupId, depth: route.depth, lengthSeconds: 60 / state.bpm * route.lengthBeats, curve: route.curve })))
+    patternTakeHistory.clear()
+    tracksHistory.clear()
+    patternGroupsRef.current = state.patternGroups
+    setPatternGroups(state.patternGroups)
+    setSelectedPatternGroupId(state.selectedPatternGroupId)
+    setSelectedPatternVariant(state.selectedPatternVariant)
+    setPlaylist(state.playlist)
+    setAudioTracks(state.audioTracks)
+    setTransportMode(state.transportMode)
+    setLoopSong(state.loopSong)
+    setPlayingSongSlot(null)
+    setBpm(state.bpm)
+    setSwing(state.swing)
+    setMaster(state.master)
+    setMasterEffects(state.masterEffects)
+    setPumpRoutes(state.pumpRoutes)
+    setProjectKey(state.projectKey)
+    setDrumSynth(state.drumSynth)
+    setWaveforms(nextWaveforms)
+    setChopAddingSlice(false)
+    setSelectedPadId('pad-01')
+    setActivePadId(null)
+    setPendingDrumSound(null)
+    setDrumSynthPanelOpen(false)
+    setTracksPlayheadBeat(0)
+    setOpenTrackEditorId(null)
+    setMainView('pad')
+  }
+
+  const openNamedProject = async (projectId: string) => {
+    if (projectBusy) return
+    if (!audioReady) { setErrorMessage('Start audio before opening a project.'); return }
+    setProjectBusy(true)
+    setProjectMessage(undefined)
     try {
-      const loadedProject = await projectRepository.loadLastProject()
-      const nextWaveforms: Record<string, number[]> = {}
-      for (const asset of loadedProject.assets) {
-        await audioEngine.loadSampleBlob(asset.id, asset.blob, asset.filename)
-        nextWaveforms[asset.id] = audioEngine.getWaveformPeaks(asset.id) ?? []
+      await projectSaveQueueRef.current
+      const loadedProject = await projectRepository.loadProject(projectId)
+      await applyLoadedProject(loadedProject)
+      setCurrentProject(projectSummaryFromLoadedProject(loadedProject))
+      setLegacyRecoveryActive(false)
+      setProjectLibraryOpen(false)
+      setProjectMessage(`Opened ${loadedProject.name}.`)
+    } catch (error) {
+      setErrorMessage(toMessage(error))
+    } finally {
+      setProjectBusy(false)
+    }
+  }
+
+  const recoverLegacyProject = async () => {
+    if (projectBusy) return
+    if (!audioReady) { setErrorMessage('Start audio before recovering the legacy project.'); return }
+    setProjectBusy(true)
+    try {
+      await projectSaveQueueRef.current
+      const loadedProject = await projectRepository.loadLegacyProject()
+      await applyLoadedProject(loadedProject)
+      setCurrentProject(null)
+      setLegacyRecoveryActive(true)
+      setProjectLibraryOpen(false)
+      setProjectMessage('Legacy save recovered. Choose SAVE PROJECT to name it.')
+    } catch (error) {
+      setErrorMessage(toMessage(error))
+    } finally {
+      setProjectBusy(false)
+    }
+  }
+
+  const persistCurrentProjectSilently = async () => {
+    if (!currentProject) return
+    clearPendingAutosave()
+    const snapshot = createCurrentProjectState()
+    const saved = await enqueueProjectWrite(() => projectRepository.updateProject(currentProject.projectId, snapshot, runtimeAssetsForProject(snapshot)))
+    const summary = projectSummaryFromDocument(saved)
+    setCurrentProject(summary)
+    setProjectLibrary((projects) => sortProjectSummaries(projects.map((project) => project.projectId === summary.projectId ? summary : project)))
+  }
+
+  const openProjectLibrary = async () => {
+    if (projectBusy) return
+    setProjectBusy(true)
+    try {
+      await persistCurrentProjectSilently()
+      await refreshProjectLibrary()
+      setProjectLibraryOpen(true)
+    } catch (error) {
+      setErrorMessage(toMessage(error))
+    } finally {
+      setProjectBusy(false)
+    }
+  }
+
+  const startNewProject = async () => {
+    if (projectBusy) return
+    setProjectBusy(true)
+    try {
+      await persistCurrentProjectSilently()
+      const state = createEmptyProjectState()
+      await applyLoadedProject({ projectId: '', name: null, createdAt: null, modifiedAt: new Date().toISOString(), schemaVersion: state.schemaVersion, legacy: false, state, assets: [] })
+      setCurrentProject(null)
+      setLegacyRecoveryActive(false)
+      setProjectLibraryOpen(false)
+      setProjectMessage('New unsaved project ready.')
+    } catch (error) {
+      setErrorMessage(toMessage(error))
+    } finally {
+      setProjectBusy(false)
+    }
+  }
+
+  const submitProjectName = async (name: string) => {
+    const action = projectNameAction
+    if (!action || projectBusy || name.trim().length === 0) return
+    setProjectBusy(true)
+    try {
+      if (action.kind === 'save') {
+        const snapshot = createCurrentProjectState()
+        const document = createNamedProjectDocument(`project-${createRuntimeId()}`, name, snapshot)
+        const saved = await enqueueProjectWrite(() => projectRepository.createProject(document, runtimeAssetsForProject(snapshot)))
+        setCurrentProject(projectSummaryFromDocument(saved))
+        if (legacyRecoveryActive) await projectRepository.markLegacyRecovered()
+        setLegacyRecoveryActive(false)
+        setProjectMessage(`Saved ${name}. Autosave is now active.`)
+      } else if (action.kind === 'rename') {
+        const renamed = await projectRepository.renameProject(action.project.projectId, name)
+        setCurrentProject((current) => current?.projectId === renamed.projectId ? renamed : current)
+        setProjectMessage(`Renamed project to ${name}.`)
+        setProjectLibraryOpen(true)
+      } else {
+        await projectRepository.duplicateProject(action.project.projectId, `project-${createRuntimeId()}`, name)
+        setProjectMessage(`Created duplicate ${name}.`)
+        setProjectLibraryOpen(true)
       }
-      const state = loadedProject.state
-      const openedAssetIds = new Set(loadedProject.assets.map((asset) => asset.id))
-      for (const assetId of audioEngine.getSampleAssetIds()) if (!openedAssetIds.has(assetId)) audioEngine.removeSampleAsset(assetId)
-      for (const group of state.patternGroups) for (const pad of group.bank.pads) {
-        const channelId = createChannelId({ patternGroupId: group.id, padId: pad.id })
-        audioEngine.setChannelVolume(group.id, channelId, pad.volume)
-        audioEngine.setChannelMuted(group.id, channelId, pad.muted)
-        audioEngine.setChannelSolo(group.id, channelId, pad.solo)
+      setProjectNameAction(null)
+      await refreshProjectLibrary()
+    } catch (error) {
+      setErrorMessage(toMessage(error))
+    } finally {
+      setProjectBusy(false)
+    }
+  }
+
+  const requestProjectRename = (project: ProjectSummary) => {
+    setProjectLibraryOpen(false)
+    setProjectNameAction({ kind: 'rename', project })
+  }
+
+  const requestProjectDuplicate = (project: ProjectSummary) => {
+    setProjectLibraryOpen(false)
+    setProjectNameAction({ kind: 'duplicate', project })
+  }
+
+  const requestProjectDelete = (project: ProjectSummary) => {
+    setProjectLibraryOpen(false)
+    requestConfirmation(`DELETE PROJECT?\n${project.name}`, 'DELETE', () => {
+      void (async () => {
+        setProjectBusy(true)
+        try {
+          clearPendingAutosave()
+          await projectSaveQueueRef.current
+          await projectRepository.deleteProject(project.projectId)
+          if (currentProject?.projectId === project.projectId) {
+            setCurrentProject(null)
+            setProjectMessage('Project deleted from the library. The current beat is now unsaved.')
+          } else {
+            setProjectMessage(`Deleted ${project.name}.`)
+          }
+          await refreshProjectLibrary()
+          setProjectLibraryOpen(true)
+        } catch (error) {
+          setErrorMessage(toMessage(error))
+        } finally {
+          setProjectBusy(false)
+        }
+      })()
+    })
+  }
+
+  const exportProject = async (project: ProjectSummary) => {
+    if (projectBusy) return
+    setProjectBusy(true)
+    try {
+      if (currentProject?.projectId === project.projectId) await persistCurrentProjectSilently()
+      const loaded = await projectRepository.loadProject(project.projectId)
+      const document = projectDocumentFromLoadedProject(loaded)
+      const file = createStationProjectFile(document, (asset) => {
+        const sampleId = builtInLibrarySampleIdFromAssetId(asset.id)
+        return sampleId && builtInLibrary.some((sample) => sample.id === sampleId) ? sampleId : null
+      })
+      downloadBlob(new Blob([serializeStationProjectFile(file)], { type: 'application/json' }), stationProjectFilename(document.name))
+      setProjectMessage(`Exported ${document.name}.`)
+    } catch (error) {
+      setErrorMessage(toMessage(error))
+    } finally {
+      setProjectBusy(false)
+    }
+  }
+
+  const chooseProjectImport = async (file: File) => {
+    if (projectBusy) return
+    if (!audioReady) { setErrorMessage('Start audio before importing a project.'); return }
+    setProjectBusy(true)
+    try {
+      if (file.size > 10 * 1024 * 1024) throw new Error('This .station file is unexpectedly large and cannot be imported.')
+      const parsed = parseStationProjectFile(await file.text())
+      for (const asset of parsed.assets) if (!builtInLibrary.some((sample) => sample.id === asset.source.sampleId)) throw new Error(`This project references a Station library sound that is unavailable: ${asset.source.sampleId}.`)
+      if (await projectRepository.projectExists(parsed.document.projectId)) {
+        setProjectLibraryOpen(false)
+        setPendingProjectImport({ parsed })
+      } else {
+        await importParsedProject(parsed, false)
       }
-      for (const group of state.patternGroups) {
-        audioEngine.setGroupVolume(group.id, group.bus!.volume)
-        audioEngine.setGroupMuted(group.id, group.bus!.muted)
-        audioEngine.setGroupSolo(group.id, group.bus!.solo)
-      }
-      audioEngine.setMasterVolume(state.master.volume)
-      audioEngine.setMasterMuted(state.master.muted)
-      audioEngine.setBpm(state.bpm)
-      audioEngine.setMasterEffects(state.masterEffects)
-      for (const group of state.patternGroups) audioEngine.setGroupEffects(group.id, group.effects)
-      // A track is its own bus (groupId === channelId === track.id, see
-      // tracks/tracksTypes.ts) - no per-channel loop needed, only the bus/FX
-      // restoration Pattern Groups already get above.
-      for (const track of state.audioTracks) syncTrackBusToEngine(track)
-      audioEngine.syncSynthPatches(state.patternGroups.flatMap((group) => group.synthPatches.map((patch) => ({ groupId: group.id, patch }))))
-      audioEngine.syncStringsPatches(state.patternGroups.flatMap((group) => group.stringsPatches.map((patch) => ({ groupId: group.id, patch }))))
-      audioEngine.syncOrganicBassPatches(state.patternGroups.flatMap((group) => group.organicBassPatches.map((patch) => ({ groupId: group.id, patch }))))
-      audioEngine.syncPolyPatches(state.patternGroups.flatMap((group) => group.polyPatches.map((patch) => ({ groupId: group.id, patch }))))
-      audioEngine.setPumpRoutes(state.pumpRoutes.map((route) => ({ id: route.id, sourceChannelId: createChannelId(route.source), targetGroupId: route.targetGroupId, depth: route.depth, lengthSeconds: 60 / state.bpm * route.lengthBeats, curve: route.curve })))
-      patternTakeHistory.clear()
-      patternGroupsRef.current = state.patternGroups
-      setPatternGroups(state.patternGroups)
-      setSelectedPatternGroupId(state.selectedPatternGroupId)
-      setSelectedPatternVariant(state.selectedPatternVariant)
-      setPlaylist(state.playlist)
-      setAudioTracks(state.audioTracks)
-      setTransportMode(state.transportMode)
-      setLoopSong(state.loopSong)
-      setPlayingSongSlot(null)
-      setBpm(state.bpm)
-      setSwing(state.swing)
-      setMaster(state.master)
-      setMasterEffects(state.masterEffects)
-      setPumpRoutes(state.pumpRoutes)
-      setProjectKey(state.projectKey)
-      setDrumSynth(state.drumSynth)
-      setWaveforms(nextWaveforms)
-      setChopAddingSlice(false)
-      setSelectedPadId('pad-01')
-      setActivePadId(null)
-      setPendingDrumSound(null)
-      setDrumSynthPanelOpen(false)
-      setProjectMessage('Project opened.')
+    } catch (error) {
+      setErrorMessage(toMessage(error))
+    } finally {
+      setProjectBusy(false)
+    }
+  }
+
+  const importParsedProject = async (parsed: ParsedStationProject, replace: boolean, asCopy = false) => {
+    if (!audioReady) throw new Error('Start audio before importing a project.')
+    const now = new Date().toISOString()
+    const document: ProjectDocument = asCopy
+      ? duplicateProjectDocument(parsed.document, `project-${createRuntimeId()}`, parsed.document.name, now)
+      : parsed.document
+    const runtimeAssets = new Map<SampleAssetId, NonNullable<ReturnType<AudioEngine['getRuntimeSampleAsset']>>>()
+    for (const asset of parsed.assets) {
+      const librarySample = builtInLibrary.find((sample) => sample.id === asset.source.sampleId)
+      if (!librarySample) throw new Error(`This project references a Station library sound that is unavailable: ${asset.source.sampleId}.`)
+      const response = await fetch(librarySample.url)
+      if (!response.ok) throw new Error(`Could not load ${librarySample.filename} from the Station library.`)
+      const blob = await response.blob()
+      runtimeAssets.set(asset.assetId, { filename: librarySample.filename, blob })
+    }
+    if (replace) await projectRepository.replaceProject(document, runtimeAssets)
+    else await projectRepository.createProject(document, runtimeAssets)
+    const loaded = await projectRepository.loadProject(document.projectId)
+    await applyLoadedProject(loaded)
+    setCurrentProject(projectSummaryFromLoadedProject(loaded))
+    setLegacyRecoveryActive(false)
+    setPendingProjectImport(null)
+    setProjectLibraryOpen(false)
+    await refreshProjectLibrary()
+    setProjectMessage(`${asCopy ? 'Imported as copy' : replace ? 'Replaced and opened' : 'Imported and opened'}: ${document.name}.`)
+  }
+
+  const resolveImportConflict = async (action: 'copy' | 'replace') => {
+    const pending = pendingProjectImport
+    if (!pending || projectBusy) return
+    setProjectBusy(true)
+    try {
+      await importParsedProject(pending.parsed, action === 'replace', action === 'copy')
     } catch (error) {
       setErrorMessage(toMessage(error))
     } finally {
@@ -919,7 +1236,9 @@ export function App({ audioEngine }: AppProps) {
     try {
       const response = await fetch(sample.url)
       if (!response.ok) throw new Error(`Could not load ${sample.filename} from the built-in library.`)
-      const assetId = createAssetId(`library-${sample.id}-${targetPad.id}`)
+      // Built-in sounds use a resource-stable ID. Pad placement and library
+      // ordering may change without changing what a portable project means.
+      const assetId = createBuiltInLibraryAssetId(sample.id)
       const loadedSample = await audioEngine.loadSampleBlob(assetId, await response.blob(), sample.filename)
       const waveform = audioEngine.getWaveformPeaks(assetId) ?? []
       const previousAssetId = targetPad.assetId
@@ -1341,6 +1660,24 @@ export function App({ audioEngine }: AppProps) {
      now uses for the variants inside it - renaming the stored value would split
      old saves from new ones for a label, so the label is derived instead. */
   const bankNumber = (groupId: string) => patternGroups.findIndex((group) => group.id === groupId) + 1
+  const copyCurrentPattern = () => {
+    try {
+      const sourceLabel = `BANK ${bankNumber(selectedPatternGroupId)} PATTERN ${selectedPatternVariant}`
+      setPatternClipboard({ ...copyVariantSequence(patternGroups, selectedPatternGroupId, selectedPatternVariant), sourceLabel })
+      setTransportNotice(`${sourceLabel} COPIED`)
+    } catch (error) { setErrorMessage(toMessage(error)) }
+  }
+  const pasteCurrentPattern = (confirmed = false) => {
+    if (!patternClipboard) return
+    const targetLabel = `BANK ${bankNumber(selectedPatternGroupId)} PATTERN ${selectedPatternVariant}`
+    const hasTargetEvents = Object.values(selectedPattern).some((steps) => steps.some((velocity) => velocity > 0))
+    if (hasTargetEvents && !confirmed) {
+      requestConfirmation(`Overwrite ${targetLabel} with sequencer data copied from ${patternClipboard.sourceLabel}? The target instrument and sound settings will stay unchanged.`, 'PASTE', () => pasteCurrentPattern(true))
+      return
+    }
+    updatePatternSequenceManually((current) => pasteVariantSequence(current, selectedPatternGroupId, selectedPatternVariant, patternClipboard))
+    setTransportNotice(`${patternClipboard.sourceLabel} PASTED TO ${targetLabel}`)
+  }
   const createNewPatternGroup = () => {
     try {
       patternTakeHistory.clear()
@@ -1977,6 +2314,7 @@ export function App({ audioEngine }: AppProps) {
               onVariantClear={clearCurrentVariant}
               onGroupDelete={deleteCurrentPatternGroup}
               projectControl={<ProjectDisplayButton
+                currentProjectName={currentProject?.name ?? null}
                 projectKey={projectKey}
                 projectBusy={projectBusy}
                 audioReady={audioReady}
@@ -1985,7 +2323,7 @@ export function App({ audioEngine }: AppProps) {
                 hotRender={hotRender?.result ?? null}
                 onProjectKeyChange={changeProjectKey}
                 onSave={() => void saveProject()}
-                onOpen={() => void openProject()}
+                onLibrary={() => void openProjectLibrary()}
                 onRender={() => void renderSong()}
                 onCancelRender={() => renderAbortRef.current?.abort()}
                 onDownloadTrimmed={() => downloadRender(true)}
@@ -2237,6 +2575,9 @@ export function App({ audioEngine }: AppProps) {
               onPaintStepSpan={paintStepSpan}
               onVelocityChange={setStepVelocity}
               onShiftChange={setStepShift}
+              canPastePattern={patternClipboard !== null}
+              onCopyPattern={copyCurrentPattern}
+              onPastePattern={() => pasteCurrentPattern()}
             />
           )}
           {mainView === "song" && (
@@ -2448,6 +2789,41 @@ export function App({ audioEngine }: AppProps) {
           onClose={closeTrackEditor}
         />
       )}
+      {projectLibraryOpen && <ProjectLibraryDialog
+        projects={projectLibrary}
+        currentProjectId={currentProject?.projectId ?? null}
+        legacyAvailable={legacyProjectAvailable}
+        audioReady={audioReady}
+        busy={projectBusy}
+        onClose={() => setProjectLibraryOpen(false)}
+        onNew={() => void startNewProject()}
+        onOpen={(projectId) => void openNamedProject(projectId)}
+        onRecoverLegacy={() => void recoverLegacyProject()}
+        onRename={requestProjectRename}
+        onDuplicate={requestProjectDuplicate}
+        onDelete={requestProjectDelete}
+        onExport={(project) => void exportProject(project)}
+        onImport={(file) => void chooseProjectImport(file)}
+      />}
+      {projectNameAction && <ProjectNameDialog
+        title={projectNameAction.kind === 'save' ? 'NAME THIS PROJECT' : projectNameAction.kind === 'rename' ? 'RENAME PROJECT' : 'NAME THE DUPLICATE'}
+        confirmLabel={projectNameAction.kind === 'save' ? 'SAVE PROJECT' : projectNameAction.kind === 'rename' ? 'RENAME' : 'DUPLICATE'}
+        initialValue={projectNameAction.kind === 'rename' ? projectNameAction.project.name : ''}
+        busy={projectBusy}
+        onSubmit={(name) => void submitProjectName(name)}
+        onCancel={() => {
+          const returnsToLibrary = projectNameAction.kind !== 'save'
+          setProjectNameAction(null)
+          if (returnsToLibrary) setProjectLibraryOpen(true)
+        }}
+      />}
+      {pendingProjectImport && <ProjectConflictDialog
+        name={pendingProjectImport.parsed.document.name}
+        busy={projectBusy}
+        onOpenAsCopy={() => void resolveImportConflict('copy')}
+        onReplace={() => void resolveImportConflict('replace')}
+        onCancel={() => { setPendingProjectImport(null); setProjectLibraryOpen(true) }}
+      />}
       {pendingConfirmation && (
         <StationConfirm
           message={pendingConfirmation.message}
@@ -2463,6 +2839,20 @@ export function App({ audioEngine }: AppProps) {
 }
 
 function isTypingTarget(target: EventTarget | null): boolean { return target instanceof HTMLElement && (target.isContentEditable || target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) }
+function projectSummaryFromDocument(project: ProjectDocument): ProjectSummary {
+  return { projectId: project.projectId, name: project.name, createdAt: project.createdAt, modifiedAt: project.modifiedAt, schemaVersion: project.state.schemaVersion, bpm: project.state.bpm }
+}
+function projectSummaryFromLoadedProject(project: LoadedProject): ProjectSummary {
+  if (!project.name || !project.createdAt) throw new Error('Named project metadata is missing.')
+  return { projectId: project.projectId, name: project.name, createdAt: project.createdAt, modifiedAt: project.modifiedAt, schemaVersion: project.state.schemaVersion, bpm: project.state.bpm }
+}
+function projectDocumentFromLoadedProject(project: LoadedProject): ProjectDocument {
+  const summary = projectSummaryFromLoadedProject(project)
+  return { ...summary, state: project.state }
+}
+function sortProjectSummaries(projects: readonly ProjectSummary[]): ProjectSummary[] {
+  return [...projects].sort((left, right) => right.modifiedAt.localeCompare(left.modifiedAt))
+}
 function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')

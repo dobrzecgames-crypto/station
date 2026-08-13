@@ -7,6 +7,7 @@ import type { RenderSongResult } from './renderSong'
 import './projectDisplay.css'
 
 interface ProjectDisplayButtonProps {
+  currentProjectName: string | null
   projectKey: ProjectKey
   projectBusy: boolean
   audioReady: boolean
@@ -15,7 +16,7 @@ interface ProjectDisplayButtonProps {
   hotRender: RenderSongResult | null
   onProjectKeyChange: (projectKey: ProjectKey) => void
   onSave: () => void
-  onOpen: () => void
+  onLibrary: () => void
   onRender: () => void
   onCancelRender: () => void
   onDownloadTrimmed: () => void
@@ -34,7 +35,7 @@ export function ProjectDisplayButton(props: ProjectDisplayButtonProps) {
   const handlers = useMemo(() => ({
     onProjectKeyChange: (projectKey: ProjectKey) => latestPropsRef.current.onProjectKeyChange(projectKey),
     onSave: () => latestPropsRef.current.onSave(),
-    onOpen: () => latestPropsRef.current.onOpen(),
+    onLibrary: () => latestPropsRef.current.onLibrary(),
     onRender: () => latestPropsRef.current.onRender(),
     onCancelRender: () => latestPropsRef.current.onCancelRender(),
     onDownloadTrimmed: () => latestPropsRef.current.onDownloadTrimmed(),
@@ -42,6 +43,7 @@ export function ProjectDisplayButton(props: ProjectDisplayButtonProps) {
   }), [])
 
   const tenant = useMemo<DisplayTenant>(() => projectTenant({ ...props, ...handlers }), [
+    props.currentProjectName,
     props.projectKey.root,
     props.projectKey.scale,
     props.projectBusy,
@@ -90,7 +92,7 @@ function projectTenant(props: ProjectDisplayButtonProps): DisplayTenant {
   return {
     id: displayId,
     label: 'Project controls',
-    readout: renderBusy ? `PROJECT / RENDER / ${progressPercent}%` : `PROJECT / ${formatProjectKey(props.projectKey)}`,
+    readout: renderBusy ? `PROJECT / RENDER / ${progressPercent}%` : `PROJECT / ${props.currentProjectName ?? 'UNSAVED'} / ${formatProjectKey(props.projectKey)}`,
     panel: <>
       <label className="project-display-select">
         <span>ROOT</span>
@@ -115,8 +117,8 @@ function projectTenant(props: ProjectDisplayButtonProps): DisplayTenant {
       <div className="display-param">
         <span className="display-param-label">PROJECT FILE</span>
         <div className="display-actions">
-          <button className="display-action" type="button" disabled={props.projectBusy} onClick={props.onSave}>SAVE</button>
-          <button className="display-action" type="button" disabled={!props.audioReady || props.projectBusy} onClick={props.onOpen}>OPEN</button>
+          <button className="display-action" type="button" disabled={props.projectBusy} onClick={props.onSave}>SAVE PROJECT</button>
+          <button className="display-action" type="button" disabled={props.projectBusy} onClick={props.onLibrary}>LIBRARY</button>
         </div>
       </div>
       <div className="display-param">

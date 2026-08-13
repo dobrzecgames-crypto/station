@@ -139,6 +139,6 @@ function InlineRange({ label, value, format, dust, onChange }: {
   return <label className={`drumsynth-inline-range${dust ? ' drumsynth-inline-range-dust' : ''}`}>
     <span>{label}</span>
     <output>{format(value)}</output>
-    <input type="range" value={value} min={0} max={1} step={0.01} onChange={(event) => onChange(Number(event.target.value))} onPointerDown={drag.onPointerDown} />
+    <input type="range" value={value} min={0} max={1} step={0.01} {...drag.inputProps} />
   </label>
 }

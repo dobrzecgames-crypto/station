@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import type { PadState } from '../pads/types'
 import { useDragSlider } from '../shell/useDragSlider'
+import { UserSynthPresetControls } from '../synth-presets/UserSynthPresetControls'
 import { SynthDisplayLauncher } from './SynthDisplay'
 import { subWaveforms, synthWaveforms } from './synthTypes'
 import type { SynthPatch, SynthVoiceMode } from './synthTypes'
@@ -78,6 +79,8 @@ export function SynthWorkspace(props: SynthWorkspaceProps) {
         />
       </header>
 
+      <UserSynthPresetControls kind="basic" instrumentLabel="BASSIC" patch={patch} onApply={props.onPatchChange} />
+
       <div className="synth-oscillators">
         <OscillatorRow label="OSC 1">
           <InlineSelect label="WAVE" value={patch.oscillator1.waveform} options={synthWaveforms} onChange={(waveform) => changeOscillator('oscillator1', { waveform })} />
@@ -150,7 +153,7 @@ function InlineRange({ label, value, min, max, step, format = compact, onChange 
   return <label className="synth-inline-control synth-inline-range">
     <span>{label}</span>
     <output>{format(value)}</output>
-    <input type="range" value={value} min={min} max={max} step={step} onChange={(event) => onChange(Number(event.target.value))} onPointerDown={drag.onPointerDown} />
+    <input type="range" value={value} min={min} max={max} step={step} {...drag.inputProps} />
   </label>
 }
 

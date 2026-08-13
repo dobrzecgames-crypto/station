@@ -312,8 +312,16 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-.station-shell :where(.pad, .pattern-pad-label, .pattern-step, .arrangement-slot, .synth-audition, .strings-audition) {
+.station-shell :where(.pad, .pattern-step, .arrangement-slot, .synth-audition, .strings-audition) {
   touch-action: none;
+}
+
+/* SEQ row labels remain playable pads, but their vertical axis is also the
+   native scroll handle for the existing workspace. Once the browser detects
+   a vertical pan it cancels the held pointer, which releases the audition
+   through the label's existing pointercancel/lost-capture handlers. */
+.station-shell .pattern-pad-label {
+  touch-action: pan-y;
 }
 
 button,

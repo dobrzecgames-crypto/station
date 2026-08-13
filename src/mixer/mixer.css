@@ -65,6 +65,14 @@
   flex: none;
 }
 
+/* The visible meter stays 10px wide, but the vertical fader owns a 30px-wide
+   invisible touch lane. This matches the shared horizontal slider hit height
+   without widening the rail or moving neighbouring channel strips. */
+.mixer-strip-level .mixer-strip-fader {
+  right: -10px;
+  left: -10px;
+}
+
 .channel-meter {
   display: flex;
   padding: 1px;

@@ -269,7 +269,7 @@ function SoundControl(props: { id: string; label: string; formatValue: (value: n
   })
   return <label className="sound-control" htmlFor={props.id}>
     <span>{props.label}</span>
-    <input id={props.id} type="range" min={props.min} max={props.max} step={props.step} value={props.current} onChange={(event) => props.onChange(Number(event.target.value))} onPointerDown={drag.onPointerDown} />
+    <input id={props.id} type="range" min={props.min} max={props.max} step={props.step} value={props.current} {...drag.inputProps} />
     <output htmlFor={props.id}>{props.formatValue(props.current)}</output>
   </label>
 }

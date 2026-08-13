@@ -18,6 +18,12 @@ import type { ChordPerformanceSettings } from '../music/chordPerformance.ts'
 
 export const patternStepCount = 16
 
+export interface PatternSequenceClipboard {
+  pattern: StepPattern
+  shifts: StepShiftPattern
+  lengths: StepLengthPattern
+}
+
 export function createGroupBusState(): GroupBusState {
   return { volume: 1, muted: false, solo: false }
 }
@@ -297,6 +303,43 @@ export function splitMergedVariantStep(groups: readonly PatternGroup[], groupId:
 
 export function clonePatternGroup(group: PatternGroup): PatternGroup {
   return { ...group, ...normalizePatternChordFields(group, group.bank.pads.length), chordPerformance: normalizeChordPerformance(group.chordPerformance), bank: clonePadBank(group.bank), bus: group.bus ? { ...group.bus } : createGroupBusState(), effects: cloneEffectRackState(group.effects ?? createEmptyEffectRack(group.id)), synthPatches: (group.synthPatches ?? []).map(cloneSynthPatch), stringsPatches: (group.stringsPatches ?? []).map(cloneStringsPatch), organicBassPatches: (group.organicBassPatches ?? []).map(cloneOrganicBassPatch), polyPatches: (group.polyPatches ?? []).map(clonePolyPatch), variants: Object.fromEntries(patternVariantNames.flatMap((variant) => group.variants[variant] ? [[variant, cloneStepPattern(group.variants[variant]!)] as const] : [])), shifts: Object.fromEntries(patternVariantNames.flatMap((variant) => group.shifts?.[variant] ? [[variant, cloneStepShiftPattern(group.shifts[variant]!)] as const] : [])), lengths: Object.fromEntries(patternVariantNames.flatMap((variant) => group.lengths?.[variant] ? [[variant, cloneStepLengthPattern(group.lengths[variant]!)] as const] : [])) }
+}
+
+/** Copies only playable sequencer data. The Pattern Group's private pad bank,
+ * instrument patches, chord mapping, mixer, Pump and effects are deliberately
+ * outside this transient clipboard. */
+export function copyVariantSequence(groups: readonly PatternGroup[], groupId: string, variant: PatternVariantName): PatternSequenceClipboard {
+  const group = groups.find((candidate) => candidate.id === groupId)
+  const pattern = group?.variants[variant]
+  if (!group || !pattern) throw new Error('Pattern does not exist.')
+  const padIds = group.bank.pads.map((pad) => pad.id)
+  return {
+    pattern: cloneStepPattern(pattern),
+    shifts: cloneStepShiftPattern(group.shifts[variant] ?? createEmptyStepShiftPattern(padIds)),
+    lengths: cloneStepLengthPattern(group.lengths[variant] ?? createEmptyStepLengthPattern(padIds)),
+  }
+}
+
+/** Replaces one destination variant with clipboard sequencing while keeping
+ * every non-sequencer field of the destination Pattern Group intact. */
+export function pasteVariantSequence(groups: readonly PatternGroup[], groupId: string, variant: PatternVariantName, clipboard: PatternSequenceClipboard): PatternGroup[] {
+  return groups.map((group) => {
+    if (group.id !== groupId) return clonePatternGroup(group)
+    const cloned = clonePatternGroup(group)
+    const padIds = cloned.bank.pads.map((pad) => pad.id)
+    const emptyPattern = createEmptyStepPattern(padIds)
+    const emptyShifts = createEmptyStepShiftPattern(padIds)
+    const emptyLengths = createEmptyStepLengthPattern(padIds)
+    const pattern = Object.fromEntries(padIds.map((padId) => [padId, [...(clipboard.pattern[padId] ?? emptyPattern[padId])]]))
+    const shifts = Object.fromEntries(padIds.map((padId) => [padId, [...(clipboard.shifts[padId] ?? emptyShifts[padId])]]))
+    const lengths = Object.fromEntries(padIds.map((padId) => [padId, [...(clipboard.lengths[padId] ?? emptyLengths[padId])]]))
+    return {
+      ...cloned,
+      variants: { ...cloned.variants, [variant]: pattern },
+      shifts: { ...cloned.shifts, [variant]: shifts },
+      lengths: { ...cloned.lengths, [variant]: lengths },
+    }
+  })
 }
 
 export function setPatternGroupChordPerformance(groups: readonly PatternGroup[], groupId: string, settings: ChordPerformanceSettings): PatternGroup[] {

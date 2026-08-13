@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef } from 'react'
-import type { PointerEvent as ReactPointerEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
+import type { ChangeEvent as ReactChangeEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { useSystemDisplay } from './systemDisplayContext'
 
 /**
@@ -22,11 +22,11 @@ import { useSystemDisplay } from './systemDisplayContext'
  *  - the value shows live on the System Display's line (see systemDisplayContext's
  *    showFocus/releaseFocus) instead of in a dialog.
  *
- * A call site wires this in by adding one prop to its existing <input type="range">:
- * `onPointerDown={drag.onPointerDown}`, alongside the onChange it already had. No
- * other markup changes - the input keeps its own value/min/max/step, keyboard
- * (arrow/Home/End) keeps working untouched because only pointerdown is intercepted,
- * and disabled keeps meaning what it always meant.
+ * A call site spreads `drag.inputProps` onto its existing <input type="range">.
+ * The shared props own pointerdown and filter the native range input/change/click
+ * events which some mobile browsers still emit for that same gesture. Keyboard
+ * (arrow/Home/End) changes arrive outside a pointer gesture and keep their native
+ * behaviour.
  */
 
 export interface DragSliderOptions {
@@ -44,8 +44,14 @@ export interface DragSliderOptions {
   formatValue?: (value: number) => string
 }
 
-export interface DragSliderHandlers {
+export interface DragSliderInputProps {
   onPointerDown: (event: ReactPointerEvent<HTMLInputElement>) => void
+  onChange: (event: ReactChangeEvent<HTMLInputElement>) => void
+  onClick: (event: ReactMouseEvent<HTMLInputElement>) => void
+}
+
+export interface DragSliderHandlers {
+  inputProps: DragSliderInputProps
 }
 
 // --- Tuning constants ---------------------------------------------------
@@ -106,10 +112,22 @@ interface DragState {
   cleanup: () => void
 }
 
+interface NativeChangeGuard {
+  input: HTMLInputElement
+  lastCommitted: number
+  clearTimer: number | null
+}
+
 export function useDragSlider(options: DragSliderOptions): DragSliderHandlers {
   const optionsRef = useRef(options)
   optionsRef.current = options
   const dragRef = useRef<DragState | null>(null)
+  // A range input can keep running its own native gesture even after the custom
+  // pointer path prevented pointerdown (notably WebKit range controls). Its final
+  // input/change may be dispatched during pointerup and is calculated from the
+  // release coordinate. Keep the last custom pointermove value around through the
+  // release turn so that trailing native event cannot overwrite it.
+  const nativeChangeGuardRef = useRef<NativeChangeGuard | null>(null)
   const { showFocus, releaseFocus } = useSystemDisplay()
 
   // Display re-renders the transport on every showFocus call (SYSTEM_DISPLAY.md
@@ -130,6 +148,9 @@ export function useDragSlider(options: DragSliderOptions): DragSliderHandlers {
 
   useEffect(() => () => {
     if (focusRafRef.current !== null) cancelAnimationFrame(focusRafRef.current)
+    if (nativeChangeGuardRef.current?.clearTimer !== null && nativeChangeGuardRef.current?.clearTimer !== undefined) {
+      window.clearTimeout(nativeChangeGuardRef.current.clearTimer)
+    }
     // A screen can unmount mid-drag (e.g. switching workspace tabs with a finger
     // still down) - no pointerup ever fires then, so without this the Display
     // would hold a stale readout forever instead of releasing it.
@@ -149,6 +170,9 @@ export function useDragSlider(options: DragSliderOptions): DragSliderHandlers {
     event.preventDefault()
     const input = event.currentTarget
     input.focus()
+    const previousGuard = nativeChangeGuardRef.current
+    if (previousGuard?.clearTimer !== null && previousGuard?.clearTimer !== undefined) window.clearTimeout(previousGuard.clearTimer)
+    nativeChangeGuardRef.current = null
     // setPointerCapture can reject a pointerId the browser's own input
     // pipeline never activated - throws, does not return false - so this is
     // a try, not an if. When it fails, the gesture still has to keep working:
@@ -181,6 +205,8 @@ export function useDragSlider(options: DragSliderOptions): DragSliderHandlers {
       cleanup: () => {},
     }
     dragRef.current = state
+    const nativeGuard: NativeChangeGuard = { input, lastCommitted: initialRounded, clearTimer: null }
+    nativeChangeGuardRef.current = nativeGuard
 
     const describe = (v: number) => {
       const o = optionsRef.current
@@ -193,6 +219,7 @@ export function useDragSlider(options: DragSliderOptions): DragSliderHandlers {
       const rounded = clamp(roundToStep(state.preciseValue, o.min, o.step), o.min, o.max)
       if (rounded !== state.lastCommitted) {
         state.lastCommitted = rounded
+        nativeGuard.lastCommitted = rounded
         o.onChange(rounded)
       }
       if (o.focusLabel) scheduleFocusUpdate(`${o.focusLabel} ${describe(rounded)}`)
@@ -233,7 +260,25 @@ export function useDragSlider(options: DragSliderOptions): DragSliderHandlers {
       listenTarget.removeEventListener('pointercancel', handleUp as EventListener)
       if (captured) input.removeEventListener('lostpointercapture', handleUp as EventListener)
       if (dragRef.current === state) dragRef.current = null
-      if (optionsRef.current.focusLabel) releaseFocus()
+      // Do not clear the native guard synchronously. A browser-native range
+      // input/change/click generated by this release is allowed to finish first;
+      // keyboard changes in the next task use the normal onChange path. A zero-
+      // delay timer is deliberate here: background tabs may throttle or pause rAF.
+      if (nativeChangeGuardRef.current === nativeGuard && nativeGuard.clearTimer === null) {
+        nativeGuard.clearTimer = window.setTimeout(() => {
+          if (nativeChangeGuardRef.current === nativeGuard) nativeChangeGuardRef.current = null
+        }, 0)
+      }
+      if (optionsRef.current.focusLabel) {
+        // A queued focus update must not run after releaseFocus and revive a
+        // finished gesture. Flush the final committed value in the right order.
+        if (focusRafRef.current !== null) cancelAnimationFrame(focusRafRef.current)
+        focusRafRef.current = null
+        pendingFocusTextRef.current = null
+        const o = optionsRef.current
+        showFocus(`${o.focusLabel} ${o.formatValue ? o.formatValue(state.lastCommitted) : String(state.lastCommitted)}`)
+        releaseFocus()
+      }
     }
     state.cleanup = endDrag
 
@@ -261,5 +306,30 @@ export function useDragSlider(options: DragSliderOptions): DragSliderHandlers {
     if (opts.focusLabel) showFocus(`${opts.focusLabel} ${describe(initialRounded)}`)
   }, [releaseFocus, scheduleFocusUpdate, showFocus])
 
-  return { onPointerDown }
+  const onChange = useCallback((event: ReactChangeEvent<HTMLInputElement>) => {
+    const guard = nativeChangeGuardRef.current
+    if (guard?.input === event.currentTarget) {
+      // React's range onChange is backed by native input/change events. During
+      // our pointer gesture those events are duplicates, not a second source of
+      // truth. Reasserting the committed value also prevents a one-frame native
+      // thumb jump before the controlled React value is painted again.
+      event.preventDefault()
+      event.currentTarget.value = String(guard.lastCommitted)
+      return
+    }
+    const nextValue = Number(event.currentTarget.value)
+    if (Number.isFinite(nextValue)) optionsRef.current.onChange(nextValue)
+  }, [])
+
+  const onClick = useCallback((event: ReactMouseEvent<HTMLInputElement>) => {
+    const guard = nativeChangeGuardRef.current
+    if (guard?.input !== event.currentTarget) return
+    // Touch/pointer release may synthesize a compatibility click. It must not
+    // perform a second range-track calculation after pointerup ended the drag.
+    event.preventDefault()
+    event.currentTarget.value = String(guard.lastCommitted)
+  }, [])
+
+  const inputProps = useMemo<DragSliderInputProps>(() => ({ onPointerDown, onChange, onClick }), [onChange, onClick, onPointerDown])
+  return { inputProps }
 }

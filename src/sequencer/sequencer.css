@@ -1,4 +1,8 @@
 .sequencer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
   margin-bottom: 7px;
   padding: 4px 5px;
   border: 1px solid var(--station-line);
@@ -7,10 +11,18 @@
 }
 
 .sequencer-toolbar .sequencer-step-pages {
+  flex: 1 1 auto;
+  min-width: 0;
   margin: 0;
 }
 
-.sequencer-toolbar .sequencer-step-pages .mixer-toggle {
+.sequencer-clipboard-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+.sequencer-toolbar .mixer-toggle {
   min-height: 26px;
   height: 26px;
   padding: 0 5px;
@@ -29,6 +41,10 @@
   box-shadow: inset 0 1px 0 rgb(241 246 231 / 10%), inset 0 -1px 0 rgb(0 0 0 / 30%);
 }
 
+.sequencer-clipboard-actions .mixer-toggle {
+  min-width: 46px;
+}
+
 /* Horizontal drags paint a pad row. Vertical movement remains available to
    scroll the full sixteen-pad matrix on a touch screen. */
 .sequencer .pattern-step {
@@ -37,4 +53,5 @@
 
 @media (max-width: 560px) {
   .sequencer-toolbar { padding-inline: 4px; }
+  .sequencer-clipboard-actions .mixer-toggle { min-width: 42px; padding-inline: 4px; }
 }

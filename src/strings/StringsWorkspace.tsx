@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { PadState } from '../pads/types'
 import { useDragSlider } from '../shell/useDragSlider'
+import { UserSynthPresetControls } from '../synth-presets/UserSynthPresetControls'
 import { StringsDisplayLauncher } from './StringsDisplay'
 import { stringsCharacters, stringsOctaveLayers } from './stringsTypes'
 import type { StringsOctaveLayer, StringsPatch } from './stringsTypes'
@@ -83,6 +84,8 @@ export function StringsWorkspace(props: StringsWorkspaceProps) {
         />
       </header>
 
+      <UserSynthPresetControls kind="strings" instrumentLabel="STRINGS" patch={patch} onApply={props.onPatchChange} />
+
       <div className="strings-starter-row">
         <InlineSelect
           label="CHARACTER"
@@ -154,6 +157,6 @@ function InlineRange({ label, value, min, max, step, disabled, format = percent,
   return <label className="strings-inline-control strings-inline-range">
     <span>{label}</span>
     <output>{format(value)}</output>
-    <input type="range" value={value} min={min} max={max} step={step} disabled={disabled} onChange={(event) => onChange(Number(event.target.value))} onPointerDown={drag.onPointerDown} />
+    <input type="range" value={value} min={min} max={max} step={step} disabled={disabled} {...drag.inputProps} />
   </label>
 }

@@ -65,8 +65,7 @@ export function AutoChopControls({ maxSmartCount, smartCount, isPreviewing, anal
               step="1"
               value={smartCount}
               disabled={analyzing || maxSmartCount <= 1}
-              onChange={(event) => handleSmartCountChange(Number(event.target.value))}
-              onPointerDown={drag.onPointerDown}
+              {...drag.inputProps}
             />
             <svg
               className={moving ? 'cut-laser-head cut-laser-head-moving' : 'cut-laser-head'}

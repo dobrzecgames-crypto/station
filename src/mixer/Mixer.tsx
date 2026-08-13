@@ -114,7 +114,7 @@ function MixerStrip({ audioEngine, patternGroupId, pad, isPumpSource, onVolumeCh
           label={pad.label}
         />
         <div className="mixer-strip-fader">
-          <input aria-label={`${pad.label} volume`} type="range" min="0" max="1" step="0.01" value={pad.volume} onChange={(event) => onVolumeChange(pad.id, Number(event.target.value))} onPointerDown={drag.onPointerDown} />
+          <input aria-label={`${pad.label} volume`} type="range" min="0" max="1" step="0.01" value={pad.volume} {...drag.inputProps} />
         </div>
       </div>
       <output>{pad.volume.toFixed(2)}</output>

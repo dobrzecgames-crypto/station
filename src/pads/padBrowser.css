@@ -7,10 +7,10 @@
 }
 
 .sample-browser-folder {
-  grid-template-columns: 28px minmax(0, 1fr) 28px;
-  min-height: 34px;
-  padding: 4px 12px;
-  gap: 6px;
+  grid-template-columns: calc(28px * var(--station-ui-scale)) minmax(0, 1fr) calc(28px * var(--station-ui-scale));
+  min-height: calc(34px * var(--station-ui-scale));
+  padding: calc(4px * var(--station-ui-scale)) calc(12px * var(--station-ui-scale));
+  gap: calc(6px * var(--station-ui-scale));
   color: rgb(var(--display-light) / 78%);
   font-size: .58rem;
   letter-spacing: .05em;
@@ -24,9 +24,9 @@
 
 .sample-browser-folder-step,
 .sample-browser-action {
-  min-height: 24px;
+  min-height: calc(24px * var(--station-ui-scale));
   border: 1px solid rgb(var(--display-light) / 25%);
-  border-radius: 3px;
+  border-radius: calc(3px * var(--station-ui-scale));
   color: rgb(var(--display-light) / 80%);
   background: rgb(var(--display-light) / 5%);
   font: inherit;
@@ -36,7 +36,7 @@
 }
 
 .sample-browser-folder-step { font-size: .9rem; }
-.sample-browser-action { padding: 0 7px; }
+.sample-browser-action { padding: 0 calc(7px * var(--station-ui-scale)); }
 
 .sample-browser-folder-step:hover:not(:disabled),
 .sample-browser-folder-step:focus-visible,
@@ -58,12 +58,12 @@
 
 .sample-browser-row {
   grid-template-columns: minmax(0, 1fr) auto auto;
-  min-height: 32px;
-  padding: 4px 12px;
-  gap: 5px;
+  min-height: calc(32px * var(--station-ui-scale));
+  padding: calc(4px * var(--station-ui-scale)) calc(12px * var(--station-ui-scale));
+  gap: calc(5px * var(--station-ui-scale));
   color: rgb(var(--display-light));
   font-size: .62rem;
-  text-shadow: 0 0 6px rgb(var(--display-light) / var(--display-bloom));
+  text-shadow: 0 0 calc(6px * var(--station-ui-scale)) rgb(var(--display-light) / var(--display-bloom));
 }
 
 .sample-browser-row > span {
@@ -76,7 +76,7 @@
    controls, so it carries a lit edge - the cue the browser used to lack when
    the sound controls were a page you had to know about. */
 .sample-browser-row-loaded {
-  box-shadow: inset 2px 0 0 rgb(var(--display-light) / 65%);
+  box-shadow: inset calc(2px * var(--station-ui-scale)) 0 0 rgb(var(--display-light) / 65%);
   background: rgb(var(--display-light) / 6%);
 }
 
@@ -94,15 +94,15 @@
 .sound-tools-row {
   display: grid;
   align-items: center;
-  min-height: 32px;
-  padding: 4px 12px;
+  min-height: calc(32px * var(--station-ui-scale));
+  padding: calc(4px * var(--station-ui-scale)) calc(12px * var(--station-ui-scale));
   border-top: 1px solid rgb(var(--display-light) / 8%);
   font-family: var(--station-mono-font);
 }
 
 .sound-control {
-  grid-template-columns: 48px minmax(0, 1fr) 44px;
-  gap: 7px;
+  grid-template-columns: calc(48px * var(--station-ui-scale)) minmax(0, 1fr) calc(44px * var(--station-ui-scale));
+  gap: calc(7px * var(--station-ui-scale));
 }
 
 .sound-control > span,
@@ -126,16 +126,16 @@
 
 .sound-tools-row {
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 7px;
+  gap: calc(7px * var(--station-ui-scale));
 }
 
-.sound-tools-row > div { display: flex; gap: 4px; }
+.sound-tools-row > div { display: flex; gap: calc(4px * var(--station-ui-scale)); }
 
 .sound-tools-row button {
-  min-height: 22px;
-  padding: 0 5px;
+  min-height: calc(22px * var(--station-ui-scale));
+  padding: 0 calc(5px * var(--station-ui-scale));
   border: 1px solid rgb(var(--display-light) / 25%);
-  border-radius: 3px;
+  border-radius: calc(3px * var(--station-ui-scale));
   color: rgb(var(--display-light) / 80%);
   background: rgb(var(--display-light) / 5%);
   font: inherit;

@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
+import { scaleStationUiPixels } from '../uiScale'
 import { snapBeatToGrid } from './timelineGrid'
 import type { TimelineGridDivision } from './tracksTypes'
 import type { AudioClip, AudioTrack } from './tracksTypes'
@@ -50,6 +51,7 @@ interface UseTrackClipDragOptions {
  * see tracksWorkspace.css/tracksArranger.css.
  */
 export function useTrackClipDrag({ pixelsPerBeat, snapDivision, isPlaying, scrollContainerRef, selection, onSelectionChange, onOpenTrackEditor, onMoveClip, onTrimClipStart, onTrimClipEnd, onSeekPlayhead }: UseTrackClipDragOptions) {
+  const dragThreshold = scaleStationUiPixels(dragThresholdPixels)
   const [drag, setDrag] = useState<DragState | null>(null)
   const lastTapRef = useRef<{ trackId: string; time: number } | null>(null)
   /** Always-current mirror of `drag`, assigned fresh every render - same
@@ -115,7 +117,7 @@ export function useTrackClipDrag({ pixelsPerBeat, snapDivision, isPlaying, scrol
     const current = dragRef.current
     if (!current || current.pointerId !== pointerId) return
     const deltaPixels = clientX - current.startClientX
-    if (Math.abs(deltaPixels) >= dragThresholdPixels && !target.hasPointerCapture(pointerId)) {
+    if (Math.abs(deltaPixels) >= dragThreshold && !target.hasPointerCapture(pointerId)) {
       try { target.setPointerCapture(pointerId) } catch { /* the pointer session may already have ended */ }
     }
     setDrag({ ...current, previewDeltaBeats: deltaPixels / pixelsPerBeat })
@@ -125,7 +127,7 @@ export function useTrackClipDrag({ pixelsPerBeat, snapDivision, isPlaying, scrol
     const current = dragRef.current
     setDrag(null)
     if (!current || current.pointerId !== event.pointerId) return
-    if (Math.abs(current.previewDeltaBeats) * pixelsPerBeat >= dragThresholdPixels) {
+    if (Math.abs(current.previewDeltaBeats) * pixelsPerBeat >= dragThreshold) {
       const division = snapDivision
       if (current.kind === 'move') {
         const nextStart = snapBeatToGrid(current.originClip.startBeat + current.previewDeltaBeats, division)

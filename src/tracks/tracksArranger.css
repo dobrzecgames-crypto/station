@@ -26,9 +26,9 @@
   display: flex;
   flex: 0 0 auto;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: calc(6px * var(--station-ui-scale));
   align-items: center;
-  padding: 6px 8px;
+  padding: calc(6px * var(--station-ui-scale)) calc(8px * var(--station-ui-scale));
   border-bottom: 1px solid var(--station-line, #443b3d);
   background: var(--station-card, #221e22);
 }
@@ -39,23 +39,23 @@
      whichever one is left alone on a wrapped line at a narrow viewport
      would otherwise stretch to fill it end to end. */
   flex: 0 0 auto;
-  min-height: 32px;
+  min-height: calc(32px * var(--station-ui-scale));
   min-width: 0;
-  padding: 0 8px;
+  padding: 0 calc(8px * var(--station-ui-scale));
   font-size: 0.62rem;
 }
 
 .tracks-arranger-toolbar .transport-play-button,
 .tracks-arranger-toolbar .transport-stop-button {
-  min-width: 36px;
+  min-width: calc(36px * var(--station-ui-scale));
 }
 
 .tracks-arranger-position {
   display: flex;
-  gap: 6px;
+  gap: calc(6px * var(--station-ui-scale));
   align-items: baseline;
-  min-width: 74px;
-  padding: 0 6px;
+  min-width: calc(74px * var(--station-ui-scale));
+  padding: 0 calc(6px * var(--station-ui-scale));
   color: var(--station-accent);
   font-family: var(--station-mono-font, monospace);
   font-size: 0.78rem;
@@ -71,12 +71,12 @@
 .tracks-arranger-zoom,
 .tracks-arranger-history {
   display: flex;
-  gap: 3px;
+  gap: calc(3px * var(--station-ui-scale));
 }
 
 .tracks-arranger-zoom .mixer-toggle,
 .tracks-arranger-history .mixer-toggle {
-  min-width: 32px;
+  min-width: calc(32px * var(--station-ui-scale));
   padding: 0;
   font-size: 0.85rem;
 }
@@ -94,16 +94,16 @@
 .tracks-arranger-overflow-menu {
   position: absolute;
   z-index: 20;
-  top: calc(100% + 4px);
+  top: calc(100% + calc(4px * var(--station-ui-scale)));
   right: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px;
+  gap: calc(6px * var(--station-ui-scale));
+  padding: calc(8px * var(--station-ui-scale));
   border: 1px solid var(--station-line, #443b3d);
-  border-radius: 6px;
+  border-radius: calc(6px * var(--station-ui-scale));
   background: var(--station-card, #221e22);
-  box-shadow: 0 8px 20px rgb(0 0 0 / 45%);
+  box-shadow: 0 calc(8px * var(--station-ui-scale)) calc(20px * var(--station-ui-scale)) rgb(0 0 0 / 45%);
 }
 
 .tracks-arranger-overflow-menu .tracks-arranger-zoom {
@@ -117,12 +117,12 @@
    the time axis - see tracksTypes.ts's TrackHeightLevel. */
 .tracks-arranger-track-size {
   display: flex;
-  gap: 3px;
+  gap: calc(3px * var(--station-ui-scale));
   align-items: center;
 }
 
 .tracks-arranger-track-size-value {
-  min-width: 30px;
+  min-width: calc(30px * var(--station-ui-scale));
   color: var(--station-accent);
   font-size: 0.6rem;
   font-weight: 800;
@@ -131,14 +131,14 @@
 }
 
 .tracks-arranger-track-size .mixer-toggle {
-  min-width: 32px;
+  min-width: calc(32px * var(--station-ui-scale));
   padding: 0;
   font-size: 0.85rem;
 }
 
 .tracks-arranger-toolbar .tracks-add-track-button {
-  min-height: 32px;
-  padding: 0 10px;
+  min-height: calc(32px * var(--station-ui-scale));
+  padding: 0 calc(10px * var(--station-ui-scale));
   font-size: 0.64rem;
 }
 
@@ -167,12 +167,12 @@
    7-track LARGE-level project needed to scroll, silently reintroducing the
    exact row/lane misalignment this spacer was added to prevent. */
 .tracks-arranger-rail > .tracks-ruler {
-  flex: 0 0 28px;
+  flex: 0 0 calc(28px * var(--station-ui-scale));
 }
 
 .tracks-arranger-rail {
   display: flex;
-  flex: 0 0 160px;
+  flex: 0 0 calc(160px * var(--station-ui-scale));
   /* Without this, a flex item's automatic min-width is its content's
      min-content size, which can override flex-basis/flex-shrink:0 and let
      a long, otherwise-elided track name force the whole rail wider than
@@ -203,24 +203,24 @@
    docs/DECISIONS.md DEC-027's third addendum. */
 .tracks-arranger-rail-row {
   display: flex;
-  height: var(--tracks-row-height, 112px);
-  flex: 0 0 var(--tracks-row-height, 112px);
+  height: var(--tracks-row-height, calc(112px * var(--station-ui-scale)));
+  flex: 0 0 var(--tracks-row-height, calc(112px * var(--station-ui-scale)));
   flex-direction: column;
   justify-content: center;
-  gap: 6px;
-  padding: 8px 10px;
+  gap: calc(6px * var(--station-ui-scale));
+  padding: calc(8px * var(--station-ui-scale)) calc(10px * var(--station-ui-scale));
   border-bottom: 1px solid var(--station-line, #443b3d);
   /* Identity hairline, not a border - see tracksWorkspace.css's .tracks-row
      for the same treatment in the compact view; both views agree on 2px. */
-  border-left: 2px solid var(--tracks-row-accent, transparent);
+  border-left: calc(2px * var(--station-ui-scale)) solid var(--tracks-row-accent, transparent);
 }
 
 /* No rule for [data-track-height="medium"] - the var() fallback above and
    below already evaluates to today's exact 112px, so MEDIUM (the default)
    is byte-identical to the pre-level-system layout. */
-.tracks-arranger[data-track-height="mini"] { --tracks-row-height: 48px; }
-.tracks-arranger[data-track-height="small"] { --tracks-row-height: 76px; }
-.tracks-arranger[data-track-height="large"] { --tracks-row-height: 168px; }
+.tracks-arranger[data-track-height="mini"] { --tracks-row-height: calc(48px * var(--station-ui-scale)); }
+.tracks-arranger[data-track-height="small"] { --tracks-row-height: calc(76px * var(--station-ui-scale)); }
+.tracks-arranger[data-track-height="large"] { --tracks-row-height: calc(168px * var(--station-ui-scale)); }
 
 .tracks-arranger-rail-name {
   min-width: 0;
@@ -272,14 +272,14 @@
      grid just keeps going. `local` attachment keeps it scrolling in step
      with the timeline underneath instead of staying put as a mismatched
      backdrop. */
-  background: repeating-linear-gradient(90deg, rgb(255 255 255 / 3%) 0 1px, transparent 1px calc(4 * 24px));
+  background: repeating-linear-gradient(90deg, rgb(255 255 255 / 3%) 0 1px, transparent 1px calc(4 * calc(24px * var(--station-ui-scale))));
   background-attachment: local;
 }
 
 /* Bigger scale than the compact view's rows, per the brief - more room is
    the whole point of the wide layout. */
 .tracks-arranger-lane {
-  height: var(--tracks-row-height, 112px);
+  height: var(--tracks-row-height, calc(112px * var(--station-ui-scale)));
 }
 
 /* ---- Per-level layout details ----
@@ -296,8 +296,8 @@
    third addendum. */
 
 .tracks-arranger[data-track-height="small"] .tracks-arranger-rail-row {
-  padding: 6px 10px;
-  gap: 4px;
+  padding: calc(6px * var(--station-ui-scale)) calc(10px * var(--station-ui-scale));
+  gap: calc(4px * var(--station-ui-scale));
 }
 
 .tracks-arranger[data-track-height="mini"] .tracks-arranger-rail-row {
@@ -306,13 +306,13 @@
   flex-direction: row;
   align-items: center;
   justify-content: flex-start;
-  gap: 8px;
-  padding: 4px 8px;
+  gap: calc(8px * var(--station-ui-scale));
+  padding: calc(4px * var(--station-ui-scale)) calc(8px * var(--station-ui-scale));
 }
 
 .tracks-arranger[data-track-height="large"] .tracks-arranger-rail-row {
-  padding: 10px 12px;
-  gap: 8px;
+  padding: calc(10px * var(--station-ui-scale)) calc(12px * var(--station-ui-scale));
+  gap: calc(8px * var(--station-ui-scale));
 }
 
 .tracks-arranger[data-track-height="mini"] .tracks-arranger-rail-name {
@@ -331,21 +331,21 @@
 
 /* Ladder around .tracks-mini-toggle's own 26px MEDIUM baseline - mini/small
    step down, large steps up, same +2/+4 shape the row-height ladder uses. */
-.tracks-arranger[data-track-height="mini"] .tracks-controls-row .mixer-toggle { min-height: 22px; min-width: 22px; }
-.tracks-arranger[data-track-height="small"] .tracks-controls-row .mixer-toggle { min-height: 24px; min-width: 24px; }
-.tracks-arranger[data-track-height="large"] .tracks-controls-row .mixer-toggle { min-height: 30px; min-width: 30px; }
+.tracks-arranger[data-track-height="mini"] .tracks-controls-row .mixer-toggle { min-height: calc(22px * var(--station-ui-scale)); min-width: calc(22px * var(--station-ui-scale)); }
+.tracks-arranger[data-track-height="small"] .tracks-controls-row .mixer-toggle { min-height: calc(24px * var(--station-ui-scale)); min-width: calc(24px * var(--station-ui-scale)); }
+.tracks-arranger[data-track-height="large"] .tracks-controls-row .mixer-toggle { min-height: calc(30px * var(--station-ui-scale)); min-width: calc(30px * var(--station-ui-scale)); }
 
 /* .tracks-clip's own top/bottom:4px (tracksWorkspace.css) is the vertical
    inset between a lane's edge and its clips - shrinks with the lane so a
    MINI clip isn't drowned in padding a 48px lane can't spare, and grows for
    LARGE where a 168px lane has room to give a clip more breathing room. */
-.tracks-arranger[data-track-height="mini"] .tracks-clip { top: 2px; bottom: 2px; }
-.tracks-arranger[data-track-height="small"] .tracks-clip { top: 3px; bottom: 3px; }
-.tracks-arranger[data-track-height="large"] .tracks-clip { top: 7px; bottom: 7px; }
+.tracks-arranger[data-track-height="mini"] .tracks-clip { top: calc(2px * var(--station-ui-scale)); bottom: calc(2px * var(--station-ui-scale)); }
+.tracks-arranger[data-track-height="small"] .tracks-clip { top: calc(3px * var(--station-ui-scale)); bottom: calc(3px * var(--station-ui-scale)); }
+.tracks-arranger[data-track-height="large"] .tracks-clip { top: calc(7px * var(--station-ui-scale)); bottom: calc(7px * var(--station-ui-scale)); }
 
 @media (max-height: 420px) {
-  .tracks-arranger-toolbar { padding: 4px 6px; gap: 4px; }
-  .tracks-arranger-toolbar .mixer-toggle { min-height: 28px; }
+  .tracks-arranger-toolbar { padding: calc(4px * var(--station-ui-scale)) calc(6px * var(--station-ui-scale)); gap: calc(4px * var(--station-ui-scale)); }
+  .tracks-arranger-toolbar .mixer-toggle { min-height: calc(28px * var(--station-ui-scale)); }
   /* A CAP, not a forced value - see the --tracks-row-height docs above.
      MEDIUM/LARGE (112/168px) get clamped down to 88px same as always;
      MINI/SMALL (48/76px), already shorter than that, are left alone
@@ -354,7 +354,7 @@
      exactly the short viewports where it matters most. */
   .tracks-arranger-rail-row,
   .tracks-arranger-lane {
-    height: min(88px, var(--tracks-row-height, 112px));
-    flex-basis: min(88px, var(--tracks-row-height, 112px));
+    height: min(calc(88px * var(--station-ui-scale)), var(--tracks-row-height, calc(112px * var(--station-ui-scale))));
+    flex-basis: min(calc(88px * var(--station-ui-scale)), var(--tracks-row-height, calc(112px * var(--station-ui-scale))));
   }
 }

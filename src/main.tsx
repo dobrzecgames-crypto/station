@@ -5,6 +5,9 @@ import { AudioEngine } from './audio/AudioEngine'
 import './index.css'
 // Must load after the component tree: Vinyl Dust is the final visual layer.
 import './vinyl-dust.css'
+// Viewport use and proportional sizing sit above every visual skin so the
+// whole instrument shares one physical scale without page zooming.
+import './global-scale.css'
 
 const audioEngine = new AudioEngine()
 

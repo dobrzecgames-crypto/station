@@ -1,26 +1,26 @@
 .synth-workspace {
-  margin-top: 16px;
-  padding: 14px;
+  margin-top: calc(16px * var(--station-ui-scale));
+  padding: calc(14px * var(--station-ui-scale));
   border: 1px solid var(--station-line);
-  border-radius: 6px;
+  border-radius: calc(6px * var(--station-ui-scale));
   background: var(--station-panel);
 }
 
 .synth-back-row {
-  margin-bottom: 10px;
+  margin-bottom: calc(10px * var(--station-ui-scale));
 }
 
 .synth-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 0 0 12px;
+  gap: calc(12px * var(--station-ui-scale));
+  padding: 0 0 calc(12px * var(--station-ui-scale));
   border-bottom: 1px solid var(--station-line);
 }
 
 .synth-heading h2 {
-  margin: 3px 0 2px;
+  margin: calc(3px * var(--station-ui-scale)) 0 calc(2px * var(--station-ui-scale));
   font-size: 1rem;
 }
 
@@ -36,10 +36,10 @@
 }
 
 .synth-audition {
-  width: 30px;
-  min-width: 30px;
-  height: 30px;
-  min-height: 30px;
+  width: calc(30px * var(--station-ui-scale));
+  min-width: calc(30px * var(--station-ui-scale));
+  height: calc(30px * var(--station-ui-scale));
+  min-height: calc(30px * var(--station-ui-scale));
   flex: 0 0 auto;
   user-select: none;
   -webkit-user-select: none;
@@ -51,11 +51,11 @@
 
 .synth-oscillator-row {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
-  gap: 10px;
+  grid-template-columns: calc(42px * var(--station-ui-scale)) minmax(0, 1fr);
+  gap: calc(10px * var(--station-ui-scale));
   align-items: center;
   min-width: 0;
-  padding: 10px 0;
+  padding: calc(10px * var(--station-ui-scale)) 0;
   border-bottom: 1px solid var(--station-line);
 }
 
@@ -67,14 +67,14 @@
 
 .synth-oscillator-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) 50px minmax(0, 1fr) minmax(0, 1fr);
-  gap: 8px;
+  grid-template-columns: minmax(0, 1.15fr) calc(50px * var(--station-ui-scale)) minmax(0, 1fr) minmax(0, 1fr);
+  gap: calc(8px * var(--station-ui-scale));
   align-items: end;
   min-width: 0;
 }
 
 .synth-oscillator-row-sub .synth-oscillator-controls {
-  grid-template-columns: minmax(0, 1.15fr) 50px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.15fr) calc(50px * var(--station-ui-scale)) minmax(0, 1fr);
 }
 
 .synth-inline-control {
@@ -88,17 +88,17 @@
 }
 
 .synth-inline-select {
-  gap: 4px;
+  gap: calc(4px * var(--station-ui-scale));
 }
 
 .synth-inline-control select {
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
-  height: 28px;
-  padding: 0 5px;
+  height: calc(28px * var(--station-ui-scale));
+  padding: 0 calc(5px * var(--station-ui-scale));
   border: 1px solid var(--station-line);
-  border-radius: 4px;
+  border-radius: calc(4px * var(--station-ui-scale));
   color: var(--station-text);
   background: var(--station-raised);
   font: inherit;
@@ -107,7 +107,7 @@
 
 .synth-inline-range {
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 3px 6px;
+  gap: calc(3px * var(--station-ui-scale)) calc(6px * var(--station-ui-scale));
   width: 100%;
   min-width: 0;
 }
@@ -123,14 +123,14 @@
   box-sizing: border-box;
   grid-column: 1 / -1;
   display: block;
-  width: calc(100% - 4px);
+  width: calc(100% - calc(4px * var(--station-ui-scale)));
   min-width: 0;
-  max-width: calc(100% - 4px);
-  margin-inline: 2px;
+  max-width: calc(100% - calc(4px * var(--station-ui-scale)));
+  margin-inline: calc(2px * var(--station-ui-scale));
 }
 
 .synth-display-hint {
-  margin: 9px 0 0;
+  margin: calc(9px * var(--station-ui-scale)) 0 0;
   color: var(--station-text-muted);
   font-family: var(--station-mono-font);
   font-size: .48rem;
@@ -147,7 +147,7 @@
 .synth-display-pages {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  min-height: 32px;
+  min-height: calc(32px * var(--station-ui-scale));
   border-top: 1px solid rgb(var(--display-light) / 8%);
   border-bottom: 1px solid rgb(var(--display-light) / 8%);
 }
@@ -170,7 +170,7 @@
 .synth-display-pages button[aria-pressed='true'] {
   color: rgb(var(--display-light));
   background: rgb(var(--display-light) / 10%);
-  text-shadow: 0 0 6px rgb(var(--display-light) / var(--display-bloom));
+  text-shadow: 0 0 calc(6px * var(--station-ui-scale)) rgb(var(--display-light) / var(--display-bloom));
 }
 
 .synth-display-pages button:focus-visible,
@@ -184,15 +184,15 @@
 .synth-display-add {
   display: grid;
   align-items: center;
-  min-height: 36px;
-  padding: 5px 12px;
+  min-height: calc(36px * var(--station-ui-scale));
+  padding: calc(5px * var(--station-ui-scale)) calc(12px * var(--station-ui-scale));
   border-top: 1px solid rgb(var(--display-light) / 8%);
   font-family: var(--station-mono-font);
 }
 
 .synth-display-select-row {
-  grid-template-columns: minmax(0, 1fr) minmax(96px, 42%);
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) minmax(calc(96px * var(--station-ui-scale)), 42%);
+  gap: calc(8px * var(--station-ui-scale));
 }
 
 .synth-display-select-row > span,
@@ -206,10 +206,10 @@
 .synth-display-select-row select,
 .synth-display-add select {
   min-width: 0;
-  height: 25px;
-  padding: 0 5px;
+  height: calc(25px * var(--station-ui-scale));
+  padding: 0 calc(5px * var(--station-ui-scale));
   border: 1px solid rgb(var(--display-light) / 25%);
-  border-radius: 3px;
+  border-radius: calc(3px * var(--station-ui-scale));
   color: rgb(var(--display-light));
   background: rgb(var(--display-light) / 5%);
   font-family: var(--station-mono-font);
@@ -218,7 +218,7 @@
 
 .synth-display-chord {
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 7px;
+  gap: calc(7px * var(--station-ui-scale));
 }
 
 .synth-display-chord strong {
@@ -228,10 +228,10 @@
 }
 
 .synth-display-chord button {
-  min-height: 22px;
-  padding: 0 5px;
+  min-height: calc(22px * var(--station-ui-scale));
+  padding: 0 calc(5px * var(--station-ui-scale));
   border: 1px solid rgb(var(--display-light) / 25%);
-  border-radius: 3px;
+  border-radius: calc(3px * var(--station-ui-scale));
   color: rgb(var(--display-light) / 80%);
   background: rgb(var(--display-light) / 5%);
   font-family: var(--station-mono-font);
@@ -241,7 +241,7 @@
 
 .synth-display-add {
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
+  gap: calc(8px * var(--station-ui-scale));
 }
 
 .synth-display-add > span {
@@ -250,17 +250,17 @@
 
 @media (max-width: 390px) {
   .synth-workspace {
-    padding: 12px;
+    padding: calc(12px * var(--station-ui-scale));
   }
 
   .synth-oscillator-row {
     grid-template-columns: 1fr;
-    gap: 6px;
+    gap: calc(6px * var(--station-ui-scale));
   }
 
   .synth-oscillator-controls,
   .synth-oscillator-row-sub .synth-oscillator-controls {
-    grid-template-columns: minmax(0, 1fr) 48px;
+    grid-template-columns: minmax(0, 1fr) calc(48px * var(--station-ui-scale));
   }
 
   .synth-display-hint {

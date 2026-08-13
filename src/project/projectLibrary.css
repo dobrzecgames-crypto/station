@@ -1,30 +1,30 @@
 .project-modal {
-  width: min(calc(100vw - 24px), 620px);
+  width: min(calc(100vw - calc(24px * var(--station-ui-scale))), calc(620px * var(--station-ui-scale)));
   max-width: none;
-  max-height: min(760px, calc(100dvh - 24px));
+  max-height: min(calc(760px * var(--station-ui-scale)), calc(100dvh - calc(24px * var(--station-ui-scale))));
   margin: auto;
   padding: 0;
   overflow: hidden;
   border: 1px solid #575269;
-  border-radius: 5px;
+  border-radius: calc(5px * var(--station-ui-scale));
   color: var(--station-text);
   background: #17191a;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 8%), 0 3px 0 #07070a, 0 20px 54px rgb(0 0 0 / 70%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 8%), 0 calc(3px * var(--station-ui-scale)) 0 #07070a, 0 calc(20px * var(--station-ui-scale)) calc(54px * var(--station-ui-scale)) rgb(0 0 0 / 70%);
   font-family: var(--station-mono-font);
 }
 
 .project-modal::backdrop {
   background: rgb(4 4 7 / 78%);
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(calc(2px * var(--station-ui-scale)));
 }
 
 .project-modal-frame {
-  padding: 20px;
-  border-top: 3px solid var(--accent-project);
+  padding: calc(20px * var(--station-ui-scale));
+  border-top: calc(3px * var(--station-ui-scale)) solid var(--accent-project);
 }
 
 .project-modal-kicker {
-  margin: 0 0 9px;
+  margin: 0 0 calc(9px * var(--station-ui-scale));
   color: var(--accent-project);
   font-size: .52rem;
   letter-spacing: .16em;
@@ -43,10 +43,10 @@
 .project-library-close,
 .project-row-menu button {
   border: 1px solid var(--station-line);
-  border-radius: 3px;
+  border-radius: calc(3px * var(--station-ui-scale));
   color: var(--station-text);
   background: linear-gradient(180deg, #393e3d, #211f27);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 9%), 0 2px 0 #09090c;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 9%), 0 calc(2px * var(--station-ui-scale)) 0 #09090c;
   font: inherit;
   font-size: .55rem;
   letter-spacing: .08em;
@@ -63,7 +63,7 @@
 .project-row-menu-trigger:focus-visible,
 .project-library-close:focus-visible,
 .project-row-menu button:focus-visible,
-.project-name-field input:focus-visible { outline: 2px solid var(--signal-blue-bright); outline-offset: 2px; }
+.project-name-field input:focus-visible { outline: calc(2px * var(--station-ui-scale)) solid var(--signal-blue-bright); outline-offset: calc(2px * var(--station-ui-scale)); }
 
 .project-modal-button:disabled,
 .project-row-open:disabled,
@@ -80,12 +80,12 @@
 .project-row-menu .project-row-menu-delete { color: #efaaa2; }
 
 .project-name-dialog,
-.project-conflict-dialog { width: min(calc(100vw - 32px), 390px); }
+.project-conflict-dialog { width: min(calc(100vw - calc(32px * var(--station-ui-scale))), calc(390px * var(--station-ui-scale))); }
 
 .project-name-field {
   display: grid;
-  gap: 8px;
-  margin: 20px 0;
+  gap: calc(8px * var(--station-ui-scale));
+  margin: calc(20px * var(--station-ui-scale)) 0;
   color: var(--station-text-muted);
   font-size: .55rem;
   letter-spacing: .08em;
@@ -93,11 +93,11 @@
 
 .project-name-field input {
   width: 100%;
-  min-height: 42px;
+  min-height: calc(42px * var(--station-ui-scale));
   box-sizing: border-box;
   border: 1px solid #596060;
-  border-radius: 3px;
-  padding: 0 11px;
+  border-radius: calc(3px * var(--station-ui-scale));
+  padding: 0 calc(11px * var(--station-ui-scale));
   color: var(--station-text);
   background: #0e1010;
   font: inherit;
@@ -107,14 +107,14 @@
 .project-modal-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: calc(8px * var(--station-ui-scale));
 }
 
 .project-modal-actions .project-modal-button,
-.project-conflict-actions .project-modal-button { min-height: 39px; }
+.project-conflict-actions .project-modal-button { min-height: calc(39px * var(--station-ui-scale)); }
 
 .project-conflict-name {
-  margin: 16px 0 20px;
+  margin: calc(16px * var(--station-ui-scale)) 0 calc(20px * var(--station-ui-scale));
   color: var(--station-text-muted);
   font-size: .7rem;
   overflow-wrap: anywhere;
@@ -123,13 +123,13 @@
 .project-conflict-actions {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 7px;
+  gap: calc(7px * var(--station-ui-scale));
 }
 
 .project-library-frame {
   display: flex;
   flex-direction: column;
-  max-height: min(730px, calc(100dvh - 24px));
+  max-height: min(calc(730px * var(--station-ui-scale)), calc(100dvh - calc(24px * var(--station-ui-scale))));
   box-sizing: border-box;
 }
 
@@ -137,12 +137,12 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: calc(12px * var(--station-ui-scale));
 }
 
 .project-library-close {
-  width: 32px;
-  height: 32px;
+  width: calc(32px * var(--station-ui-scale));
+  height: calc(32px * var(--station-ui-scale));
   font-size: 1rem;
   line-height: 1;
 }
@@ -150,15 +150,15 @@
 .project-library-toolbar {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-top: 18px;
+  gap: calc(8px * var(--station-ui-scale));
+  margin-top: calc(18px * var(--station-ui-scale));
 }
 
-.project-library-toolbar .project-modal-button { min-height: 40px; }
+.project-library-toolbar .project-modal-button { min-height: calc(40px * var(--station-ui-scale)); }
 .project-library-file-input { display: none; }
 
 .project-library-note {
-  margin: 10px 0 0;
+  margin: calc(10px * var(--station-ui-scale)) 0 0;
   color: var(--station-text-muted);
   font-size: .5rem;
   letter-spacing: .06em;
@@ -166,9 +166,9 @@
 
 .project-library-list {
   display: grid;
-  gap: 7px;
+  gap: calc(7px * var(--station-ui-scale));
   min-height: 0;
-  margin-top: 14px;
+  margin-top: calc(14px * var(--station-ui-scale));
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -177,17 +177,17 @@
   position: relative;
   z-index: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 68px 38px;
-  gap: 7px;
+  grid-template-columns: minmax(0, 1fr) calc(68px * var(--station-ui-scale)) calc(38px * var(--station-ui-scale));
+  gap: calc(7px * var(--station-ui-scale));
   align-items: center;
-  min-height: 60px;
-  padding: 8px;
+  min-height: calc(60px * var(--station-ui-scale));
+  padding: calc(8px * var(--station-ui-scale));
   border: 1px solid #424847;
-  border-radius: 3px;
+  border-radius: calc(3px * var(--station-ui-scale));
   background: #202323;
 }
 
-.project-library-row-current { border-left: 3px solid var(--accent-project); }
+.project-library-row-current { border-left: calc(3px * var(--station-ui-scale)) solid var(--accent-project); }
 .project-library-row-legacy { border-style: dashed; }
 
 .project-library-copy { min-width: 0; }
@@ -203,7 +203,7 @@
 
 .project-library-copy span {
   display: block;
-  margin-top: 6px;
+  margin-top: calc(6px * var(--station-ui-scale));
   overflow: hidden;
   color: var(--station-text-muted);
   font-size: .47rem;
@@ -213,7 +213,7 @@
 }
 
 .project-row-open,
-.project-row-menu-trigger { min-height: 34px; }
+.project-row-menu-trigger { min-height: calc(34px * var(--station-ui-scale)); }
 .project-row-menu-trigger-active { color: #121313; background: var(--accent-project); }
 .project-row-menu-trigger { width: 100%; letter-spacing: 0; }
 
@@ -221,15 +221,15 @@
   display: grid;
   grid-column: 1 / -1;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  padding: 5px;
+  padding: calc(5px * var(--station-ui-scale));
   border: 1px solid #59605f;
-  border-radius: 3px;
+  border-radius: calc(3px * var(--station-ui-scale));
   background: #111313;
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%);
 }
 
 .project-row-menu button {
-  min-height: 34px;
+  min-height: calc(34px * var(--station-ui-scale));
   border: 0;
   border-right: 1px solid #303534;
   border-radius: 0;
@@ -240,7 +240,7 @@
 
 .project-library-empty {
   margin: 0;
-  padding: 34px 18px;
+  padding: calc(34px * var(--station-ui-scale)) calc(18px * var(--station-ui-scale));
   border: 1px dashed #414747;
   color: var(--station-text-muted);
   font-size: .56rem;
@@ -250,8 +250,8 @@
 }
 
 @media (max-width: 480px) {
-  .project-modal-frame { padding: 16px; }
-  .project-library-row { grid-template-columns: minmax(0, 1fr) 60px 36px; }
+  .project-modal-frame { padding: calc(16px * var(--station-ui-scale)); }
+  .project-library-row { grid-template-columns: minmax(0, 1fr) calc(60px * var(--station-ui-scale)) calc(36px * var(--station-ui-scale)); }
   .project-conflict-actions { grid-template-columns: 1fr; }
   .project-row-menu { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .project-row-menu button { border-right: 0; border-bottom: 1px solid #303534; }

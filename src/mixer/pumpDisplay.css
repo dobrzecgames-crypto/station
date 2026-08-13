@@ -1,9 +1,9 @@
 .pump-route-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  min-height: 32px;
-  padding: 4px 12px;
+  gap: calc(6px * var(--station-ui-scale));
+  min-height: calc(32px * var(--station-ui-scale));
+  padding: calc(4px * var(--station-ui-scale)) calc(12px * var(--station-ui-scale));
   border-top: 1px solid rgb(var(--display-light) / 8%);
   font-family: var(--station-mono-font);
 }
@@ -21,7 +21,7 @@
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
-  text-shadow: 0 0 6px rgb(var(--display-light) / var(--display-bloom));
+  text-shadow: 0 0 calc(6px * var(--station-ui-scale)) rgb(var(--display-light) / var(--display-bloom));
   cursor: pointer;
 }
 
@@ -29,10 +29,10 @@
 
 .pump-route-empty {
   margin: 0;
-  padding: 10px 12px;
+  padding: calc(10px * var(--station-ui-scale)) calc(12px * var(--station-ui-scale));
   color: rgb(var(--display-light) / 55%);
   font-size: .6rem;
   font-weight: 700;
 }
 
-.pump-add-route-row { width: 100%; margin-top: 4px; }
+.pump-add-route-row { width: 100%; margin-top: calc(4px * var(--station-ui-scale)); }

@@ -1,0 +1,130 @@
+/*
+ * Station global physical scale
+ *
+ * The phone layout was authored around a 430 px chassis with 8 px of page
+ * margin and 14 px of inner frame. Reclaiming those two gutters gives the
+ * working surface about seven percent more width on a representative 390 px
+ * phone. The same unit scales both axes; no zoom or transformed root is used.
+ *
+ * CSS lengths in the production stylesheets opt into this number with
+ * calc(<length> * var(--station-ui-scale)). One-pixel hairlines and viewport
+ * breakpoints deliberately remain device pixels.
+ */
+:root {
+  --station-ui-scale: 1.07;
+  --station-app-width: 447px;
+  font-size: calc(16px * var(--station-ui-scale));
+}
+
+/* The system inset remains unscaled. The two-pixel addition is the only
+   deliberate air between browser/OS chrome and the instrument chassis. */
+.station-shell {
+  padding:
+    calc(env(safe-area-inset-top) + 2px)
+    calc(env(safe-area-inset-right) + 2px)
+    calc(env(safe-area-inset-bottom) + 2px)
+    calc(env(safe-area-inset-left) + 2px);
+}
+
+/* The blue chassis line is the frame itself; the grey Station surface begins
+   directly behind it instead of creating a second, empty inner gutter. */
+.station-panel {
+  padding: 0;
+}
+
+/* The legacy top margin doubled the visual inset above transport. With the
+   chassis gutter gone, transport now follows the same inner edge as the rest
+   of the instrument. Its contents share the navigation rail's three-pixel
+   inset, so power, display and project context align with LASER through MIX. */
+.station-header .transport-bar {
+  margin-top: 0;
+  padding-top: calc(3px * var(--station-ui-scale));
+  padding-inline: calc(3px * var(--station-ui-scale));
+}
+
+/* This negative inset previously cancelled part of the panel padding. Once
+   the grey surface reaches the frame it would cross the blue outline. The
+   legacy two-pixel workspace padding was still narrowing every active tab,
+   so the workspace now follows the panel's inner edge directly. */
+.station-workspace {
+  margin-inline: 0;
+  padding-inline: 0;
+}
+
+/* On phone-sized viewports the workspace panel is already the protective
+   frame. A second horizontal inset only makes playable/editor content
+   smaller: SEQ and ZOLA-X keep their internal control padding, while their
+   actual work surfaces use the full width inside that frame. */
+@media (max-width: 560px) {
+  .sequencer,
+  .poly-workspace {
+    padding-inline: 0;
+  }
+}
+
+/* Workspace selectors use more of their rail without making the whole header
+   taller: a slightly larger face replaces surplus padding and inter-key gap. */
+.main-navigation {
+  gap: calc(3px * var(--station-ui-scale));
+  padding: calc(3px * var(--station-ui-scale));
+}
+
+.main-nav-button {
+  min-height: calc(40px * var(--station-ui-scale));
+}
+
+/* Full-viewport TRACKS surfaces bypass the chassis, so they need the same
+   inset contract explicitly. Safe-area values are OS geometry and are never
+   multiplied; only the deliberate two-pixel clearance is added. */
+.tracks-arranger,
+.track-editor {
+  padding:
+    calc(env(safe-area-inset-top) + 2px)
+    calc(env(safe-area-inset-right) + 2px)
+    calc(env(safe-area-inset-bottom) + 2px)
+    calc(env(safe-area-inset-left) + 2px);
+}
+
+/* Seven selector faces have to share the narrow phone row. Their labels keep
+   the global type scale; only surplus face padding is reclaimed. */
+@media (max-width: 390px) {
+  .main-nav-button > [data-mechanism-face] {
+    box-sizing: border-box;
+    padding-inline: calc(1px * var(--station-ui-scale));
+  }
+}
+
+/* At the supported 320 px floor, the legacy fixed transport columns add up
+   to more than their container. This compact grid keeps every physical key
+   inside the chassis without introducing page-level horizontal scrolling. */
+@media (max-width: 340px) {
+  .station-shell .transport-bar {
+    padding-inline: calc(3px * var(--station-ui-scale));
+  }
+
+  .station-shell .transport-controls {
+    grid-template-columns:
+      calc(52px * var(--station-ui-scale))
+      repeat(3, calc(34px * var(--station-ui-scale)))
+      calc(26px * var(--station-ui-scale))
+      minmax(calc(75px * var(--station-ui-scale)), 1fr);
+  }
+
+  .station-shell .transport-icon-button {
+    width: calc(34px * var(--station-ui-scale));
+    min-width: calc(34px * var(--station-ui-scale));
+  }
+
+  .station-shell .recording-menu {
+    width: calc(26px * var(--station-ui-scale));
+    min-width: calc(26px * var(--station-ui-scale));
+  }
+
+  .main-nav-button {
+    font-size: .55rem;
+  }
+
+  .main-nav-button > [data-mechanism-face] {
+    padding-inline: 0;
+  }
+}

@@ -36,8 +36,8 @@
   box-shadow:
     inset 0 1px 0 rgb(221 217 255 / 9%),
     inset 0 -1px 0 rgb(0 0 0 / 66%),
-    0 3px 0 #06070b,
-    0 18px 36px rgb(0 0 0 / 46%);
+    0 calc(3px * var(--station-ui-scale)) 0 #06070b,
+    0 calc(18px * var(--station-ui-scale)) calc(36px * var(--station-ui-scale)) rgb(0 0 0 / 46%);
 }
 
 .mix-bus-card, .mixer-strip, .pad-editor, .context-panel, .step-parameter-editor,
@@ -45,7 +45,7 @@
 .sample-editor, .project-workspace, .library-row, .effect-rack, .transport-bar {
   border-color: var(--station-line);
   background: linear-gradient(180deg, #2a2428 0%, var(--station-card) 48%, #1d1a20 100%);
-  box-shadow: inset 0 1px 0 rgb(255 239 220 / 5%), 0 1px 2px rgb(0 0 0 / 20%);
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 5%), 0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 20%);
 }
 
 .mixer-toggle, .main-nav-button, .group-strip-button, .group-strip-master,
@@ -55,7 +55,7 @@ select, textarea {
   border-color: var(--station-line);
   color: var(--station-text);
   background: linear-gradient(180deg, #383035 0%, var(--station-raised) 48%, #211d20 100%);
-  box-shadow: inset 0 1px 0 rgb(255 239 220 / 8%), inset 0 -1px 0 rgb(0 0 0 / 45%), 0 1px 2px rgb(0 0 0 / 24%);
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 8%), inset 0 -1px 0 rgb(0 0 0 / 45%), 0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 24%);
 }
 
 .mixer-toggle:hover:not(:disabled),
@@ -74,9 +74,9 @@ select, textarea {
    deep navy floor borrow the reference sky without competing with the warm
    active module. */
 .main-navigation {
-  padding: 4px;
+  padding: calc(4px * var(--station-ui-scale));
   border: 1px solid #302b42;
-  border-radius: 5px;
+  border-radius: calc(5px * var(--station-ui-scale));
   background: linear-gradient(180deg, #171827 0%, #10111d 100%);
   box-shadow: inset 0 1px 0 rgb(153 161 207 / 7%), inset 0 -1px 0 rgb(0 0 0 / 48%);
 }
@@ -122,7 +122,7 @@ select, textarea {
 .main-nav-button-active > [data-mechanism-face] {
   border-color: color-mix(in srgb, var(--station-accent) 76%, var(--accent-gold-light));
   background: linear-gradient(180deg, #e09a77 0%, var(--station-accent) 50%, var(--accent-terracotta-pressed) 100%);
-  box-shadow: inset 0 1px 0 rgb(255 239 220 / 25%), inset 0 -2px 3px rgb(54 17 14 / 34%), 0 1px 2px rgb(0 0 0 / 30%);
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 25%), inset 0 calc(-2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(54 17 14 / 34%), 0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 30%);
 }
 
 /* The tab is allowed to carry the module's colour. The workspace itself is
@@ -150,9 +150,9 @@ select, textarea {
       color-mix(in srgb, var(--nav-face-mid) 88%, var(--scene-recess)) 52%,
       color-mix(in srgb, var(--nav-face-bottom) 92%, var(--scene-recess)) 100%);
   box-shadow:
-    inset 0 2px 4px rgb(0 0 0 / 48%),
+    inset 0 calc(2px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 48%),
     inset 0 -1px 0 rgb(255 239 220 / 3%),
-    inset 0 -2px 0 color-mix(in srgb, var(--nav-face-top) 58%, transparent),
+    inset 0 calc(-2px * var(--station-ui-scale)) 0 color-mix(in srgb, var(--nav-face-top) 58%, transparent),
     0 1px 1px rgb(0 0 0 / 18%);
   text-shadow: 0 -1px 0 rgb(0 0 0 / 40%), 0 1px 0 rgb(255 247 238 / 8%);
 }
@@ -171,14 +171,14 @@ select, textarea {
   border-color: color-mix(in srgb, var(--control-active) 76%, var(--station-text));
   color: var(--station-bg);
   background: linear-gradient(180deg, color-mix(in srgb, var(--control-active) 86%, #fff) 0%, var(--control-active) 54%, var(--control-active-pressed) 100%);
-  box-shadow: inset 0 1px 0 rgb(236 244 248 / 18%), inset 0 -2px 3px rgb(17 28 36 / 34%), 0 1px 2px rgb(0 0 0 / 28%);
+  box-shadow: inset 0 1px 0 rgb(236 244 248 / 18%), inset 0 calc(-2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(17 28 36 / 34%), 0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 28%);
 }
 
 .group-strip-selected {
   border-color: color-mix(in srgb, var(--focus-accent) 76%, var(--accent-gold-light));
   color: var(--station-bg);
   background: linear-gradient(180deg, color-mix(in srgb, var(--focus-accent) 86%, #fff) 0%, var(--focus-accent) 54%, var(--focus-pressed) 100%);
-  box-shadow: inset 0 1px 0 rgb(255 239 220 / 22%), inset 0 -2px 3px rgb(54 17 14 / 32%), 0 1px 2px rgb(0 0 0 / 28%);
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 22%), inset 0 calc(-2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(54 17 14 / 32%), 0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 28%);
 }
 
 /* PATTERN / SONG select the transport's operating context, so they retain the
@@ -188,7 +188,7 @@ select, textarea {
   border-color: color-mix(in srgb, var(--focus-accent) 76%, var(--accent-gold-light));
   color: var(--station-bg);
   background: linear-gradient(180deg, color-mix(in srgb, var(--focus-accent) 86%, #fff) 0%, var(--focus-accent) 54%, var(--focus-pressed) 100%);
-  box-shadow: inset 0 1px 0 rgb(255 239 220 / 22%), inset 0 -2px 3px rgb(54 17 14 / 32%), 0 1px 2px rgb(0 0 0 / 28%);
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 22%), inset 0 calc(-2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(54 17 14 / 32%), 0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 28%);
 }
 
 /* Bank colour is inherited; variant colour is a close shade of that bank.
@@ -217,7 +217,7 @@ select, textarea {
   border-color: color-mix(in srgb, var(--pattern-color) 78%, var(--station-text));
   color: var(--station-bg);
   background: linear-gradient(180deg, color-mix(in srgb, var(--pattern-color) 86%, #fff), var(--pattern-color) 58%, color-mix(in srgb, var(--pattern-color) 82%, var(--station-bg)));
-  box-shadow: inset 0 1px 0 rgb(255 239 220 / 18%), inset 0 -2px 3px rgb(20 15 22 / 34%), 0 1px 2px rgb(0 0 0 / 28%);
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 18%), inset 0 calc(-2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(20 15 22 / 34%), 0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 28%);
 }
 
 .variant-selector .variant-empty[data-pattern-variant],
@@ -233,7 +233,7 @@ select, textarea {
   border-color: var(--station-line);
   color: var(--station-text);
   background: linear-gradient(180deg, #383035 0%, var(--control-inactive) 48%, #211d20 100%);
-  box-shadow: inset 0 1px 0 rgb(255 239 220 / 8%), inset 0 -1px 0 rgb(0 0 0 / 45%), 0 1px 2px rgb(0 0 0 / 24%);
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 8%), inset 0 -1px 0 rgb(0 0 0 / 45%), 0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 24%);
 }
 
 .transport-button:hover:not(:disabled) {
@@ -271,7 +271,7 @@ select, textarea {
 .effect-slot-button:active:not(:disabled), .effect-slot-card:active:not(:disabled),
 .step:active:not(:disabled) {
   transform: translateY(1px);
-  box-shadow: inset 0 2px 4px rgb(0 0 0 / 46%), inset 0 -1px 0 rgb(255 239 220 / 5%);
+  box-shadow: inset 0 calc(2px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 46%), inset 0 -1px 0 rgb(255 239 220 / 5%);
 }
 
 /* The power key is the one deliberate heavy switch on the transport. */
@@ -297,21 +297,21 @@ select, textarea {
 .system-power-switch .status-ready {
   background: var(--signal-blue-bright);
   box-shadow:
-    0 0 0 2px #252226,
+    0 0 0 calc(2px * var(--station-ui-scale)) #252226,
     inset 0 1px 1px rgb(255 255 255 / 32%),
-    0 0 4px rgb(131 190 210 / 40%);
+    0 0 calc(4px * var(--station-ui-scale)) rgb(131 190 210 / 40%);
 }
 .system-power-switch .status-inactive {
   background: var(--status-recording);
   box-shadow:
-    0 0 0 2px #252226,
+    0 0 0 calc(2px * var(--station-ui-scale)) #252226,
     inset 0 1px 1px rgb(255 255 255 / 26%),
-    0 0 4px rgb(207 84 80 / 46%);
+    0 0 calc(4px * var(--station-ui-scale)) rgb(207 84 80 / 46%);
 }
-.system-power-switch .status-starting { background: var(--status-warning); box-shadow: 0 0 0 2px #252226, 0 0 6px rgb(212 165 99 / 40%); }
+.system-power-switch .status-starting { background: var(--status-warning); box-shadow: 0 0 0 calc(2px * var(--station-ui-scale)) #252226, 0 0 calc(6px * var(--station-ui-scale)) rgb(212 165 99 / 40%); }
 .system-power-switch .status-suspended,
-.system-power-switch .status-interrupted { background: var(--status-warning); box-shadow: 0 0 0 2px #252226, 0 0 6px rgb(212 165 99 / 40%); }
-.system-power-switch .status-error { background: var(--status-error); box-shadow: 0 0 0 2px #252226, 0 0 6px rgb(221 98 92 / 42%); }
+.system-power-switch .status-interrupted { background: var(--status-warning); box-shadow: 0 0 0 calc(2px * var(--station-ui-scale)) #252226, 0 0 calc(6px * var(--station-ui-scale)) rgb(212 165 99 / 40%); }
+.system-power-switch .status-error { background: var(--status-error); box-shadow: 0 0 0 calc(2px * var(--station-ui-scale)) #252226, 0 0 calc(6px * var(--station-ui-scale)) rgb(221 98 92 / 42%); }
 
 /* PLAY and STOP are fixed transport meanings. Their colours do not follow the
    workspace and remain visibly related even when the unavailable key is dim. */
@@ -369,7 +369,7 @@ select, textarea {
 }
 .transport-record-button::before {
   background: var(--status-recording);
-  box-shadow: 0 0 5px rgb(207 84 80 / 38%);
+  box-shadow: 0 0 calc(5px * var(--station-ui-scale)) rgb(207 84 80 / 38%);
 }
 /* REC only became a working control once recording shipped, so it now needs the two
    states the placeholder never had. Both are carried by the lamp rather than the
@@ -382,22 +382,22 @@ select, textarea {
 .transport-record-active {
   border-color: #b9615c;
   background: linear-gradient(180deg, #52292c, #34191d);
-  box-shadow: inset 0 2px 4px rgb(0 0 0 / 56%), inset 0 -1px 0 rgb(255 239 220 / 8%);
+  box-shadow: inset 0 calc(2px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 56%), inset 0 -1px 0 rgb(255 239 220 / 8%);
   transform: translateY(1px);
 }
 .transport-record-active::before {
   background: #ff6f68;
-  box-shadow: 0 0 9px rgb(255 111 104 / 78%), 0 0 18px rgb(207 84 80 / 42%);
+  box-shadow: 0 0 calc(9px * var(--station-ui-scale)) rgb(255 111 104 / 78%), 0 0 calc(18px * var(--station-ui-scale)) rgb(207 84 80 / 42%);
 }
 /* Counting in is not yet recording - the lamp beats the four clicks rather than
    holding lit, so the difference between "about to" and "armed" is visible. */
 .transport-record-counting::before { animation: station-record-count-in var(--count-in-beat, 500ms) steps(1, end) infinite; }
 @keyframes station-record-count-in {
-  0%, 49% { background: #ff6f68; box-shadow: 0 0 9px rgb(255 111 104 / 78%); }
+  0%, 49% { background: #ff6f68; box-shadow: 0 0 calc(9px * var(--station-ui-scale)) rgb(255 111 104 / 78%); }
   50%, 100% { background: #6c4644; box-shadow: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .transport-record-counting::before { animation: none; background: #ff6f68; box-shadow: 0 0 9px rgb(255 111 104 / 78%); }
+  .transport-record-counting::before { animation: none; background: #ff6f68; box-shadow: 0 0 calc(9px * var(--station-ui-scale)) rgb(255 111 104 / 78%); }
 }
 
 /* The display is a smoke-blue LCD glass: blue-violet, never turquoise. */
@@ -411,7 +411,7 @@ select, textarea {
   background-image:
     radial-gradient(130% 120% at 50% 20%, rgb(var(--display-light) / 11%), rgb(var(--display-light) / 4%) 60%, rgb(var(--display-light) / 1%) 100%),
     linear-gradient(180deg, #0d101b, #090a12);
-  box-shadow: inset 0 0 16px rgb(0 0 0 / 68%), inset 0 1px 0 rgb(167 167 209 / 8%);
+  box-shadow: inset 0 0 calc(16px * var(--station-ui-scale)) rgb(0 0 0 / 68%), inset 0 1px 0 rgb(167 167 209 / 8%);
 }
 .system-display-status { --display-light: 126 136 183; --display-bloom: 16%; }
 .system-display-status .system-display-text { color: #b5b9d9; }
@@ -420,14 +420,14 @@ select, textarea {
 .system-display .display-action-active {
   border-color: rgb(var(--display-light) / 52%);
   background: rgb(var(--display-light) / 13%);
-  text-shadow: 0 0 5px rgb(var(--display-light) / var(--display-bloom));
+  text-shadow: 0 0 calc(5px * var(--station-ui-scale)) rgb(var(--display-light) / var(--display-bloom));
 }
 
 /* Step cells and effect slots retain a tactile edge. */
 .effect-slot-button, .effect-slot-card {
   border-color: var(--station-line);
   background: linear-gradient(180deg, #302a2e 0%, var(--station-card) 46%, #1c191e 100%);
-  box-shadow: inset 0 1px 0 rgb(255 239 220 / 6%), 0 1px 2px rgb(0 0 0 / 22%);
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 6%), 0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 22%);
 }
 
 /* The PADS workspace is a playable deck, not a neutral card grid. Empty pads
@@ -442,14 +442,14 @@ select, textarea {
   grid-template-rows: repeat(4, minmax(0, 1fr));
   align-content: start;
   align-items: stretch;
-  gap: 4px;
-  padding: 3px;
+  gap: calc(4px * var(--station-ui-scale));
+  padding: calc(3px * var(--station-ui-scale));
   border: 1px solid #39343b;
-  border-radius: 7px;
+  border-radius: calc(7px * var(--station-ui-scale));
   background:
     linear-gradient(180deg, rgb(255 239 220 / 3%), transparent 20%),
     linear-gradient(180deg, #121218, #0a0b10);
-  box-shadow: inset 0 1px 0 rgb(225 221 255 / 6%), inset 0 10px 18px rgb(0 0 0 / 28%);
+  box-shadow: inset 0 1px 0 rgb(225 221 255 / 6%), inset 0 calc(10px * var(--station-ui-scale)) calc(18px * var(--station-ui-scale)) rgb(0 0 0 / 28%);
 }
 .station-shell[data-view='pad'] .pad .pad-number {
   color: #d0b895;
@@ -464,17 +464,17 @@ select, textarea {
 /* Four built-in samples form a compact crate: one category, one row, no
    nested scrolling list. Playback and selection keep their existing actions. */
 .station-shell[data-view='pad'] .pad-library {
-  padding: 12px;
+  padding: calc(12px * var(--station-ui-scale));
   border-color: #4a403d;
   background:
     linear-gradient(180deg, rgb(203 151 100 / 5%), transparent 28%),
     linear-gradient(180deg, #211d20, #151419);
 }
 .station-shell[data-view='pad'] .pad-library .library-category-selector {
-  margin-top: 8px;
-  padding: 5px;
+  margin-top: calc(8px * var(--station-ui-scale));
+  padding: calc(5px * var(--station-ui-scale));
   border: 1px solid #453c3b;
-  border-radius: 5px;
+  border-radius: calc(5px * var(--station-ui-scale));
   background: linear-gradient(180deg, #151318, #0d0e13);
   box-shadow: inset 0 1px 0 rgb(255 238 218 / 5%), inset 0 -1px 0 rgb(0 0 0 / 56%);
 }
@@ -485,41 +485,41 @@ select, textarea {
   letter-spacing: .14em;
 }
 .station-shell[data-view='pad'] .pad-library .library-category-selector .mixer-toggle {
-  min-width: 42px;
-  min-height: 28px;
-  padding: 0 6px;
+  min-width: calc(42px * var(--station-ui-scale));
+  min-height: calc(28px * var(--station-ui-scale));
+  padding: 0 calc(6px * var(--station-ui-scale));
   font-size: .5rem;
 }
 .station-shell[data-view='pad'] .pad-library .library-browser {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+  gap: calc(6px * var(--station-ui-scale));
   max-height: none;
-  margin-top: 10px;
+  margin-top: calc(10px * var(--station-ui-scale));
   overflow: visible;
 }
 .station-shell[data-view='pad'] .pad-library .library-row {
   display: grid;
   grid-template-columns: 1fr;
   grid-template-rows: minmax(0, 1fr) auto;
-  gap: 5px;
-  min-height: 82px;
-  padding: 5px;
+  gap: calc(5px * var(--station-ui-scale));
+  min-height: calc(82px * var(--station-ui-scale));
+  padding: calc(5px * var(--station-ui-scale));
   border-color: #5a4a40;
-  border-radius: 5px;
+  border-radius: calc(5px * var(--station-ui-scale));
   background:
     radial-gradient(110% 48% at 50% 0%, rgb(211 157 106 / 11%), transparent 70%),
     linear-gradient(180deg, #332a29, #211c20 58%, #171519);
-  box-shadow: inset 0 1px 0 rgb(255 239 220 / 9%), 0 2px 0 #0a0a0d;
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 9%), 0 calc(2px * var(--station-ui-scale)) 0 #0a0a0d;
 }
 .station-shell[data-view='pad'] .pad-library .library-preview-button {
   min-width: 0;
   min-height: 0;
-  gap: 4px;
+  gap: calc(4px * var(--station-ui-scale));
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
-  padding: 3px;
+  padding: calc(3px * var(--station-ui-scale));
 }
 .station-shell[data-view='pad'] .pad-library .library-preview-button span {
   color: #d0a06f;
@@ -536,8 +536,8 @@ select, textarea {
 .station-shell[data-view='pad'] .pad-library .library-row > .mixer-toggle {
   width: 100%;
   min-width: 0;
-  min-height: 23px;
-  padding: 0 2px;
+  min-height: calc(23px * var(--station-ui-scale));
+  padding: 0 calc(2px * var(--station-ui-scale));
   font-size: .43rem;
   letter-spacing: .025em;
   white-space: nowrap;
@@ -551,7 +551,7 @@ select, textarea {
 }
 .mix-pump-entry-active {
   border-color: var(--station-accent);
-  box-shadow: inset 3px 0 0 var(--station-accent), inset 0 1px 0 rgb(255 239 220 / 7%);
+  box-shadow: inset calc(3px * var(--station-ui-scale)) 0 0 var(--station-accent), inset 0 1px 0 rgb(255 239 220 / 7%);
 }
 .step, .pattern-step {
   border-color: var(--station-line);
@@ -571,17 +571,17 @@ select, textarea {
   box-shadow: inset 0 1px 0 rgb(255 239 220 / 20%), inset 0 -1px 0 rgb(67 48 22 / 28%);
 }
 .pattern-matrix-row > .pattern-step.pattern-step-playing {
-  box-shadow: inset 3px 0 0 var(--focus-accent), inset 0 1px 0 rgb(255 239 220 / 10%);
+  box-shadow: inset calc(3px * var(--station-ui-scale)) 0 0 var(--focus-accent), inset 0 1px 0 rgb(255 239 220 / 10%);
 }
 .pattern-matrix-row > .pattern-step.pattern-step-selected {
-  outline: 2px solid var(--focus-accent);
-  outline-offset: -2px;
+  outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent);
+  outline-offset: calc(-2px * var(--station-ui-scale));
 }
 
 .pattern-matrix-header > .pattern-step-playing {
   color: var(--focus-accent);
   background: color-mix(in srgb, var(--focus-accent) 10%, transparent);
-  box-shadow: inset 0 -2px 0 var(--focus-accent);
+  box-shadow: inset 0 calc(-2px * var(--station-ui-scale)) 0 var(--focus-accent);
 }
 
 /* A merge keeps the grid tracks intact but removes only the event's internal
@@ -625,7 +625,7 @@ select, textarea {
 
 .arrangement-lane-current .arrangement-lane-name {
   color: var(--pattern-color);
-  box-shadow: inset 2px 0 0 var(--focus-accent);
+  box-shadow: inset calc(2px * var(--station-ui-scale)) 0 0 var(--focus-accent);
 }
 
 .arrangement-lane .arrangement-slot:hover {
@@ -643,7 +643,7 @@ select, textarea {
 }
 
 .arrangement-lane .arrangement-slot-playing.arrangement-slot-filled {
-  box-shadow: inset 0 0 0 2px var(--focus-accent), inset 0 0 0 3px rgb(0 0 0 / 30%);
+  box-shadow: inset 0 0 0 calc(2px * var(--station-ui-scale)) var(--focus-accent), inset 0 0 0 calc(3px * var(--station-ui-scale)) rgb(0 0 0 / 30%);
 }
 
 .effect-slot-button small, .effect-slot-card small {
@@ -659,7 +659,7 @@ select, textarea {
 .effect-slot-empty {
   border-color: color-mix(in srgb, var(--station-line) 72%, var(--station-recess));
   background: linear-gradient(180deg, #111018, var(--station-recess));
-  box-shadow: inset 0 2px 5px rgb(0 0 0 / 50%);
+  box-shadow: inset 0 calc(2px * var(--station-ui-scale)) calc(5px * var(--station-ui-scale)) rgb(0 0 0 / 50%);
 }
 
 
@@ -689,18 +689,18 @@ select, textarea {
   --waveform-playhead: var(--signal-focus);
   border-color: var(--station-line-strong);
   background: linear-gradient(180deg, #14121a, var(--scene-recess));
-  box-shadow: inset 0 1px 0 rgb(255 239 220 / 6%), inset 0 0 18px rgb(0 0 0 / 34%);
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 6%), inset 0 0 calc(18px * var(--station-ui-scale)) rgb(0 0 0 / 34%);
 }
 
 .waveform-adding-slice {
   border-color: var(--action-accent);
-  box-shadow: inset 0 1px 0 rgb(255 239 220 / 9%), inset 0 0 0 1px rgb(200 111 80 / 30%), inset 0 0 18px rgb(0 0 0 / 34%);
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 9%), inset 0 0 0 1px rgb(200 111 80 / 30%), inset 0 0 calc(18px * var(--station-ui-scale)) rgb(0 0 0 / 34%);
 }
 
 /* PLAY/STOP source-preview now sits below the waveform instead of sharing the
    filename's header row - needs its own top gap here since it lost that row. */
 .chop-workspace .source-preview-controls {
-  margin-top: 10px;
+  margin-top: calc(10px * var(--station-ui-scale));
 }
 
 /* The waveform's own preview-cut laser markers (Waveform.tsx's cutMarkerStyle
@@ -722,11 +722,11 @@ select, textarea {
 /* Auto-slice (CUT) stays directly below the waveform in one compact instrument row. */
 .chop-workspace .auto-chop-controls {
   display: grid;
-  gap: 6px;
-  margin-top: 10px;
-  padding: 8px;
+  gap: calc(6px * var(--station-ui-scale));
+  margin-top: calc(10px * var(--station-ui-scale));
+  padding: calc(8px * var(--station-ui-scale));
   border: 1px solid var(--station-line);
-  border-radius: 4px;
+  border-radius: calc(4px * var(--station-ui-scale));
   background: linear-gradient(180deg, rgb(255 239 220 / 3%), transparent 65%), var(--scene-card);
 }
 
@@ -737,14 +737,14 @@ select, textarea {
   grid-template-columns: minmax(0, 1fr) auto;
   min-width: 0;
   align-items: center;
-  gap: 7px;
+  gap: calc(7px * var(--station-ui-scale));
 }
 
 .chop-workspace .auto-chop-smart-slider {
   display: grid;
-  grid-template-columns: auto auto minmax(44px, 1fr);
+  grid-template-columns: auto auto minmax(calc(44px * var(--station-ui-scale)), 1fr);
   min-width: 0;
-  gap: 6px;
+  gap: calc(6px * var(--station-ui-scale));
   align-items: center;
   color: var(--station-text-muted);
   font-family: var(--station-mono-font);
@@ -765,13 +765,13 @@ select, textarea {
 .chop-workspace .auto-chop-smart-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: calc(4px * var(--station-ui-scale));
 }
 
 .chop-workspace .auto-chop-smart-actions .mixer-toggle {
-  min-width: 52px;
-  min-height: 26px;
-  padding: 0 6px;
+  min-width: calc(52px * var(--station-ui-scale));
+  min-height: calc(26px * var(--station-ui-scale));
+  padding: 0 calc(6px * var(--station-ui-scale));
   font-size: .52rem;
 }
 
@@ -780,9 +780,9 @@ select, textarea {
    than matching CANCEL exactly. Still one of the row's compact controls,
    nowhere near a full-size CTA. */
 .chop-workspace .auto-chop-smart-actions .transport-button {
-  min-width: 58px;
-  min-height: 30px;
-  padding: 0 10px;
+  min-width: calc(58px * var(--station-ui-scale));
+  min-height: calc(30px * var(--station-ui-scale));
+  padding: 0 calc(10px * var(--station-ui-scale));
   font-size: .6rem;
   letter-spacing: .04em;
 }
@@ -801,7 +801,7 @@ select, textarea {
   /* Visually this is still a hairline - the taller box is only an easier
      target to land a finger on, per the ~40-44px touch-target ask; nothing
      about it reads as a bigger control. */
-  height: 34px;
+  height: calc(34px * var(--station-ui-scale));
   background: transparent;
 }
 
@@ -809,13 +809,13 @@ select, textarea {
    and a warm-on-warm rail was washing it out. Derived from the existing
    signal-blue family (mixed dark toward void) rather than a new hue. */
 .chop-workspace .auto-chop-smart-slider input::-webkit-slider-runnable-track {
-  height: 2px;
+  height: calc(2px * var(--station-ui-scale));
   background: color-mix(in srgb, var(--signal-blue-dim) 45%, var(--scene-void));
   border-radius: 1px;
 }
 
 .chop-workspace .auto-chop-smart-slider input::-moz-range-track {
-  height: 2px;
+  height: calc(2px * var(--station-ui-scale));
   background: color-mix(in srgb, var(--signal-blue-dim) 45%, var(--scene-void));
   border-radius: 1px;
   border: 0;
@@ -850,19 +850,19 @@ select, textarea {
   position: absolute;
   top: 50%;
   left: 0;
-  width: 14px;
-  height: 26px;
+  width: calc(14px * var(--station-ui-scale));
+  height: calc(26px * var(--station-ui-scale));
   /* Centers on the value's % horizontally; vertically seats the emitter body
      (not the beam) on the rail rather than centering the whole SVG on it. */
-  transform: translate(-50%, -8px);
+  transform: translate(-50%, calc(-8px * var(--station-ui-scale)));
   overflow: visible;
   pointer-events: none;
-  filter: drop-shadow(0 0 3px rgb(131 190 210 / 55%));
+  filter: drop-shadow(0 0 calc(3px * var(--station-ui-scale)) rgb(131 190 210 / 55%));
   transition: filter 150ms ease;
 }
 
 .chop-workspace .cut-laser-head-moving {
-  filter: drop-shadow(0 0 6px rgb(131 190 210 / 55%));
+  filter: drop-shadow(0 0 calc(6px * var(--station-ui-scale)) rgb(131 190 210 / 55%));
 }
 
 /* The beam itself is ivory, not blue - blue is now the rail's own colour
@@ -904,7 +904,7 @@ select, textarea {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 6px 8px;
+  gap: calc(6px * var(--station-ui-scale)) calc(8px * var(--station-ui-scale));
 }
 
 .chop-workspace .chop-manual-toolbar .eyebrow {
@@ -917,15 +917,15 @@ select, textarea {
 .chop-workspace .chop-manual-actions {
   display: flex;
   flex: 0 0 auto;
-  gap: 5px;
+  gap: calc(5px * var(--station-ui-scale));
 }
 
 .chop-workspace .chop-manual-actions .transport-button,
 .chop-workspace .chop-manual-actions .mixer-toggle {
   flex: 0 0 auto;
   min-width: 0;
-  min-height: 28px;
-  padding: 0 8px;
+  min-height: calc(28px * var(--station-ui-scale));
+  padding: 0 calc(8px * var(--station-ui-scale));
   font-size: .56rem;
   white-space: nowrap;
 }
@@ -933,8 +933,8 @@ select, textarea {
 /* A hairline above LIVE SLICE MAP, same separation language as the manual-
    slices divider above it, instead of bare margin with no visible break. */
 .chop-workspace .chop-pad-heading {
-  margin-top: 16px;
-  padding-top: 12px;
+  margin-top: calc(16px * var(--station-ui-scale));
+  padding-top: calc(12px * var(--station-ui-scale));
   border-top: 1px solid var(--station-line);
 }
 
@@ -969,8 +969,8 @@ output { color: var(--station-text); }
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 7%),
     inset 0 -1px 0 rgb(0 0 0 / 66%),
-    0 3px 0 #06070b,
-    0 18px 36px rgb(0 0 0 / 46%);
+    0 calc(3px * var(--station-ui-scale)) 0 #06070b,
+    0 calc(18px * var(--station-ui-scale)) calc(36px * var(--station-ui-scale)) rgb(0 0 0 / 46%);
 }
 .station-shell[data-power-phase='off'] .station-branding,
 .station-shell[data-power-phase='off'] .main-navigation,
@@ -1033,11 +1033,11 @@ output { color: var(--station-text); }
   --mechanism-ease: var(--mechanism-pad-ease);
   --mechanism-rest-shadow:
     inset 0 0 0 1px rgb(255 239 220 / 13%),
-    inset 0 0 10px rgb(0 0 0 / 32%),
-    0 2px 5px rgb(0 0 0 / 38%);
+    inset 0 0 calc(10px * var(--station-ui-scale)) rgb(0 0 0 / 32%),
+    0 calc(2px * var(--station-ui-scale)) calc(5px * var(--station-ui-scale)) rgb(0 0 0 / 38%);
   --mechanism-engaged-shadow:
     inset 0 0 0 1px rgb(0 0 0 / 22%),
-    inset 0 0 9px rgb(0 0 0 / 44%),
+    inset 0 0 calc(9px * var(--station-ui-scale)) rgb(0 0 0 / 44%),
     0 1px 1px rgb(0 0 0 / 24%);
   /* Convexity comes from a dead-centre radial highlight, not a directional
      top-to-bottom gradient - that reads as a web button/skeuomorphic AI tell
@@ -1061,10 +1061,10 @@ output { color: var(--station-text); }
   display: flex;
   justify-self: stretch;
   align-self: stretch;
-  padding: 7px;
+  padding: calc(7px * var(--station-ui-scale));
   overflow: hidden;
   border: 1px solid var(--scene-line);
-  border-radius: 9px;
+  border-radius: calc(9px * var(--station-ui-scale));
   appearance: none;
   -webkit-appearance: none;
   flex-direction: column;
@@ -1089,7 +1089,7 @@ output { color: var(--station-text); }
   border-radius: inherit;
   pointer-events: none;
   opacity: 0;
-  box-shadow: inset 0 0 7px 1px color-mix(in srgb, var(--pad-underlight) 55%, transparent);
+  box-shadow: inset 0 0 calc(7px * var(--station-ui-scale)) 1px color-mix(in srgb, var(--pad-underlight) 55%, transparent);
 }
 
 /* Keep legacy workspace skins off the performance pads without turning the
@@ -1103,7 +1103,7 @@ output { color: var(--station-text); }
 .station-shell .pad[data-mechanism='pad'].pad-empty {
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: calc(6px * var(--station-ui-scale));
   text-align: center;
 }
 
@@ -1147,7 +1147,7 @@ output { color: var(--station-text); }
 .station-shell .pad[data-mechanism='pad']:active:not(:disabled)::after {
   opacity: .92;
   animation: none;
-  box-shadow: inset 0 0 9px 2px color-mix(in srgb, var(--pad-underlight) 88%, transparent);
+  box-shadow: inset 0 0 calc(9px * var(--station-ui-scale)) calc(2px * var(--station-ui-scale)) color-mix(in srgb, var(--pad-underlight) 88%, transparent);
 }
 
 .station-shell .pad[data-mechanism='pad'][data-pressed='true'],
@@ -1169,8 +1169,8 @@ output { color: var(--station-text); }
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 7%),
       inset 0 -1px 0 rgb(0 0 0 / 66%),
-      0 3px 0 #06070b,
-      0 18px 36px rgb(0 0 0 / 46%);
+      0 calc(3px * var(--station-ui-scale)) 0 #06070b,
+      0 calc(18px * var(--station-ui-scale)) calc(36px * var(--station-ui-scale)) rgb(0 0 0 / 46%);
   }
   to {
     border-color: #4a4553;
@@ -1180,8 +1180,8 @@ output { color: var(--station-text); }
     box-shadow:
       inset 0 1px 0 rgb(221 217 255 / 9%),
       inset 0 -1px 0 rgb(0 0 0 / 66%),
-      0 3px 0 #06070b,
-      0 18px 36px rgb(0 0 0 / 46%);
+      0 calc(3px * var(--station-ui-scale)) 0 #06070b,
+      0 calc(18px * var(--station-ui-scale)) calc(36px * var(--station-ui-scale)) rgb(0 0 0 / 46%);
   }
 }
 
@@ -1221,12 +1221,12 @@ output { color: var(--station-text); }
 }
 .station-shell[data-power-phase='off'] .system-power-switch .status-inactive {
   background: #f06a63;
-  box-shadow: 0 0 0 2px #1b1d21, inset 0 1px 1px rgb(255 244 240 / 42%), 0 0 5px rgb(207 84 80 / 62%);
+  box-shadow: 0 0 0 calc(2px * var(--station-ui-scale)) #1b1d21, inset 0 1px 1px rgb(255 244 240 / 42%), 0 0 calc(5px * var(--station-ui-scale)) rgb(207 84 80 / 62%);
 }
 .station-shell[data-power-phase='off'] .system-power-switch .status-starting,
 .station-shell[data-power-phase='display'] .system-power-switch .status-starting {
   background: var(--status-recording);
-  box-shadow: 0 0 7px rgb(207 84 80 / 52%);
+  box-shadow: 0 0 calc(7px * var(--station-ui-scale)) rgb(207 84 80 / 52%);
 }
 .station-shell .system-power-switch[data-audio-status='ready'] .system-power-face {
   border-color: #2c3134;
@@ -1240,8 +1240,8 @@ output { color: var(--station-text); }
 
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible,
 .system-display:focus-visible, .display-action:focus-visible, .display-pad:focus-visible {
-  outline: 2px solid var(--focus-accent);
-  outline-offset: 3px;
+  outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent);
+  outline-offset: calc(3px * var(--station-ui-scale));
 }
 
 @media (prefers-reduced-motion: reduce) {

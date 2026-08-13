@@ -33,5 +33,5 @@ test('shared slider CSS owns touch gestures and prevents selection', () => {
 
   assert.match(sharedRule, /touch-action:\s*none/)
   assert.match(sharedRule, /user-select:\s*none/)
-  assert.match(sharedRule, /height:\s*30px/)
+  assert.match(sharedRule, /height:\s*calc\(30px \* var\(--station-ui-scale\)\)/)
 })

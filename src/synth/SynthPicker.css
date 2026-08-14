@@ -18,57 +18,74 @@
 }
 
 .synth-picker-card {
+  --synth-glyph-primary: var(--accent-synth);
+  --synth-glyph-secondary: var(--loaded-accent);
+  --synth-glyph-tertiary: var(--station-text-muted);
+  --synth-glyph-quaternary: var(--music-accent);
+  --synth-glyph-surface: color-mix(in srgb, var(--synth-glyph-primary) 18%, var(--station-recess));
   display: flex;
   align-items: center;
   gap: 14px;
   padding: 12px 16px;
-  border: 1px solid var(--station-line);
+  border: 1px solid color-mix(in srgb, var(--synth-glyph-primary) 22%, var(--station-line));
   border-radius: 6px;
-  background: var(--station-raised);
+  color: var(--station-text);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--synth-glyph-primary) 5%, color-mix(in srgb, var(--station-raised) 88%, var(--station-text) 12%)), var(--station-raised) 52%, color-mix(in srgb, var(--station-raised) 84%, var(--station-recess)));
+  box-shadow: inset 0 1px 0 rgb(255 239 220 / 7%), 0 2px 0 rgb(0 0 0 / 34%);
   text-align: left;
   cursor: pointer;
+  transition: transform 55ms ease, box-shadow 55ms ease, border-color 55ms ease;
 }
 
-.synth-picker-card:hover,
+.synth-picker-card:hover {
+  border-color: var(--station-line-strong);
+}
+
 .synth-picker-card:focus-visible {
-  border-color: currentColor;
-  outline: none;
+  border-color: var(--focus-accent);
+  outline: 2px solid var(--focus-accent);
+  outline-offset: 2px;
 }
 
-.synth-picker-card-monopoly {
-  color: var(--accent-synth);
-  border-color: color-mix(in srgb, var(--accent-synth) 45%, var(--station-line));
-  background: color-mix(in srgb, var(--accent-synth) 7%, var(--station-raised));
+.synth-picker-card:active {
+  transform: translateY(1px);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--station-raised) 76%, var(--station-recess)), var(--station-raised));
+  box-shadow: inset 0 2px 3px rgb(0 0 0 / 35%), 0 1px 0 rgb(0 0 0 / 38%);
 }
 
 .synth-picker-card-organicbass {
-  color: color-mix(in srgb, var(--accent-synth) 72%, var(--station-amber));
-  border-color: color-mix(in srgb, var(--accent-synth) 45%, var(--station-line));
-  background: color-mix(in srgb, var(--accent-synth) 7%, var(--station-raised));
+  --synth-glyph-primary: var(--accent-synth);
+  --synth-glyph-secondary: var(--accent-drumsynth);
+  --synth-glyph-tertiary: var(--loaded-accent);
+  --synth-glyph-quaternary: var(--station-text-muted);
 }
 
 .synth-picker-card-strings {
-  color: var(--accent-strings);
-  border-color: color-mix(in srgb, var(--accent-strings) 45%, var(--station-line));
-  background: color-mix(in srgb, var(--accent-strings) 7%, var(--station-raised));
+  --synth-glyph-primary: var(--accent-strings);
+  --synth-glyph-secondary: var(--music-accent);
+  --synth-glyph-tertiary: var(--station-text-muted);
+  --synth-glyph-quaternary: var(--accent-synth);
 }
 
 .synth-picker-card-poly {
-  color: color-mix(in srgb, var(--accent-synth) 68%, var(--control-active));
-  border-color: color-mix(in srgb, var(--accent-synth) 45%, var(--station-line));
-  background: color-mix(in srgb, var(--accent-synth) 7%, var(--station-raised));
+  --synth-glyph-primary: var(--accent-strings);
+  --synth-glyph-secondary: var(--accent-seq);
+  --synth-glyph-tertiary: var(--accent-synth);
+  --synth-glyph-quaternary: var(--loaded-accent);
 }
 
 .synth-picker-card-drumsynth {
-  color: var(--accent-drumsynth);
-  border-color: color-mix(in srgb, var(--accent-drumsynth) 45%, var(--station-line));
-  background: color-mix(in srgb, var(--accent-drumsynth) 7%, var(--station-raised));
+  --synth-glyph-primary: var(--accent-drumsynth);
+  --synth-glyph-secondary: var(--loaded-accent);
+  --synth-glyph-tertiary: var(--accent-synth);
+  --synth-glyph-quaternary: var(--control-active);
 }
 
 .synth-picker-card-icon {
   flex: 0 0 auto;
   width: 92px;
   height: 63px;
+  color: var(--synth-glyph-primary);
 }
 
 .synth-picker-card-text {
@@ -97,4 +114,10 @@
   color: var(--station-text-muted);
   font-size: .64rem;
   line-height: 1.4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .synth-picker-card {
+    transition: none;
+  }
 }

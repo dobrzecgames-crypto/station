@@ -1,7 +1,7 @@
 .project-display-trigger {
   min-width: 0;
-  min-height: 30px;
-  padding: 0 7px;
+  min-height: calc(30px * var(--station-ui-scale));
+  padding: 0 calc(7px * var(--station-ui-scale));
   font-size: .5rem;
   letter-spacing: .02em;
   white-space: nowrap;
@@ -9,11 +9,11 @@
 
 .project-display-select {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(106px, 48%);
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) minmax(calc(106px * var(--station-ui-scale)), 48%);
+  gap: calc(8px * var(--station-ui-scale));
   align-items: center;
-  min-height: 36px;
-  padding: 5px 12px;
+  min-height: calc(36px * var(--station-ui-scale));
+  padding: calc(5px * var(--station-ui-scale)) calc(12px * var(--station-ui-scale));
   border-top: 1px solid rgb(var(--display-light) / 8%);
   font-family: var(--station-mono-font);
 }
@@ -26,10 +26,10 @@
 
 .project-display-select select {
   min-width: 0;
-  height: 25px;
-  padding: 0 5px;
+  height: calc(25px * var(--station-ui-scale));
+  padding: 0 calc(5px * var(--station-ui-scale));
   border: 1px solid rgb(var(--display-light) / 25%);
-  border-radius: 3px;
+  border-radius: calc(3px * var(--station-ui-scale));
   color: rgb(var(--display-light));
   background: rgb(var(--display-light) / 5%);
   font-family: var(--station-mono-font);
@@ -38,8 +38,8 @@
 
 .project-display-progress {
   grid-column: 1 / -1;
-  height: 3px;
-  margin-top: 5px;
+  height: calc(3px * var(--station-ui-scale));
+  margin-top: calc(5px * var(--station-ui-scale));
   overflow: hidden;
   background: rgb(var(--display-light) / 12%);
 }
@@ -48,13 +48,13 @@
   display: block;
   height: 100%;
   background: rgb(var(--display-light) / 70%);
-  box-shadow: 0 0 6px rgb(var(--display-light) / var(--display-bloom));
+  box-shadow: 0 0 calc(6px * var(--station-ui-scale)) rgb(var(--display-light) / var(--display-bloom));
 }
 
 .project-display-note,
 .project-display-result {
   margin: 0;
-  padding: 7px 12px;
+  padding: calc(7px * var(--station-ui-scale)) calc(12px * var(--station-ui-scale));
   border-top: 1px solid rgb(var(--display-light) / 8%);
   color: rgb(var(--display-light) / 65%);
   font-family: var(--station-mono-font);
@@ -66,7 +66,7 @@
 .project-display-result {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 7px;
+  gap: calc(7px * var(--station-ui-scale));
   align-items: center;
 }
 

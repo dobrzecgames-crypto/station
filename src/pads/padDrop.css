@@ -1,3 +1,3 @@
 .pad-workspace { flex: 1; min-width: 0; }
-.pad-drop-target { border-color: var(--signal-accent); outline: 1px dashed var(--signal-accent); outline-offset: -3px; }
+.pad-drop-target { border-color: var(--signal-accent); outline: 1px dashed var(--signal-accent); outline-offset: calc(-3px * var(--station-ui-scale)); }
 .pad-drop-target .pad-footer span { color: var(--station-cyan); }

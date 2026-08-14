@@ -15,13 +15,13 @@
 
 .station-shell { background: var(--station-bg); }.station-panel {
   border: 1px solid var(--station-line);
-  border-radius: 6px;
+  border-radius: calc(6px * var(--station-ui-scale));
   background: var(--station-panel);
   box-shadow: none;
 }/* Cards and wells sit one step up from the panel they live in. */
 .mix-bus-card, .mixer-strip, .pad-editor, .context-panel, .step-parameter-editor, .sequencer, .mixer, .song-workspace, .chop-workspace, .library-workspace, .sample-editor, .project-workspace, .library-row, .effect-rack, .tracks-workspace {
   border: 1px solid var(--station-line);
-  border-radius: 4px;
+  border-radius: calc(4px * var(--station-ui-scale));
   background: var(--station-card);
   box-shadow: none;
 }/* ---------- 2. Controls ------------------------------------------------- */
@@ -30,7 +30,7 @@
    when the control is actually doing something. */
 .mixer-toggle, .transport-button, .group-strip-button, .group-strip-master, .header-project-button, .clear-button {
   border: 1px solid var(--station-line);
-  border-radius: 4px;
+  border-radius: calc(4px * var(--station-ui-scale));
   color: var(--station-text);
   background: var(--station-raised);
   box-shadow: none;
@@ -66,12 +66,12 @@
    Phase 1 now treats this row as a mechanically interlocked selector. Colour
    remains workspace identity, while the shared data-mechanism state owns the
    raised/held/engaged depth. */
-.main-navigation { gap: 4px; border-bottom: 0; }.main-nav-button {
+.main-navigation { gap: calc(4px * var(--station-ui-scale)); border-bottom: 0; }.main-nav-button {
   display: grid;
-  min-height: 38px;
+  min-height: calc(38px * var(--station-ui-scale));
   padding: 0;
   border: 0;
-  border-radius: 4px;
+  border-radius: calc(4px * var(--station-ui-scale));
   background: transparent;
   box-shadow: none;
   /* Fallbacks because the palette does not define these - see the note on the
@@ -86,9 +86,9 @@
   place-items: center;
   width: 100%;
   height: 100%;
-  padding: 0 6px;
+  padding: 0 calc(6px * var(--station-ui-scale));
   border: 1px solid var(--station-line);
-  border-radius: 4px;
+  border-radius: calc(4px * var(--station-ui-scale));
   /* Section 13's face, written out on --station-surface because the variable it
      uses there does not exist and takes the whole declaration down with it. The
      top edge catches the light, the face falls a few percent to the bottom, and
@@ -123,7 +123,7 @@
    one control without which nothing makes a sound. */
 .header-audio-button {
   border: 1px solid var(--station-line);
-  border-radius: 4px;
+  border-radius: calc(4px * var(--station-ui-scale));
   color: var(--station-text);
   background: var(--station-raised);
   box-shadow: none;
@@ -132,23 +132,23 @@
   color: var(--station-text);
   background: var(--station-raised);
 }.header-audio-button:not(:disabled):active { transform: none; box-shadow: none; }.header-audio-button .status-dot {
-  width: 9px; height: 9px;
+  width: calc(9px * var(--station-ui-scale)); height: calc(9px * var(--station-ui-scale));
   background: var(--status-inactive);
   box-shadow: none;
 }.header-audio-button .status-ready {
   background: var(--status-active);
-  box-shadow: 0 0 7px 1px rgb(181 199 118 / 60%);
+  box-shadow: 0 0 calc(7px * var(--station-ui-scale)) 1px rgb(181 199 118 / 60%);
 }.header-audio-button .status-starting {
   background: var(--status-warning);
-  box-shadow: 0 0 7px 1px rgb(198 154 98 / 60%);
+  box-shadow: 0 0 calc(7px * var(--station-ui-scale)) 1px rgb(198 154 98 / 60%);
 }.header-audio-button .status-error {
   background: var(--status-recording);
-  box-shadow: 0 0 7px 1px rgb(183 120 120 / 60%);
+  box-shadow: 0 0 calc(7px * var(--station-ui-scale)) 1px rgb(183 120 120 / 60%);
 }/* ---------- 5. Transport ------------------------------------------------ */
 
 .transport-bar {
   border: 1px solid var(--station-line);
-  border-radius: 4px;
+  border-radius: calc(4px * var(--station-ui-scale));
   background: var(--station-card);
   box-shadow: none;
 }/* Each row says what it selects. "Pattern" was naming both of them - the
@@ -166,16 +166,16 @@
 .bank-menu {
   position: relative;
   z-index: 20;
-  width: clamp(132px, 28vw, 180px);
-  min-width: 132px;
+  width: clamp(calc(132px * var(--station-ui-scale)), 28vw, calc(180px * var(--station-ui-scale)));
+  min-width: calc(132px * var(--station-ui-scale));
 }.bank-select-trigger {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 7px;
+  gap: calc(7px * var(--station-ui-scale));
   align-items: center;
   width: 100%;
-  min-height: 30px;
-  padding: 0 8px;
+  min-height: calc(30px * var(--station-ui-scale));
+  padding: 0 calc(8px * var(--station-ui-scale));
   font-family: var(--station-control-font);
   font-size: .56rem;
   font-weight: 400;
@@ -191,23 +191,23 @@
   font-size: .52rem;
 }.bank-select-menu {
   position: absolute;
-  top: calc(100% + 4px);
+  top: calc(100% + calc(4px * var(--station-ui-scale)));
   left: 0;
-  width: min(220px, calc(100vw - 32px));
-  padding: 5px;
+  width: min(calc(220px * var(--station-ui-scale)), calc(100vw - calc(32px * var(--station-ui-scale))));
+  padding: calc(5px * var(--station-ui-scale));
   border: 1px solid var(--station-line);
-  border-radius: 4px;
+  border-radius: calc(4px * var(--station-ui-scale));
   background: var(--station-recess);
-  box-shadow: 0 12px 28px rgb(0 0 0 / 55%), inset 0 1px 0 rgb(255 239 220 / 5%);
+  box-shadow: 0 calc(12px * var(--station-ui-scale)) calc(28px * var(--station-ui-scale)) rgb(0 0 0 / 55%), inset 0 1px 0 rgb(255 239 220 / 5%);
 }.bank-select-menu [role='listbox'] {
   display: grid;
-  gap: 3px;
-  max-height: 224px;
+  gap: calc(3px * var(--station-ui-scale));
+  max-height: calc(224px * var(--station-ui-scale));
   overflow-y: auto;
 }.bank-select-option, .bank-rename-action, .bank-rename-form button {
-  min-height: 30px;
+  min-height: calc(30px * var(--station-ui-scale));
   border: 1px solid var(--station-line);
-  border-radius: 3px;
+  border-radius: calc(3px * var(--station-ui-scale));
   color: var(--station-text-muted);
   background: var(--control-inactive);
   font-family: var(--station-control-font);
@@ -217,19 +217,19 @@
   cursor: pointer;
 }.bank-select-option {
   width: 100%;
-  padding: 0 8px;
+  padding: 0 calc(8px * var(--station-ui-scale));
   text-align: left;
 }.bank-select-option-active {
   border-color: var(--station-accent);
   color: var(--station-text);
-  box-shadow: inset 2px 0 0 var(--station-accent);
+  box-shadow: inset calc(2px * var(--station-ui-scale)) 0 0 var(--station-accent);
 }.bank-rename-action {
   width: 100%;
-  margin-top: 5px;
+  margin-top: calc(5px * var(--station-ui-scale));
   color: var(--control-active);
 }.bank-rename-form {
   display: grid;
-  gap: 6px;
+  gap: calc(6px * var(--station-ui-scale));
 }.bank-rename-form label {
   color: var(--station-text-muted);
   font-size: .5rem;
@@ -237,13 +237,13 @@
   letter-spacing: .08em;
 }.bank-rename-form input {
   width: 100%;
-  min-height: 32px;
-  padding: 0 7px;
+  min-height: calc(32px * var(--station-ui-scale));
+  padding: 0 calc(7px * var(--station-ui-scale));
   font-family: var(--station-control-font);
 }.bank-rename-form > div {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px;
+  gap: calc(4px * var(--station-ui-scale));
 }.bank-select-option:hover, .bank-select-option:focus-visible,
 .bank-rename-action:hover, .bank-rename-action:focus-visible,
 .bank-rename-form button:hover:not(:disabled), .bank-rename-form button:focus-visible {
@@ -275,7 +275,7 @@
    scale stays - it is the one piece of the console read that survives
    flattening, because it carries information. */
 input[type="range"] {
-  height: 30px;
+  height: calc(30px * var(--station-ui-scale));
   border-radius: 0;
   background: none;
   box-shadow: none;
@@ -286,7 +286,7 @@ input[type="range"] {
   -webkit-user-select: none;
   user-select: none;
 }input[type="range"]::-webkit-slider-runnable-track {
-  height: 14px;
+  height: calc(14px * var(--station-ui-scale));
   border-radius: 0;
   background:
     /* the track line the cap rides on */
@@ -294,26 +294,26 @@ input[type="range"] {
     /* the scale, printed under it */
     repeating-linear-gradient(90deg, var(--station-line) 0 1px, transparent 1px 12.5%);
   background-repeat: no-repeat;
-  background-size: 100% 2px, 100% 4px;
-  background-position: 0 5px, 0 100%;
+  background-size: 100% calc(2px * var(--station-ui-scale)), 100% calc(4px * var(--station-ui-scale));
+  background-position: 0 calc(5px * var(--station-ui-scale)), 0 100%;
   box-shadow: none;
 }input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none;
-  width: 10px; height: 18px;
+  width: calc(10px * var(--station-ui-scale)); height: calc(18px * var(--station-ui-scale));
   /* Centres the 18px thumb on the 14px track above (the track's own height,
      not the input's): (14 - 18) / 2. The rotated mixer fader turns any
      imbalance here into the cap visibly sitting off to one side instead of
      straddling the rail evenly. */
-  margin-top: -2px;
+  margin-top: calc(-2px * var(--station-ui-scale));
   border: 0;
-  border-radius: 2px;
+  border-radius: calc(2px * var(--station-ui-scale));
   background: var(--station-accent);
   box-shadow: none;
   cursor: pointer;
 }input[type="range"]::-moz-range-thumb {
-  width: 10px; height: 18px;
+  width: calc(10px * var(--station-ui-scale)); height: calc(18px * var(--station-ui-scale));
   border: 0;
-  border-radius: 2px;
+  border-radius: calc(2px * var(--station-ui-scale));
   background: var(--station-accent);
   box-shadow: none;
   cursor: pointer;
@@ -321,7 +321,7 @@ input[type="range"] {
 
 .step, .pattern-step {
   border: 1px solid var(--station-line);
-  border-radius: 2px;
+  border-radius: calc(2px * var(--station-ui-scale));
   background: var(--station-raised);
   box-shadow: none;
 }.step-active, .step-full, .sample-loaded {
@@ -337,7 +337,7 @@ input[type="range"] {
 
 .effect-slot-button, .effect-slot-card {
   border: 1px solid var(--station-line);
-  border-radius: 4px;
+  border-radius: calc(4px * var(--station-ui-scale));
   background: var(--station-raised);
   box-shadow: none;
 }.effect-slot-empty {
@@ -381,31 +381,16 @@ output, kbd, .transport-settings-toggle {
 
 input[type="text"], input[type="number"], select, textarea {
   border: 1px solid var(--station-line);
-  border-radius: 4px;
+  border-radius: calc(4px * var(--station-ui-scale));
   color: var(--station-text);
   background: var(--station-raised);
   box-shadow: none;
-}/* ---------- 12. Panel corner marks -------------------------------------- */
+}/* ---------- 12. Main chassis decoration -------------------------------- */
 
-/* The reference sheet marks each module's corners. Decorative, but it is what
-   makes a panel read as a discrete unit rather than a div with a border. */
-.station-panel::after {
-  position: absolute;
-  z-index: 2;
-  inset: 5px;
-  pointer-events: none;
-  content: '';
-  background:
-    linear-gradient(var(--station-line) 0 0) 0 0 / 7px 1px,
-    linear-gradient(var(--station-line) 0 0) 0 0 / 1px 7px,
-    linear-gradient(var(--station-line) 0 0) 100% 0 / 7px 1px,
-    linear-gradient(var(--station-line) 0 0) 100% 0 / 1px 7px,
-    linear-gradient(var(--station-line) 0 0) 0 100% / 7px 1px,
-    linear-gradient(var(--station-line) 0 0) 0 100% / 1px 7px,
-    linear-gradient(var(--station-line) 0 0) 100% 100% / 7px 1px,
-    linear-gradient(var(--station-line) 0 0) 100% 100% / 1px 7px;
-  background-repeat: no-repeat;
-}/* ============================================================================
+/* App.css still groups the main chassis with an older four-screw decoration.
+   The chassis no longer carries corner furniture; module panels keep their
+   own detailing. */
+.station-panel::after { content: none; }/* ============================================================================
    13. LIGHT
    The old look put a 115deg hatch on the panel and on every workspace inside
    it, each with inset:0, so the texture stacked and ran unbroken across the
@@ -472,30 +457,30 @@ input[type="text"], input[type="number"], select, textarea {
    soft bloom so the colour reads as emitted. */
 .mixer-toggle-active, .group-strip-selected, .transport-button, .step-active, .step-full, .sample-loaded {
   background: var(--station-accent);
-  box-shadow: 0 0 12px rgb(var(--station-accent-rgb) / 22%);
+  box-shadow: 0 0 calc(12px * var(--station-ui-scale)) rgb(var(--station-accent-rgb) / 22%);
 }/* An empty bay is the one thing below its parent, so its light inverts. */
 .effect-slot-empty {
   background: linear-gradient(180deg, var(--station-bg), color-mix(in srgb, var(--station-bg) 100%, #fff 3%));
-  box-shadow: inset 0 2px 4px rgb(0 0 0 / 40%);
+  box-shadow: inset 0 calc(2px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 40%);
 }/* ---------- 14. Pattern admin (parked in PROJECT) ----------------------- */
 
 /* Holding spot for the four pattern-group actions cut from the SEQ header.
    Sits in its own well so it reads as a separate concern from SAVE/OPEN
    rather than a third row of the same block. */
 .pattern-admin {
-  margin-top: 18px;
-  padding: 12px;
+  margin-top: calc(18px * var(--station-ui-scale));
+  padding: calc(12px * var(--station-ui-scale));
   border: 1px solid var(--station-line);
-  border-radius: 4px;
+  border-radius: calc(4px * var(--station-ui-scale));
   background: linear-gradient(180deg, color-mix(in srgb, var(--station-card) 100%, #fff 4%), var(--station-card) 30%);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%);
 }.pattern-admin-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: calc(6px * var(--station-ui-scale));
   align-items: center;
-  margin-top: 10px;
-}.pattern-admin-row .transport-button, .pattern-admin-row .mixer-toggle, .pattern-admin-row .clear-button { flex: 1 1 auto; min-width: 0; min-height: 32px; padding: 0 10px; font-size: .6rem; }.pattern-admin-row .sequence-target {
+  margin-top: calc(10px * var(--station-ui-scale));
+}.pattern-admin-row .transport-button, .pattern-admin-row .mixer-toggle, .pattern-admin-row .clear-button { flex: 1 1 auto; min-width: 0; min-height: calc(32px * var(--station-ui-scale)); padding: 0 calc(10px * var(--station-ui-scale)); font-size: .6rem; }.pattern-admin-row .sequence-target {
   flex: 0 0 100%;
   margin: 0;
   color: var(--station-text-muted);
@@ -509,20 +494,20 @@ input[type="text"], input[type="number"], select, textarea {
    keeps every slot a touch-sized square and avoids a horizontal scroll track. */
 .arrangement-page-controls {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) 36px;
-  gap: 5px;
-  margin-bottom: 8px;
+  grid-template-columns: calc(36px * var(--station-ui-scale)) minmax(0, 1fr) calc(36px * var(--station-ui-scale));
+  gap: calc(5px * var(--station-ui-scale));
+  margin-bottom: calc(8px * var(--station-ui-scale));
 }
 
 .arrangement-page-controls .mixer-toggle {
   min-width: 0;
-  min-height: 30px;
+  min-height: calc(30px * var(--station-ui-scale));
   padding: 0;
 }
 
 .arrangement-page-readout {
   display: grid;
-  min-height: 30px;
+  min-height: calc(30px * var(--station-ui-scale));
   place-items: center;
   border: 1px solid var(--station-line);
   color: var(--station-text-muted);
@@ -540,18 +525,18 @@ input[type="text"], input[type="number"], select, textarea {
 .arrangement-ruler,
 .arrangement-lane {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr);
+  grid-template-columns: calc(32px * var(--station-ui-scale)) minmax(0, 1fr);
   align-items: stretch;
-  gap: 5px;
+  gap: calc(5px * var(--station-ui-scale));
 }
 
 .arrangement-lane {
-  margin-top: 5px;
+  margin-top: calc(5px * var(--station-ui-scale));
 }
 
 .arrangement-track {
   display: grid;
-  gap: 3px;
+  gap: calc(3px * var(--station-ui-scale));
 }
 
 .arrangement-tick {
@@ -588,9 +573,9 @@ input[type="text"], input[type="number"], select, textarea {
   min-width: 0;
   aspect-ratio: 1;
   border: 1px solid var(--station-line);
-  border-radius: 2px;
+  border-radius: calc(2px * var(--station-ui-scale));
   background: linear-gradient(180deg, var(--station-card), var(--station-bg));
-  box-shadow: inset 0 1px 1px rgb(255 255 255 / 4%), inset 0 -1px 2px rgb(0 0 0 / 38%);
+  box-shadow: inset 0 1px 1px rgb(255 255 255 / 4%), inset 0 -1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 38%);
   cursor: pointer;
   touch-action: pan-y;
 }
@@ -611,7 +596,7 @@ input[type="text"], input[type="number"], select, textarea {
 }
 
 .arrangement-slot-playing.arrangement-slot-filled {
-  box-shadow: inset 0 0 0 2px var(--signal-focus), inset 0 0 0 3px rgb(0 0 0 / 30%);
+  box-shadow: inset 0 0 0 calc(2px * var(--station-ui-scale)) var(--signal-focus), inset 0 0 0 calc(3px * var(--station-ui-scale)) rgb(0 0 0 / 30%);
 }
 
 /* ---------- 16. Auto-chop smart slider ---------------------------------- */
@@ -621,7 +606,7 @@ input[type="text"], input[type="number"], select, textarea {
    into a column, and in a column the basis is a height - so the same rule
    demanded a 220px tall slider and ate a quarter of the screen. Size to
    content instead; the width is already handled by align-items: stretch. */
-.auto-chop-smart-slider { flex: 0 0 auto; }.auto-chop-smart-slider input { margin-top: 2px; }/* ---------- 17. Step matrix ---------------------------------------------- */
+.auto-chop-smart-slider { flex: 0 0 auto; }.auto-chop-smart-slider input { margin-top: calc(2px * var(--station-ui-scale)); }/* ---------- 17. Step matrix ---------------------------------------------- */
 
 /* A table's cells share edges, so each line must be drawn exactly once. The
    global button rule boxed every step on all four sides and rounded it, while
@@ -635,33 +620,33 @@ input[type="text"], input[type="number"], select, textarea {
   border-bottom: 1px solid var(--station-line);
   border-radius: 0;
   box-shadow: none;
-}.pattern-matrix-row > *:last-child { border-right: 0; }.pattern-matrix-row:last-child > * { border-bottom: 0; }.pattern-matrix { border-radius: 4px; }/* State is carried by fill alone - a border would put the doubling back. */
-.pattern-matrix-row > .pattern-step.step-active { background: var(--station-accent); }.pattern-matrix-row > .pattern-step.pattern-step-beat-dim:not(.step-active) { background: rgb(0 0 0 / 22%); }.pattern-matrix-row > .pattern-step.pattern-step-playing { box-shadow: inset 2px 0 0 var(--station-accent); }.pattern-matrix-row > .pattern-step.pattern-step-selected { outline: 1px solid var(--station-accent); outline-offset: -1px; }/* The step buttons carried min-width: 46px while the row's track was 40px, so
+}.pattern-matrix-row > *:last-child { border-right: 0; }.pattern-matrix-row:last-child > * { border-bottom: 0; }.pattern-matrix { border-radius: calc(4px * var(--station-ui-scale)); }/* State is carried by fill alone - a border would put the doubling back. */
+.pattern-matrix-row > .pattern-step.step-active { background: var(--station-accent); }.pattern-matrix-row > .pattern-step.pattern-step-beat-dim:not(.step-active) { background: rgb(0 0 0 / 22%); }.pattern-matrix-row > .pattern-step.pattern-step-playing { box-shadow: inset calc(2px * var(--station-ui-scale)) 0 0 var(--station-accent); }.pattern-matrix-row > .pattern-step.pattern-step-selected { outline: 1px solid var(--station-accent); outline-offset: -1px; }/* The step buttons carried min-width: 46px while the row's track was 40px, so
    every step overflowed its column by six pixels and pushed its right edge into
    the next one. The header spans set no min-width, so they stayed on the true
    column lines - which is why the two rows drifted apart the further right you
    looked. The track is the single source of truth now and cells may not set a
    floor of their own. 44px because that is the smallest comfortable touch
    target, and this grid is tapped rather than clicked. */
-.pattern-matrix-row { grid-template-columns: 100px repeat(16, 44px); min-width: 804px; }/* width as well as min-width: .pattern-step pins both to 46px, and resetting
+.pattern-matrix-row { grid-template-columns: calc(100px * var(--station-ui-scale)) repeat(16, calc(44px * var(--station-ui-scale))); min-width: calc(804px * var(--station-ui-scale)); }/* width as well as min-width: .pattern-step pins both to 46px, and resetting
    only the floor left the explicit width still overflowing the track. */
-.pattern-matrix-row > * { width: auto; min-width: 0; height: 44px; min-height: 44px; }/* ---------- 18. System display ------------------------------------------ */
+.pattern-matrix-row > * { width: auto; min-width: 0; height: calc(44px * var(--station-ui-scale)); min-height: calc(44px * var(--station-ui-scale)); }/* ---------- 18. System display ------------------------------------------ */
 
 /* A full 16-step row becomes too narrow to play once all 16 pads are present.
    The sequence remains a fixed 16 steps; this switch only chooses which
    eight-step half is on the hardware-sized matrix. */
 .sequencer {
-  padding-inline: 8px;
+  padding-inline: calc(8px * var(--station-ui-scale));
 }
 .sequencer-step-pages {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px;
-  margin-bottom: 6px;
+  gap: calc(4px * var(--station-ui-scale));
+  margin-bottom: calc(6px * var(--station-ui-scale));
 }.sequencer-step-pages .mixer-toggle {
   min-width: 0;
-  min-height: 30px;
-  padding: 0 6px;
+  min-height: calc(30px * var(--station-ui-scale));
+  padding: 0 calc(6px * var(--station-ui-scale));
 }.sequencer .pattern-matrix {
   overflow-x: hidden;
 }.sequencer .pattern-matrix-row {
@@ -670,8 +655,8 @@ input[type="text"], input[type="number"], select, textarea {
 }.sequencer .pattern-matrix-row > * {
   width: auto;
   min-width: 0;
-  height: 44px;
-  min-height: 44px;
+  height: calc(44px * var(--station-ui-scale));
+  min-height: calc(44px * var(--station-ui-scale));
 }.sequencer .pattern-pad-label {
   place-items: center;
   padding: 0;
@@ -714,12 +699,12 @@ input[type="text"], input[type="number"], select, textarea {
      does not resize itself to fit what is on it - it scrolls, and the tenants
      that need less simply leave glass unlit. Capped against the viewport so a
      short phone screen is not swallowed whole. */
-  --display-panel-height: min(220px, 34vh);
+  --display-panel-height: min(calc(220px * var(--station-ui-scale)), 34vh);
 
   grid-column: 1 / -1;
   overflow: hidden;
   border: 1px solid var(--station-line);
-  border-radius: 3px;
+  border-radius: calc(3px * var(--station-ui-scale));
   /* Split, not the `background` shorthand. --station-bg is not defined anywhere
      in the app, and one undefined variable invalidates the whole declaration it
      sits in - which threw away the backlight with it, so the display has been
@@ -733,33 +718,33 @@ input[type="text"], input[type="number"], select, textarea {
       rgb(var(--display-light) / 7%) 58%,
       rgb(var(--display-light) / 3%) 100%);
   box-shadow:
-    inset 0 0 14px rgb(0 0 0 / 55%),
-    inset 0 2px 5px rgb(0 0 0 / 45%);
+    inset 0 0 calc(14px * var(--station-ui-scale)) rgb(0 0 0 / 55%),
+    inset 0 calc(2px * var(--station-ui-scale)) calc(5px * var(--station-ui-scale)) rgb(0 0 0 / 45%);
   font-family: var(--system-display-font);
 }
 .station-shell .system-power-switch[data-mechanism='power'] {
-  --mechanism-travel: 3px;
+  --mechanism-travel: calc(3px * var(--station-ui-scale));
   --mechanism-press-duration: 70ms;
   --mechanism-release-duration: 120ms;
   --mechanism-rest-shadow:
     inset 0 1px 0 rgb(255 255 255 / 9%),
-    inset 0 -2px 3px rgb(0 0 0 / 54%),
-    0 0 0 2px #111015,
-    0 4px 0 #07080a,
-    0 6px 8px rgb(0 0 0 / 42%);
+    inset 0 calc(-2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(0 0 0 / 54%),
+    0 0 0 calc(2px * var(--station-ui-scale)) #111015,
+    0 calc(4px * var(--station-ui-scale)) 0 #07080a,
+    0 calc(6px * var(--station-ui-scale)) calc(8px * var(--station-ui-scale)) rgb(0 0 0 / 42%);
   --mechanism-engaged-shadow:
-    inset 0 3px 5px rgb(0 0 0 / 68%),
+    inset 0 calc(3px * var(--station-ui-scale)) calc(5px * var(--station-ui-scale)) rgb(0 0 0 / 68%),
     inset 0 -1px 0 rgb(255 255 255 / 3%),
-    0 0 0 2px #111015,
+    0 0 0 calc(2px * var(--station-ui-scale)) #111015,
     0 1px 0 #07080a,
-    0 2px 3px rgb(0 0 0 / 24%);
+    0 calc(2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(0 0 0 / 24%);
   --mechanism-hover-border: #505459;
   display: block;
   position: relative;
-  width: 56px;
-  min-width: 56px;
-  height: 42px;
-  min-height: 42px;
+  width: calc(56px * var(--station-ui-scale));
+  min-width: calc(56px * var(--station-ui-scale));
+  height: calc(42px * var(--station-ui-scale));
+  min-height: calc(42px * var(--station-ui-scale));
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -774,15 +759,15 @@ input[type="text"], input[type="number"], select, textarea {
   top: 0;
   left: 1px;
   display: grid;
-  width: 54px;
-  height: 36px;
-  grid-template-columns: 7px auto;
+  width: calc(54px * var(--station-ui-scale));
+  height: calc(36px * var(--station-ui-scale));
+  grid-template-columns: calc(7px * var(--station-ui-scale)) auto;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 0 6px;
+  gap: calc(7px * var(--station-ui-scale));
+  padding: 0 calc(6px * var(--station-ui-scale));
   border: 1px solid #3d4144;
-  border-radius: 4px;
+  border-radius: calc(4px * var(--station-ui-scale));
   background: linear-gradient(180deg, #292c2e 0%, #1a1c1e 52%, #101214 100%);
 }
 .system-power-face::after {
@@ -792,24 +777,24 @@ input[type="text"], input[type="number"], select, textarea {
 .system-power-switch .status-dot {
   position: relative;
   z-index: 1;
-  width: 6px;
-  height: 6px;
+  width: calc(6px * var(--station-ui-scale));
+  height: calc(6px * var(--station-ui-scale));
   border: 1px solid #17171a;
   border-radius: 50%;
   background: var(--status-inactive);
   box-shadow:
-    0 0 0 1.5px #252226,
+    0 0 0 calc(1.5px * var(--station-ui-scale)) #252226,
     inset 0 1px 1px rgb(255 255 255 / 18%);
 }
 .system-power-switch .status-ready {
   background: var(--status-active);
-  box-shadow: 0 0 7px 1px rgb(181 199 118 / 60%);
+  box-shadow: 0 0 calc(7px * var(--station-ui-scale)) 1px rgb(181 199 118 / 60%);
 }.system-power-switch .status-starting {
   background: var(--status-warning);
-  box-shadow: 0 0 7px 1px rgb(198 154 98 / 60%);
+  box-shadow: 0 0 calc(7px * var(--station-ui-scale)) 1px rgb(198 154 98 / 60%);
 }.system-power-switch .status-error {
   background: var(--status-recording);
-  box-shadow: 0 0 7px 1px rgb(183 120 120 / 60%);
+  box-shadow: 0 0 calc(7px * var(--station-ui-scale)) 1px rgb(183 120 120 / 60%);
 }.system-power-switch:disabled { cursor: default; opacity: .6; }
 .station-shell[data-powered='off'] .system-power-switch {
   border-color: var(--station-line);
@@ -831,8 +816,8 @@ input[type="text"], input[type="number"], select, textarea {
 .system-power-switch[data-audio-status='interrupted'] .system-power-label {
   font-size: .39rem;
 }.transport-icon-button {
-  width: 42px;
-  min-width: 42px;
+  width: calc(42px * var(--station-ui-scale));
+  min-width: calc(42px * var(--station-ui-scale));
   padding: 0;
   font-size: .75rem;
   line-height: 1;
@@ -848,9 +833,9 @@ input[type="text"], input[type="number"], select, textarea {
 .transport-play-button::before {
   width: 0;
   height: 0;
-  margin-left: 2px;
+  margin-left: calc(2px * var(--station-ui-scale));
   border-style: solid;
-  border-width: 7px 0 7px 11px;
+  border-width: calc(7px * var(--station-ui-scale)) 0 calc(7px * var(--station-ui-scale)) calc(11px * var(--station-ui-scale));
   border-color: transparent transparent transparent currentColor;
   content: '';
 }
@@ -859,11 +844,11 @@ input[type="text"], input[type="number"], select, textarea {
   display: grid;
   place-items: center;
 }.transport-record-button::before {
-  width: 10px;
-  height: 10px;
+  width: calc(10px * var(--station-ui-scale));
+  height: calc(10px * var(--station-ui-scale));
   border-radius: 50%;
   background: #b56560;
-  box-shadow: 0 0 5px rgb(181 101 96 / 42%);
+  box-shadow: 0 0 calc(5px * var(--station-ui-scale)) rgb(181 101 96 / 42%);
   content: '';
 }.transport-record-button:disabled {
   border-color: #69484a;
@@ -872,9 +857,9 @@ input[type="text"], input[type="number"], select, textarea {
   position: relative;
   display: grid;
   place-items: center;
-  min-height: 38px;
+  min-height: calc(38px * var(--station-ui-scale));
   /* Symmetric, so the chevron cannot pull the centred text off axis. */
-  padding: 7px 26px;
+  padding: calc(7px * var(--station-ui-scale)) calc(26px * var(--station-ui-scale));
 }/* Covers the line only - see the note in SystemDisplay. Sits under the text so
    the live region stays outside the button and taps still land. */
 .system-display-surface {
@@ -894,14 +879,14 @@ input[type="text"], input[type="number"], select, textarea {
   letter-spacing: .05em;
   line-height: 1.5;
   text-align: center;
-  text-shadow: 0 0 7px rgb(var(--display-light) / var(--display-bloom));
+  text-shadow: 0 0 calc(7px * var(--station-ui-scale)) rgb(var(--display-light) / var(--display-bloom));
   pointer-events: none;
 }/* Parked on the edge rather than in the flow, so the text centres on the whole
    line and not on what is left over beside it. */
 .system-display-chevron {
   position: absolute;
   top: 50%;
-  right: 8px;
+  right: calc(8px * var(--station-ui-scale));
   transform: translateY(-50%);
   color: var(--station-text-disabled);
   font-size: .6rem;
@@ -920,7 +905,7 @@ input[type="text"], input[type="number"], select, textarea {
      four tempo rows must not become taller because there is room for six. */
   align-content: start;
   height: var(--display-panel-height);
-  padding-bottom: 6px;
+  padding-bottom: calc(6px * var(--station-ui-scale));
   overflow-y: auto;
   /* The panel scrolls inside the glass; the workspace behind it does not move
      when that scroll runs out. */
@@ -932,10 +917,10 @@ input[type="text"], input[type="number"], select, textarea {
 .display-param, .display-toggle {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 3px 10px;
+  gap: calc(3px * var(--station-ui-scale)) calc(10px * var(--station-ui-scale));
   align-items: baseline;
   width: 100%;
-  padding: 8px 12px 10px;
+  padding: calc(8px * var(--station-ui-scale)) calc(12px * var(--station-ui-scale)) calc(10px * var(--station-ui-scale));
   border: 0;
   border-top: 1px solid rgb(var(--display-light) / 8%);
   border-radius: 0;
@@ -957,7 +942,7 @@ input[type="text"], input[type="number"], select, textarea {
   font-family: var(--system-display-font);
   font-size: .66rem;
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 0 6px rgb(var(--display-light) / var(--display-bloom));
+  text-shadow: 0 0 calc(6px * var(--station-ui-scale)) rgb(var(--display-light) / var(--display-bloom));
 }.display-param input[type="range"] { grid-column: 1 / -1; width: 100%; }/* A context can put more than parameter rows in the panel. The pad grid keeps
    the row's edges and hairline so it still reads as part of the screen, and it
    is lit by --display-light rather than the module accent - this is one
@@ -965,13 +950,13 @@ input[type="text"], input[type="number"], select, textarea {
 .display-pad-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 4px;
-  padding: 8px 12px 10px;
+  gap: calc(4px * var(--station-ui-scale));
+  padding: calc(8px * var(--station-ui-scale)) calc(12px * var(--station-ui-scale)) calc(10px * var(--station-ui-scale));
   border-top: 1px solid rgb(var(--display-light) / 8%);
 }.display-pad {
-  min-height: 34px;
+  min-height: calc(34px * var(--station-ui-scale));
   border: 1px solid rgb(var(--display-light) / 22%);
-  border-radius: 3px;
+  border-radius: calc(3px * var(--station-ui-scale));
   color: rgb(var(--display-light) / 70%);
   background: rgb(var(--display-light) / 4%);
   font-family: var(--system-display-font);
@@ -983,14 +968,14 @@ input[type="text"], input[type="number"], select, textarea {
   color: rgb(var(--display-light));
   border-color: rgb(var(--display-light) / 45%);
   background: rgb(var(--display-light) / 12%);
-  text-shadow: 0 0 6px rgb(var(--display-light) / var(--display-bloom));
+  text-shadow: 0 0 calc(6px * var(--station-ui-scale)) rgb(var(--display-light) / var(--display-bloom));
 }.display-pad:disabled { cursor: default; opacity: .4; }/* Actions in a parameter row: the label says what they act on, the buttons sit
    where a value would. Same light as everything else in the glass. */
-.display-actions { display: flex; gap: 4px; }.display-action {
-  min-height: 26px;
-  padding: 0 8px;
+.display-actions { display: flex; gap: calc(4px * var(--station-ui-scale)); }.display-action {
+  min-height: calc(26px * var(--station-ui-scale));
+  padding: 0 calc(8px * var(--station-ui-scale));
   border: 1px solid rgb(var(--display-light) / 25%);
-  border-radius: 3px;
+  border-radius: calc(3px * var(--station-ui-scale));
   color: rgb(var(--display-light) / 80%);
   background: rgb(var(--display-light) / 5%);
   font-family: var(--system-display-font);
@@ -1003,7 +988,7 @@ input[type="text"], input[type="number"], select, textarea {
 .display-action-danger { border-color: color-mix(in srgb, var(--status-recording) 55%, transparent); color: var(--status-recording); }.display-action-danger:hover:not(:disabled) { border-color: var(--status-recording); }/* The whole row is the switch, so there is no box to draw and nothing to hide.
    No fill and no border of its own either - a lit face in here would be a
    button sitting on the screen, and it would carry the module accent with it. */
-.display-toggle { cursor: pointer; font: inherit; }.display-toggle:focus-visible { outline: 1px solid rgb(var(--display-light) / 55%); outline-offset: -3px; }/* Unavailable, not absent: the row stays where it is and drops to a quarter of
+.display-toggle { cursor: pointer; font: inherit; }.display-toggle:focus-visible { outline: 1px solid rgb(var(--display-light) / 55%); outline-offset: calc(-3px * var(--station-ui-scale)); }/* Unavailable, not absent: the row stays where it is and drops to a quarter of
    the light, the way a segment that is wired but unlit does. */
 .display-toggle:disabled { cursor: default; }.display-toggle:disabled .display-param-label { color: rgb(var(--display-light) / 25%); }.display-toggle:disabled .display-toggle-value {
   color: rgb(var(--display-light) / 25%);
@@ -1018,15 +1003,15 @@ input[type="text"], input[type="number"], select, textarea {
   background: linear-gradient(rgb(var(--display-light) / 22%) 0 0);
   background-repeat: no-repeat;
   background-size: 100% 1px;
-  background-position: 0 6px;
+  background-position: 0 calc(6px * var(--station-ui-scale));
 }.system-display input[type="range"]::-webkit-slider-thumb {
   border-radius: 1px;
   background: rgb(var(--display-light));
-  box-shadow: 0 0 6px rgb(var(--display-light) / var(--display-bloom));
+  box-shadow: 0 0 calc(6px * var(--station-ui-scale)) rgb(var(--display-light) / var(--display-bloom));
 }.system-display input[type="range"]::-moz-range-thumb {
   border-radius: 1px;
   background: rgb(var(--display-light));
-  box-shadow: 0 0 6px rgb(var(--display-light) / var(--display-bloom));
+  box-shadow: 0 0 calc(6px * var(--station-ui-scale)) rgb(var(--display-light) / var(--display-bloom));
 }.system-display input[type="range"]:disabled::-webkit-slider-thumb { background: var(--status-inactive); box-shadow: none; }.system-display input[type="range"]:disabled::-moz-range-thumb { background: var(--status-inactive); box-shadow: none; }/* Tone comes from the fixed status palette, never the module accent - a failure
    has to look the same in SEQ as it does in MIX. */
 .system-display-status {
@@ -1049,20 +1034,20 @@ input[type="text"], input[type="number"], select, textarea {
    recording options and mode. The display stays directly underneath. */
 .station-shell .transport-controls {
   display: grid;
-  grid-template-columns: 56px repeat(3, 40px) 30px minmax(90px, 1fr);
+  grid-template-columns: calc(56px * var(--station-ui-scale)) repeat(3, calc(40px * var(--station-ui-scale))) calc(30px * var(--station-ui-scale)) minmax(calc(90px * var(--station-ui-scale)), 1fr);
   grid-template-areas:
     'power play stop record record-menu modes'
     'display display display display display display';
   align-items: center;
-  gap: 2px;
+  gap: calc(2px * var(--station-ui-scale));
 }
 .station-shell .system-power-switch { grid-area: power; }
 .station-shell .transport-icon-button {
   grid-area: play;
-  width: 40px;
-  min-width: 40px;
-  height: 36px;
-  min-height: 36px;
+  width: calc(40px * var(--station-ui-scale));
+  min-width: calc(40px * var(--station-ui-scale));
+  height: calc(36px * var(--station-ui-scale));
+  min-height: calc(36px * var(--station-ui-scale));
 }
 .station-shell .transport-stop-button {
   grid-area: stop;
@@ -1074,15 +1059,15 @@ input[type="text"], input[type="number"], select, textarea {
   z-index: 40;
   grid-area: record-menu;
   align-self: center;
-  width: 30px;
-  height: 30px;
+  width: calc(30px * var(--station-ui-scale));
+  height: calc(30px * var(--station-ui-scale));
 }
 .station-shell .recording-menu-trigger {
   display: grid;
   place-items: center;
   width: 100%;
-  height: 30px;
-  min-height: 30px;
+  height: calc(30px * var(--station-ui-scale));
+  min-height: calc(30px * var(--station-ui-scale));
   min-width: 0;
   padding: 0;
 }
@@ -1090,26 +1075,26 @@ input[type="text"], input[type="number"], select, textarea {
   width: 0;
   height: 0;
   border-style: solid;
-  border-width: 6px 5px 0;
+  border-width: calc(6px * var(--station-ui-scale)) calc(5px * var(--station-ui-scale)) 0;
   border-color: currentColor transparent transparent;
 }
 .station-shell .recording-options-menu {
   position: absolute;
-  top: calc(100% + 5px);
+  top: calc(100% + calc(5px * var(--station-ui-scale)));
   right: 0;
   display: grid;
-  width: 148px;
-  gap: 4px;
-  padding: 5px;
+  width: calc(148px * var(--station-ui-scale));
+  gap: calc(4px * var(--station-ui-scale));
+  padding: calc(5px * var(--station-ui-scale));
   border: 1px solid var(--station-line);
-  border-radius: 4px;
+  border-radius: calc(4px * var(--station-ui-scale));
   background: var(--station-recess);
-  box-shadow: 0 12px 28px rgb(0 0 0 / 55%), inset 0 1px 0 rgb(255 239 220 / 5%);
+  box-shadow: 0 calc(12px * var(--station-ui-scale)) calc(28px * var(--station-ui-scale)) rgb(0 0 0 / 55%), inset 0 1px 0 rgb(255 239 220 / 5%);
 }
 .station-shell .recording-options-menu .mixer-toggle {
   width: 100%;
   min-width: 0;
-  padding-inline: 8px;
+  padding-inline: calc(8px * var(--station-ui-scale));
   text-align: left;
 }
 .station-shell .transport-controls .transport-modes {
@@ -1117,11 +1102,11 @@ input[type="text"], input[type="number"], select, textarea {
   display: grid;
   min-width: 0;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
+  gap: calc(6px * var(--station-ui-scale));
 }
 .station-shell .transport-controls .transport-modes .mixer-toggle {
   min-width: 0;
-  padding: 0 4px;
+  padding: 0 calc(4px * var(--station-ui-scale));
   font-size: .55rem;
   letter-spacing: .04em;
   white-space: nowrap;
@@ -1130,16 +1115,16 @@ input[type="text"], input[type="number"], select, textarea {
 
 @media (max-width: 370px) {
   .station-shell .transport-controls {
-    grid-template-columns: 56px repeat(3, 38px) 28px minmax(84px, 1fr);
-    gap: 2px;
+    grid-template-columns: calc(56px * var(--station-ui-scale)) repeat(3, calc(38px * var(--station-ui-scale))) calc(28px * var(--station-ui-scale)) minmax(calc(84px * var(--station-ui-scale)), 1fr);
+    gap: calc(2px * var(--station-ui-scale));
   }
   .station-shell .transport-icon-button {
-    width: 38px;
-    min-width: 38px;
+    width: calc(38px * var(--station-ui-scale));
+    min-width: calc(38px * var(--station-ui-scale));
   }
   .station-shell .recording-menu {
-    width: 28px;
-    min-width: 28px;
+    width: calc(28px * var(--station-ui-scale));
+    min-width: calc(28px * var(--station-ui-scale));
   }
 }
 
@@ -1154,14 +1139,14 @@ input[type="text"], input[type="number"], select, textarea {
 
 .station-shell .group-selector {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) repeat(2, 26px);
+  grid-template-columns: minmax(0, 1fr) repeat(2, calc(26px * var(--station-ui-scale)));
   min-width: 0;
-  gap: 2px;
+  gap: calc(2px * var(--station-ui-scale));
 }
 
 .station-shell .group-selector .mixer-toggle {
-  width: 26px;
-  min-width: 26px;
+  width: calc(26px * var(--station-ui-scale));
+  min-width: calc(26px * var(--station-ui-scale));
   padding-inline: 0;
 }
 
@@ -1173,19 +1158,19 @@ input[type="text"], input[type="number"], select, textarea {
 .station-shell .group-selector .bank-select-trigger {
   width: 100%;
   min-width: 0;
-  padding-inline: 6px;
+  padding-inline: calc(6px * var(--station-ui-scale));
 }
 
 .station-shell .variant-selector {
   display: grid;
-  grid-template-columns: repeat(4, 25px);
+  grid-template-columns: repeat(4, calc(25px * var(--station-ui-scale)));
   min-width: 0;
-  gap: 2px;
+  gap: calc(2px * var(--station-ui-scale));
 }
 
 .station-shell .variant-selector .mixer-toggle {
-  width: 25px;
-  min-width: 25px;
+  width: calc(25px * var(--station-ui-scale));
+  min-width: calc(25px * var(--station-ui-scale));
   padding-inline: 0;
 }
 
@@ -1209,7 +1194,7 @@ input[type="text"], input[type="number"], select, textarea {
   --display-light: 85 94 93;
   --display-bloom: 0%;
   background-image: none;
-  box-shadow: inset 0 0 14px rgb(0 0 0 / 65%);
+  box-shadow: inset 0 0 calc(14px * var(--station-ui-scale)) rgb(0 0 0 / 65%);
 }.station-shell[data-powered='off'] .system-display-text {
   color: var(--station-text-disabled);
   text-shadow: none;
@@ -1221,16 +1206,16 @@ input[type="text"], input[type="number"], select, textarea {
    clock itself, not from a timer guessing at it. */
 .render-progress {
   display: flex;
-  gap: 10px;
+  gap: calc(10px * var(--station-ui-scale));
   align-items: center;
-  margin-top: 10px;
+  margin-top: calc(10px * var(--station-ui-scale));
 }
 .render-progress-track {
   overflow: hidden;
   flex: 1;
-  height: 6px;
+  height: calc(6px * var(--station-ui-scale));
   border: 1px solid var(--station-line);
-  border-radius: 3px;
+  border-radius: calc(3px * var(--station-ui-scale));
   background: var(--station-recess);
 }
 .render-progress-fill {
@@ -1247,13 +1232,13 @@ input[type="text"], input[type="number"], select, textarea {
   text-align: right;
 }
 .render-warning {
-  margin: 10px 0 0;
+  margin: calc(10px * var(--station-ui-scale)) 0 0;
   color: var(--station-amber);
   font-size: .68rem;
   font-weight: 800;
   letter-spacing: .05em;
 }
-.render-result .project-workspace-actions { margin-top: 8px; }
+.render-result .project-workspace-actions { margin-top: calc(8px * var(--station-ui-scale)); }
 
 /* PROJECT actions are a grid, not a wrapping flex row: equal widths and a
    predictable break on a phone, the same two-column shape .project-controls
@@ -1262,10 +1247,10 @@ input[type="text"], input[type="number"], select, textarea {
 .project-workspace-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-top: 16px;
+  gap: calc(8px * var(--station-ui-scale));
+  margin-top: calc(16px * var(--station-ui-scale));
 }
-.project-workspace-actions .mixer-toggle { min-height: 42px; }
+.project-workspace-actions .mixer-toggle { min-height: calc(42px * var(--station-ui-scale)); }
 .project-action-wide { grid-column: 1 / -1; }
 
 /* Every tab lines up with the navigation above it. The scroll container used to

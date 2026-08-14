@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
+import { scaleStationUiPixels } from '../uiScale'
 import type { TrackHeightLevel } from './tracksTypes'
 
 export interface TracksSelection { trackId: string; clipId: string }
@@ -40,7 +41,7 @@ export interface TracksViewState {
  */
 export function useTracksViewState(): TracksViewState {
   const [selection, setSelection] = useState<TracksSelection | null>(null)
-  const [pixelsPerBeat, setPixelsPerBeat] = useState(defaultPixelsPerBeat)
+  const [pixelsPerBeat, setPixelsPerBeat] = useState(() => scaleStationUiPixels(defaultPixelsPerBeat))
   const [trackHeightLevel, setTrackHeightLevel] = useState<TrackHeightLevel>(defaultTrackHeightLevel)
   const scrollLeftRef = useRef(0)
   const trackListScrollTopRef = useRef(0)

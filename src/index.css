@@ -335,8 +335,8 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid var(--focus-accent);
-  outline-offset: 3px;
+  outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent);
+  outline-offset: calc(3px * var(--station-ui-scale));
 }
 
 /* A small state grammar shared by physical control families. The interactive
@@ -350,9 +350,9 @@ textarea:focus-visible {
   --mechanism-ease: var(--mechanism-hard-ease);
   --mechanism-rest-shadow:
     inset 0 1px 0 rgb(255 239 220 / 10%),
-    inset 0 -2px 2px rgb(0 0 0 / 42%),
-    0 2px 0 rgb(0 0 0 / 48%),
-    0 3px 4px rgb(0 0 0 / 20%);
+    inset 0 calc(-2px * var(--station-ui-scale)) calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 42%),
+    0 calc(2px * var(--station-ui-scale)) 0 rgb(0 0 0 / 48%),
+    0 calc(3px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 20%);
   --mechanism-engaged-shadow:
     inset 0 1px 1px rgb(0 0 0 / 38%),
     inset 0 -1px 0 rgb(255 239 220 / 4%),
@@ -362,7 +362,7 @@ textarea:focus-visible {
     inset 0 1px 0 rgb(255 239 220 / 4%),
     inset 0 -1px 1px rgb(0 0 0 / 30%),
     0 1px 0 rgb(0 0 0 / 30%),
-    0 2px 2px rgb(0 0 0 / 12%);
+    0 calc(2px * var(--station-ui-scale)) calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 12%);
   transform: none;
   box-shadow: none;
   transition: color var(--mechanism-release-duration) linear;
@@ -402,8 +402,8 @@ textarea:focus-visible {
 }
 
 .station-shell [data-mechanism]:focus-visible {
-  outline: 2px solid var(--focus-accent);
-  outline-offset: 3px;
+  outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent);
+  outline-offset: calc(3px * var(--station-ui-scale));
 }
 
 @media (hover: hover) and (pointer: fine) {

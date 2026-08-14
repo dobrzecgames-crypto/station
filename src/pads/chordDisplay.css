@@ -1,20 +1,20 @@
-.chord-display { display: grid; min-width: 0; gap: 8px; }
-.chord-display-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 12px; color: rgb(var(--display-light) / 72%); font-family: var(--station-mono-font); font-size: .55rem; letter-spacing: .04em; }
+.chord-display { display: grid; min-width: 0; gap: calc(8px * var(--station-ui-scale)); }
+.chord-display-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: calc(3px * var(--station-ui-scale)) calc(12px * var(--station-ui-scale)); color: rgb(var(--display-light) / 72%); font-family: var(--station-mono-font); font-size: .55rem; letter-spacing: .04em; }
 .chord-display-summary strong { color: rgb(var(--display-light)); font-weight: 400; }
-.chord-suggestion-list { display: flex; min-width: 0; flex-wrap: wrap; gap: 5px; }
-.chord-suggestion-list .display-action { flex: 0 0 auto; min-width: 58px; min-height: 44px; }
+.chord-suggestion-list { display: flex; min-width: 0; flex-wrap: wrap; gap: calc(5px * var(--station-ui-scale)); }
+.chord-suggestion-list .display-action { flex: 0 0 auto; min-width: calc(58px * var(--station-ui-scale)); min-height: calc(44px * var(--station-ui-scale)); }
 .chord-suggestion-active { color: #111313; border-color: rgb(var(--display-light)); background: rgb(var(--display-light)); }
-.chord-performance { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 10px; padding-top: 7px; border-top: 1px solid rgb(var(--display-light) / 24%); }
+.chord-performance { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(6px * var(--station-ui-scale)) calc(10px * var(--station-ui-scale)); padding-top: calc(7px * var(--station-ui-scale)); border-top: 1px solid rgb(var(--display-light) / 24%); }
 .chord-performance-heading { grid-column: 1 / -1; color: rgb(var(--display-light) / 62%); font-family: var(--station-display-font); font-size: .52rem; letter-spacing: .08em; }
 .chord-performance .display-param { min-width: 0; }
-.pad-grid-toolbar { display: flex; min-height: 24px; align-items: center; justify-content: flex-end; margin-bottom: 4px; }
-.pad-chord-mode-toggle { display: inline-flex; min-height: 24px; align-items: center; gap: 6px; padding: 2px 5px; border: 0; border-radius: 4px; color: #858c89; background: transparent; font-family: var(--station-display-font); font-size: .52rem; font-weight: 400; letter-spacing: .08em; cursor: pointer; }
+.pad-grid-toolbar { display: flex; min-height: calc(24px * var(--station-ui-scale)); align-items: center; justify-content: flex-end; margin-bottom: calc(4px * var(--station-ui-scale)); }
+.pad-chord-mode-toggle { display: inline-flex; min-height: calc(24px * var(--station-ui-scale)); align-items: center; gap: calc(6px * var(--station-ui-scale)); padding: calc(2px * var(--station-ui-scale)) calc(5px * var(--station-ui-scale)); border: 0; border-radius: calc(4px * var(--station-ui-scale)); color: #858c89; background: transparent; font-family: var(--station-display-font); font-size: .52rem; font-weight: 400; letter-spacing: .08em; cursor: pointer; }
 .pad-chord-mode-toggle:hover:not(:disabled), .pad-chord-mode-toggle:focus-visible { color: #c6cbc5; background: rgb(255 255 255 / 4%); outline: none; }
 .pad-chord-mode-toggle:focus-visible { box-shadow: 0 0 0 1px rgb(194 200 193 / 35%); }
 .pad-chord-mode-toggle:disabled { cursor: default; opacity: .3; }
-.pad-chord-mode-led { width: 6px; height: 6px; border: 1px solid #666d6a; border-radius: 50%; background: #292d2c; box-shadow: inset 0 1px 1px rgb(0 0 0 / 50%); }
+.pad-chord-mode-led { width: calc(6px * var(--station-ui-scale)); height: calc(6px * var(--station-ui-scale)); border: 1px solid #666d6a; border-radius: 50%; background: #292d2c; box-shadow: inset 0 1px 1px rgb(0 0 0 / 50%); }
 .pad-chord-mode-toggle-active { color: var(--station-accent); }
-.pad-chord-mode-toggle-active .pad-chord-mode-led { border-color: var(--station-accent); background: var(--station-accent); box-shadow: 0 0 7px rgb(var(--station-accent-rgb) / 55%); }
+.pad-chord-mode-toggle-active .pad-chord-mode-led { border-color: var(--station-accent); background: var(--station-accent); box-shadow: 0 0 calc(7px * var(--station-ui-scale)) rgb(var(--station-accent-rgb) / 55%); }
 .pad-chord-name { font-size: clamp(.62rem, 2.6vw, .9rem); letter-spacing: -.02em; text-overflow: clip; }
 .pad-chord-selected:not(.pad-playing) { outline-color: var(--action-accent); }
 @media (max-width: 520px) { .chord-display-summary { grid-template-columns: 1fr; font-size: .5rem; } .chord-performance { grid-template-columns: 1fr; } }

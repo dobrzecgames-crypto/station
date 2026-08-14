@@ -5,14 +5,14 @@
    read as a bolted-on module instead of a Station tenant: everything below
    this line is layout and detail, not a second surface system. */
 .tracks-workspace {
-  margin-top: 16px;
-  padding: 14px;
+  margin-top: calc(16px * var(--station-ui-scale));
+  padding: calc(14px * var(--station-ui-scale));
 }
 
 .tracks-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: calc(8px * var(--station-ui-scale));
   align-items: center;
   justify-content: space-between;
 }
@@ -27,10 +27,10 @@
   position: relative;
   display: inline-flex;
   align-items: center;
-  min-height: 32px;
-  padding: 0 12px;
+  min-height: calc(32px * var(--station-ui-scale));
+  padding: 0 calc(12px * var(--station-ui-scale));
   border: 1px solid var(--station-line, #443b3d);
-  border-radius: 4px;
+  border-radius: calc(4px * var(--station-ui-scale));
   color: var(--station-text, #eee4d6);
   background: var(--station-raised, #2b2527);
   font-size: 0.64rem;
@@ -63,13 +63,13 @@
 .tracks-snap-control {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: calc(5px * var(--station-ui-scale));
   align-items: center;
 }
 
 .tracks-snap-control .mixer-toggle {
   min-width: 0;
-  padding: 0 8px;
+  padding: 0 calc(8px * var(--station-ui-scale));
 }
 
 /* ---- SNAP selector: closed-by-default trigger + single-column popover ----
@@ -83,15 +83,15 @@
 }
 
 .tracks-toolbar .tracks-snap-select-trigger {
-  min-height: 32px;
-  padding: 0 10px;
+  min-height: calc(32px * var(--station-ui-scale));
+  padding: 0 calc(10px * var(--station-ui-scale));
   font-size: 0.64rem;
   font-weight: 800;
   letter-spacing: 0.04em;
 }
 
 .tracks-snap-select-caret {
-  margin-left: 2px;
+  margin-left: calc(2px * var(--station-ui-scale));
   opacity: 0.7;
 }
 
@@ -103,23 +103,23 @@
      here would let a scrolled-up clip paint over this menu. An explicit
      value avoids that. */
   z-index: 20;
-  top: calc(100% + 4px);
+  top: calc(100% + calc(4px * var(--station-ui-scale)));
   right: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: calc(2px * var(--station-ui-scale));
   width: max-content;
-  min-width: 84px;
-  padding: 4px;
+  min-width: calc(84px * var(--station-ui-scale));
+  padding: calc(4px * var(--station-ui-scale));
   border: 1px solid var(--station-line, #443b3d);
-  border-radius: 6px;
+  border-radius: calc(6px * var(--station-ui-scale));
   background: var(--station-card, #221e22);
-  box-shadow: 0 8px 20px rgb(0 0 0 / 45%);
+  box-shadow: 0 calc(8px * var(--station-ui-scale)) calc(20px * var(--station-ui-scale)) rgb(0 0 0 / 45%);
 }
 
 .tracks-snap-select-menu .mixer-toggle {
-  min-height: 30px;
-  padding: 0 10px;
+  min-height: calc(30px * var(--station-ui-scale));
+  padding: 0 calc(10px * var(--station-ui-scale));
   text-align: left;
 }
 
@@ -131,18 +131,18 @@
 .tracks-clip-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: calc(6px * var(--station-ui-scale));
   align-items: center;
-  margin-top: 14px;
-  padding: 8px 10px;
+  margin-top: calc(14px * var(--station-ui-scale));
+  padding: calc(8px * var(--station-ui-scale)) calc(10px * var(--station-ui-scale));
   border: 1px solid var(--station-line, #443b3d);
-  border-radius: 6px;
+  border-radius: calc(6px * var(--station-ui-scale));
   background: var(--station-card, #221e22);
 }
 
 .tracks-clip-actions-label {
   overflow: hidden;
-  margin-right: 4px;
+  margin-right: calc(4px * var(--station-ui-scale));
   color: var(--station-accent);
   font-size: 0.68rem;
   font-weight: 800;
@@ -165,13 +165,13 @@
    min-width:0, so it grew to fit an untruncated name instead of eliding it).
    Block children take exactly their parent's width, full stop. */
 .tracks-row-list {
-  margin-top: 10px;
+  margin-top: calc(10px * var(--station-ui-scale));
 }
 
 .tracks-row {
   /* The track's own identity colour (see trackAccent.ts) as a hairline, not
      a border - thin enough to read as a marker, not a box edge. */
-  border-left: 2px solid var(--tracks-row-accent, transparent);
+  border-left: calc(2px * var(--station-ui-scale)) solid var(--tracks-row-accent, transparent);
 }
 
 .tracks-row:not(:last-child) {
@@ -194,8 +194,8 @@
 .tracks-row-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 8px;
+  gap: calc(8px * var(--station-ui-scale));
+  padding: calc(5px * var(--station-ui-scale)) calc(8px * var(--station-ui-scale));
 }
 
 /* The one deliberate min-width:0 in this file - it's what lets a long name
@@ -223,7 +223,7 @@
 .tracks-controls-row {
   display: flex;
   flex: 0 0 auto;
-  gap: 4px;
+  gap: calc(4px * var(--station-ui-scale));
 }
 
 /* Small hardware-style toggles, not tiles - built on .mixer-toggle so hover/
@@ -233,8 +233,8 @@
    control - the established "smaller touch control" size in this codebase,
    not a new one invented for TRACKS. */
 .tracks-mini-toggle {
-  min-width: 26px;
-  min-height: 26px;
+  min-width: calc(26px * var(--station-ui-scale));
+  min-height: calc(26px * var(--station-ui-scale));
   padding: 0;
   font-size: 0.6rem;
 }
@@ -251,20 +251,20 @@
   z-index: 60;
   display: flex;
   flex-direction: column;
-  width: 178px;
-  padding: 4px;
+  width: calc(178px * var(--station-ui-scale));
+  padding: calc(4px * var(--station-ui-scale));
   border: 1px solid var(--station-line, #443b3d);
-  border-radius: 6px;
+  border-radius: calc(6px * var(--station-ui-scale));
   background: var(--station-card, #221e22);
-  box-shadow: 0 10px 24px rgb(0 0 0 / 50%);
+  box-shadow: 0 calc(10px * var(--station-ui-scale)) calc(24px * var(--station-ui-scale)) rgb(0 0 0 / 50%);
 }
 
 .track-menu-row {
   display: block;
   width: 100%;
-  padding: 7px 9px;
+  padding: calc(7px * var(--station-ui-scale)) calc(9px * var(--station-ui-scale));
   border: 0;
-  border-radius: 3px;
+  border-radius: calc(3px * var(--station-ui-scale));
   color: var(--station-text, #eee4d6);
   background: transparent;
   font: inherit;
@@ -292,8 +292,8 @@
    separate divider element, the same technique the System Display's own
    .display-param/.display-toggle rows already use for the same purpose. */
 .track-menu-row-divider {
-  margin-top: 4px;
-  padding-top: 10px;
+  margin-top: calc(4px * var(--station-ui-scale));
+  padding-top: calc(10px * var(--station-ui-scale));
   border-top: 1px solid var(--station-line, #443b3d);
 }
 
@@ -319,7 +319,7 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 10px;
+  gap: calc(10px * var(--station-ui-scale));
 }
 
 .track-menu-row-value-text {
@@ -371,14 +371,14 @@
 
 .tracks-ruler {
   position: relative;
-  height: 26px;
+  height: calc(26px * var(--station-ui-scale));
   border-bottom: 1px solid var(--station-line, #443b3d);
 }
 
 .tracks-ruler-mark {
   position: absolute;
   top: 0;
-  padding: 6px 0 0 4px;
+  padding: calc(6px * var(--station-ui-scale)) 0 0 calc(4px * var(--station-ui-scale));
   color: var(--station-text-muted, #c8bcae);
   font-size: 0.6rem;
   font-weight: 700;
@@ -388,19 +388,19 @@
    per track, so it stays a touch shorter than the wide arranger's single
    ruler above every lane (below). */
 .tracks-row .tracks-ruler {
-  height: 20px;
+  height: calc(20px * var(--station-ui-scale));
 }
 
 .tracks-row .tracks-ruler-mark {
-  padding-top: 3px;
+  padding-top: calc(3px * var(--station-ui-scale));
   font-size: 0.56rem;
 }
 
 .tracks-track-lane {
   position: relative;
-  height: 88px;
+  height: calc(88px * var(--station-ui-scale));
   background:
-    repeating-linear-gradient(90deg, rgb(255 255 255 / 3%) 0 1px, transparent 1px calc(4 * 24px));
+    repeating-linear-gradient(90deg, rgb(255 255 255 / 3%) 0 1px, transparent 1px calc(4 * calc(24px * var(--station-ui-scale))));
 }
 
 /* The material on the timeline, not a button - small radius, a hairline
@@ -411,11 +411,11 @@
    glance; falls back to the view's own accent if it's ever missing. */
 .tracks-clip {
   position: absolute;
-  top: 4px;
-  bottom: 4px;
+  top: calc(4px * var(--station-ui-scale));
+  bottom: calc(4px * var(--station-ui-scale));
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--tracks-clip-accent, var(--station-accent)) 42%, transparent);
-  border-radius: 3px;
+  border-radius: calc(3px * var(--station-ui-scale));
   background: color-mix(in srgb, var(--tracks-clip-accent, var(--station-accent)) 15%, transparent);
   cursor: grab;
   touch-action: none;
@@ -434,8 +434,8 @@
 
 .tracks-clip-loop::after {
   position: absolute;
-  top: 2px;
-  right: 3px;
+  top: calc(2px * var(--station-ui-scale));
+  right: calc(3px * var(--station-ui-scale));
   color: var(--station-accent);
   font-size: 0.58rem;
   content: '\21BB';
@@ -445,15 +445,15 @@
    waveform for attention. */
 .tracks-clip-label {
   position: absolute;
-  bottom: 2px;
-  left: 4px;
+  bottom: calc(2px * var(--station-ui-scale));
+  left: calc(4px * var(--station-ui-scale));
   overflow: hidden;
-  max-width: calc(100% - 8px);
+  max-width: calc(100% - calc(8px * var(--station-ui-scale)));
   color: var(--station-text-muted, #c8bcae);
   font-size: 0.56rem;
   font-weight: 500;
   text-overflow: ellipsis;
-  text-shadow: 0 1px 2px rgb(0 0 0 / 70%);
+  text-shadow: 0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 70%);
   white-space: nowrap;
   opacity: 0.85;
 }
@@ -470,7 +470,7 @@
   top: 0;
   bottom: 0;
   z-index: 3;
-  width: 30px;
+  width: calc(30px * var(--station-ui-scale));
   opacity: 0.72;
   touch-action: none;
   cursor: ew-resize;
@@ -480,23 +480,23 @@
 .tracks-clip-handle::before {
   position: absolute;
   top: 50%;
-  width: 12px;
-  height: min(42px, calc(100% - 10px));
+  width: calc(12px * var(--station-ui-scale));
+  height: min(calc(42px * var(--station-ui-scale)), calc(100% - calc(10px * var(--station-ui-scale))));
   border: 1px solid var(--station-text, #eee4d6);
-  border-radius: 3px;
+  border-radius: calc(3px * var(--station-ui-scale));
   background:
-    repeating-linear-gradient(90deg, transparent 0 2px, rgb(238 228 214 / 58%) 2px 3px),
+    repeating-linear-gradient(90deg, transparent 0 calc(2px * var(--station-ui-scale)), rgb(238 228 214 / 58%) calc(2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale))),
     var(--station-accent);
-  box-shadow: 0 0 0 2px rgb(9 10 16 / 78%), 0 0 10px rgb(200 111 80 / 40%);
+  box-shadow: 0 0 0 calc(2px * var(--station-ui-scale)) rgb(9 10 16 / 78%), 0 0 calc(10px * var(--station-ui-scale)) rgb(200 111 80 / 40%);
   content: '';
   transform: translateY(-50%);
 }
 
 .tracks-clip-handle > span {
   position: absolute;
-  top: 5px;
-  padding: 2px 4px;
-  border-radius: 2px;
+  top: calc(5px * var(--station-ui-scale));
+  padding: calc(2px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale));
+  border-radius: calc(2px * var(--station-ui-scale));
   background: rgb(9 10 16 / 88%);
   color: var(--station-text, #eee4d6);
   font-family: var(--font-mono);
@@ -518,30 +518,30 @@
 
 .tracks-clip-handle-start {
   left: 0;
-  border-left: 4px solid var(--station-accent);
+  border-left: calc(4px * var(--station-ui-scale)) solid var(--station-accent);
   background: linear-gradient(90deg, rgb(200 111 80 / 26%), transparent);
 }
 
 .tracks-clip-handle-start::before {
-  left: 2px;
+  left: calc(2px * var(--station-ui-scale));
 }
 
 .tracks-clip-handle-start > span {
-  left: 16px;
+  left: calc(16px * var(--station-ui-scale));
 }
 
 .tracks-clip-handle-end {
   right: 0;
-  border-right: 4px solid var(--station-accent);
+  border-right: calc(4px * var(--station-ui-scale)) solid var(--station-accent);
   background: linear-gradient(270deg, rgb(200 111 80 / 26%), transparent);
 }
 
 .tracks-clip-handle-end::before {
-  right: 2px;
+  right: calc(2px * var(--station-ui-scale));
 }
 
 .tracks-clip-handle-end > span {
-  right: 16px;
+  right: calc(16px * var(--station-ui-scale));
 }
 
 /* Signal, not selection - the module accent marks what's selected
@@ -552,7 +552,7 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 2px;
+  width: calc(2px * var(--station-ui-scale));
   background: var(--signal-accent, #83bed2);
   pointer-events: none;
 }

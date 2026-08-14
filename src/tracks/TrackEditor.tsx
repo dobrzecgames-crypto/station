@@ -4,6 +4,7 @@ import type { SampleAssetId } from '../audio/AudioEngine'
 import type { SamplePlaybackRegion } from '../pads/types'
 import { Waveform } from '../sample-editor/Waveform'
 import { useDragSlider } from '../shell/useDragSlider'
+import { scaleStationUiPixels } from '../uiScale'
 import { maximumClipFadeSeconds } from './tracksOperations'
 import { snapBeatToGrid } from './timelineGrid'
 import { SnapGridSelect } from './SnapGridSelect'
@@ -138,7 +139,8 @@ export function TrackEditor({ track, waveforms, bpm, isPlaying, playheadBeat, sn
   // switch duplicated navigation already provided by the visible TRACKS
   // exit, so DETAIL remains the fixed internal layout.
   const viewMode: EditorViewMode = 'detail'
-  const [pixelsPerBeat, setPixelsPerBeat] = useState(defaultPixelsPerBeat)
+  const [pixelsPerBeat, setPixelsPerBeat] = useState(() => scaleStationUiPixels(defaultPixelsPerBeat))
+  const dragThreshold = scaleStationUiPixels(dragThresholdPixels)
   const [selectedClipId, setSelectedClipId] = useState<string | null>(track.clips[0]?.id ?? null)
   const [drag, setDrag] = useState<DragState | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -172,7 +174,7 @@ export function TrackEditor({ track, waveforms, bpm, isPlaying, playheadBeat, sn
       reset by the other. selectedClipId is the one piece of state both
       branches below actually share - see the two scroll-into-view effects
       further down. */
-  const timelinePixelsPerBeat = defaultTimelinePixelsPerBeat
+  const timelinePixelsPerBeat = scaleStationUiPixels(defaultTimelinePixelsPerBeat)
   const [timelineDrag, setTimelineDrag] = useState<DragState | null>(null)
   const timelineScrollRef = useRef<HTMLDivElement>(null)
   const lastTimelineClipTapRef = useRef<{ clipId: string; time: number } | null>(null)
@@ -322,7 +324,7 @@ export function TrackEditor({ track, waveforms, bpm, isPlaying, playheadBeat, sn
     const current = timelineDragRef.current
     if (!current || current.pointerId !== pointerId) return
     const deltaPixels = clientX - current.startClientX
-    if (Math.abs(deltaPixels) >= dragThresholdPixels && !target.hasPointerCapture(pointerId)) {
+    if (Math.abs(deltaPixels) >= dragThreshold && !target.hasPointerCapture(pointerId)) {
       try { target.setPointerCapture(pointerId) } catch { /* the pointer session may already have ended */ }
     }
     setTimelineDrag({ ...current, previewDeltaBeats: deltaPixels / timelinePixelsPerBeat })
@@ -331,7 +333,7 @@ export function TrackEditor({ track, waveforms, bpm, isPlaying, playheadBeat, sn
     const current = timelineDragRef.current
     setTimelineDrag(null)
     if (!current || current.pointerId !== event.pointerId) return
-    if (Math.abs(current.previewDeltaBeats) * timelinePixelsPerBeat >= dragThresholdPixels) {
+    if (Math.abs(current.previewDeltaBeats) * timelinePixelsPerBeat >= dragThreshold) {
       const division = current.snapped ? snapDivision : 'off'
       if (current.kind === 'move') onMoveClip(current.clipId, snapBeatToGrid(current.originClip.startBeat + current.previewDeltaBeats, division))
       else if (current.kind === 'trim-start') onTrimClipStart(current.clipId, snapBeatToGrid(current.originClip.startBeat + current.previewDeltaBeats, division))
@@ -389,7 +391,7 @@ export function TrackEditor({ track, waveforms, bpm, isPlaying, playheadBeat, sn
     const current = dragRef.current
     if (!current || current.pointerId !== pointerId) return
     const deltaPixels = clientX - current.startClientX
-    if (Math.abs(deltaPixels) >= dragThresholdPixels && !target.hasPointerCapture(pointerId)) {
+    if (Math.abs(deltaPixels) >= dragThreshold && !target.hasPointerCapture(pointerId)) {
       try { target.setPointerCapture(pointerId) } catch { /* the pointer session may already have ended */ }
     }
     setDrag({ ...current, previewDeltaBeats: deltaPixels / pixelsPerBeat })
@@ -398,7 +400,7 @@ export function TrackEditor({ track, waveforms, bpm, isPlaying, playheadBeat, sn
     const current = dragRef.current
     setDrag(null)
     if (!current || current.pointerId !== event.pointerId) return
-    if (Math.abs(current.previewDeltaBeats) * pixelsPerBeat >= dragThresholdPixels) {
+    if (Math.abs(current.previewDeltaBeats) * pixelsPerBeat >= dragThreshold) {
       const division = current.snapped ? snapDivision : 'off'
       if (current.kind === 'move') onMoveClip(current.clipId, snapBeatToGrid(current.originClip.startBeat + current.previewDeltaBeats, division))
       else if (current.kind === 'trim-start') onTrimClipStart(current.clipId, snapBeatToGrid(current.originClip.startBeat + current.previewDeltaBeats, division))

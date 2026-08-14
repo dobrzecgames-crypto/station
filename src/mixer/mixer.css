@@ -1,33 +1,33 @@
 .mixer.mixer-channels {
-  margin-top: 16px;
+  margin-top: calc(16px * var(--station-ui-scale));
 }
 
 .mixer-channel-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: calc(10px * var(--station-ui-scale));
 }
 
 .mixer-page-controls {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px;
+  gap: calc(4px * var(--station-ui-scale));
   flex: 1;
 }
 
 .mixer-page-controls .mixer-toggle {
   min-width: 0;
-  min-height: 28px;
-  padding: 0 4px;
+  min-height: calc(28px * var(--station-ui-scale));
+  padding: 0 calc(4px * var(--station-ui-scale));
   font-size: .55rem;
 }
 
 .mixer-channels .mixer-strips {
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
-  gap: 4px;
-  margin-top: 10px;
+  gap: calc(4px * var(--station-ui-scale));
+  margin-top: calc(10px * var(--station-ui-scale));
   padding: 0;
   overflow: hidden;
 }
@@ -35,8 +35,8 @@
 .mixer-meter-legend {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
-  margin-top: 10px;
+  gap: calc(8px * var(--station-ui-scale));
+  margin-top: calc(10px * var(--station-ui-scale));
   color: var(--station-text-muted);
   font-family: var(--station-mono-font);
   font-size: .46rem;
@@ -51,8 +51,8 @@
    misalign, and the strip is narrow enough to leave room for its labels. */
 .mixer-strip-level {
   position: relative;
-  width: 10px;
-  height: 140px;
+  width: calc(10px * var(--station-ui-scale));
+  height: calc(140px * var(--station-ui-scale));
   margin: 0 auto;
 }
 
@@ -69,17 +69,17 @@
    invisible touch lane. This matches the shared horizontal slider hit height
    without widening the rail or moving neighbouring channel strips. */
 .mixer-strip-level .mixer-strip-fader {
-  right: -10px;
-  left: -10px;
+  right: calc(-10px * var(--station-ui-scale));
+  left: calc(-10px * var(--station-ui-scale));
 }
 
 .channel-meter {
   display: flex;
   padding: 1px;
   border: 1px solid var(--scene-line);
-  border-radius: 2px;
+  border-radius: calc(2px * var(--station-ui-scale));
   background: var(--scene-recess);
-  box-shadow: inset 0 1px 2px rgb(0 0 0 / 56%), inset 0 0 0 1px rgb(255 239 220 / 3%);
+  box-shadow: inset 0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 56%), inset 0 0 0 1px rgb(255 239 220 / 3%);
 }
 
 /* The input keeps the rail's geometry instead of dictating it: a native
@@ -124,18 +124,19 @@
 .mixer-strip-fader input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 22px;
-  height: 8px;
-  /* The 22px cap deliberately overhangs the 10px rail. vertical-rl + rtl
-     biases it slightly right, so the uneven margins pull its visual centre
-     back onto the electric spine without shrinking the touch target. */
-  margin: 0 -6px 0 -8px;
+  width: calc(22px * var(--station-ui-scale));
+  height: calc(8px * var(--station-ui-scale));
+  /* Chromium keeps the native vertical thumb's layout box centred inside the
+     30px touch lane, but paints this horizontal cap about four pixels to the
+     right of that box. Offset only the paint; the generous hit lane stays put. */
+  margin: 0;
+  transform: translateX(calc(-4px * var(--station-ui-scale)));
   border: 1px solid color-mix(in srgb, var(--control-active) 34%, var(--scene-line));
-  border-radius: 2px;
+  border-radius: calc(2px * var(--station-ui-scale));
   background:
     linear-gradient(90deg, transparent 0 45%, var(--signal-accent) 45% 55%, transparent 55% 100%),
     linear-gradient(180deg, color-mix(in srgb, var(--control-active) 16%, var(--scene-control)), var(--scene-control) 52%, var(--scene-recess));
-  box-shadow: 0 1px 2px rgb(0 0 0 / 56%), inset 0 1px 0 rgb(255 239 220 / 8%), inset 0 -1px 0 rgb(0 0 0 / 38%);
+  box-shadow: 0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 56%), inset 0 1px 0 rgb(255 239 220 / 8%), inset 0 -1px 0 rgb(0 0 0 / 38%);
   cursor: ns-resize;
 }
 
@@ -167,7 +168,7 @@
   min-height: 0;
   overflow: visible;
   background: color-mix(in srgb, var(--signal-accent) 13%, transparent);
-  box-shadow: inset 0 0 3px color-mix(in srgb, var(--signal-accent) 12%, transparent);
+  box-shadow: inset 0 0 calc(3px * var(--station-ui-scale)) color-mix(in srgb, var(--signal-accent) 12%, transparent);
 }
 
 .channel-meter-fill::before {
@@ -175,7 +176,7 @@
   top: 0;
   bottom: 0;
   left: 50%;
-  width: 2px;
+  width: calc(2px * var(--station-ui-scale));
   background: linear-gradient(
     to top,
     var(--signal-accent) 0 72%,
@@ -183,8 +184,8 @@
     var(--focus-accent) 88% 100%
   );
   background-position: center bottom;
-  background-size: 100% 140px;
-  box-shadow: 0 0 3px color-mix(in srgb, var(--signal-accent) 34%, transparent);
+  background-size: 100% calc(140px * var(--station-ui-scale));
+  box-shadow: 0 0 calc(3px * var(--station-ui-scale)) color-mix(in srgb, var(--signal-accent) 34%, transparent);
   content: '';
   transform: translateX(-50%);
 }
@@ -193,11 +194,11 @@
   position: absolute;
   top: -1px;
   left: 50%;
-  width: 7px;
-  height: 3px;
+  width: calc(7px * var(--station-ui-scale));
+  height: calc(3px * var(--station-ui-scale));
   border-radius: 50%;
   background: var(--signal-focus);
-  box-shadow: 0 0 4px color-mix(in srgb, var(--signal-focus) 54%, transparent);
+  box-shadow: 0 0 calc(4px * var(--station-ui-scale)) color-mix(in srgb, var(--signal-focus) 54%, transparent);
   content: '';
   transform: translateX(-50%);
 }
@@ -205,12 +206,12 @@
 .channel-meter-peak {
   position: absolute;
   left: 50%;
-  width: 6px;
-  height: 2px;
+  width: calc(6px * var(--station-ui-scale));
+  height: calc(2px * var(--station-ui-scale));
   margin-bottom: -1px;
   border-radius: 1px;
   background: var(--signal-focus);
-  box-shadow: 0 0 4px color-mix(in srgb, var(--signal-focus) 42%, transparent);
+  box-shadow: 0 0 calc(4px * var(--station-ui-scale)) color-mix(in srgb, var(--signal-focus) 42%, transparent);
   transform: translateX(-50%);
 }
 
@@ -224,9 +225,9 @@
   height: 1px;
   background: linear-gradient(
     90deg,
-    rgb(238 228 214 / 34%) 0 4px,
-    transparent 4px calc(100% - 4px),
-    rgb(238 228 214 / 34%) calc(100% - 4px) 100%
+    rgb(238 228 214 / 34%) 0 calc(4px * var(--station-ui-scale)),
+    transparent calc(4px * var(--station-ui-scale)) calc(100% - calc(4px * var(--station-ui-scale))),
+    rgb(238 228 214 / 34%) calc(100% - calc(4px * var(--station-ui-scale))) 100%
   );
 }
 
@@ -241,21 +242,21 @@
 .mixer-channels .mixer-strip {
   width: auto;
   min-width: 0;
-  padding-inline: 3px;
+  padding-inline: calc(3px * var(--station-ui-scale));
 }
 
 .mix-routing {
-  margin-top: 10px;
+  margin-top: calc(10px * var(--station-ui-scale));
   border: 1px solid var(--station-line);
-  border-radius: 4px;
+  border-radius: calc(4px * var(--station-ui-scale));
   background: var(--station-card);
 }
 
 .mix-routing > summary {
   display: flex;
-  min-height: 38px;
+  min-height: calc(38px * var(--station-ui-scale));
   align-items: center;
-  padding: 0 12px;
+  padding: 0 calc(12px * var(--station-ui-scale));
   color: var(--station-text);
   cursor: pointer;
   font-family: var(--station-display-font);
@@ -285,7 +286,7 @@
 
 .mix-routing-content {
   margin: 0;
-  padding: 10px;
+  padding: calc(10px * var(--station-ui-scale));
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -293,14 +294,14 @@
 
 .mix-routing-targets {
   display: flex;
-  gap: 4px;
+  gap: calc(4px * var(--station-ui-scale));
 }
 
 .mix-routing-targets .mixer-toggle,
 .mix-routing-buttons .mixer-toggle {
   min-width: 0;
-  min-height: 28px;
-  padding: 0 8px;
+  min-height: calc(28px * var(--station-ui-scale));
+  padding: 0 calc(8px * var(--station-ui-scale));
   font-size: .56rem;
 }
 
@@ -309,10 +310,10 @@
 }
 
 .mix-routing-target {
-  margin-top: 10px;
-  padding: 10px;
+  margin-top: calc(10px * var(--station-ui-scale));
+  padding: calc(10px * var(--station-ui-scale));
   border: 1px solid var(--station-line);
-  border-radius: 4px;
+  border-radius: calc(4px * var(--station-ui-scale));
   background: var(--station-bg);
 }
 
@@ -320,20 +321,20 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: calc(8px * var(--station-ui-scale));
 }
 
 .mix-routing-buttons {
   display: flex;
-  gap: 4px;
+  gap: calc(4px * var(--station-ui-scale));
 }
 
 .mix-routing-volume {
   display: grid;
   grid-template-columns: auto auto 1fr;
-  gap: 8px;
+  gap: calc(8px * var(--station-ui-scale));
   align-items: center;
-  margin-top: 8px;
+  margin-top: calc(8px * var(--station-ui-scale));
   color: var(--station-text-muted);
   font-size: .62rem;
   font-weight: 800;
@@ -350,16 +351,16 @@
 
 .mix-routing .effect-slot-list {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 5px;
-  margin-top: 10px;
+  gap: calc(5px * var(--station-ui-scale));
+  margin-top: calc(10px * var(--station-ui-scale));
 }
 
 .mix-routing .effect-slot-button {
   grid-template-columns: auto minmax(0, 1fr) auto;
-  min-height: 34px;
+  min-height: calc(34px * var(--station-ui-scale));
   align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
+  gap: calc(6px * var(--station-ui-scale));
+  padding: calc(6px * var(--station-ui-scale)) calc(8px * var(--station-ui-scale));
   text-align: left;
 }
 
@@ -376,12 +377,12 @@
 .pump-source-control {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 8px;
+  gap: calc(8px * var(--station-ui-scale));
   align-items: center;
-  min-height: 36px;
-  padding: 0 8px;
+  min-height: calc(36px * var(--station-ui-scale));
+  padding: 0 calc(8px * var(--station-ui-scale));
   border: 1px solid var(--station-line);
-  border-radius: 4px;
+  border-radius: calc(4px * var(--station-ui-scale));
   background: var(--station-bg);
 }
 
@@ -405,29 +406,29 @@
 
 .pump-source-control .mixer-toggle {
   flex: 0 0 auto;
-  min-width: 52px;
-  min-height: 26px;
-  padding: 0 7px;
+  min-width: calc(52px * var(--station-ui-scale));
+  min-height: calc(26px * var(--station-ui-scale));
+  padding: 0 calc(7px * var(--station-ui-scale));
   font-size: .55rem;
 }
 
 .sequencer.pump-panel {
-  margin-top: 10px;
-  padding: 10px;
+  margin-top: calc(10px * var(--station-ui-scale));
+  padding: calc(10px * var(--station-ui-scale));
 }
 
 .sequencer.pump-panel .pump-panel-controls {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 8px;
+  gap: calc(8px * var(--station-ui-scale));
   margin-top: 0;
 }
 
 .sequencer.pump-panel .pump-curves .step {
   display: grid;
-  min-height: 32px;
+  min-height: calc(32px * var(--station-ui-scale));
   place-items: center;
-  padding: 0 6px;
+  padding: 0 calc(6px * var(--station-ui-scale));
   font-size: .62rem;
   letter-spacing: .04em;
   line-height: 1;
@@ -436,12 +437,12 @@
 
 .pump-target-toggle {
   display: flex;
-  min-height: 30px;
+  min-height: calc(30px * var(--station-ui-scale));
   align-items: center;
   justify-content: space-between;
-  padding: 0 9px;
+  padding: 0 calc(9px * var(--station-ui-scale));
   border: 1px solid var(--station-line);
-  border-radius: 4px;
+  border-radius: calc(4px * var(--station-ui-scale));
   color: var(--station-text);
   background: var(--station-raised);
   cursor: pointer;
@@ -466,7 +467,7 @@
 .pump-depth-control {
   display: grid;
   grid-template-columns: auto auto;
-  gap: 6px 8px;
+  gap: calc(6px * var(--station-ui-scale)) calc(8px * var(--station-ui-scale));
   align-items: center;
   color: var(--station-text-muted);
   font-size: .62rem;
@@ -486,8 +487,8 @@
 
 .pump-choice-row {
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr);
-  gap: 8px;
+  grid-template-columns: calc(58px * var(--station-ui-scale)) minmax(0, 1fr);
+  gap: calc(8px * var(--station-ui-scale));
   align-items: center;
 }
 
@@ -502,7 +503,7 @@
 .pump-choice-row .pump-curves {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 4px;
+  gap: calc(4px * var(--station-ui-scale));
 }
 
 .pump-choice-row .pump-curves {
@@ -518,14 +519,14 @@
 .mix-pump-entry {
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: 8px;
+  gap: calc(8px * var(--station-ui-scale));
   align-items: center;
   width: 100%;
-  min-height: 38px;
-  margin-top: 10px;
-  padding: 0 10px;
+  min-height: calc(38px * var(--station-ui-scale));
+  margin-top: calc(10px * var(--station-ui-scale));
+  padding: 0 calc(10px * var(--station-ui-scale));
   border: 1px solid var(--station-line);
-  border-radius: 4px;
+  border-radius: calc(4px * var(--station-ui-scale));
   color: var(--station-text);
   background: var(--station-card);
   cursor: pointer;
@@ -562,7 +563,7 @@
 }
 
 .mix-pump-entry .mix-pump-entry-kind {
-  margin-left: 3px;
+  margin-left: calc(3px * var(--station-ui-scale));
   font-size: .52rem;
   font-weight: 400;
   letter-spacing: .03em;
@@ -571,12 +572,12 @@
 
 .mix-pump-entry-active {
   border-color: var(--station-accent);
-  box-shadow: inset 3px 0 0 var(--station-accent);
+  box-shadow: inset calc(3px * var(--station-ui-scale)) 0 0 var(--station-accent);
 }
 
 .system-display .display-action-active {
   border-color: rgb(var(--display-light) / 55%);
   color: rgb(var(--display-light));
   background: rgb(var(--display-light) / 18%);
-  text-shadow: 0 0 6px rgb(var(--display-light) / var(--display-bloom));
+  text-shadow: 0 0 calc(6px * var(--station-ui-scale)) rgb(var(--display-light) / var(--display-bloom));
 }

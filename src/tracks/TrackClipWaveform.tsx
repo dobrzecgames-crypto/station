@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { drawWaveformEnvelope } from '../canvas/waveformEnvelope'
+import { scaleStationUiPixels } from '../uiScale'
 
 interface TrackClipWaveformProps {
   /** Full-asset peaks cache from AudioEngine.getWaveformPeaks - the same
@@ -52,7 +53,7 @@ export function TrackClipWaveform({ peaks, regionStart, regionEnd, color }: Trac
       const slice = peaks.slice(startIndex, endIndex)
       const strokeColor = color ?? waveformColor(canvas)
 
-      drawWaveformEnvelope(context, slice, { width, height, strokeStyle: strokeColor, fillColor: strokeColor })
+      drawWaveformEnvelope(context, slice, { width, height, strokeStyle: strokeColor, fillColor: strokeColor, pointPixelSpacing: scaleStationUiPixels(6) })
     }
 
     const resizeObserver = new ResizeObserver(draw)

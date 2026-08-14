@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { drawWaveformEnvelope } from '../canvas/waveformEnvelope'
 import type { SamplePlaybackRegion, SampleSlice } from '../pads/types'
+import { scaleStationUiPixels } from '../uiScale'
 
 interface WaveformProps {
   peaks: readonly number[]
@@ -118,6 +119,8 @@ export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+    const uiScale = scaleStationUiPixels(1)
+    const ui = (pixels: number) => pixels * uiScale
 
     const draw = () => {
       const width = Math.max(1, Math.floor(canvas.clientWidth))
@@ -171,13 +174,13 @@ export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId
       // turning on next to an unrelated, unreactive wave.
       context.save()
       context.globalAlpha = 1 - flashIntensityRef.current * 0.15
-      drawWaveformEnvelope(context, peaks, { width, height, amplitudeScale: 0.42, strokeStyle: waveformGradient, fillColor: colors.waveform, fillOpacityPercent: 30, lineWidth: 1.3, pointPixelSpacing: 3 })
+      drawWaveformEnvelope(context, peaks, { width, height, amplitudeScale: 0.42, strokeStyle: waveformGradient, fillColor: colors.waveform, fillOpacityPercent: 30, lineWidth: ui(1.3), pointPixelSpacing: ui(3) })
       context.restore()
 
       if (playheadSeconds !== null && Number.isFinite(playheadSeconds)) {
         const playheadX = Math.min(width, Math.max(0, width * playheadSeconds / durationSeconds))
         context.strokeStyle = colors.playhead
-        context.lineWidth = 2
+        context.lineWidth = ui(2)
         context.beginPath()
         context.moveTo(playheadX, 0)
         context.lineTo(playheadX, height)
@@ -185,13 +188,13 @@ export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId
       }
 
       const drawHandle = (x: number, color: string) => {
-        const left = Math.min(width - 10, Math.max(0, x - 5))
+        const left = Math.min(width - ui(10), Math.max(0, x - ui(5)))
         context.fillStyle = colors.handleEdge
-        context.fillRect(left - 1, 3, 12, 20)
+        context.fillRect(left - ui(1), ui(3), ui(12), ui(20))
         context.fillStyle = color
-        context.fillRect(left, 4, 10, 18)
+        context.fillRect(left, ui(4), ui(10), ui(18))
         context.fillStyle = colors.handleRib
-        for (let rib = 0; rib < 3; rib += 1) context.fillRect(left + 2 + rib * 3, 8, 1, 10)
+        for (let rib = 0; rib < 3; rib += 1) context.fillRect(left + ui(2) + rib * ui(3), ui(8), ui(1), ui(10))
       }
 
       // A real bloom, not a hairline with a faint shadow: a wide, soft outer
@@ -210,9 +213,9 @@ export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId
 
         context.save()
         context.shadowColor = colors.laserGlow
-        context.shadowBlur = lerp(12, 20, intensity)
+        context.shadowBlur = ui(lerp(12, 20, intensity))
         context.strokeStyle = colors.laserGlow
-        context.lineWidth = lerp(2.4, 3.4, intensity)
+        context.lineWidth = ui(lerp(2.4, 3.4, intensity))
         context.beginPath()
         context.moveTo(x, 0)
         context.lineTo(x, height)
@@ -221,9 +224,9 @@ export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId
 
         context.save()
         context.shadowColor = colors.laserGlow
-        context.shadowBlur = lerp(6, 10, intensity)
+        context.shadowBlur = ui(lerp(6, 10, intensity))
         context.strokeStyle = coreColor
-        context.lineWidth = lerp(1.1, 1.6, intensity)
+        context.lineWidth = ui(lerp(1.1, 1.6, intensity))
         context.beginPath()
         context.moveTo(x, 0)
         context.lineTo(x, height)
@@ -232,23 +235,23 @@ export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId
 
         context.save()
         context.shadowColor = colors.laserGlow
-        context.shadowBlur = lerp(9, 15, intensity)
+        context.shadowBlur = ui(lerp(9, 15, intensity))
         context.fillStyle = dotColor
         context.beginPath()
-        context.arc(x, height / 2, lerp(2.2, 3.2, intensity), 0, Math.PI * 2)
+        context.arc(x, height / 2, ui(lerp(2.2, 3.2, intensity)), 0, Math.PI * 2)
         context.fill()
         context.restore()
 
         context.save()
         context.shadowColor = colors.laserGlow
-        context.shadowBlur = lerp(8, 13, intensity)
+        context.shadowBlur = ui(lerp(8, 13, intensity))
         context.fillStyle = dotColor
-        const lampRadius = lerp(2.3, 3.2, intensity)
+        const lampRadius = ui(lerp(2.3, 3.2, intensity))
         context.beginPath()
-        context.arc(x, 3, lampRadius, 0, Math.PI * 2)
+        context.arc(x, ui(3), lampRadius, 0, Math.PI * 2)
         context.fill()
         context.beginPath()
-        context.arc(x, height - 3, lampRadius, 0, Math.PI * 2)
+        context.arc(x, height - ui(3), lampRadius, 0, Math.PI * 2)
         context.fill()
         context.restore()
       }
@@ -266,7 +269,7 @@ export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId
         if (!regionSelectionEnabled) drawHandle(x, colors.regionHandle)
       }
 
-      context.font = '700 11px Inter, sans-serif'
+      context.font = `700 ${ui(11)}px Inter, sans-serif`
       const isLaserPreview = cutMarkerStyle === 'laser'
       slices.forEach((slice, index) => {
         if (index < slices.length - 1) {
@@ -276,13 +279,13 @@ export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId
           } else {
             const activeMarker = slice.id === activeSliceId || slices[index + 1].id === activeSliceId
             const markerColor = activeMarker ? colors.activeCut : colors.cut
-            context.lineWidth = activeMarker ? 5 : 3
+            context.lineWidth = ui(activeMarker ? 5 : 3)
             context.strokeStyle = colors.handleEdge
             context.beginPath()
             context.moveTo(cutX, 0)
             context.lineTo(cutX, height)
             context.stroke()
-            context.lineWidth = activeMarker ? 2 : 1
+            context.lineWidth = ui(activeMarker ? 2 : 1)
             context.strokeStyle = markerColor
             context.beginPath()
             context.moveTo(cutX, 0)
@@ -293,7 +296,7 @@ export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId
         }
         const labelX = width * ((slice.startSeconds + slice.endSeconds) / 2) / durationSeconds
         context.fillStyle = slice.id === activeSliceId ? colors.activeLabel : colors.label
-        context.fillText(String(index + 1), labelX + 4, 14)
+        context.fillText(String(index + 1), labelX + ui(4), ui(14))
       })
 
       if (flashCutTimes && flashCutTimes.length > 0) {
@@ -397,7 +400,7 @@ export function Waveform({ peaks, durationSeconds, region, slices, activeSliceId
         const timeSeconds = timeFromPointer(event.clientX)
         if (timeSeconds === null) return
         const canvas = event.currentTarget
-        const markerThreshold = durationSeconds * markerHitWidthPixels / canvas.getBoundingClientRect().width
+        const markerThreshold = durationSeconds * scaleStationUiPixels(markerHitWidthPixels) / canvas.getBoundingClientRect().width
         const cutIndex = slices.slice(0, -1).findIndex((slice) => Math.abs(slice.endSeconds - timeSeconds) <= markerThreshold)
         if (cutIndex >= 0) {
           event.preventDefault()

@@ -26,6 +26,18 @@
     calc(env(safe-area-inset-left) + 2px);
 }
 
+/* WebKit can report an undersized dynamic viewport when a site using
+   viewport-fit=cover is launched as an installed Home Screen app. In that
+   mode 100vh includes the full standalone canvas and the safe-area padding
+   above keeps controls clear of the status bar and Home indicator. Keeping
+   this override behind display-mode avoids changing Safari's collapsible
+   browser-toolbar behaviour. */
+@media (display-mode: standalone) {
+  .station-shell {
+    height: 100vh;
+  }
+}
+
 /* The blue chassis line is the frame itself; the grey Station surface begins
    directly behind it instead of creating a second, empty inner gutter. */
 .station-panel {
@@ -52,14 +64,30 @@
 }
 
 /* On phone-sized viewports the workspace panel is already the protective
-   frame. A second horizontal inset only makes playable/editor content
-   smaller: SEQ and ZOLA-X keep their internal control padding, while their
-   actual work surfaces use the full width inside that frame. */
+   frame. SEQ can use its full width, while ZOLA-X keeps the same narrow
+   three-pixel mounting inset as the main module keys. This avoids both the
+   old wide double-frame gap and controls touching the chassis line. */
 @media (max-width: 560px) {
-  .sequencer,
-  .poly-workspace {
+  .sequencer {
     padding-inline: 0;
   }
+
+  .poly-workspace {
+    padding-inline: calc(3px * var(--station-ui-scale));
+  }
+}
+
+/* MIX always renders inside the same capped instrument chassis, even when
+   the surrounding browser viewport is wide. Its channel bank therefore uses
+   the reclaimed width at every viewport size. The Sidechain launcher is a
+   secondary latch entry, so its rim follows the module-key mounting line. */
+.mixer.mixer-channels {
+  padding-inline: calc(3px * var(--station-ui-scale));
+}
+
+.mix-pump-entry {
+  width: calc(100% - calc(8px * var(--station-ui-scale)));
+  margin-inline: calc(4px * var(--station-ui-scale));
 }
 
 /* Workspace selectors use more of their rail without making the whole header

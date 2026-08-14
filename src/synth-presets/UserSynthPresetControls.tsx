@@ -99,7 +99,10 @@ export function UserSynthPresetControls<K extends UserSynthPresetKind>({ kind, i
   return <>
     <section className="user-synth-presets" aria-label={`${instrumentLabel} user presets`}>
       <label className="user-synth-preset-picker">
-        <span>USER PRESETS</span>
+        <span className="user-synth-preset-heading">
+          <span>USER PRESETS</span>
+          <span className={notice ? 'user-synth-preset-notice user-synth-preset-notice-active' : 'user-synth-preset-notice'} aria-live="polite">{notice || `${presets.length} SAVED`}</span>
+        </span>
         <select value={selectedId} disabled={loading || busy || presets.length === 0} onChange={(event) => { setSelectedId(event.target.value); setNotice('') }}>
           {presets.length === 0 && <option value="">NO SAVED PRESETS</option>}
           {presets.map((preset) => <option value={preset.id} key={preset.id}>{preset.name}</option>)}
@@ -110,7 +113,6 @@ export function UserSynthPresetControls<K extends UserSynthPresetKind>({ kind, i
         <button type="button" disabled={busy || !selected} onClick={loadSelected}>LOAD</button>
         <button className="user-synth-preset-delete" type="button" disabled={busy || !selected} onClick={() => setDeletePending(true)}>DELETE</button>
       </div>
-      <p className={notice ? 'user-synth-preset-notice user-synth-preset-notice-active' : 'user-synth-preset-notice'} aria-live="polite">{notice || `${presets.length} SAVED`}</p>
     </section>
 
     {nameDialogOpen && <SynthPresetNameDialog

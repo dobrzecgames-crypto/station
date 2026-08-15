@@ -37,7 +37,7 @@ export function DrumSynthWorkspace(props: DrumSynthWorkspaceProps) {
   const busy = props.projectBusy
 
   return (
-    <section className="drumsynth-workspace" aria-label={`DRUM SYNTH ${isSnare ? 'SNARE' : 'KICK'} editor`}>
+    <section className="drumsynth-workspace station-roomy" aria-label={`DRUM SYNTH ${isSnare ? 'SNARE' : 'KICK'} editor`}>
       <header className="drumsynth-heading">
         <p className="eyebrow">DRUM SYNTH</p>
         <div className="drumsynth-heading-identity">

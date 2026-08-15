@@ -31,7 +31,7 @@ export function OrganicBassWorkspace(props: OrganicBassWorkspaceProps) {
   const change = (changes: Partial<OrganicBassPatch>) => props.onPatchChange({ ...patch, ...changes })
 
   return (
-    <section className="organic-bass-workspace" aria-label={`MONOGORG editor for ${pad.label}`}>
+    <section className="organic-bass-workspace station-roomy" aria-label={`MONOGORG editor for ${pad.label}`}>
       <header className="organic-bass-heading">
         <p className="eyebrow">MONOGORG / {pad.label} / {props.usageCount} PAD{props.usageCount === 1 ? '' : 'S'} SHARE PATCH / MONO</p>
         <div className="organic-bass-heading-identity">

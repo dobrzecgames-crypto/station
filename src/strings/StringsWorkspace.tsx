@@ -59,7 +59,7 @@ export function StringsWorkspace(props: StringsWorkspaceProps) {
       onClear={props.onClear}
     />
 
-    <section className="strings-workspace" aria-label={`STRINGS editor for ${pad.label}`}>
+    <section className="strings-workspace station-roomy" aria-label={`STRINGS editor for ${pad.label}`}>
       <header className="strings-heading">
         <p className="eyebrow">STRINGS / {pad.label} / {props.usageCount} PAD{props.usageCount === 1 ? '' : 'S'} SHARE PATCH</p>
         <div className="strings-heading-identity">

@@ -55,7 +55,7 @@ export function SynthWorkspace(props: SynthWorkspaceProps) {
       onClear={props.onClear}
     />
 
-    <section className="synth-workspace" aria-label={`BASSIC editor for ${pad.label}`}>
+    <section className="synth-workspace station-roomy" aria-label={`BASSIC editor for ${pad.label}`}>
       <header className="synth-heading">
         <p className="eyebrow">BASSIC / {pad.label} / {props.usageCount} PAD{props.usageCount === 1 ? '' : 'S'} SHARE PATCH</p>
         <div className="synth-heading-identity">

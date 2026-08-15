@@ -37,10 +37,10 @@
      may be taller than a MODULE key. */
   --tier-1-face: calc(40px * var(--station-ui-scale));
   --tier-1-hit: calc(44px * var(--station-ui-scale));
-  --tier-2-face: calc(32px * var(--station-ui-scale));
+  --tier-2-face: calc(34px * var(--station-ui-scale));
   --tier-2-hit: calc(40px * var(--station-ui-scale));
-  --tier-3-face: calc(26px * var(--station-ui-scale));
-  --tier-3-hit: calc(34px * var(--station-ui-scale));
+  --tier-3-face: calc(28px * var(--station-ui-scale));
+  --tier-3-hit: calc(36px * var(--station-ui-scale));
 
   /* ---- R5. Label roles ------------------------------------------------
      Four roles replacing the eight sizes that currently sit inside a 2.4 px
@@ -50,9 +50,9 @@
      The value is deliberately the largest and brightest of the three panel
      roles. A parameter's label is fixed print; its value is the thing that
      changes while you play, so it is what the eye should find first. */
-  --label-section: .5rem;
-  --label-param: .52rem;
-  --label-value: .56rem;
+  --label-section: .52rem;
+  --label-param: .56rem;
+  --label-value: .64rem;
   --label-identity: .74rem;
   /* Section markings recede by contrast, not by a second grey. */
   --label-section-color: color-mix(in srgb, var(--station-text-muted) 62%, transparent);
@@ -245,61 +245,35 @@
    scale with its box: stretching the box alone would only inflate the empty
    space around a 2px rail and an 18px cap. */
 :root {
-  --slider-box: calc(26px * var(--station-ui-scale));
-  --slider-rail: calc(14px * var(--station-ui-scale));
-  --slider-line: calc(2px * var(--station-ui-scale));
-  --slider-line-y: calc(5px * var(--station-ui-scale));
-  --slider-scale: calc(4px * var(--station-ui-scale));
-  --slider-cap-w: calc(10px * var(--station-ui-scale));
-  --slider-cap-h: calc(18px * var(--station-ui-scale));
-  --slider-cap-offset: calc(-2px * var(--station-ui-scale));
-}
-
-.station-shell .station-roomy {
-  /* Spacing opens up with the controls: in a filled panel this reads as
-     proportion, not as the holes the compression pass removed. */
-  --sp-tight: calc(4px * var(--station-ui-scale));
-  --sp-group: calc(10px * var(--station-ui-scale));
-  --sp-card: calc(10px * var(--station-ui-scale));
-  --sp-sec: calc(16px * var(--station-ui-scale));
-  --slider-box: calc(56px * var(--station-ui-scale));
-  --slider-rail: calc(34px * var(--station-ui-scale));
+  --slider-box: calc(46px * var(--station-ui-scale));
+  --slider-rail: calc(28px * var(--station-ui-scale));
   --slider-line: calc(3px * var(--station-ui-scale));
-  --slider-line-y: calc(15px * var(--station-ui-scale));
-  --slider-scale: calc(7px * var(--station-ui-scale));
+  --slider-line-y: calc(12px * var(--station-ui-scale));
+  --slider-scale: calc(6px * var(--station-ui-scale));
   --slider-cap-w: calc(16px * var(--station-ui-scale));
-  --slider-cap-h: calc(40px * var(--station-ui-scale));
+  --slider-cap-h: calc(34px * var(--station-ui-scale));
   --slider-cap-offset: calc(-3px * var(--station-ui-scale));
-  /* Tier 1 stays the ceiling - a workspace control still may not out-size a
-     MODULE key - so only the two lower tiers move up under it. */
-  --tier-2-face: calc(36px * var(--station-ui-scale));
-  --tier-2-hit: calc(42px * var(--station-ui-scale));
-  --tier-3-face: calc(30px * var(--station-ui-scale));
-  --tier-3-hit: calc(38px * var(--station-ui-scale));
-  --label-section: .54rem;
-  --label-param: .6rem;
-  --label-value: .72rem;
 }
 
 /* The shared rule in lab-interface.css keeps its own geometry for every other
    consumer; these read the variables above instead. */
-.station-shell .station-roomy input[type="range"] {
+.station-shell input[type="range"] {
   height: var(--slider-box);
 }
 
-.station-shell .station-roomy input[type="range"]::-webkit-slider-runnable-track {
+.station-shell input[type="range"]::-webkit-slider-runnable-track {
   height: var(--slider-rail);
   background-size: 100% var(--slider-line), 100% var(--slider-scale);
   background-position: 0 var(--slider-line-y), 0 100%;
 }
 
-.station-shell .station-roomy input[type="range"]::-webkit-slider-thumb {
+.station-shell input[type="range"]::-webkit-slider-thumb {
   width: var(--slider-cap-w);
   height: var(--slider-cap-h);
   margin-top: var(--slider-cap-offset);
 }
 
-.station-shell .station-roomy input[type="range"]::-moz-range-thumb {
+.station-shell input[type="range"]::-moz-range-thumb {
   width: var(--slider-cap-w);
   height: var(--slider-cap-h);
 }
@@ -307,11 +281,3 @@
 /* Below 360px the heading's utility keys drop to their own line, which costs
    about twenty pixels. The roomy slider gives them back so a voice still fits
    one screen rather than spilling onto a second. */
-@media (max-width: 360px) {
-  .station-shell .station-roomy {
-    --slider-box: calc(48px * var(--station-ui-scale));
-    --slider-rail: calc(28px * var(--station-ui-scale));
-    --slider-line-y: calc(12px * var(--station-ui-scale));
-    --slider-cap-h: calc(34px * var(--station-ui-scale));
-  }
-}

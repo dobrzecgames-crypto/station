@@ -55,7 +55,7 @@ export function SynthWorkspace(props: SynthWorkspaceProps) {
       onClear={props.onClear}
     />
 
-    <section className="synth-workspace station-roomy" aria-label={`BASSIC editor for ${pad.label}`}>
+    <section className="synth-workspace" aria-label={`BASSIC editor for ${pad.label}`}>
       <header className="synth-heading">
         <p className="eyebrow">BASSIC / {pad.label} / {props.usageCount} PAD{props.usageCount === 1 ? '' : 'S'} SHARE PATCH</p>
         <div className="synth-heading-identity">
@@ -90,7 +90,7 @@ export function SynthWorkspace(props: SynthWorkspaceProps) {
         <OscillatorRow
           label="OSC 1"
           selects={<>
-            <InlineSelect label="WAVE" value={patch.oscillator1.waveform} options={synthWaveforms} onChange={(waveform) => changeOscillator('oscillator1', { waveform })} />
+            <InlineSelect label="WAVE" hideLabel value={patch.oscillator1.waveform} options={synthWaveforms} onChange={(waveform) => changeOscillator('oscillator1', { waveform })} />
             <InlineSelect label="OCT" value={String(patch.oscillator1.octave) as typeof octaves[number]} options={octaves} labels={octaveLabels} onChange={(octave) => changeOscillator('oscillator1', { octave: Number(octave) })} />
           </>}
           ranges={<>
@@ -102,7 +102,7 @@ export function SynthWorkspace(props: SynthWorkspaceProps) {
         <OscillatorRow
           label="OSC 2"
           selects={<>
-            <InlineSelect label="WAVE" value={patch.oscillator2.waveform} options={synthWaveforms} onChange={(waveform) => changeOscillator('oscillator2', { waveform })} />
+            <InlineSelect label="WAVE" hideLabel value={patch.oscillator2.waveform} options={synthWaveforms} onChange={(waveform) => changeOscillator('oscillator2', { waveform })} />
             <InlineSelect label="OCT" value={String(patch.oscillator2.octave) as typeof octaves[number]} options={octaves} labels={octaveLabels} onChange={(octave) => changeOscillator('oscillator2', { octave: Number(octave) })} />
           </>}
           ranges={<>
@@ -117,7 +117,7 @@ export function SynthWorkspace(props: SynthWorkspaceProps) {
           label="SUB"
           sub
           selects={<>
-            <InlineSelect label="WAVE" value={patch.sub.waveform} options={subWaveforms} onChange={(waveform) => change({ sub: { ...patch.sub, waveform } })} />
+            <InlineSelect label="WAVE" hideLabel value={patch.sub.waveform} options={subWaveforms} onChange={(waveform) => change({ sub: { ...patch.sub, waveform } })} />
             <InlineSelect label="OCT" value={String(patch.sub.octave) as typeof subOctaves[number]} options={subOctaves} onChange={(octave) => change({ sub: { ...patch.sub, octave: Number(octave) as -1 | -2 } })} />
             <InlineRange label="LEVEL" value={patch.sub.level} min={0} max={1} step={0.01} onChange={(level) => change({ sub: { ...patch.sub, level } })} />
           </>}
@@ -141,22 +141,25 @@ const subOctaves = ['-1', '-2'] as const
 
 function OscillatorRow({ label, sub = false, selects, ranges }: { label: string; sub?: boolean; selects: ReactNode; ranges?: ReactNode }) {
   return <div className={`synth-oscillator-row${sub ? ' synth-oscillator-row-sub' : ''}`}>
-    <strong>{label}</strong>
-    <div className="synth-oscillator-selects">{selects}</div>
+    <div className="synth-oscillator-selects"><strong>{label}</strong>{selects}</div>
     {ranges ? <div className="synth-oscillator-ranges">{ranges}</div> : null}
   </div>
 }
 
-function InlineSelect<T extends string>({ label, value, options, labels, onChange }: {
+/* A waveform dropdown already reads SAWTOOTH or TRIANGLE, so its printed
+ *  legend says nothing the control does not. hideLabel drops the line and
+ *  moves the name onto the select for assistive tech. */
+function InlineSelect<T extends string>({ label, value, options, labels, hideLabel, onChange }: {
   label: string
   value: T
   options: readonly T[]
   labels?: Partial<Record<T, string>>
+  hideLabel?: boolean
   onChange: (value: T) => void
 }) {
-  return <label className="synth-inline-control synth-inline-select">
-    <span>{label}</span>
-    <select value={value} onChange={(event) => onChange(event.target.value as T)}>
+  return <label className={hideLabel ? "synth-inline-control synth-inline-select synth-inline-select-bare" : "synth-inline-control synth-inline-select"}>
+    {hideLabel ? null : <span>{label}</span>}
+    <select aria-label={hideLabel ? label : undefined} value={value} onChange={(event) => onChange(event.target.value as T)}>
       {options.map((option) => <option value={option} key={option}>{labels?.[option] ?? option.toUpperCase()}</option>)}
     </select>
   </label>

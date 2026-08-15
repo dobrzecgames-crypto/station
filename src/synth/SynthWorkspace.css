@@ -94,26 +94,26 @@
 
 /* A scope label, which COLOR_BIBLE.md lets carry the workspace accent - it
    keeps its colour and only loses the size it did not need. */
-.synth-oscillator-row > strong {
+.synth-oscillator-selects > strong {
   color: var(--station-accent);
   font-size: var(--label-section);
   font-weight: 600;
   letter-spacing: .08em;
 }
 
-/* R4: the wave name takes the measure, the octave takes what it needs. The
-   old track list paired a 1fr cell with a fixed 48px one, which is what left
-   DETUNE on a 277px track and LEVEL on 47px in the same row. */
+/* The section marking sits in the row rather than above it, and the wave
+   select carries no printed legend. Together those were two lines of pure
+   overhead per oscillator, three oscillators deep. */
 .synth-oscillator-selects {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: var(--sp-group);
-  align-items: end;
+  align-items: center;
   min-width: 0;
 }
 
 .synth-oscillator-row-sub .synth-oscillator-selects {
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr);
 }
 
 .synth-oscillator-ranges {
@@ -152,8 +152,21 @@
   font-size: var(--label-value);
 }
 
-/* An octave is five options wide at most, so it is sized by its content. */
-.synth-oscillator-selects > .synth-inline-select:nth-child(2) select {
+/* Positional selectors broke the moment the section marking joined the row,
+   so these say what they mean: the bare wave select takes the measure, a
+   labelled one is as wide as its options and keeps its legend beside it
+   rather than above, which is the line this pass was removing. */
+.synth-oscillator-selects .synth-inline-select-bare select {
+  width: 100%;
+}
+
+.synth-oscillator-selects .synth-inline-select:not(.synth-inline-select-bare) {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--sp-tight);
+}
+
+.synth-oscillator-selects .synth-inline-select:not(.synth-inline-select-bare) select {
   width: fit-content;
   min-width: calc(52px * var(--station-ui-scale));
 }
@@ -182,7 +195,6 @@
   width: calc(100% - var(--sp-tight));
   min-width: 0;
   max-width: calc(100% - var(--sp-tight));
-  height: calc(24px * var(--station-ui-scale));
   min-height: 0;
   margin-inline: var(--sp-hair);
 }

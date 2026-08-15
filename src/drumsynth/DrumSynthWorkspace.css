@@ -1,14 +1,3 @@
-/* Four parameter rows instead of three, so the roomy slider steps down one
-   notch. The number of rows is a property of the voice, decided once here,
-   the same way N is chosen for a parameter grid. Scoped under .station-shell
-   so it outranks the roomy defaults in the last-loaded layer. */
-.station-shell .drumsynth-workspace.station-roomy {
-  --slider-box: calc(46px * var(--station-ui-scale));
-  --slider-rail: calc(28px * var(--station-ui-scale));
-  --slider-line-y: calc(12px * var(--station-ui-scale));
-  --slider-cap-h: calc(34px * var(--station-ui-scale));
-}
-
 .drumsynth-workspace {
   margin-top: var(--sp-tight);
   padding: var(--sp-card);
@@ -204,7 +193,6 @@
   width: calc(100% - var(--sp-tight));
   min-width: 0;
   max-width: calc(100% - var(--sp-tight));
-  height: calc(24px * var(--station-ui-scale));
   min-height: 0;
   margin-inline: var(--sp-hair);
 }
@@ -241,13 +229,4 @@
 @media (max-width: 360px) {
   .drumsynth-heading-identity { grid-template-columns: minmax(0, 1fr); }
   .drumsynth-heading-keys { justify-content: start; }
-}
-
-@media (max-width: 360px) {
-  .station-shell .drumsynth-workspace.station-roomy {
-    --slider-box: calc(40px * var(--station-ui-scale));
-    --slider-rail: calc(24px * var(--station-ui-scale));
-    --slider-line-y: calc(10px * var(--station-ui-scale));
-    --slider-cap-h: calc(30px * var(--station-ui-scale));
-  }
 }

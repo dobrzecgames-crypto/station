@@ -132,7 +132,6 @@
   display: block;
   width: calc(100% - var(--sp-tight));
   min-width: 0;
-  height: calc(24px * var(--station-ui-scale));
   min-height: 0;
   margin-inline: var(--sp-hair);
   touch-action: none;

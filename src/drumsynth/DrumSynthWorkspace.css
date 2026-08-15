@@ -120,15 +120,14 @@
   border-color: var(--station-accent);
 }
 
-/* Tier 3: a starting point is picked once, not played. Five names in one
-   row of five - the 3-up variant below 390px put three on one line and two
-   on the next, beside an empty third cell. Every name is six characters or
-   fewer, so a 66px cell holds them. */
+/* Tier 3: a starting point is picked once, not played, so it stands aside
+   from the faders rather than above them. */
 .drumsynth-preset-row {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-auto-flow: row;
+  align-content: start;
   gap: var(--sp-tight);
-  margin-top: var(--sp-group);
+  width: calc(64px * var(--station-ui-scale));
 }
 
 .drumsynth-preset-button {
@@ -151,57 +150,28 @@
   outline: none;
 }
 
-/* Eight parameters per voice used to stand one per row at full width - eight
-   full-bleed tracks for eight percentages, and the single longest stretch of
-   wasted panel anywhere in the SYNTH family. Two columns, four full rows. */
-.drumsynth-controls {
+/* Eight faders in four columns, with the starting points standing in the
+   column beside them instead of lying in a row above them. The voice reads
+   as one bank of controls rather than two stacked lists. */
+.drumsynth-body {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--sp-group);
-  align-items: end;
   margin-top: var(--sp-group);
 }
 
-.drumsynth-inline-range {
+.drumsynth-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--sp-hair) var(--sp-tight);
-  width: 100%;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sp-group) var(--sp-tight);
   min-width: 0;
-  color: var(--station-text-muted);
-  font-family: var(--station-mono-font);
-  font-size: var(--label-param);
-  font-weight: 500;
-  letter-spacing: .04em;
 }
 
-/* R5: the value outranks its own legend. It is the part that moves. */
-.drumsynth-inline-range output {
-  color: var(--station-text);
-  font-size: var(--label-value);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-
-/* Same twelve pixels of air around the cap reclaimed as elsewhere; the cap
-   and the printed track are untouched. */
-.drumsynth-inline-range input[type="range"] {
-  box-sizing: border-box;
-  grid-column: 1 / -1;
-  display: block;
-  width: calc(100% - var(--sp-tight));
-  min-width: 0;
-  max-width: calc(100% - var(--sp-tight));
-  min-height: 0;
-  margin-inline: var(--sp-hair);
-}
-
-/* DUST is the one Vinyl-Dust-identity control. Its dashed rule is gone with
-   every other separator (R7); the warmer readout tint carries the same
-   distinction without costing a line of clearance. */
-.drumsynth-inline-range-dust output {
-  color: color-mix(in srgb, var(--accent-drumsynth) 65%, var(--station-text));
+/* DUST is the one Vinyl-Dust-identity control. Its warmer readout carries
+   that on its own; the dashed rule it used to sit under went with every
+   other separator (R7). */
+.drumsynth-fader-dust output {
+  color: color-mix(in srgb, var(--accent-drumsynth) 78%, var(--station-text));
 }
 
 .drumsynth-add-to-pad {

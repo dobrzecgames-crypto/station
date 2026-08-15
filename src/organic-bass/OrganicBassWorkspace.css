@@ -1,6 +1,6 @@
 .organic-bass-workspace {
-  margin-top: calc(16px * var(--station-ui-scale));
-  padding: calc(14px * var(--station-ui-scale));
+  margin-top: var(--sp-tight);
+  padding: var(--sp-card);
   border: 1px solid var(--station-line);
   border-radius: calc(6px * var(--station-ui-scale));
   background:
@@ -8,37 +8,60 @@
     var(--station-panel);
 }
 
-.organic-bass-back-row { margin-bottom: calc(10px * var(--station-ui-scale)); }
-
+/* Context line, then the patch name with BACK and PATCH beside it, the
+   audition trigger held at the right across both. No rule line under it: the
+   gap and the section markings below already say where the heading ends. */
 .organic-bass-heading {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: 'eyebrow audition' 'identity audition';
+  gap: var(--sp-hair) var(--sp-group);
   align-items: center;
-  justify-content: space-between;
-  gap: calc(12px * var(--station-ui-scale));
-  padding-bottom: calc(12px * var(--station-ui-scale));
-  border-bottom: 1px solid var(--station-line);
+  padding-bottom: var(--sp-tight);
+}
+
+.organic-bass-heading > .eyebrow {
+  grid-area: eyebrow;
+  overflow: hidden;
+  color: var(--label-section-color);
+  font-size: var(--label-section);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.organic-bass-heading-identity {
+  grid-area: identity;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--sp-group);
+  align-items: center;
+  min-width: 0;
+}
+
+.organic-bass-heading-keys {
+  display: grid;
+  grid-auto-flow: column;
+  gap: var(--sp-tight);
 }
 
 .organic-bass-heading h2 {
-  margin: calc(3px * var(--station-ui-scale)) 0 calc(2px * var(--station-ui-scale));
-  font-size: 1rem;
+  overflow: hidden;
+  margin: var(--sp-hair) 0 0;
+  font-size: var(--label-identity);
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .organic-bass-heading p { margin: 0; }
 
-.organic-bass-heading p:not(.eyebrow) {
-  color: var(--station-text-muted);
-  font-family: var(--station-mono-font);
-  font-size: .52rem;
-  letter-spacing: .06em;
-}
-
 .organic-bass-audition {
+  grid-area: audition;
   display: grid;
   place-items: center;
-  width: calc(48px * var(--station-ui-scale));
-  min-width: calc(48px * var(--station-ui-scale));
-  height: calc(48px * var(--station-ui-scale));
+  width: var(--tier-1-face);
+  min-width: var(--tier-1-face);
+  height: var(--tier-1-face);
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -61,59 +84,78 @@
 
 .organic-bass-audition:disabled { cursor: not-allowed; opacity: .45; }
 
+/* Storage lives behind the PATCH latch, the same as every other synth. */
+.organic-bass-patch-panel { margin-top: var(--sp-group); }
+.organic-bass-patch-panel .user-synth-presets { margin-top: 0; }
+.organic-bass-patch-panel .user-synth-preset-picker { font-size: var(--label-section); font-weight: 600; }
+.organic-bass-patch-panel .user-synth-preset-picker select { min-height: var(--tier-2-face); }
+.organic-bass-patch-panel .user-synth-preset-actions { grid-template-columns: repeat(3, minmax(calc(44px * var(--station-ui-scale)), auto)); }
+.organic-bass-patch-panel .user-synth-preset-actions button { min-height: var(--tier-3-hit); font-size: var(--label-section); font-weight: 500; }
+
+/* Nine controls, so N=3 divides them into three full rows. The 2-up variant
+   this used below 560px made four rows with an empty half at the end - the
+   exact hole R4 exists to prevent. Every label here is seven characters or
+   fewer, so they survive the narrower cell. */
 .organic-bass-controls {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: calc(10px * var(--station-ui-scale)) calc(12px * var(--station-ui-scale));
-  margin-top: calc(14px * var(--station-ui-scale));
+  gap: var(--sp-group);
+  margin-top: var(--sp-group);
 }
 
 .organic-bass-control {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: calc(4px * var(--station-ui-scale)) calc(7px * var(--station-ui-scale));
+  gap: var(--sp-hair) var(--sp-tight);
   min-width: 0;
   color: var(--station-text-muted);
   font-family: var(--station-mono-font);
-  font-size: .52rem;
-  font-weight: 700;
-  letter-spacing: .05em;
+  font-size: var(--label-param);
+  font-weight: 500;
+  letter-spacing: .04em;
 }
 
+/* R5: the value outranks its own legend. It is the part that moves. */
 .organic-bass-control output {
   color: var(--station-text);
-  font-size: .52rem;
+  font-size: var(--label-value);
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
 
-.organic-bass-control input {
+/* Same twelve pixels of air around the cap reclaimed as elsewhere; the cap
+   and the printed track are untouched. */
+.organic-bass-control input[type="range"] {
   box-sizing: border-box;
   grid-column: 1 / -1;
   display: block;
-  width: calc(100% - calc(4px * var(--station-ui-scale)));
+  width: calc(100% - var(--sp-tight));
   min-width: 0;
-  margin-inline: calc(2px * var(--station-ui-scale));
+  height: calc(24px * var(--station-ui-scale));
+  min-height: 0;
+  margin-inline: var(--sp-hair);
   touch-action: none;
 }
 
-.organic-bass-tools { margin-top: calc(14px * var(--station-ui-scale)); }
+.organic-bass-tools { margin-top: var(--sp-group); }
 
 .organic-bass-note {
-  margin: calc(10px * var(--station-ui-scale)) 0 0;
-  color: var(--station-text-muted);
+  margin: var(--sp-group) 0 0;
+  color: var(--label-section-color);
   font-family: var(--station-mono-font);
-  font-size: .46rem;
+  font-size: var(--label-section);
   letter-spacing: .055em;
   text-align: right;
 }
 
-@media (max-width: 560px) {
-  .organic-bass-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* At the 320px floor the two utility keys leave the patch name too narrow to
+   read beside them, so they drop to their own line under it. */
+@media (max-width: 360px) {
+  .organic-bass-heading-identity { grid-template-columns: minmax(0, 1fr); }
+  .organic-bass-heading-keys { justify-content: start; }
 }
 
 @media (max-width: 390px) {
-  .organic-bass-workspace { padding: calc(12px * var(--station-ui-scale)); }
-  .organic-bass-controls { gap: calc(10px * var(--station-ui-scale)) calc(8px * var(--station-ui-scale)); }
   .organic-bass-note { text-align: left; }
 }

@@ -1,4 +1,5 @@
 import { useDragSlider } from '../shell/useDragSlider'
+import { MomentaryKey } from '../shell/UtilityKey'
 import { kickDecayToSeconds, kickPresetNames, kickTuneToHz, snareBodyDecayToSeconds, snarePresetNames, snareRattleDecayToSeconds, snareTuneToHz } from './drumSynthOperations'
 import type { KickPresetName, SnarePresetName } from './drumSynthOperations'
 import type { DrumInstrumentType, DrumKickPatch, DrumSnarePatch, DrumSynthState } from './drumSynthTypes'
@@ -37,13 +38,13 @@ export function DrumSynthWorkspace(props: DrumSynthWorkspaceProps) {
 
   return (
     <section className="drumsynth-workspace" aria-label={`DRUM SYNTH ${isSnare ? 'SNARE' : 'KICK'} editor`}>
-      <div className="drumsynth-back-row">
-        <button className="mixer-toggle" type="button" onClick={props.onBack}>← BACK TO SYNTHS</button>
-      </div>
       <header className="drumsynth-heading">
-        <div>
-          <p className="eyebrow">DRUM SYNTH</p>
+        <p className="eyebrow">DRUM SYNTH</p>
+        <div className="drumsynth-heading-identity">
           <h2>{isSnare ? 'SNARE' : 'KICK'}</h2>
+          <div className="drumsynth-heading-keys">
+            <MomentaryKey label="← SYNTHS" ariaLabel="Back to synths" onClick={props.onBack} />
+          </div>
         </div>
         <button
           className="drumsynth-trigger"
@@ -90,14 +91,16 @@ function KickControls({ patch, onPatchChange, onPreset }: {
         <button key={name} type="button" className="drumsynth-preset-button" onClick={() => onPreset(name)}>{name}</button>
       ))}
     </div>
-    <InlineRange label="TUNE" value={patch.tune} format={(value) => `${Math.round(kickTuneToHz(value))} Hz`} onChange={(tune) => change({ tune })} />
-    <InlineRange label="PUNCH" value={patch.punch} format={percent} onChange={(punch) => change({ punch })} />
-    <InlineRange label="BODY" value={patch.body} format={percent} onChange={(body) => change({ body })} />
-    <InlineRange label="CLICK" value={patch.click} format={percent} onChange={(click) => change({ click })} />
-    <InlineRange label="DECAY" value={patch.decay} format={(value) => `${kickDecayToSeconds(value).toFixed(2)} s`} onChange={(decay) => change({ decay })} />
-    <InlineRange label="TONE" value={patch.tone} format={percent} onChange={(tone) => change({ tone })} />
-    <InlineRange label="DRIVE" value={patch.drive} format={percent} onChange={(drive) => change({ drive })} />
-    <InlineRange label="DUST" value={patch.dust} format={percent} dust onChange={(dust) => change({ dust })} />
+    <div className="drumsynth-controls">
+      <InlineRange label="TUNE" value={patch.tune} format={(value) => `${Math.round(kickTuneToHz(value))} Hz`} onChange={(tune) => change({ tune })} />
+      <InlineRange label="PUNCH" value={patch.punch} format={percent} onChange={(punch) => change({ punch })} />
+      <InlineRange label="BODY" value={patch.body} format={percent} onChange={(body) => change({ body })} />
+      <InlineRange label="CLICK" value={patch.click} format={percent} onChange={(click) => change({ click })} />
+      <InlineRange label="DECAY" value={patch.decay} format={(value) => `${kickDecayToSeconds(value).toFixed(2)} s`} onChange={(decay) => change({ decay })} />
+      <InlineRange label="TONE" value={patch.tone} format={percent} onChange={(tone) => change({ tone })} />
+      <InlineRange label="DRIVE" value={patch.drive} format={percent} onChange={(drive) => change({ drive })} />
+      <InlineRange label="DUST" value={patch.dust} format={percent} dust onChange={(dust) => change({ dust })} />
+    </div>
   </>
 }
 
@@ -113,14 +116,16 @@ function SnareControls({ patch, onPatchChange, onPreset }: {
         <button key={name} type="button" className="drumsynth-preset-button" onClick={() => onPreset(name)}>{name}</button>
       ))}
     </div>
-    <InlineRange label="TUNE" value={patch.tune} format={(value) => `${Math.round(snareTuneToHz(value))} Hz`} onChange={(tune) => change({ tune })} />
-    <InlineRange label="BODY" value={patch.body} format={percent} onChange={(body) => change({ body })} />
-    <InlineRange label="SNAP" value={patch.snap} format={percent} onChange={(snap) => change({ snap })} />
-    <InlineRange label="RATTLE" value={patch.rattle} format={percent} onChange={(rattle) => change({ rattle })} />
-    <InlineRange label="BODY DECAY" value={patch.bodyDecay} format={(value) => `${snareBodyDecayToSeconds(value).toFixed(2)} s`} onChange={(bodyDecay) => change({ bodyDecay })} />
-    <InlineRange label="RATTLE DECAY" value={patch.rattleDecay} format={(value) => `${snareRattleDecayToSeconds(value).toFixed(2)} s`} onChange={(rattleDecay) => change({ rattleDecay })} />
-    <InlineRange label="TONE" value={patch.tone} format={percent} onChange={(tone) => change({ tone })} />
-    <InlineRange label="DUST" value={patch.dust} format={percent} dust onChange={(dust) => change({ dust })} />
+    <div className="drumsynth-controls">
+      <InlineRange label="TUNE" value={patch.tune} format={(value) => `${Math.round(snareTuneToHz(value))} Hz`} onChange={(tune) => change({ tune })} />
+      <InlineRange label="BODY" value={patch.body} format={percent} onChange={(body) => change({ body })} />
+      <InlineRange label="SNAP" value={patch.snap} format={percent} onChange={(snap) => change({ snap })} />
+      <InlineRange label="RATTLE" value={patch.rattle} format={percent} onChange={(rattle) => change({ rattle })} />
+      <InlineRange label="BODY DECAY" value={patch.bodyDecay} format={(value) => `${snareBodyDecayToSeconds(value).toFixed(2)} s`} onChange={(bodyDecay) => change({ bodyDecay })} />
+      <InlineRange label="RATTLE DECAY" value={patch.rattleDecay} format={(value) => `${snareRattleDecayToSeconds(value).toFixed(2)} s`} onChange={(rattleDecay) => change({ rattleDecay })} />
+      <InlineRange label="TONE" value={patch.tone} format={percent} onChange={(tone) => change({ tone })} />
+      <InlineRange label="DUST" value={patch.dust} format={percent} dust onChange={(dust) => change({ dust })} />
+    </div>
   </>
 }
 

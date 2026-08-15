@@ -1,6 +1,6 @@
 .poly-workspace {
-  margin-top: calc(16px * var(--station-ui-scale));
-  padding: calc(14px * var(--station-ui-scale));
+  margin-top: var(--sp-tight);
+  padding: var(--sp-card);
   border: 1px solid var(--station-line);
   border-radius: calc(6px * var(--station-ui-scale));
   background: var(--station-panel);
@@ -8,12 +8,23 @@
   -webkit-user-select: none;
 }
 
-.poly-back-row { margin-bottom: calc(10px * var(--station-ui-scale)); }
-.poly-heading { display: flex; align-items: center; justify-content: space-between; gap: calc(12px * var(--station-ui-scale)); padding-bottom: calc(12px * var(--station-ui-scale)); border-bottom: 1px solid var(--station-line); }
-.poly-heading h2 { margin: calc(3px * var(--station-ui-scale)) 0 calc(2px * var(--station-ui-scale)); font-size: 1rem; }
+/* Context line, then the patch name with its two utility keys beside it, with
+   the audition trigger held at the right across both. The old BACK row above
+   the heading was a tier-1-sized control for a tier-3 action; folded in here
+   it costs no line of its own. */
+.poly-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'eyebrow audition' 'identity audition'; gap: var(--sp-hair) var(--sp-group); align-items: center; padding-bottom: var(--sp-tight); }
+.poly-heading > .eyebrow { grid-area: eyebrow; }
+.poly-heading-identity { grid-area: identity; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-group); align-items: center; min-width: 0; }
+.poly-heading-keys { display: grid; grid-auto-flow: column; gap: var(--sp-tight); }
+.poly-heading h2 { overflow: hidden; margin: var(--sp-hair) 0 0; font-size: var(--label-identity); font-weight: 600; white-space: nowrap; text-overflow: ellipsis; }
 .poly-heading p { margin: 0; }
-.poly-heading p:not(.eyebrow) { color: var(--station-text-muted); font: 700 .52rem var(--station-mono-font); letter-spacing: .06em; }
-.poly-audition { width: calc(48px * var(--station-ui-scale)); min-width: calc(48px * var(--station-ui-scale)); height: calc(48px * var(--station-ui-scale)); padding: 0; border: 1px solid color-mix(in srgb, var(--accent-synth) 60%, var(--station-line)); border-radius: 50%; color: var(--station-bg); background: var(--accent-synth); box-shadow: 0 calc(4px * var(--station-ui-scale)) 0 color-mix(in srgb, var(--accent-synth) 55%, #000); cursor: pointer; touch-action: none; }
+/* The shared .eyebrow is a .6rem marking, which left the screen's context line
+   louder than the patch name under it and louder than every live value. Scoped
+   here rather than app-wide: the other workspaces re-tier on their own turn. */
+.poly-heading .eyebrow { overflow: hidden; color: var(--label-section-color); font-size: var(--label-section); white-space: nowrap; text-overflow: ellipsis; }
+/* Tier 1 is the ceiling for anything mounted in a workspace, and this is the
+   one control here that earns it: hold-to-play is a performance trigger. */
+.poly-audition { grid-area: audition; width: var(--tier-1-face); min-width: var(--tier-1-face); height: var(--tier-1-face); padding: 0; border: 1px solid color-mix(in srgb, var(--accent-synth) 60%, var(--station-line)); border-radius: 50%; color: var(--station-bg); background: var(--accent-synth); box-shadow: 0 calc(4px * var(--station-ui-scale)) 0 color-mix(in srgb, var(--accent-synth) 55%, #000); cursor: pointer; touch-action: none; }
 .poly-audition:active { transform: translateY(calc(3px * var(--station-ui-scale))); box-shadow: 0 1px 0 color-mix(in srgb, var(--accent-synth) 55%, #000); }
 .poly-audition::before { display: block; width: 0; height: 0; margin: auto; border-style: solid; border-width: calc(7px * var(--station-ui-scale)) 0 calc(7px * var(--station-ui-scale)) calc(11px * var(--station-ui-scale)); border-color: transparent transparent transparent currentColor; content: ''; }
 .poly-audition:disabled { opacity: .45; }
@@ -21,34 +32,53 @@
 .poly-preset,
 .poly-table,
 .poly-select-control,
-.poly-route-picker { display: grid; gap: calc(5px * var(--station-ui-scale)); color: var(--station-text-muted); font: 700 .52rem var(--station-mono-font); letter-spacing: .05em; }
-.poly-preset { margin-top: calc(12px * var(--station-ui-scale)); }
+.poly-route-picker { display: grid; gap: var(--sp-tight); justify-items: start; color: var(--station-text-muted); font-family: var(--station-mono-font); font-size: var(--label-param); font-weight: 500; letter-spacing: .04em; }
 .poly-preset select,
 .poly-table select,
 .poly-select-control select,
-.poly-route-picker select { min-height: calc(38px * var(--station-ui-scale)); padding-inline: calc(8px * var(--station-ui-scale)); border: 1px solid var(--station-line); border-radius: calc(3px * var(--station-ui-scale)); color: var(--station-text); background: var(--station-raised); }
+.poly-route-picker select { min-height: var(--tier-2-face); padding-inline: var(--sp-group); border: 1px solid var(--station-line); border-radius: calc(3px * var(--station-ui-scale)); color: var(--station-text); background: var(--station-raised); font-size: var(--label-value); }
+/* R4: an enumerated select is as wide as its options, never as wide as its
+   cell. TABLE and the preset lists hold names rather than values, so they are
+   the capped identity case instead. */
+.poly-select-control select,
+.poly-route-picker select { width: fit-content; min-width: calc(88px * var(--station-ui-scale)); max-width: 100%; }
+.poly-preset select,
+.poly-table select { width: 100%; max-width: calc(220px * var(--station-ui-scale)); }
 
-.poly-selector-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: calc(4px * var(--station-ui-scale)); }
-.poly-pages { margin: calc(12px * var(--station-ui-scale)) 0 calc(8px * var(--station-ui-scale)); }
-.poly-selector-key { display: grid; min-width: 0; min-height: calc(40px * var(--station-ui-scale)); padding: 0 0 calc(3px * var(--station-ui-scale)); border: 0; color: var(--station-text-muted); background: var(--station-recess); cursor: pointer; touch-action: manipulation; }
-.poly-selector-key > [data-mechanism-face] { display: grid; place-items: center; width: 100%; min-height: calc(37px * var(--station-ui-scale)); padding: 0 calc(8px * var(--station-ui-scale)); border: 1px solid var(--station-line); border-radius: calc(3px * var(--station-ui-scale)); background: linear-gradient(180deg, color-mix(in srgb, var(--station-raised) 88%, var(--station-text) 12%), var(--station-raised)); box-shadow: inset 0 1px 0 rgb(255 255 255 / 7%), 0 calc(3px * var(--station-ui-scale)) 0 rgb(0 0 0 / 55%); font: 700 .58rem var(--station-mono-font); letter-spacing: .05em; transition: transform 65ms ease, box-shadow 65ms ease, border-color 65ms ease; }
+/* Everything that stores or recalls a sound now lives behind the PATCH latch:
+   the factory list, the user list and SAVE/LOAD/DELETE. Together they used to
+   occupy 185px above the oscilloscope for controls touched once a session. */
+.poly-patch-panel { margin-top: var(--sp-group); }
+.poly-patch-panel .user-synth-presets { margin-top: 0; }
+.poly-patch-panel .user-synth-preset-picker { font-size: var(--label-section); font-weight: 600; }
+.poly-patch-panel .user-synth-preset-picker select { min-height: var(--tier-2-face); }
+.poly-patch-panel .user-synth-preset-actions { grid-template-columns: repeat(3, minmax(calc(44px * var(--station-ui-scale)), auto)); }
+.poly-patch-panel .user-synth-preset-actions button { min-height: var(--tier-3-hit); font-size: var(--label-section); font-weight: 500; }
+
+.poly-selector-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--sp-tight); }
+.poly-pages { margin: var(--sp-tight) 0; }
+/* Height comes from data-tier now, so the same key serves as a tier-2 page
+   selector and a tier-3 detail reveal without a second class. */
+/* Same key face as the shared .station-key in layout-tiers.css; the selector
+   family keeps its own class only because its engaged state is a selector
+   state, not a latch. */
+.poly-selector-key { min-width: 0; padding: 0 0 calc(3px * var(--station-ui-scale)); border: 0; color: var(--station-text-muted); background: transparent; cursor: pointer; touch-action: manipulation; }
+.poly-selector-key > [data-mechanism-face] { display: grid; place-items: center; width: 100%; padding: 0 var(--sp-group); border: 1px solid var(--station-line); border-radius: calc(3px * var(--station-ui-scale)); background: linear-gradient(180deg, color-mix(in srgb, var(--station-raised) 88%, var(--station-text) 12%), var(--station-raised)); box-shadow: inset 0 1px 0 rgb(255 255 255 / 7%), 0 calc(3px * var(--station-ui-scale)) 0 rgb(0 0 0 / 55%); font-family: var(--station-mono-font); font-size: inherit; font-weight: inherit; letter-spacing: .05em; white-space: nowrap; transition: transform 65ms ease, box-shadow 65ms ease, border-color 65ms ease; }
 .poly-selector-key:active:not(.poly-selector-key-active) > [data-mechanism-face] { transform: translateY(calc(2px * var(--station-ui-scale))); box-shadow: inset 0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 45%), 0 1px 0 rgb(0 0 0 / 60%); }
 .poly-selector-key-active { color: var(--station-text); }
 .poly-selector-key-active > [data-mechanism-face] { transform: translateY(calc(3px * var(--station-ui-scale))); border-color: color-mix(in srgb, var(--control-active) 72%, var(--station-line)); background: color-mix(in srgb, var(--control-active) 22%, var(--station-raised)); box-shadow: inset 0 calc(2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(0 0 0 / 55%), 0 0 0 rgb(0 0 0 / 0%); }
 .poly-selector-key:focus-visible { outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent); outline-offset: calc(2px * var(--station-ui-scale)); }
 
-.poly-editor-panel { min-height: calc(470px * var(--station-ui-scale)); padding: calc(12px * var(--station-ui-scale)); border: 1px solid var(--station-line); border-radius: calc(4px * var(--station-ui-scale)); background: var(--station-surface); }
+.poly-editor-panel { min-height: calc(470px * var(--station-ui-scale)); padding: var(--sp-card); border: 1px solid var(--station-line); border-radius: calc(4px * var(--station-ui-scale)); background: var(--station-surface); }
+/* R3 bans a card inside a card. The display keeps its glass - INTERFACE_BIBLE
+   §4 makes it a deliberately different material, not a panel - but loses the
+   bezel that used to wrap the glass inside the editor card. */
 .poly-display {
   --poly-phosphor: #9cad76;
   --poly-phosphor-strong: #b2c789;
   --poly-phosphor-dim: #60704d;
   --poly-crt-black: #050805;
-  margin: calc(10px * var(--station-ui-scale)) 0 calc(12px * var(--station-ui-scale));
-  padding: calc(7px * var(--station-ui-scale));
-  border: 1px solid color-mix(in srgb, var(--station-line-strong) 76%, #171a14);
-  border-radius: calc(4px * var(--station-ui-scale));
-  background: #11120f;
-  box-shadow: inset 0 1px 0 rgb(238 228 214 / 5%), inset 0 calc(-2px * var(--station-ui-scale)) calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 52%), 0 1px 0 rgb(0 0 0 / 58%);
+  margin: var(--sp-group) 0;
 }
 .poly-display-glass {
   position: relative;
@@ -69,9 +99,15 @@
   background: radial-gradient(ellipse at center, transparent 55%, rgb(0 0 0 / 34%) 100%);
   content: '';
 }
-.poly-display-readout { position: relative; z-index: 3; display: flex; justify-content: space-between; gap: calc(10px * var(--station-ui-scale)); padding: 0 calc(3px * var(--station-ui-scale)) calc(5px * var(--station-ui-scale)); color: var(--poly-phosphor-dim); font: 700 .57rem var(--station-mono-font); letter-spacing: .045em; }
-.poly-display-readout output { color: var(--poly-phosphor); font-variant-numeric: tabular-nums; }
-.poly-display-visual { position: relative; z-index: 1; height: clamp(calc(154px * var(--station-ui-scale)), 22vw, calc(180px * var(--station-ui-scale))); }
+.poly-display-readout { position: relative; z-index: 3; display: flex; justify-content: space-between; gap: var(--sp-card); padding: 0 calc(3px * var(--station-ui-scale)) var(--sp-tight); color: var(--poly-phosphor-dim); font-family: var(--station-mono-font); font-size: var(--label-section); font-weight: 600; letter-spacing: .045em; }
+.poly-display-readout output { color: var(--poly-phosphor); font-size: var(--label-value); font-variant-numeric: tabular-nums; }
+/* R6, revised on the real screen: the visualiser is sized for legibility, not
+   for dominance. At 211px it read as the anchor the brief asked for and cost
+   a third of the workspace to do it; halved, the trace is still perfectly
+   readable and the controls that move it come with it into view. Keyed to
+   viewport HEIGHT - the original 22vw shrank it on exactly the device with
+   the most vertical room. */
+.poly-display-visual { position: relative; z-index: 1; height: clamp(calc(90px * var(--station-ui-scale)), 13vh, calc(115px * var(--station-ui-scale))); }
 .poly-display svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .poly-display-frame { fill: rgb(11 16 10 / 34%); stroke: rgb(114 132 88 / 22%); stroke-width: 1; }
 .poly-display-grid { fill: none; vector-effect: non-scaling-stroke; }
@@ -82,76 +118,89 @@
 .poly-signal-persistence { fill: none; stroke: var(--poly-phosphor-dim); stroke-width: 4.2; stroke-linecap: round; stroke-linejoin: round; opacity: .13; transform: translate(.8px, .7px); vector-effect: non-scaling-stroke; }
 .poly-signal-line { fill: none; stroke: var(--poly-phosphor); stroke-width: 1.65; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 calc(1.5px * var(--station-ui-scale)) rgb(156 173 118 / 38%)); vector-effect: non-scaling-stroke; }
 
-.poly-osc-main-controls { display: grid; grid-template-columns: minmax(calc(150px * var(--station-ui-scale)), 1.35fr) repeat(3, minmax(calc(110px * var(--station-ui-scale)), 1fr)); gap: calc(10px * var(--station-ui-scale)) calc(12px * var(--station-ui-scale)); align-items: end; }
+/* R4: every parameter cell in a group comes from the same equal-width track
+   list. No 1fr cell paired with a fixed narrow one, and no single full-bleed
+   slider - those two shapes are what produced the 277px/47px pair elsewhere
+   in the SYNTH family. */
+.poly-osc-main-controls,
 .poly-control-grid,
 .poly-secondary-panel,
 .poly-common-controls,
-.poly-envelope-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: calc(10px * var(--station-ui-scale)) calc(14px * var(--station-ui-scale)); }
-.poly-control { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: calc(5px * var(--station-ui-scale)) calc(8px * var(--station-ui-scale)); min-width: 0; color: var(--station-text-muted); font: 700 .51rem var(--station-mono-font); letter-spacing: .04em; }
-.poly-control output { color: var(--station-text); font-variant-numeric: tabular-nums; }
-.poly-control input { grid-column: 1 / -1; width: calc(100% - calc(4px * var(--station-ui-scale))); min-height: calc(24px * var(--station-ui-scale)); margin-inline: calc(2px * var(--station-ui-scale)); touch-action: none; }
-.poly-detail-keys { display: grid; grid-template-columns: repeat(2, minmax(0, calc(132px * var(--station-ui-scale)))); gap: calc(5px * var(--station-ui-scale)); margin-top: calc(12px * var(--station-ui-scale)); }
-.poly-secondary-panel { margin-top: calc(8px * var(--station-ui-scale)); padding: calc(10px * var(--station-ui-scale)); border-left: calc(2px * var(--station-ui-scale)) solid var(--control-active); background: var(--station-raised); }
-.poly-common-area { margin-top: calc(14px * var(--station-ui-scale)); padding-top: calc(11px * var(--station-ui-scale)); border-top: 1px solid var(--station-line); }
-.poly-common-area > p { display: flex; justify-content: center; gap: calc(16px * var(--station-ui-scale)); margin: 0 0 calc(9px * var(--station-ui-scale)); color: var(--station-text); font: 700 .55rem var(--station-mono-font); }
-.poly-common-area > p span { color: var(--station-text-muted); }
-.poly-common-area > .poly-selector-key { width: calc(132px * var(--station-ui-scale)); margin-top: calc(8px * var(--station-ui-scale)); }
-.poly-filter-controls { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.poly-envelope-controls { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.poly-envelope-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-group) var(--sp-group); align-items: end; }
+.poly-control { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-hair) var(--sp-group); min-width: 0; color: var(--station-text-muted); font-family: var(--station-mono-font); font-size: var(--label-param); font-weight: 500; letter-spacing: .04em; }
+/* R5: the value outranks its own legend. It is the part that moves. */
+.poly-control output { color: var(--station-text); font-size: var(--label-value); font-weight: 600; font-variant-numeric: tabular-nums; }
+/* The shared range input is 30px tall around an 18px cap and a 14px printed
+   track - twelve pixels of air per parameter, four times over on this page.
+   The cap and track are untouched; only the empty box around them shrinks.
+   The shared rule in lab-interface.css keeps its own height for every other
+   consumer. */
+.poly-control input[type="range"] { grid-column: 1 / -1; width: calc(100% - var(--sp-tight)); height: calc(24px * var(--station-ui-scale)); min-height: 0; margin-inline: var(--sp-hair); touch-action: none; }
+/* TABLE and UNISON share one row: a wavetable name needs the measure, a unison
+   count needs 94px, and giving each its own full-width row left 245px of dead
+   card beside the smaller one. */
+.poly-osc-selects { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-group); align-items: end; }
+/* One bank of three reveal keys, stretched across the card. Previously TUNE and
+   SPREAD stopped at 272px of 339 and OUTPUT sat alone on its own row at 128px
+   of 339 - two holes for three keys of exactly the same kind. */
+.poly-detail-keys { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-tight); margin-top: var(--sp-group); }
+/* Flattened: a revealed sub-group is an indent and an edge rule, not a second
+   framed surface inside the editor card. */
+.poly-secondary-panel { margin-top: var(--sp-group); padding: 0 0 0 var(--sp-card); border-left: calc(2px * var(--station-ui-scale)) solid var(--control-active); background: none; }
+.poly-common-area { margin-top: var(--sp-sec); }
+.poly-common-area > p { display: flex; justify-content: center; gap: var(--sp-card); margin: 0 0 var(--sp-tight); color: var(--label-section-color); font-family: var(--station-mono-font); font-size: var(--label-section); font-weight: 600; }
+.poly-common-area > p span { color: var(--label-section-color); }
+/* N is a property of the labels, not of the window. Station renders the same
+   447px panel at every viewport size, so the 3-up filter and 4-up envelope
+   variants only ever fired on a wide desktop window - inside an identically
+   narrow panel. Both are 2-up here and stay 2-up. */
 
-.poly-inline-detail { margin-top: calc(10px * var(--station-ui-scale)); border-top: 1px solid var(--station-line); color: var(--station-text-muted); font: 700 .52rem var(--station-mono-font); }
-.poly-inline-detail summary { width: fit-content; min-height: calc(36px * var(--station-ui-scale)); padding: calc(12px * var(--station-ui-scale)) calc(6px * var(--station-ui-scale)) 0 0; cursor: pointer; }
-.poly-inline-detail .poly-control { max-width: calc(280px * var(--station-ui-scale)); padding: calc(4px * var(--station-ui-scale)) 0 calc(8px * var(--station-ui-scale)); }
+/* Three tuning controls in a 2-up grid left the third one beside an empty
+   cell, so the tuning panel is the one 3-up group on this screen. */
+.poly-secondary-panel-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
-.poly-performance-sources { display: grid; grid-template-columns: auto minmax(0, calc(260px * var(--station-ui-scale))); gap: calc(10px * var(--station-ui-scale)); align-items: center; margin-top: calc(7px * var(--station-ui-scale)); color: var(--station-text-muted); font: 700 .49rem var(--station-mono-font); letter-spacing: .05em; }
-.poly-lfo-editor { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(10px * var(--station-ui-scale)) calc(12px * var(--station-ui-scale)); align-items: end; }
+.poly-performance-sources { display: grid; grid-template-columns: auto minmax(0, calc(260px * var(--station-ui-scale))); gap: var(--sp-card); align-items: center; margin-top: var(--sp-group); color: var(--label-section-color); font-family: var(--station-mono-font); font-size: var(--label-section); font-weight: 600; letter-spacing: .05em; }
+.poly-lfo-editor { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-group); align-items: end; }
 .poly-lfo-editor .poly-selector-row { min-width: 0; }
-.poly-latch { min-height: calc(38px * var(--station-ui-scale)); border: 1px solid var(--station-line); border-bottom-width: calc(3px * var(--station-ui-scale)); border-radius: calc(3px * var(--station-ui-scale)); color: var(--station-text-muted); background: var(--station-raised); font: 700 .54rem var(--station-mono-font); cursor: pointer; }
+.poly-latch { min-height: var(--tier-2-face); border: 1px solid var(--station-line); border-bottom-width: calc(3px * var(--station-ui-scale)); border-radius: calc(3px * var(--station-ui-scale)); color: var(--station-text-muted); background: var(--station-raised); font-family: var(--station-mono-font); font-size: var(--label-param); font-weight: 600; cursor: pointer; }
 .poly-latch-active { border-bottom-width: 1px; border-color: var(--control-active); color: var(--station-text); background: color-mix(in srgb, var(--control-active) 20%, var(--station-raised)); box-shadow: inset 0 calc(2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(0 0 0 / 45%); }
 
-.poly-route-section { margin-top: calc(14px * var(--station-ui-scale)); padding-top: calc(12px * var(--station-ui-scale)); border-top: 1px solid var(--station-line); }
-.poly-route-heading { display: flex; align-items: center; justify-content: space-between; gap: calc(12px * var(--station-ui-scale)); }
-.poly-route-heading > div { display: grid; gap: calc(2px * var(--station-ui-scale)); color: var(--station-text-muted); font: 700 .49rem var(--station-mono-font); letter-spacing: .05em; }
-.poly-route-heading strong { color: var(--station-text); font-size: .58rem; }
-.poly-route-heading .mixer-toggle { flex: 0 0 auto; min-width: calc(94px * var(--station-ui-scale)); min-height: calc(38px * var(--station-ui-scale)); }
-.poly-empty-routes { margin: calc(12px * var(--station-ui-scale)) 0 0; color: var(--station-text-muted); font: 700 .52rem var(--station-mono-font); }
-.poly-active-routes { display: grid; gap: calc(7px * var(--station-ui-scale)); margin-top: calc(10px * var(--station-ui-scale)); }
-.poly-route { display: grid; grid-template-columns: minmax(0, 1fr) calc(38px * var(--station-ui-scale)); gap: calc(8px * var(--station-ui-scale)); align-items: center; padding: calc(7px * var(--station-ui-scale)) calc(8px * var(--station-ui-scale)); border-left: calc(2px * var(--station-ui-scale)) solid var(--control-active); background: var(--station-raised); }
-.poly-route-remove { min-width: calc(38px * var(--station-ui-scale)); min-height: calc(38px * var(--station-ui-scale)); border: 1px solid var(--station-line); border-radius: calc(3px * var(--station-ui-scale)); color: var(--station-text-muted); background: var(--control-inactive); font-size: 1rem; cursor: pointer; }
-.poly-route-picker { margin-top: calc(9px * var(--station-ui-scale)); padding: calc(9px * var(--station-ui-scale)); border: 1px solid var(--station-line); background: var(--station-raised); }
-.poly-tools { margin-top: calc(14px * var(--station-ui-scale)); }
+.poly-route-section { margin-top: var(--sp-sec); }
+.poly-route-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-card); }
+.poly-route-heading > div { display: grid; gap: var(--sp-hair); color: var(--label-section-color); font-family: var(--station-mono-font); font-size: var(--label-section); font-weight: 600; letter-spacing: .05em; }
+.poly-route-heading strong { color: var(--station-text); font-size: var(--label-value); }
+.poly-route-heading .mixer-toggle { flex: 0 0 auto; min-width: calc(80px * var(--station-ui-scale)); min-height: var(--tier-3-hit); font-size: var(--label-section); }
+.poly-empty-routes { margin: var(--sp-card) 0 0; color: var(--station-text-muted); font-family: var(--station-mono-font); font-size: var(--label-param); font-weight: 500; }
+/* Route rows are a parameter grid like any other: a modulation amount is a
+   bipolar percentage and does not need the whole measure to be set. */
+.poly-active-routes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-group); margin-top: var(--sp-card); }
+/* A route row is a group inside the editor card, so it follows R3's indent
+   and edge rule instead of getting its own filled surface. */
+.poly-route { display: grid; grid-template-columns: minmax(0, 1fr) var(--tier-3-hit); gap: var(--sp-group); align-items: center; padding: var(--sp-group) 0 var(--sp-group) var(--sp-card); border-left: calc(2px * var(--station-ui-scale)) solid var(--control-active); background: none; }
+.poly-route-remove { min-width: var(--tier-3-hit); min-height: var(--tier-3-hit); border: 1px solid var(--station-line); border-radius: calc(3px * var(--station-ui-scale)); color: var(--station-text-muted); background: var(--control-inactive); font-size: 1rem; cursor: pointer; }
+.poly-route-picker { margin-top: var(--sp-group); padding: var(--sp-group) 0 var(--sp-group) var(--sp-card); border-left: calc(2px * var(--station-ui-scale)) solid var(--station-line); }
+.poly-tools { margin-top: var(--sp-group); }
 
-@media (max-width: 760px) {
-  .poly-editor-panel { min-height: 0; }
-  .poly-osc-main-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .poly-table { grid-column: 1 / -1; }
-  .poly-filter-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .poly-envelope-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .poly-lfo-editor { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* The tall editor floor was there to stop the panel collapsing on a desktop
+   window. It only ever produced dead surface in the capped phone column. */
+.poly-editor-panel { min-height: 0; }
+
+/* At the 320px floor the two utility keys leave the patch name too narrow to
+   read beside them, so they drop to their own line under it. */
+@media (max-width: 360px) {
+  .poly-heading-identity { grid-template-columns: minmax(0, 1fr); }
+  .poly-heading-keys { justify-content: start; }
 }
 
 @media (max-width: 430px) {
-  .poly-workspace { padding: calc(10px * var(--station-ui-scale)); }
-  .poly-heading { align-items: flex-start; }
+  .poly-workspace { padding: var(--sp-card); }
   .poly-pages .poly-selector-key > [data-mechanism-face] { padding-inline: calc(3px * var(--station-ui-scale)); font-size: .52rem; }
-  .poly-selector-key { min-height: calc(44px * var(--station-ui-scale)); }
-  .poly-selector-key > [data-mechanism-face] { min-height: calc(41px * var(--station-ui-scale)); }
-  .poly-editor-panel { padding: calc(9px * var(--station-ui-scale)); }
-  .poly-display { padding: calc(5px * var(--station-ui-scale)); }
+  .poly-editor-panel { padding: var(--sp-card); }
   .poly-display-glass { padding: calc(6px * var(--station-ui-scale)) calc(5px * var(--station-ui-scale)) calc(5px * var(--station-ui-scale)); }
-  .poly-display-readout { padding-bottom: calc(4px * var(--station-ui-scale)); font-size: .5rem; }
-  .poly-display-visual { height: calc(142px * var(--station-ui-scale)); }
-  .poly-osc-main-controls,
-  .poly-control-grid,
-  .poly-secondary-panel,
-  .poly-common-controls,
-  .poly-filter-controls,
-  .poly-envelope-controls,
-  .poly-lfo-editor { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: calc(11px * var(--station-ui-scale)) calc(9px * var(--station-ui-scale)); }
   .poly-control input { min-height: calc(30px * var(--station-ui-scale)); }
-  .poly-performance-sources { grid-template-columns: 1fr; gap: calc(5px * var(--station-ui-scale)); }
+  .poly-performance-sources { grid-template-columns: 1fr; gap: var(--sp-tight); }
   .poly-performance-sources .poly-selector-row { max-width: none; }
-  .poly-common-area > p { gap: calc(8px * var(--station-ui-scale)); }
+  .poly-common-area > p { gap: var(--sp-group); }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PadState } from '../pads/types'
 import { useDragSlider } from '../shell/useDragSlider'
+import { LatchKey, MomentaryKey } from '../shell/UtilityKey'
 import { UserSynthPresetControls } from '../synth-presets/UserSynthPresetControls'
 import { applyPolyFactoryPatch, polyFactoryPatches } from './polyPresets'
 import { clampModulationAmount } from './polyOperations'
@@ -43,6 +44,7 @@ export function PolyWorkspace(props: Props) {
   const [envelopeKey, setEnvelopeKey] = useState<EnvelopeKey>('ampEnvelope')
   const [modSource, setModSource] = useState<PolyModSource>('lfo1')
   const [routePickerOpen, setRoutePickerOpen] = useState(false)
+  const [patchPanelOpen, setPatchPanelOpen] = useState(false)
   const releaseRef = useRef(props.onRelease)
   releaseRef.current = props.onRelease
   useEffect(() => () => releaseRef.current(), [])
@@ -62,14 +64,22 @@ export function PolyWorkspace(props: Props) {
   }
 
   return <section className="poly-workspace" aria-label={`ZOLA-X editor for ${props.pad.label}`}>
-    <div className="poly-back-row"><button className="mixer-toggle" type="button" onClick={props.onBack}>← BACK TO SYNTHS</button></div>
     <header className="poly-heading">
-      <div><p className="eyebrow">ZOLA-X / {props.pad.label}</p><h2>{patch.name}</h2><p>{props.usageCount} PADS SHARE PATCH / 8 VOICES</p></div>
+      <p className="eyebrow">ZOLA-X / {props.pad.label} / {props.usageCount} PADS / 8 VOICES</p>
+      <div className="poly-heading-identity">
+        <h2>{patch.name}</h2>
+        <div className="poly-heading-keys">
+          <MomentaryKey label="← SYNTHS" ariaLabel="Back to synths" onClick={props.onBack} />
+          <LatchKey label="PATCH" engaged={patchPanelOpen} onClick={() => setPatchPanelOpen((current) => !current)} />
+        </div>
+      </div>
       <button className="poly-audition" type="button" disabled={!props.audioReady} aria-label="Hold to play ZOLA-X" onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); props.onTrigger() }} onPointerUp={props.onRelease} onPointerCancel={props.onRelease} onLostPointerCapture={props.onRelease} />
     </header>
 
-    <label className="poly-preset"><span>STARTING PATCH</span><select value={polyFactoryPatches.find((item) => item.name === patch.name)?.id ?? ''} onChange={(event) => props.onPatchChange(applyPolyFactoryPatch(patch, event.target.value))}><option value="" disabled>CUSTOM</option>{polyFactoryPatches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-    <UserSynthPresetControls kind="zola-x" instrumentLabel="ZOLA-X" patch={patch} onApply={props.onPatchChange} />
+    {patchPanelOpen && <div className="poly-patch-panel station-card" aria-label="ZOLA-X patch storage">
+      <label className="poly-preset"><span className="station-label-section">STARTING PATCH</span><select className="station-select-name" value={polyFactoryPatches.find((item) => item.name === patch.name)?.id ?? ''} onChange={(event) => props.onPatchChange(applyPolyFactoryPatch(patch, event.target.value))}><option value="" disabled>CUSTOM</option>{polyFactoryPatches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+      <UserSynthPresetControls kind="zola-x" instrumentLabel="ZOLA-X" patch={patch} onApply={props.onPatchChange} />
+    </div>}
 
     <SelectorRow label="POLY section" className="poly-pages" options={(['osc', 'filter', 'env', 'mod'] as const)} selected={page} labelFor={(item) => pageLabels[item]} onSelect={(item) => { setPage(item); setRoutePickerOpen(false) }} />
 
@@ -79,31 +89,32 @@ export function PolyWorkspace(props: Props) {
         <PolyDisplay eyebrow={`${oscillatorKey === 'oscillator1' ? 'OSC 1' : 'OSC 2'} / ${wavetableLabel(oscillator.tableId)}`} value={`${Math.round(oscillator.position * 100)}% POSITION`}>
           <WavetableVisual tableId={oscillator.tableId} position={oscillator.position} readWaveform={props.readWaveform} />
         </PolyDisplay>
-        <div className="poly-osc-main-controls">
+        <div className="poly-osc-selects">
           <label className="poly-table"><span>TABLE</span><select value={oscillator.tableId} onChange={(event) => change({ [oscillatorKey]: { ...oscillator, tableId: event.target.value } })}>{polyWavetableBank.map((item) => <option value={item.id} key={item.id}>{item.family} / {item.name}</option>)}</select></label>
-          <Control label="POSITION" value={oscillator.position} onChange={(position) => change({ [oscillatorKey]: { ...oscillator, position } })} format={percent} />
-          <Control label="LEVEL" value={oscillator.level} onChange={(level) => change({ [oscillatorKey]: { ...oscillator, level } })} format={percent} />
           <label className="poly-select-control"><span>UNISON</span><select value={oscillator.unison} onChange={(event) => change({ [oscillatorKey]: { ...oscillator, unison: Number(event.target.value) as PolyOscillatorState['unison'] } })}>{polyUnisonCounts.map((count) => <option value={count} key={count}>{count}</option>)}</select></label>
         </div>
-        <div className="poly-detail-keys" role="group" aria-label="Oscillator details">
-          <SelectorButton label="TUNE" selected={oscillatorDetail === 'tune'} onClick={() => setOscillatorDetail('tune')} />
-          <SelectorButton label="SPREAD" selected={oscillatorDetail === 'spread'} onClick={() => setOscillatorDetail('spread')} />
+        <div className="poly-osc-main-controls">
+          <Control label="POSITION" value={oscillator.position} onChange={(position) => change({ [oscillatorKey]: { ...oscillator, position } })} format={percent} />
+          <Control label="LEVEL" value={oscillator.level} onChange={(level) => change({ [oscillatorKey]: { ...oscillator, level } })} format={percent} />
         </div>
-        {oscillatorDetail === 'tune' && <div className="poly-secondary-panel" aria-label="Oscillator tuning"><Control label="OCTAVE" value={oscillator.octave} min={-2} max={2} step={1} onChange={(octave) => change({ [oscillatorKey]: { ...oscillator, octave } })} format={signed} /><Control label="SEMITONE" value={oscillator.semitone} min={-12} max={12} step={1} onChange={(semitone) => change({ [oscillatorKey]: { ...oscillator, semitone } })} format={signed} /><Control label="FINE" value={oscillator.fineCents} min={-100} max={100} step={1} onChange={(fineCents) => change({ [oscillatorKey]: { ...oscillator, fineCents } })} format={(value) => `${signed(value)} ct`} /></div>}
+        <div className="poly-detail-keys" role="group" aria-label="Oscillator and output details">
+          <SelectorButton label="TUNE" tier="3" selected={oscillatorDetail === 'tune'} onClick={() => setOscillatorDetail('tune')} />
+          <SelectorButton label="SPREAD" tier="3" selected={oscillatorDetail === 'spread'} onClick={() => setOscillatorDetail('spread')} />
+          <SelectorButton label="OUTPUT" tier="3" selected={oscillatorDetail === 'output'} onClick={() => setOscillatorDetail('output')} />
+        </div>
+        {oscillatorDetail === 'tune' && <div className="poly-secondary-panel poly-secondary-panel-3" aria-label="Oscillator tuning"><Control label="OCTAVE" value={oscillator.octave} min={-2} max={2} step={1} onChange={(octave) => change({ [oscillatorKey]: { ...oscillator, octave } })} format={signed} /><Control label="SEMITONE" value={oscillator.semitone} min={-12} max={12} step={1} onChange={(semitone) => change({ [oscillatorKey]: { ...oscillator, semitone } })} format={signed} /><Control label="FINE" value={oscillator.fineCents} min={-100} max={100} step={1} onChange={(fineCents) => change({ [oscillatorKey]: { ...oscillator, fineCents } })} format={(value) => `${signed(value)} ct`} /></div>}
         {oscillatorDetail === 'spread' && <div className="poly-secondary-panel" aria-label="Oscillator spread"><Control label="DETUNE" value={oscillator.detuneCents} min={0} max={50} step={1} onChange={(detuneCents) => change({ [oscillatorKey]: { ...oscillator, detuneCents } })} format={(value) => `${value.toFixed(0)} ct`} /><Control label="WIDTH" value={oscillator.width} onChange={(width) => change({ [oscillatorKey]: { ...oscillator, width } })} format={percent} /></div>}
+        {oscillatorDetail === 'output' && <div className="poly-secondary-panel" aria-label="Patch output"><Control label="MASTER LEVEL" value={patch.level} onChange={(level) => change({ level })} format={percent} /><Control label="PAN" value={patch.pan} min={-1} max={1} onChange={(pan) => change({ pan })} format={signedPercent} /></div>}
         <div className="poly-common-area">
           <p>OSC 1 <span>MIX / CROSS-MOD</span> OSC 2</p>
           <div className="poly-common-controls"><Control label="OSC MIX" value={patch.oscillatorMix} onChange={(oscillatorMix) => change({ oscillatorMix })} format={percent} /><Control label="OSC 2 → OSC 1 FM" value={patch.fmAmount} onChange={(fmAmount) => change({ fmAmount })} format={percent} /></div>
-          <SelectorButton label="OUTPUT" selected={oscillatorDetail === 'output'} onClick={() => setOscillatorDetail('output')} />
-          {oscillatorDetail === 'output' && <div className="poly-secondary-panel"><Control label="MASTER LEVEL" value={patch.level} onChange={(level) => change({ level })} format={percent} /><Control label="PAN" value={patch.pan} min={-1} max={1} onChange={(pan) => change({ pan })} format={signedPercent} /></div>}
         </div>
       </>}
 
       {page === 'filter' && <>
         <SelectorRow label="Filter mode" options={polyFilterModes} selected={patch.filter.mode} labelFor={(mode) => mode} onSelect={(mode) => change({ filter: { ...patch.filter, mode } })} />
         <PolyDisplay eyebrow={`${patch.filter.mode} FILTER`} value={frequency(patch.filter.cutoffHz)}><FilterVisual mode={patch.filter.mode} cutoffHz={patch.filter.cutoffHz} resonance={patch.filter.resonance} /></PolyDisplay>
-        <div className="poly-control-grid poly-filter-controls"><Control label="CUTOFF" value={patch.filter.cutoffHz} min={20} max={20000} step={1} onChange={(cutoffHz) => change({ filter: { ...patch.filter, cutoffHz } })} format={frequency} /><Control label="RESONANCE" value={patch.filter.resonance} min={.5} max={20} step={.1} onChange={(resonance) => change({ filter: { ...patch.filter, resonance } })} format={(value) => value.toFixed(1)} /><Control label="DRIVE" value={patch.filter.drive} onChange={(drive) => change({ filter: { ...patch.filter, drive } })} format={percent} /><Control label="ENV AMOUNT" value={patch.filter.envelopeAmountSemitones} min={-60} max={60} step={1} onChange={(envelopeAmountSemitones) => change({ filter: { ...patch.filter, envelopeAmountSemitones } })} format={(value) => `${value > 0 ? '+' : ''}${value.toFixed(0)} st`} /><Control label="KEYTRACK" value={patch.filter.keytrack} onChange={(keytrack) => change({ filter: { ...patch.filter, keytrack } })} format={percent} /></div>
-        <details className="poly-inline-detail"><summary>VOICE GATE</summary><Control label="GATE" value={patch.gate} min={.05} max={2} step={.01} onChange={(gate) => change({ gate })} format={(value) => `${value.toFixed(2)}×`} /></details>
+        <div className="poly-control-grid poly-filter-controls"><Control label="CUTOFF" value={patch.filter.cutoffHz} min={20} max={20000} step={1} onChange={(cutoffHz) => change({ filter: { ...patch.filter, cutoffHz } })} format={frequency} /><Control label="RESONANCE" value={patch.filter.resonance} min={.5} max={20} step={.1} onChange={(resonance) => change({ filter: { ...patch.filter, resonance } })} format={(value) => value.toFixed(1)} /><Control label="DRIVE" value={patch.filter.drive} onChange={(drive) => change({ filter: { ...patch.filter, drive } })} format={percent} /><Control label="ENV AMOUNT" value={patch.filter.envelopeAmountSemitones} min={-60} max={60} step={1} onChange={(envelopeAmountSemitones) => change({ filter: { ...patch.filter, envelopeAmountSemitones } })} format={(value) => `${value > 0 ? '+' : ''}${value.toFixed(0)} st`} /><Control label="KEYTRACK" value={patch.filter.keytrack} onChange={(keytrack) => change({ filter: { ...patch.filter, keytrack } })} format={percent} /><Control label="VOICE GATE" value={patch.gate} min={.05} max={2} step={.01} onChange={(gate) => change({ gate })} format={(value) => `${value.toFixed(2)}×`} /></div>
       </>}
 
       {page === 'env' && <>
@@ -136,8 +147,10 @@ function SelectorRow<T extends string>({ label, options, selected, labelFor, onS
   return <div className={`poly-selector-row ${className}`} role="group" aria-label={label}>{options.map((option) => <SelectorButton key={option} label={labelFor(option)} selected={selected === option} onClick={() => onSelect(option)} />)}</div>
 }
 
-function SelectorButton({ label, selected, onClick }: { label: string; selected: boolean; onClick: () => void }) {
-  return <button type="button" className={selected ? 'poly-selector-key poly-selector-key-active' : 'poly-selector-key'} data-mechanism="selector" data-engaged={selected} aria-pressed={selected} onClick={onClick}><span data-mechanism-face>{label}</span></button>
+/** Tier 2 by default: these choose what the panel below is editing. Detail
+ *  keys that merely reveal an occasional sub-panel pass tier 3. */
+function SelectorButton({ label, selected, onClick, tier = '2' }: { label: string; selected: boolean; onClick: () => void; tier?: '2' | '3' }) {
+  return <button type="button" className={selected ? 'poly-selector-key poly-selector-key-active' : 'poly-selector-key'} data-tier={tier} data-mechanism="selector" data-engaged={selected} aria-pressed={selected} onClick={onClick}><span data-mechanism-face>{label}</span></button>
 }
 
 function PolyDisplay({ eyebrow, value, children }: { eyebrow: string; value: string; children: React.ReactNode }) {

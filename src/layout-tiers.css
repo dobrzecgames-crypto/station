@@ -1,0 +1,233 @@
+/*
+ * Station layout tiers
+ *
+ * A proportion layer, not a skin. Vinyl Dust still owns colour and material;
+ * this file only answers "how big, how far apart, how loud" - and answers it
+ * once, from function, instead of once per workspace.
+ *
+ * Loaded last (see main.tsx) for the same reason global-scale.css is: the
+ * older passes in App.css set the same properties many times over. Rules here
+ * are written under .station-shell, so a plain .mixer-toggle in App.css loses
+ * on specificity as well as order and no !important is needed anywhere.
+ *
+ * Assignment is opt-in through data-tier. A control without the attribute is
+ * untouched, which is what keeps the rollout one workspace at a time.
+ */
+:root {
+  /* ---- R1. Spacing ----------------------------------------------------
+     Five steps replacing the twelve ad-hoc values (3,4,5,6,7,8,9,10,11,12,
+     14,16 px) currently in circulation. Every step is already multiplied by
+     the global physical scale, so consumers write var(--sp-group), never
+     calc(... * var(--station-ui-scale)) around it. */
+  --sp-hair: calc(2px * var(--station-ui-scale));
+  --sp-tight: calc(3px * var(--station-ui-scale));
+  --sp-group: calc(6px * var(--station-ui-scale));
+  --sp-card: calc(8px * var(--station-ui-scale));
+  --sp-sec: calc(10px * var(--station-ui-scale));
+
+  /* ---- R2. Control size tiers ----------------------------------------
+     Two numbers per tier. The FACE is what the eye reads as the control's
+     size; the HIT is the pointer target, which never shrinks with it. This
+     is the split index.css already established for [data-mechanism] - the
+     painted face travels inside a fixed interactive box - reused here for
+     size rather than for travel.
+
+     Tier 1 is a ceiling, not a target: transport currently paints at 36px
+     and the seven MODULE keys at 40px. Nothing mounted inside a workspace
+     may be taller than a MODULE key. */
+  --tier-1-face: calc(40px * var(--station-ui-scale));
+  --tier-1-hit: calc(44px * var(--station-ui-scale));
+  --tier-2-face: calc(32px * var(--station-ui-scale));
+  --tier-2-hit: calc(40px * var(--station-ui-scale));
+  --tier-3-face: calc(26px * var(--station-ui-scale));
+  --tier-3-hit: calc(34px * var(--station-ui-scale));
+
+  /* ---- R5. Label roles ------------------------------------------------
+     Four roles replacing the eight sizes that currently sit inside a 2.4 px
+     band (.46/.50/.51/.52/.54/.55/.58/.60rem) - too many to be a system,
+     too close together to be a hierarchy.
+
+     The value is deliberately the largest and brightest of the three panel
+     roles. A parameter's label is fixed print; its value is the thing that
+     changes while you play, so it is what the eye should find first. */
+  --label-section: .5rem;
+  --label-param: .52rem;
+  --label-value: .56rem;
+  --label-identity: .74rem;
+  /* Section markings recede by contrast, not by a second grey. */
+  --label-section-color: color-mix(in srgb, var(--station-text-muted) 62%, transparent);
+}
+
+/* ---- R2. Tier geometry ---------------------------------------------------
+   align-content keeps the face at its own height instead of letting the grid
+   stretch it back to the hit box. justify-items keeps it full width, which is
+   what makes a tier-3 key read as a low wide key rather than a small square. */
+/* The face sits at the TOP of the hit box and the surplus falls below it as
+   the key's seating slot. Centring it instead splits that surplus in two and
+   paints a shadow gap above the face as well, which reads as a key that has
+   come loose rather than one seated in a panel. */
+.station-shell [data-tier] {
+  display: grid;
+  align-content: start;
+  justify-items: stretch;
+  min-width: 0;
+}
+
+.station-shell [data-tier='1'] { min-height: var(--tier-1-hit); font-size: .58rem; font-weight: 700; }
+.station-shell [data-tier='2'] { min-height: var(--tier-2-hit); font-size: .55rem; font-weight: 600; }
+.station-shell [data-tier='3'] { min-height: var(--tier-3-hit); font-size: var(--label-section); font-weight: 500; }
+
+.station-shell [data-tier='1'] > [data-mechanism-face] { min-height: var(--tier-1-face); }
+.station-shell [data-tier='2'] > [data-mechanism-face] { min-height: var(--tier-2-face); }
+.station-shell [data-tier='3'] > [data-mechanism-face] { min-height: var(--tier-3-face); }
+
+/* ---- R3. Card ------------------------------------------------------------
+   One card = one parameter set. The surface itself is Vinyl Dust's existing
+   card material; this only fixes its geometry so every group in the app is
+   inset and separated by the same amount. */
+.station-shell .station-card {
+  display: grid;
+  gap: var(--sp-group);
+  padding: var(--sp-card);
+  border: 1px solid var(--station-line);
+  border-radius: calc(4px * var(--station-ui-scale));
+  background: var(--station-card);
+}
+
+.station-shell .station-card + .station-card { margin-top: var(--sp-sec); }
+
+/* INTERFACE_BIBLE.md §2 bans cards inside cards. A group nested inside a card
+   is marked by an edge rule and an indent, never by a second frame. */
+.station-shell .station-card .station-group {
+  display: grid;
+  gap: var(--sp-group);
+  padding-left: var(--sp-card);
+  border-left: calc(2px * var(--station-ui-scale)) solid var(--control-active);
+}
+
+/* ---- R7. Grouping by proximity, not by rule lines ------------------------
+   A hairline between two groups costs its own line of clearance above and
+   below to avoid looking cramped, so a separator is never just one pixel - on
+   a phone panel it is closer to twenty. Section labels plus a wider gap say
+   the same thing for free. Keep rule lines for the edge of a real surface
+   (a card, the display), not for spacing inside one. */
+.station-shell .station-stack {
+  display: grid;
+  gap: var(--sp-sec);
+}
+
+.station-shell .station-stack > * + * {
+  border-top: 0;
+}
+
+/* ---- Shared utility key --------------------------------------------------
+   A hard-plastic key face seated on its own shadow. MOMENTARY and LATCH share
+   the geometry; only the engaged state differs, which is what keeps a
+   completed action from looking permanently pressed. */
+.station-shell .station-key {
+  min-width: 0;
+  padding: 0 0 calc(3px * var(--station-ui-scale));
+  border: 0;
+  color: var(--station-text-muted);
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.station-shell .station-key > [data-mechanism-face] {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  padding: 0 var(--sp-card);
+  border: 1px solid var(--station-line);
+  border-radius: calc(3px * var(--station-ui-scale));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--station-raised) 88%, var(--station-text) 12%), var(--station-raised));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 7%), 0 calc(3px * var(--station-ui-scale)) 0 rgb(0 0 0 / 55%);
+  font-family: var(--station-mono-font);
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: .05em;
+  white-space: nowrap;
+  transition: transform 65ms ease, box-shadow 65ms ease, border-color 65ms ease;
+}
+
+.station-shell .station-key:active:not(.station-key-engaged) > [data-mechanism-face] {
+  transform: translateY(calc(2px * var(--station-ui-scale)));
+  box-shadow: inset 0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 45%), 0 1px 0 rgb(0 0 0 / 60%);
+}
+
+.station-shell .station-key-engaged { color: var(--station-text); }
+
+.station-shell .station-key-engaged > [data-mechanism-face] {
+  transform: translateY(calc(3px * var(--station-ui-scale)));
+  border-color: color-mix(in srgb, var(--control-active) 72%, var(--station-line));
+  background: color-mix(in srgb, var(--control-active) 22%, var(--station-raised));
+  box-shadow: inset 0 calc(2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(0 0 0 / 55%), 0 0 0 rgb(0 0 0 / 0%);
+}
+
+.station-shell .station-key:focus-visible {
+  outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent);
+  outline-offset: calc(2px * var(--station-ui-scale));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .station-shell .station-key > [data-mechanism-face] { transition: none; }
+  .station-shell .station-key:active > [data-mechanism-face],
+  .station-shell .station-key-engaged > [data-mechanism-face] { transform: none; }
+}
+
+/* ---- R5. Label roles in use --------------------------------------------- */
+.station-shell .station-label-section {
+  color: var(--label-section-color);
+  font-size: var(--label-section);
+  font-weight: 600;
+  letter-spacing: .05em;
+}
+
+.station-shell .station-label-param {
+  color: var(--station-text-muted);
+  font-size: var(--label-param);
+  /* TYPOGRAPHY_BIBLE.md §6 LEVEL B: parameter labels must not be bold. Dense
+     control groups turn to mud when every legend competes. */
+  font-weight: 500;
+  letter-spacing: .04em;
+}
+
+.station-shell .station-value {
+  color: var(--station-text);
+  font-size: var(--label-value);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- R4. Parameter grid --------------------------------------------------
+   Sliders never carry a width of their own: they fill a cell from an equal
+   N-up grid, so a card's tracks all end on the same line and the ragged edge
+   disappears. N=1 is not offered - a single full-bleed slider is the shape
+   that produced the 277px DETUNE track - and a 1fr cell is never paired with
+   a fixed narrow one. */
+.station-shell .station-params {
+  display: grid;
+  gap: var(--sp-group) var(--sp-group);
+  align-items: end;
+}
+
+.station-shell .station-params-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.station-shell .station-params-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.station-shell .station-params-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+/* An enumerated select is as wide as its options need and no wider. The
+   88px floor keeps a two-character value (2, 4, 8) from collapsing into a
+   chevron with nothing beside it. */
+.station-shell .station-select-enum {
+  width: fit-content;
+  min-width: calc(88px * var(--station-ui-scale));
+  max-width: 100%;
+}
+
+/* The exception R4 allows: one identity select per screen, holding a name
+   rather than a value. Capped rather than stretched. */
+.station-shell .station-select-name {
+  width: 100%;
+  max-width: calc(220px * var(--station-ui-scale));
+}

@@ -1,80 +1,127 @@
 .synth-workspace {
-  margin-top: calc(16px * var(--station-ui-scale));
-  padding: calc(14px * var(--station-ui-scale));
+  margin-top: var(--sp-group);
+  padding: var(--sp-card);
   border: 1px solid var(--station-line);
   border-radius: calc(6px * var(--station-ui-scale));
   background: var(--station-panel);
 }
 
-.synth-back-row {
-  margin-bottom: calc(10px * var(--station-ui-scale));
+/* Context line, then the patch name with BACK and PATCH beside it, with the
+   audition trigger held at the right across both rows. The separate BACK row
+   above the heading is gone: it was a full-size control for a tier-3 action. */
+.synth-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: 'eyebrow audition' 'identity audition';
+  gap: var(--sp-hair) var(--sp-group);
+  align-items: center;
+  padding-bottom: var(--sp-tight);
 }
 
-.synth-heading {
-  display: flex;
+.synth-heading > .eyebrow {
+  grid-area: eyebrow;
+  overflow: hidden;
+  color: var(--label-section-color);
+  font-size: var(--label-section);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.synth-heading-identity {
+  grid-area: identity;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--sp-group);
   align-items: center;
-  justify-content: space-between;
-  gap: calc(12px * var(--station-ui-scale));
-  padding: 0 0 calc(12px * var(--station-ui-scale));
-  border-bottom: 1px solid var(--station-line);
+  min-width: 0;
+}
+
+.synth-heading-keys {
+  display: grid;
+  grid-auto-flow: column;
+  gap: var(--sp-tight);
 }
 
 .synth-heading h2 {
-  margin: calc(3px * var(--station-ui-scale)) 0 calc(2px * var(--station-ui-scale));
-  font-size: 1rem;
+  overflow: hidden;
+  margin: var(--sp-hair) 0 0;
+  font-size: var(--label-identity);
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .synth-heading p {
   margin: 0;
 }
 
-.synth-heading p:not(.eyebrow) {
-  color: var(--station-text-muted);
-  font-family: var(--station-mono-font);
-  font-size: .52rem;
-  letter-spacing: .06em;
-}
-
 .synth-audition {
-  width: calc(30px * var(--station-ui-scale));
-  min-width: calc(30px * var(--station-ui-scale));
-  height: calc(30px * var(--station-ui-scale));
-  min-height: calc(30px * var(--station-ui-scale));
+  grid-area: audition;
+  width: var(--tier-1-face);
+  min-width: var(--tier-1-face);
+  height: var(--tier-1-face);
+  min-height: var(--tier-1-face);
   flex: 0 0 auto;
   user-select: none;
   -webkit-user-select: none;
 }
 
+/* Storage lives behind the PATCH latch, the same as ZOLA-X. */
+.synth-patch-panel {
+  margin-top: var(--sp-group);
+}
+
+.synth-patch-panel .user-synth-presets { margin-top: 0; }
+.synth-patch-panel .user-synth-preset-picker { font-size: var(--label-section); font-weight: 600; }
+.synth-patch-panel .user-synth-preset-picker select { min-height: var(--tier-2-face); }
+.synth-patch-panel .user-synth-preset-actions { grid-template-columns: repeat(3, minmax(calc(44px * var(--station-ui-scale)), auto)); }
+.synth-patch-panel .user-synth-preset-actions button { min-height: var(--tier-3-hit); font-size: var(--label-section); font-weight: 500; }
+
 .synth-oscillators {
   display: grid;
+  gap: var(--sp-sec);
+  margin-top: var(--sp-group);
 }
 
+/* No rule line between oscillators: the section marking and the wider gap
+   above it already say where one group ends. A hairline here cost its own
+   clearance above and below, three times over. */
 .synth-oscillator-row {
   display: grid;
-  grid-template-columns: calc(42px * var(--station-ui-scale)) minmax(0, 1fr);
-  gap: calc(10px * var(--station-ui-scale));
-  align-items: center;
+  gap: var(--sp-tight);
   min-width: 0;
-  padding: calc(10px * var(--station-ui-scale)) 0;
-  border-bottom: 1px solid var(--station-line);
 }
 
+/* A scope label, which COLOR_BIBLE.md lets carry the workspace accent - it
+   keeps its colour and only loses the size it did not need. */
 .synth-oscillator-row > strong {
   color: var(--station-accent);
-  font-size: .58rem;
+  font-size: var(--label-section);
+  font-weight: 600;
   letter-spacing: .08em;
 }
 
-.synth-oscillator-controls {
+/* R4: the wave name takes the measure, the octave takes what it needs. The
+   old track list paired a 1fr cell with a fixed 48px one, which is what left
+   DETUNE on a 277px track and LEVEL on 47px in the same row. */
+.synth-oscillator-selects {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) calc(50px * var(--station-ui-scale)) minmax(0, 1fr) minmax(0, 1fr);
-  gap: calc(8px * var(--station-ui-scale));
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--sp-group);
   align-items: end;
   min-width: 0;
 }
 
-.synth-oscillator-row-sub .synth-oscillator-controls {
-  grid-template-columns: minmax(0, 1.15fr) calc(50px * var(--station-ui-scale)) minmax(0, 1fr);
+.synth-oscillator-row-sub .synth-oscillator-selects {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+.synth-oscillator-ranges {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-group);
+  align-items: end;
+  min-width: 0;
 }
 
 .synth-inline-control {
@@ -82,58 +129,69 @@
   min-width: 0;
   color: var(--station-text-muted);
   font-family: var(--station-mono-font);
-  font-size: .5rem;
-  font-weight: 700;
-  letter-spacing: .05em;
+  font-size: var(--label-param);
+  font-weight: 500;
+  letter-spacing: .04em;
 }
 
 .synth-inline-select {
-  gap: calc(4px * var(--station-ui-scale));
+  gap: var(--sp-hair);
 }
 
 .synth-inline-control select {
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
-  height: calc(28px * var(--station-ui-scale));
-  padding: 0 calc(5px * var(--station-ui-scale));
+  height: var(--tier-2-face);
+  padding: 0 var(--sp-tight);
   border: 1px solid var(--station-line);
   border-radius: calc(4px * var(--station-ui-scale));
   color: var(--station-text);
   background: var(--station-raised);
   font: inherit;
-  font-size: .58rem;
+  font-size: var(--label-value);
+}
+
+/* An octave is five options wide at most, so it is sized by its content. */
+.synth-oscillator-selects > .synth-inline-select:nth-child(2) select {
+  width: fit-content;
+  min-width: calc(52px * var(--station-ui-scale));
 }
 
 .synth-inline-range {
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: calc(3px * var(--station-ui-scale)) calc(6px * var(--station-ui-scale));
+  gap: var(--sp-hair) var(--sp-group);
   width: 100%;
   min-width: 0;
 }
 
 .synth-inline-range output {
   color: var(--station-text);
-  font-size: .52rem;
+  font-size: var(--label-value);
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
 
-.synth-inline-range input {
+/* Same twelve pixels of air around the cap as ZOLA-X had; the cap and the
+   printed track are untouched. */
+.synth-inline-range input[type="range"] {
   box-sizing: border-box;
   grid-column: 1 / -1;
   display: block;
-  width: calc(100% - calc(4px * var(--station-ui-scale)));
+  width: calc(100% - var(--sp-tight));
   min-width: 0;
-  max-width: calc(100% - calc(4px * var(--station-ui-scale)));
-  margin-inline: calc(2px * var(--station-ui-scale));
+  max-width: calc(100% - var(--sp-tight));
+  height: calc(24px * var(--station-ui-scale));
+  min-height: 0;
+  margin-inline: var(--sp-hair);
 }
 
 .synth-display-hint {
-  margin: calc(9px * var(--station-ui-scale)) 0 0;
-  color: var(--station-text-muted);
+  margin: var(--sp-group) 0 0;
+  color: var(--label-section-color);
   font-family: var(--station-mono-font);
-  font-size: .48rem;
+  font-size: var(--label-section);
   letter-spacing: .05em;
   text-align: right;
 }
@@ -248,21 +306,14 @@
   text-align: right;
 }
 
+/* At the 320px floor the two utility keys leave the patch name too narrow to
+   read beside them, so they drop to their own line under it. */
+@media (max-width: 360px) {
+  .synth-heading-identity { grid-template-columns: minmax(0, 1fr); }
+  .synth-heading-keys { justify-content: start; }
+}
+
 @media (max-width: 390px) {
-  .synth-workspace {
-    padding: calc(12px * var(--station-ui-scale));
-  }
-
-  .synth-oscillator-row {
-    grid-template-columns: 1fr;
-    gap: calc(6px * var(--station-ui-scale));
-  }
-
-  .synth-oscillator-controls,
-  .synth-oscillator-row-sub .synth-oscillator-controls {
-    grid-template-columns: minmax(0, 1fr) calc(48px * var(--station-ui-scale));
-  }
-
   .synth-display-hint {
     text-align: left;
   }

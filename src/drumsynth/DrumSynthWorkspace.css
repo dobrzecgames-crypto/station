@@ -1,27 +1,53 @@
 .drumsynth-workspace {
-  margin-top: calc(16px * var(--station-ui-scale));
-  padding: calc(14px * var(--station-ui-scale));
+  margin-top: var(--sp-tight);
+  padding: var(--sp-card);
   border: 1px solid var(--station-line);
   border-radius: calc(6px * var(--station-ui-scale));
   background: var(--station-panel);
 }
 
-.drumsynth-back-row {
-  margin-bottom: calc(10px * var(--station-ui-scale));
+/* Context line, then the voice name with BACK beside it, the trigger held at
+   the right across both. No rule line under it and no separate BACK row. */
+.drumsynth-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: 'eyebrow trigger' 'identity trigger';
+  gap: var(--sp-hair) var(--sp-group);
+  align-items: center;
+  padding-bottom: var(--sp-tight);
 }
 
-.drumsynth-heading {
-  display: flex;
+.drumsynth-heading > .eyebrow {
+  grid-area: eyebrow;
+  overflow: hidden;
+  color: var(--label-section-color);
+  font-size: var(--label-section);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.drumsynth-heading-identity {
+  grid-area: identity;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--sp-group);
   align-items: center;
-  justify-content: space-between;
-  gap: calc(12px * var(--station-ui-scale));
-  padding: 0 0 calc(12px * var(--station-ui-scale));
-  border-bottom: 1px solid var(--station-line);
+  min-width: 0;
+}
+
+.drumsynth-heading-keys {
+  display: grid;
+  grid-auto-flow: column;
+  gap: var(--sp-tight);
 }
 
 .drumsynth-heading h2 {
-  margin: calc(3px * var(--station-ui-scale)) 0 0;
-  font-size: 1rem;
+  overflow: hidden;
+  margin: var(--sp-hair) 0 0;
+  font-size: var(--label-identity);
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .drumsynth-heading p {
@@ -29,12 +55,13 @@
 }
 
 .drumsynth-trigger {
+  grid-area: trigger;
   display: grid;
   place-items: center;
-  width: calc(44px * var(--station-ui-scale));
-  min-width: calc(44px * var(--station-ui-scale));
-  height: calc(44px * var(--station-ui-scale));
-  min-height: calc(44px * var(--station-ui-scale));
+  width: var(--tier-1-face);
+  min-width: var(--tier-1-face);
+  height: var(--tier-1-face);
+  min-height: var(--tier-1-face);
   flex: 0 0 auto;
   padding: 0;
   border: 0;
@@ -61,22 +88,23 @@
   opacity: .45;
 }
 
+/* Tier 2: this chooses what the panel below is editing. */
 .drumsynth-instrument-switch {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: calc(6px * var(--station-ui-scale));
-  margin-top: calc(12px * var(--station-ui-scale));
+  gap: var(--sp-tight);
+  margin-top: var(--sp-group);
 }
 
 .drumsynth-instrument-button {
-  min-height: calc(34px * var(--station-ui-scale));
+  min-height: var(--tier-2-face);
   border: 1px solid var(--station-line);
   border-radius: calc(4px * var(--station-ui-scale));
   color: var(--station-text-muted);
   background: var(--station-raised);
   font-family: var(--station-mono-font);
-  font-size: .58rem;
-  font-weight: 700;
+  font-size: .55rem;
+  font-weight: 600;
   letter-spacing: .05em;
   cursor: pointer;
 }
@@ -92,22 +120,26 @@
   border-color: var(--station-accent);
 }
 
+/* Tier 3: a starting point is picked once, not played. Five names in one
+   row of five - the 3-up variant below 390px put three on one line and two
+   on the next, beside an empty third cell. Every name is six characters or
+   fewer, so a 66px cell holds them. */
 .drumsynth-preset-row {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: calc(5px * var(--station-ui-scale));
-  margin-top: calc(12px * var(--station-ui-scale));
+  gap: var(--sp-tight);
+  margin-top: var(--sp-group);
 }
 
 .drumsynth-preset-button {
-  min-height: calc(30px * var(--station-ui-scale));
-  padding: 0 calc(2px * var(--station-ui-scale));
+  min-height: var(--tier-3-hit);
+  padding: 0 var(--sp-hair);
   border: 1px solid var(--station-line);
   border-radius: calc(4px * var(--station-ui-scale));
   color: var(--station-text-muted);
   background: var(--station-raised);
   font-family: var(--station-mono-font);
-  font-size: .5rem;
+  font-size: var(--label-section);
   letter-spacing: .03em;
   cursor: pointer;
 }
@@ -119,59 +151,70 @@
   outline: none;
 }
 
+/* Eight parameters per voice used to stand one per row at full width - eight
+   full-bleed tracks for eight percentages, and the single longest stretch of
+   wasted panel anywhere in the SYNTH family. Two columns, four full rows. */
+.drumsynth-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-group);
+  align-items: end;
+  margin-top: var(--sp-group);
+}
+
 .drumsynth-inline-range {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: calc(3px * var(--station-ui-scale)) calc(6px * var(--station-ui-scale));
+  gap: var(--sp-hair) var(--sp-tight);
   width: 100%;
   min-width: 0;
-  margin-top: calc(14px * var(--station-ui-scale));
   color: var(--station-text-muted);
   font-family: var(--station-mono-font);
-  font-size: .5rem;
-  font-weight: 700;
-  letter-spacing: .05em;
+  font-size: var(--label-param);
+  font-weight: 500;
+  letter-spacing: .04em;
 }
 
+/* R5: the value outranks its own legend. It is the part that moves. */
 .drumsynth-inline-range output {
   color: var(--station-text);
-  font-size: .52rem;
+  font-size: var(--label-value);
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
 
-.drumsynth-inline-range input {
+/* Same twelve pixels of air around the cap reclaimed as elsewhere; the cap
+   and the printed track are untouched. */
+.drumsynth-inline-range input[type="range"] {
   box-sizing: border-box;
   grid-column: 1 / -1;
   display: block;
-  width: calc(100% - calc(4px * var(--station-ui-scale)));
+  width: calc(100% - var(--sp-tight));
   min-width: 0;
-  max-width: calc(100% - calc(4px * var(--station-ui-scale)));
-  margin-inline: calc(2px * var(--station-ui-scale));
+  max-width: calc(100% - var(--sp-tight));
+  height: calc(24px * var(--station-ui-scale));
+  min-height: 0;
+  margin-inline: var(--sp-hair);
 }
 
-/* DUST is the one Vinyl-Dust-identity control - a faint separator and a
-   warmer readout tint set it apart as the optional texture layer, without
-   letting it dominate the seven musical parameters above it. */
-.drumsynth-inline-range-dust {
-  padding-top: calc(10px * var(--station-ui-scale));
-  border-top: 1px dashed color-mix(in srgb, var(--accent-drumsynth) 35%, var(--station-line));
-}
-
+/* DUST is the one Vinyl-Dust-identity control. Its dashed rule is gone with
+   every other separator (R7); the warmer readout tint carries the same
+   distinction without costing a line of clearance. */
 .drumsynth-inline-range-dust output {
   color: color-mix(in srgb, var(--accent-drumsynth) 65%, var(--station-text));
 }
 
 .drumsynth-add-to-pad {
   width: 100%;
-  min-height: calc(44px * var(--station-ui-scale));
-  margin-top: calc(16px * var(--station-ui-scale));
+  min-height: var(--tier-1-hit);
+  margin-top: var(--sp-sec);
   border: 0;
   border-radius: calc(6px * var(--station-ui-scale));
   color: var(--station-bg);
   background: linear-gradient(180deg, color-mix(in srgb, var(--station-accent) 88%, #000), var(--station-accent) 60%, color-mix(in srgb, var(--station-accent) 88%, #fff));
   font-family: var(--station-mono-font);
-  font-size: .68rem;
+  font-size: .62rem;
   font-weight: 700;
   letter-spacing: .06em;
   cursor: pointer;
@@ -182,12 +225,9 @@
   opacity: .45;
 }
 
-@media (max-width: 390px) {
-  .drumsynth-workspace {
-    padding: calc(12px * var(--station-ui-scale));
-  }
-
-  .drumsynth-preset-row {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
+/* At the 320px floor the utility key leaves the voice name too narrow to read
+   beside it, so it drops to its own line under it. */
+@media (max-width: 360px) {
+  .drumsynth-heading-identity { grid-template-columns: minmax(0, 1fr); }
+  .drumsynth-heading-keys { justify-content: start; }
 }

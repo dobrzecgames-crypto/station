@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { PadState } from '../pads/types'
 import { useDragSlider } from '../shell/useDragSlider'
+import { LatchKey, MomentaryKey } from '../shell/UtilityKey'
 import { UserSynthPresetControls } from '../synth-presets/UserSynthPresetControls'
 import { organicBassCutoffHz, organicBassDecaySeconds, organicBassGlideSeconds } from './organicBassOperations'
 import type { OrganicBassPatch } from './organicBassTypes'
@@ -23,6 +24,7 @@ interface OrganicBassWorkspaceProps {
 
 export function OrganicBassWorkspace(props: OrganicBassWorkspaceProps) {
   const { pad, patch } = props
+  const [patchPanelOpen, setPatchPanelOpen] = useState(false)
   const onReleaseRef = useRef(props.onRelease)
   onReleaseRef.current = props.onRelease
   useEffect(() => () => onReleaseRef.current(), [])
@@ -30,15 +32,14 @@ export function OrganicBassWorkspace(props: OrganicBassWorkspaceProps) {
 
   return (
     <section className="organic-bass-workspace" aria-label={`MONOGORG editor for ${pad.label}`}>
-      <div className="organic-bass-back-row">
-        <button className="mixer-toggle" type="button" onClick={props.onBack}>← BACK TO SYNTHS</button>
-      </div>
-
       <header className="organic-bass-heading">
-        <div>
-          <p className="eyebrow">MONOGORG / {pad.label}</p>
+        <p className="eyebrow">MONOGORG / {pad.label} / {props.usageCount} PAD{props.usageCount === 1 ? '' : 'S'} SHARE PATCH / MONO</p>
+        <div className="organic-bass-heading-identity">
           <h2>{patch.name}</h2>
-          <p>{props.usageCount} PAD{props.usageCount === 1 ? '' : 'S'} SHARE PATCH / MONO</p>
+          <div className="organic-bass-heading-keys">
+            <MomentaryKey label="← SYNTHS" ariaLabel="Back to synths" onClick={props.onBack} />
+            <LatchKey label="PATCH" engaged={patchPanelOpen} onClick={() => setPatchPanelOpen((current) => !current)} />
+          </div>
         </div>
         <button
           className="organic-bass-audition"
@@ -57,7 +58,9 @@ export function OrganicBassWorkspace(props: OrganicBassWorkspaceProps) {
         />
       </header>
 
-      <UserSynthPresetControls kind="monogorg" instrumentLabel="MONOGORG" patch={patch} onApply={props.onPatchChange} />
+      {patchPanelOpen && <div className="organic-bass-patch-panel station-card" aria-label="MONOGORG patch storage">
+        <UserSynthPresetControls kind="monogorg" instrumentLabel="MONOGORG" patch={patch} onApply={props.onPatchChange} />
+      </div>}
 
       <div className="organic-bass-controls">
         <BassControl label="SHAPE" value={patch.shape} format={percent} onChange={(shape) => change({ shape })} />

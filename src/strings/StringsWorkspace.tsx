@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { PadState } from '../pads/types'
 import { useDragSlider } from '../shell/useDragSlider'
+import { LatchKey, MomentaryKey } from '../shell/UtilityKey'
 import { UserSynthPresetControls } from '../synth-presets/UserSynthPresetControls'
 import { StringsDisplayLauncher } from './StringsDisplay'
 import { stringsCharacters, stringsOctaveLayers } from './stringsTypes'
@@ -27,6 +28,7 @@ interface StringsWorkspaceProps {
 
 export function StringsWorkspace(props: StringsWorkspaceProps) {
   const { pad, patch } = props
+  const [patchPanelOpen, setPatchPanelOpen] = useState(false)
   const onReleaseRef = useRef(props.onRelease)
   onReleaseRef.current = props.onRelease
 
@@ -58,14 +60,14 @@ export function StringsWorkspace(props: StringsWorkspaceProps) {
     />
 
     <section className="strings-workspace" aria-label={`STRINGS editor for ${pad.label}`}>
-      <div className="strings-back-row">
-        <button className="mixer-toggle" type="button" onClick={props.onBack}>← BACK TO SYNTHS</button>
-      </div>
       <header className="strings-heading">
-        <div>
-          <p className="eyebrow">STRINGS / {pad.label}</p>
+        <p className="eyebrow">STRINGS / {pad.label} / {props.usageCount} PAD{props.usageCount === 1 ? '' : 'S'} SHARE PATCH</p>
+        <div className="strings-heading-identity">
           <h2>{patch.name}</h2>
-          <p>{props.usageCount} PAD{props.usageCount === 1 ? '' : 'S'} SHARE PATCH</p>
+          <div className="strings-heading-keys">
+            <MomentaryKey label="← SYNTHS" ariaLabel="Back to synths" onClick={props.onBack} />
+            <LatchKey label="PATCH" engaged={patchPanelOpen} onClick={() => setPatchPanelOpen((current) => !current)} />
+          </div>
         </div>
         <button
           className="strings-audition"
@@ -84,7 +86,9 @@ export function StringsWorkspace(props: StringsWorkspaceProps) {
         />
       </header>
 
-      <UserSynthPresetControls kind="strings" instrumentLabel="STRINGS" patch={patch} onApply={props.onPatchChange} />
+      {patchPanelOpen && <div className="strings-patch-panel station-card" aria-label="STRINGS patch storage">
+        <UserSynthPresetControls kind="strings" instrumentLabel="STRINGS" patch={patch} onApply={props.onPatchChange} />
+      </div>}
 
       <div className="strings-starter-row">
         <InlineSelect
@@ -100,17 +104,17 @@ export function StringsWorkspace(props: StringsWorkspaceProps) {
           labels={octaveLayerSelectLabels}
           onChange={(octaveLayer) => change({ octaveLayer })}
         />
+        <InlineRange
+          label="OCTAVE MIX"
+          value={patch.octaveLayerMix}
+          min={0}
+          max={1}
+          step={0.01}
+          disabled={patch.octaveLayer === 'off'}
+          format={percent}
+          onChange={(octaveLayerMix) => change({ octaveLayerMix })}
+        />
       </div>
-      <InlineRange
-        label="OCTAVE MIX"
-        value={patch.octaveLayerMix}
-        min={0}
-        max={1}
-        step={0.01}
-        disabled={patch.octaveLayer === 'off'}
-        format={percent}
-        onChange={(octaveLayerMix) => change({ octaveLayerMix })}
-      />
 
       <p className="strings-display-hint">ATTACK / RELEASE / BRIGHTNESS / ENSEMBLE / VIBRATO / DETUNE / LEVEL / OCTAVE ARE IN THE SYSTEM DISPLAY — TAP MORE FOR BODY, MOTION, WIDTH, BOW, VIBRATO DELAY, WARMTH, SPACE</p>
     </section>

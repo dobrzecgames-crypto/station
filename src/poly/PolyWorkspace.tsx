@@ -64,8 +64,20 @@ export function PolyWorkspace(props: Props) {
   }
 
   return <section className="poly-workspace" aria-label={`ZOLA-X editor for ${props.pad.label}`}>
-    {/* The panel opens on its pages, not on its paperwork: the first thing
-        under the chassis is the thing you came here to press. */}
+    {/* The screen leads on every page - it is the thing you came here to
+        shape, and its top edge never moves when you switch pages, because
+        nothing above it ever changes. The bank, the sub-selector and the
+        patch latch are a control strip under the glass now, not paperwork
+        stacked above it. */}
+    {page === 'osc' && <PolyDisplay eyebrow={`${oscillatorKey === 'oscillator1' ? 'OSC 1' : 'OSC 2'} / ${wavetableLabel(oscillator.tableId)}`} value={`${Math.round(oscillator.position * 100)}% POSITION`}>
+      <WavetableVisual tableId={oscillator.tableId} position={oscillator.position} readWaveform={props.readWaveform} />
+    </PolyDisplay>}
+    {page === 'filter' && <PolyDisplay eyebrow={`${patch.filter.mode} FILTER`} value={frequency(patch.filter.cutoffHz)}><FilterVisual mode={patch.filter.mode} cutoffHz={patch.filter.cutoffHz} resonance={patch.filter.resonance} /></PolyDisplay>}
+    {page === 'env' && <PolyDisplay eyebrow={`${envelopeLabels[envelopeKey]} ENVELOPE`} value={`${seconds(envelope.attackSeconds)} ATTACK`}><EnvelopeVisual envelope={envelope} /></PolyDisplay>}
+    {page === 'mod' && <PolyDisplay eyebrow={`${sourceLabel(modSource)} / MODULATION`} value={`${activeRoutes.length} ACTIVE ${activeRoutes.length === 1 ? 'ROUTE' : 'ROUTES'}`}>
+      {modSource === 'lfo1' || modSource === 'lfo2' ? <LfoVisual value={patch[modSource]} /> : modSource === 'modEnv' ? <EnvelopeVisual envelope={patch.modEnvelope} /> : <PerformanceModVisual source={modSource} />}
+    </PolyDisplay>}
+
     <SectionBank page={page} onSelect={(item) => { setPage(item); setRoutePickerOpen(false) }} />
 
     {/* The sub-selector is as wide as its own words, which left most of this
@@ -94,9 +106,6 @@ export function PolyWorkspace(props: Props) {
 
     <div className="poly-editor-panel">
       {page === 'osc' && <>
-        <PolyDisplay eyebrow={`${oscillatorKey === 'oscillator1' ? 'OSC 1' : 'OSC 2'} / ${wavetableLabel(oscillator.tableId)}`} value={`${Math.round(oscillator.position * 100)}% POSITION`}>
-          <WavetableVisual tableId={oscillator.tableId} position={oscillator.position} readWaveform={props.readWaveform} />
-        </PolyDisplay>
         <div className="poly-osc-selects">
           <label className="poly-table"><span>TABLE</span><select value={oscillator.tableId} onChange={(event) => change({ [oscillatorKey]: { ...oscillator, tableId: event.target.value } })}>{polyWavetableBank.map((item) => <option value={item.id} key={item.id}>{item.family} / {item.name}</option>)}</select></label>
           <label className="poly-select-control"><span>UNISON</span><select value={oscillator.unison} onChange={(event) => change({ [oscillatorKey]: { ...oscillator, unison: Number(event.target.value) as PolyOscillatorState['unison'] } })}>{polyUnisonCounts.map((count) => <option value={count} key={count}>{count}</option>)}</select></label>
@@ -124,12 +133,10 @@ export function PolyWorkspace(props: Props) {
       </>}
 
       {page === 'filter' && <>
-        <PolyDisplay eyebrow={`${patch.filter.mode} FILTER`} value={frequency(patch.filter.cutoffHz)}><FilterVisual mode={patch.filter.mode} cutoffHz={patch.filter.cutoffHz} resonance={patch.filter.resonance} /></PolyDisplay>
         <div className="poly-control-grid poly-filter-controls"><Control label="CUTOFF" value={patch.filter.cutoffHz} min={20} max={20000} step={1} onChange={(cutoffHz) => change({ filter: { ...patch.filter, cutoffHz } })} format={frequency} /><Control label="RESONANCE" value={patch.filter.resonance} min={.5} max={20} step={.1} onChange={(resonance) => change({ filter: { ...patch.filter, resonance } })} format={(value) => value.toFixed(1)} /><Control label="DRIVE" value={patch.filter.drive} onChange={(drive) => change({ filter: { ...patch.filter, drive } })} format={percent} /><Control label="ENV AMOUNT" value={patch.filter.envelopeAmountSemitones} min={-60} max={60} step={1} onChange={(envelopeAmountSemitones) => change({ filter: { ...patch.filter, envelopeAmountSemitones } })} format={(value) => `${value > 0 ? '+' : ''}${value.toFixed(0)} st`} /><Control label="KEYTRACK" value={patch.filter.keytrack} onChange={(keytrack) => change({ filter: { ...patch.filter, keytrack } })} format={percent} /><Control label="VOICE GATE" value={patch.gate} min={.05} max={2} step={.01} onChange={(gate) => change({ gate })} format={(value) => `${value.toFixed(2)}×`} /></div>
       </>}
 
       {page === 'env' && <>
-        <PolyDisplay eyebrow={`${envelopeLabels[envelopeKey]} ENVELOPE`} value={`${seconds(envelope.attackSeconds)} ATTACK`}><EnvelopeVisual envelope={envelope} /></PolyDisplay>
         <EnvelopeControls value={envelope} onChange={(value) => change({ [envelopeKey]: value })} />
       </>}
 
@@ -138,9 +145,6 @@ export function PolyWorkspace(props: Props) {
             two rows by where a source comes from, so both halves are the same
             family of part and only one lamp is lit across the pair. */}
         <div className="poly-performance-sources"><span>PERFORMANCE</span><ModeSelector label="Performance modulation source" options={performanceModSources} selected={performanceModSources.includes(modSource) ? modSource : null} labelFor={sourceLabel} onSelect={(source) => { setModSource(source); setRoutePickerOpen(false) }} /></div>
-        <PolyDisplay eyebrow={`${sourceLabel(modSource)} / MODULATION`} value={`${activeRoutes.length} ACTIVE ${activeRoutes.length === 1 ? 'ROUTE' : 'ROUTES'}`}>
-          {modSource === 'lfo1' || modSource === 'lfo2' ? <LfoVisual value={patch[modSource]} /> : modSource === 'modEnv' ? <EnvelopeVisual envelope={patch.modEnvelope} /> : <PerformanceModVisual source={modSource} />}
-        </PolyDisplay>
         {(modSource === 'lfo1' || modSource === 'lfo2') && <LfoControls value={patch[modSource]} onChange={(value) => change({ [modSource]: value })} />}
         {modSource === 'modEnv' && <EnvelopeControls value={patch.modEnvelope} onChange={(modEnvelope) => change({ modEnvelope })} />}
         <section className="poly-route-section" aria-label={`${sourceLabel(modSource)} destinations`}>

@@ -6,165 +6,14 @@
   background: var(--station-panel);
 }
 
-/* Context line, then the voice name with BACK beside it, the trigger held at
-   the right across both. No rule line under it and no separate BACK row. */
-.drumsynth-heading {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas: 'eyebrow trigger' 'identity trigger';
-  gap: var(--sp-hair) var(--sp-group);
-  align-items: center;
-  padding-bottom: var(--sp-tight);
-}
-
-.drumsynth-heading > .eyebrow {
-  grid-area: eyebrow;
-  overflow: hidden;
-  color: var(--label-section-color);
-  font-size: var(--label-section);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.drumsynth-heading-identity {
-  grid-area: identity;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--sp-group);
-  align-items: center;
-  min-width: 0;
-}
-
-.drumsynth-heading-keys {
-  display: grid;
-  grid-auto-flow: column;
-  gap: var(--sp-tight);
-}
-
-.drumsynth-heading h2 {
-  overflow: hidden;
-  margin: var(--sp-hair) 0 0;
-  font-size: var(--label-identity);
-  font-weight: 600;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.drumsynth-heading p {
-  margin: 0;
-}
-
-.drumsynth-trigger {
-  grid-area: trigger;
-  display: grid;
-  place-items: center;
-  width: var(--tier-1-face);
-  min-width: var(--tier-1-face);
-  height: var(--tier-1-face);
-  min-height: var(--tier-1-face);
-  flex: 0 0 auto;
-  padding: 0;
-  border: 0;
-  border-radius: calc(8px * var(--station-ui-scale));
-  color: var(--station-bg);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--station-accent) 88%, #000), var(--station-accent) 60%, color-mix(in srgb, var(--station-accent) 88%, #fff));
-  cursor: pointer;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.drumsynth-trigger::before {
-  content: '';
-  width: 0;
-  height: 0;
-  margin-left: calc(2px * var(--station-ui-scale));
-  border-style: solid;
-  border-width: calc(7px * var(--station-ui-scale)) 0 calc(7px * var(--station-ui-scale)) calc(11px * var(--station-ui-scale));
-  border-color: transparent transparent transparent currentColor;
-}
-
 .drumsynth-trigger:disabled {
   cursor: not-allowed;
   opacity: .45;
 }
 
-/* Tier 2: this chooses what the panel below is editing. */
-.drumsynth-instrument-switch {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--sp-tight);
-  margin-top: var(--sp-group);
-}
-
-.drumsynth-instrument-button {
-  min-height: var(--tier-2-face);
-  border: 1px solid var(--station-line);
-  border-radius: calc(4px * var(--station-ui-scale));
-  color: var(--station-text-muted);
-  background: var(--station-raised);
-  font-family: var(--station-mono-font);
-  font-size: .55rem;
-  font-weight: 600;
-  letter-spacing: .05em;
-  cursor: pointer;
-}
-
-.drumsynth-instrument-button[aria-pressed='true'] {
-  color: var(--station-bg);
-  border-color: color-mix(in srgb, var(--station-accent) 55%, var(--station-line));
-  background: linear-gradient(180deg, color-mix(in srgb, var(--station-accent) 88%, #000), var(--station-accent) 60%, color-mix(in srgb, var(--station-accent) 88%, #fff));
-}
-
-.drumsynth-instrument-button:focus-visible {
-  outline: none;
-  border-color: var(--station-accent);
-}
-
-/* Tier 3: a starting point is picked once, not played, so it stands aside
-   from the faders rather than above them. */
-.drumsynth-preset-row {
-  display: grid;
-  grid-auto-flow: row;
-  align-content: start;
-  gap: var(--sp-tight);
-  width: calc(64px * var(--station-ui-scale));
-}
-
-.drumsynth-preset-button {
-  min-height: var(--tier-3-hit);
-  padding: 0 var(--sp-hair);
-  border: 1px solid var(--station-line);
-  border-radius: calc(4px * var(--station-ui-scale));
-  color: var(--station-text-muted);
-  background: var(--station-raised);
-  font-family: var(--station-mono-font);
-  font-size: var(--label-section);
-  letter-spacing: .03em;
-  cursor: pointer;
-}
-
-.drumsynth-preset-button:hover,
-.drumsynth-preset-button:focus-visible {
-  color: var(--station-text);
-  border-color: color-mix(in srgb, var(--station-accent) 55%, var(--station-line));
-  outline: none;
-}
-
-/* Eight faders in four columns, with the starting points standing in the
-   column beside them instead of lying in a row above them. The voice reads
-   as one bank of controls rather than two stacked lists. */
-.drumsynth-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--sp-group);
-  margin-top: var(--sp-group);
-}
-
+/* One bank of eight across the full width, first thing on the panel. */
 .drumsynth-controls {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--sp-group) var(--sp-tight);
-  min-width: 0;
+  margin-top: 0;
 }
 
 /* DUST is the one Vinyl-Dust-identity control. Its warmer readout carries
@@ -174,29 +23,614 @@
   color: color-mix(in srgb, var(--accent-drumsynth) 78%, var(--station-text));
 }
 
-.drumsynth-add-to-pad {
-  width: 100%;
-  min-height: var(--tier-1-hit);
-  margin-top: var(--sp-sec);
-  border: 0;
-  border-radius: calc(6px * var(--station-ui-scale));
-  color: var(--station-bg);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--station-accent) 88%, #000), var(--station-accent) 60%, color-mix(in srgb, var(--station-accent) 88%, #fff));
-  font-family: var(--station-mono-font);
-  font-size: .62rem;
-  font-weight: 700;
-  letter-spacing: .06em;
-  cursor: pointer;
-}
-
 .drumsynth-workspace button:disabled {
   cursor: not-allowed;
   opacity: .45;
 }
 
-/* At the 320px floor the utility key leaves the voice name too narrow to read
-   beside it, so it drops to its own line under it. */
-@media (max-width: 360px) {
-  .drumsynth-heading-identity { grid-template-columns: minmax(0, 1fr); }
-  .drumsynth-heading-keys { justify-content: start; }
+
+/* ============================================================================
+   DRUM SYNTH control surface
+   ----------------------------------------------------------------------------
+   This is one model of panel, not a Station-wide control kit. Nothing below is
+   meant to be lifted into ZOLA-X, BASSIC or STRINGS - those are different
+   machines from the same maker and get their own construction. The shared DNA
+   is the palette, the type, the mechanical pressed states and the density; the
+   hardware itself is local to this file.
+
+   The material story: a matte dark panel with two shallow bays milled into it,
+   guide slots cut through the bay floor, moulded caps riding in the slots, and
+   legends printed on the surface. One light source, high and slightly front, so
+   every top edge catches and every bottom edge drops.
+   ========================================================================= */
+.drumsynth-workspace {
+  --ds-fader-length: calc(250px * var(--station-ui-scale));
+  --ds-slot-w: calc(9px * var(--station-ui-scale));
+  --ds-cap-w: calc(27px * var(--station-ui-scale));
+  --ds-cap-h: calc(21px * var(--station-ui-scale));
+  /* Panel materials, mixed once from the Vinyl Dust scene tokens so this
+     instrument stays inside the house palette while reading as its own
+     moulding. Dark plum-graphite rather than neutral black. */
+  /* The bay is a raised sub-plate, not a darker hollow: three near-black
+     levels stacked on each other read as nothing, so the slot needs a lighter
+     surface to be cut into. */
+  --ds-bay: color-mix(in srgb, var(--scene-panel) 74%, #3b313a);
+  --ds-cap-top: color-mix(in srgb, var(--scene-control) 78%, #4a3f46);
+  --ds-cap-bottom: color-mix(in srgb, var(--scene-recess) 70%, #1a151a);
+  --ds-print: color-mix(in srgb, var(--station-text-muted) 26%, transparent);
+  --ds-print-major: color-mix(in srgb, var(--station-text-muted) 48%, transparent);
+  /* The accent appears once per fader, as a hairline index on the cap. */
+  /* One index colour for the whole bank, taken from the SONG workspace
+     pigment. A console fader bank is one colour; the eight-pigment version
+     read as eight unrelated controls rather than one instrument. */
+  --ds-index: var(--accent-song);
+  --ds-travel: color-mix(in srgb, var(--accent-song) 26%, #05060a);
+}
+
+/* Each row of four sits in a shallow bay milled into the panel: a half-step
+   darker, the cut edge dropping at the top and catching light at the bottom.
+   No border box and no card - the group is read from the surface level, which
+   costs one pixel of padding rather than a frame. */
+.drumsynth-controls {
+  display: grid;
+  gap: var(--sp-tight);
+  min-width: 0;
+}
+
+.drumsynth-bay {
+  display: grid;
+  /* One bank of eight, not two stacked rows of four: each column comes out
+     narrower than a navigation key instead of heavier than one, and the
+     height freed by dropping a row goes into a single long throw. */
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: calc(1px * var(--station-ui-scale));
+  padding: var(--sp-tight) var(--sp-hair) var(--sp-hair);
+  border-radius: calc(3px * var(--station-ui-scale));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ds-bay) 88%, var(--station-text) 12%), var(--ds-bay) 34%, color-mix(in srgb, var(--ds-bay) 84%, #000));
+  box-shadow:
+    inset 0 1px 0 rgb(238 228 214 / 14%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(0 0 0 / 60%),
+    0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 45%);
+}
+
+.drumsynth-bay + .drumsynth-bay { margin-top: var(--sp-tight); }
+
+/* ---- Fader ---------------------------------------------------------------
+   Legend printed above, value under it, then the slot. Two lines are reserved
+   for the legend whether or not it needs them, so the bank does not shift when
+   RATTLE DECAY replaces TUNE. */
+.drumsynth-fader {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 0;
+  min-width: 0;
+  color: var(--station-text-muted);
+  font-family: var(--station-mono-font);
+  font-size: var(--label-section);
+  font-weight: 600;
+  letter-spacing: .05em;
+}
+
+.drumsynth-fader > span:first-child {
+  display: -webkit-box;
+  overflow: hidden;
+  height: calc(2lh);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--ds-print-major);
+  text-align: center;
+}
+
+/* One line, reserved, never wrapped: a value that breaks onto a second line
+   starts its slot lower than its neighbours and the bank stops being a bank. */
+.drumsynth-fader > output {
+  overflow: hidden;
+  height: calc(1lh);
+  color: color-mix(in srgb, var(--station-accent) 82%, var(--station-text));
+  font-size: var(--label-section);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ---- Guide slot ----------------------------------------------------------
+   A cut through the bay floor rather than a drawn line: dark interior, a lit
+   lip where the cut ends and a shadowed one where it begins, and a barely
+   there difference between the two side walls so the eye reads a real channel
+   instead of a stroked rectangle. */
+.drumsynth-fader-slot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: var(--ds-fader-length);
+  margin-top: var(--sp-hair);
+}
+
+.drumsynth-fader-slot::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: var(--ds-slot-w);
+  border-radius: calc(5px * var(--station-ui-scale));
+  background: linear-gradient(180deg, #050609, #0a0b10 46%, #06070a);
+  /* One lit lip where the cut ends, one dark line where it begins, and the
+     interior falling away between them. */
+  box-shadow:
+    inset 0 calc(2px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 95%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(238 228 214 / 9%),
+    inset calc(1px * var(--station-ui-scale)) 0 0 rgb(0 0 0 / 55%),
+    0 1px 0 rgb(238 228 214 / 7%);
+  transform: translateX(-50%);
+  content: "";
+}
+
+/* ---- Printed scale -------------------------------------------------------
+   Silkscreen on the panel, not a ruler: fine minor ticks with a longer,
+   brighter mark every fourth position, and no numerals - the value is already
+   printed above the slot. */
+.drumsynth-fader-slot::after {
+  position: absolute;
+  top: calc(var(--ds-cap-h) / 2);
+  bottom: calc(var(--ds-cap-h) / 2);
+  left: 50%;
+  width: calc(var(--ds-cap-w) + calc(14px * var(--station-ui-scale)));
+  background:
+    repeating-linear-gradient(180deg, var(--ds-print) 0 1px, transparent 1px 25%) left / calc(5px * var(--station-ui-scale)) 100% no-repeat,
+    repeating-linear-gradient(180deg, var(--ds-print) 0 1px, transparent 1px 25%) right / calc(5px * var(--station-ui-scale)) 100% no-repeat;
+  pointer-events: none;
+  transform: translateX(-50%);
+  content: "";
+}
+
+/* The lane is the slot, not the cell: Chromium centres a vertical thumb on
+   its input box, so a full-width input paints the cap off to one side of the
+   cut. Narrowing the input to the slot and widening only the hit area keeps
+   the cap on the groove it rides in. */
+.drumsynth-fader-slot input[type="range"] {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  writing-mode: vertical-rl;
+  direction: rtl;
+  /* App.css still rotates plain range inputs; rotating an already-vertical one
+     lays it back across the cell. */
+  transform: none;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.drumsynth-fader-slot input[type="range"]::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+
+
+/* ---- Cap -----------------------------------------------------------------
+   The cap is a real element positioned from the value, not the native thumb.
+   Chromium paints a vertical thumb from the lane centre rather than centred
+   on it, and no amount of offsetting survives a change of lane width - the
+   cap kept landing beside the cut instead of on it. The input below stays
+   exactly as it was for input, keyboard and pointer capture; it simply no
+   longer paints anything.
+
+   Moulded from the same matte stock as the panel: a lit chamfer along the top
+   edge, four milled grips across the face, the body falling away underneath,
+   a dark chamfer at the bottom, and a shadow cast down the groove. One
+   hairline index in the Station accent is the only colour on the part. */
+.drumsynth-fader-cap {
+  position: absolute;
+  bottom: calc(var(--ds-pos, 0) * (100% - var(--ds-cap-h)));
+  left: 50%;
+  z-index: 2;
+  width: var(--ds-cap-w);
+  height: var(--ds-cap-h);
+  border-radius: calc(2px * var(--station-ui-scale));
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+/* The native thumb keeps the drag it always had and stops painting. */
+.drumsynth-fader-slot input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: calc(var(--ds-cap-w) + calc(10px * var(--station-ui-scale)));
+  height: var(--ds-cap-h);
+  margin: 0;
+  border: 0;
+  appearance: none;
+  background: transparent;
+  box-shadow: none;
+  cursor: ns-resize;
+}
+
+.drumsynth-fader-slot input[type="range"]::-moz-range-thumb {
+  width: calc(var(--ds-cap-w) + calc(10px * var(--station-ui-scale)));
+  height: var(--ds-cap-h);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  cursor: ns-resize;
+}
+
+
+
+.drumsynth-fader-slot input[type="range"]:disabled ~ .drumsynth-fader-cap {
+  --ds-index: var(--status-inactive);
+}
+
+.drumsynth-fader-slot input[type="range"]:focus-visible ~ .drumsynth-fader-cap {
+  outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent);
+  outline-offset: calc(1px * var(--station-ui-scale));
+}
+
+/* ---- Cap -----------------------------------------------------------------
+   The cap is a real element positioned from the value, not the native thumb.
+   Chromium paints a vertical thumb from the lane centre rather than centred
+   on it, and no amount of offsetting survives a change of lane width - the
+   cap kept landing beside the cut instead of on it. The input below stays
+   exactly as it was for input, keyboard and pointer capture; it simply no
+   longer paints anything.
+
+   Moulded from the same matte stock as the panel: a lit chamfer along the top
+   edge, four milled grips across the face, the body falling away underneath,
+   a dark chamfer at the bottom, and a shadow cast down the groove. One
+   hairline index in the Station accent is the only colour on the part. */
+.drumsynth-fader-cap {
+  position: absolute;
+  bottom: calc(var(--ds-pos, 0) * (100% - var(--ds-cap-h)));
+  left: 50%;
+  z-index: 2;
+  width: var(--ds-cap-w);
+  height: var(--ds-cap-h);
+  border-radius: calc(3px * var(--station-ui-scale));
+  background:
+    /* index line */
+    linear-gradient(180deg, transparent 0 44%, color-mix(in srgb, var(--ds-index) 55%, #000) 44% 46%, var(--ds-index) 46% 55%, transparent 55% 100%),
+    /* milled grips: a cut and its lit lower lip, repeated */
+    repeating-linear-gradient(
+      180deg,
+      transparent 0 calc(4px * var(--station-ui-scale)),
+      rgb(0 0 0 / 34%) calc(4px * var(--station-ui-scale)) calc(5.5px * var(--station-ui-scale)),
+      rgb(238 228 214 / 9%) calc(5.5px * var(--station-ui-scale)) calc(6.5px * var(--station-ui-scale))
+    ),
+    /* side chamfers */
+    linear-gradient(90deg, rgb(238 228 214 / 10%) 0 calc(2px * var(--station-ui-scale)), transparent calc(2px * var(--station-ui-scale)) calc(100% - calc(2px * var(--station-ui-scale))), rgb(0 0 0 / 42%) calc(100% - calc(2px * var(--station-ui-scale))) 100%),
+    /* body */
+    linear-gradient(180deg, var(--ds-cap-top) 0%, color-mix(in srgb, var(--ds-cap-top) 55%, var(--ds-cap-bottom)) 55%, var(--ds-cap-bottom) 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(238 228 214 / 26%),
+    inset 0 calc(-1.5px * var(--station-ui-scale)) 0 rgb(0 0 0 / 82%),
+    0 calc(4px * var(--station-ui-scale)) calc(6px * var(--station-ui-scale)) rgb(0 0 0 / 70%),
+    0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 60%);
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+/* The native thumb keeps the drag it always had and stops painting. */
+.drumsynth-fader-slot input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: calc(var(--ds-cap-w) + calc(10px * var(--station-ui-scale)));
+  height: var(--ds-cap-h);
+  margin: 0;
+  border: 0;
+  appearance: none;
+  background: transparent;
+  box-shadow: none;
+  cursor: ns-resize;
+}
+
+.drumsynth-fader-slot input[type="range"]::-moz-range-thumb {
+  width: calc(var(--ds-cap-w) + calc(10px * var(--station-ui-scale)));
+  height: var(--ds-cap-h);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  cursor: ns-resize;
+}
+
+.drumsynth-fader-slot input[type="range"]:disabled ~ .drumsynth-fader-cap {
+  --ds-index: var(--status-inactive);
+}
+
+.drumsynth-fader-slot input[type="range"]:focus-visible ~ .drumsynth-fader-cap {
+  outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent);
+  outline-offset: calc(1px * var(--station-ui-scale));
+}
+
+
+/* The value carries the same pigment, pulled most of the way back to the panel
+   text so eight readouts read as a tinted column and not as a rainbow. */
+.drumsynth-fader > output {
+  color: color-mix(in srgb, var(--ds-index) 72%, var(--station-text));
+}
+
+/* ---- Panel depth ---------------------------------------------------------
+   The face was a flat black field with parts sitting on it. It is now a
+   moulded plate: light entering from above, a lit top edge, the surface
+   falling away toward the bottom and a shadow line where the plate ends.
+   None of this costs a pixel of layout. */
+.drumsynth-workspace {
+  background:
+    radial-gradient(120% 80% at 50% -10%, rgb(238 228 214 / 5%), transparent 60%),
+    linear-gradient(180deg, color-mix(in srgb, var(--station-panel) 88%, var(--station-text) 6%), var(--station-panel) 34%, color-mix(in srgb, var(--station-panel) 90%, #000) 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(238 228 214 / 10%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(0 0 0 / 60%);
+}
+
+/* The bay reads as a plate screwed onto the face: it catches the same light
+   along its top edge, drops a real shadow onto the panel below it, and its
+   interior darkens toward the bottom where the slots run out. */
+.drumsynth-bay {
+  background:
+    linear-gradient(90deg, rgb(0 0 0 / 22%) 0%, transparent 12% 88%, rgb(0 0 0 / 22%) 100%),
+    linear-gradient(180deg, color-mix(in srgb, var(--ds-bay) 84%, var(--station-text) 16%), var(--ds-bay) 26%, color-mix(in srgb, var(--ds-bay) 80%, #000) 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(238 228 214 / 18%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(0 0 0 / 70%),
+    0 calc(2px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 55%),
+    0 1px 0 rgb(238 228 214 / 6%);
+}
+
+/* The groove is deepest where it is cut and lifts slightly toward the bottom,
+   which is what stops it reading as a printed rectangle. */
+.drumsynth-fader-slot::before {
+  /* The travelled part of the throw carries a dim line of the index colour,
+     the way a console fader shows where it has been. It is 26% of the pigment
+     against the slot floor, so it reads at a glance without lighting up. */
+  background:
+    linear-gradient(to top, var(--ds-travel) 0 calc(var(--ds-pos, 0) * 100%), transparent calc(var(--ds-pos, 0) * 100%) 100%),
+    linear-gradient(180deg, #050609, #0a0b10 52%, #06070a);
+  box-shadow:
+    inset 0 calc(3px * var(--station-ui-scale)) calc(6px * var(--station-ui-scale)) rgb(0 0 0 / 95%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(238 228 214 / 10%),
+    inset calc(1px * var(--station-ui-scale)) 0 0 rgb(0 0 0 / 60%),
+    inset calc(-1px * var(--station-ui-scale)) 0 0 rgb(238 228 214 / 4%),
+    0 1px 0 rgb(238 228 214 / 8%);
+}
+
+/* The cap picks up the same overhead light across its width, not only down its
+   height - a part lit on one axis only is what reads as printed rather than
+   moulded. */
+/* A console cap rather than a moulded knob: a flat matte face, one crisp
+   index line across it, and two fine grip cuts instead of a milled block.
+   The contrast across the body is deliberately low - precision parts are
+   even-toned, and it is the edges that carry the light. */
+.drumsynth-fader-cap {
+  background:
+    linear-gradient(180deg, transparent 0 45%, var(--ds-index) 45% 55%, transparent 55% 100%),
+    linear-gradient(180deg, transparent 0 22%, rgb(0 0 0 / 40%) 22% 24%, transparent 24% 76%, rgb(0 0 0 / 40%) 76% 78%, transparent 78% 100%),
+    linear-gradient(96deg, rgb(238 228 214 / 9%) 0%, transparent 44%, rgb(0 0 0 / 22%) 100%),
+    linear-gradient(90deg, rgb(238 228 214 / 14%) 0 1px, transparent 1px calc(100% - 1px), rgb(0 0 0 / 52%) calc(100% - 1px) 100%),
+    linear-gradient(180deg, color-mix(in srgb, var(--ds-cap-top) 88%, var(--ds-cap-bottom)) 0%, var(--ds-cap-bottom) 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(238 228 214 / 24%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(0 0 0 / 88%),
+    0 calc(4px * var(--station-ui-scale)) calc(7px * var(--station-ui-scale)) rgb(0 0 0 / 68%),
+    0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 70%);
+}
+
+/* ============================================================================
+   DRUM SYNTH lower panel
+   ----------------------------------------------------------------------------
+   The same material story as the fader bank above it: matte dark stock, cuts
+   and recesses in the panel, keycaps standing on their own shadow, one light
+   source high and slightly front. Accent appears as a marker, never as a
+   surface - a lit face the size of a button is a web CTA, a lit hairline on a
+   dark cap is a machine.
+
+   Composition is not one even row. The voice selector is a keycap pair seated
+   in a shared well, the audition key stands apart as a square, the way out is
+   a small utility key that does not compete with either, and the action key
+   spans its own line beneath them.
+   ========================================================================= */
+.drumsynth-footer {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: var(--sp-tight);
+  align-items: center;
+  margin-top: var(--sp-group);
+}
+
+/* Silkscreen: the machine's name printed on the panel beside its controls. */
+.drumsynth-footer > .eyebrow {
+  margin: 0;
+  color: var(--ds-print);
+  font-size: var(--label-section);
+  letter-spacing: .1em;
+  white-space: nowrap;
+}
+
+/* ---- Voice selector ------------------------------------------------------
+   Two caps seated in one well cut into the panel, sharing a single hairline
+   gap. The well is what makes them read as a selector rather than as two
+   tabs: they sit inside something, and the engaged one sits deeper. */
+.drumsynth-instrument-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  min-width: 0;
+  padding: calc(2px * var(--station-ui-scale));
+  border-radius: calc(4px * var(--station-ui-scale));
+  background: linear-gradient(180deg, #05060a, #0a0b11);
+  box-shadow:
+    inset 0 calc(2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(0 0 0 / 90%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(238 228 214 / 8%);
+}
+
+.drumsynth-instrument-button {
+  min-height: calc(30px * var(--station-ui-scale));
+  border: 0;
+  border-radius: calc(2px * var(--station-ui-scale));
+  color: var(--station-text-muted);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ds-cap-top) 88%, var(--ds-cap-bottom)) 0%, var(--ds-cap-bottom) 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(238 228 214 / 16%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(0 0 0 / 70%),
+    0 calc(2px * var(--station-ui-scale)) 0 rgb(0 0 0 / 55%);
+  font-family: var(--station-mono-font);
+  font-size: var(--label-section);
+  font-weight: 600;
+  letter-spacing: .06em;
+  cursor: pointer;
+  transition: transform 55ms var(--mechanism-hard-ease), box-shadow 55ms var(--mechanism-hard-ease), color 55ms linear;
+}
+
+/* Engaged is a mechanical fact before it is a colour: the cap has gone down
+   into the well, lost its stand-off and taken the shadow of the wall above
+   it. The accent is one hairline along its lower edge. */
+.drumsynth-instrument-button[aria-pressed='true'] {
+  transform: translateY(calc(2px * var(--station-ui-scale)));
+  color: var(--station-text);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ds-cap-top) 70%, var(--ds-cap-bottom)) 0%, var(--ds-cap-bottom) 100%);
+  box-shadow:
+    inset 0 calc(2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(0 0 0 / 62%),
+    inset 0 calc(-2px * var(--station-ui-scale)) 0 var(--ds-index),
+    0 0 0 rgb(0 0 0 / 0%);
+}
+
+.drumsynth-instrument-button:active:not([aria-pressed='true']) {
+  transform: translateY(calc(2px * var(--station-ui-scale)));
+  box-shadow:
+    inset 0 calc(2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(0 0 0 / 55%),
+    0 0 0 rgb(0 0 0 / 0%);
+}
+
+.drumsynth-instrument-button:focus-visible {
+  outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent);
+  outline-offset: calc(-2px * var(--station-ui-scale));
+}
+
+/* ---- Audition key --------------------------------------------------------
+   A square keycap of its own, not a coloured plane. Dark stock, real depth,
+   and the play mark carried by a small accent glyph rather than by lighting
+   the whole face. */
+.drumsynth-trigger {
+  display: grid;
+  place-items: center;
+  width: calc(38px * var(--station-ui-scale));
+  min-width: calc(38px * var(--station-ui-scale));
+  height: calc(34px * var(--station-ui-scale));
+  min-height: calc(34px * var(--station-ui-scale));
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: calc(3px * var(--station-ui-scale));
+  background:
+    linear-gradient(96deg, rgb(238 228 214 / 8%) 0%, transparent 46%, rgb(0 0 0 / 22%) 100%),
+    linear-gradient(180deg, color-mix(in srgb, var(--ds-cap-top) 92%, var(--ds-cap-bottom)) 0%, var(--ds-cap-bottom) 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(238 228 214 / 22%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(0 0 0 / 80%),
+    0 calc(3px * var(--station-ui-scale)) 0 rgb(0 0 0 / 62%),
+    0 calc(4px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 34%);
+  cursor: pointer;
+  transition: transform 55ms var(--mechanism-hard-ease), box-shadow 55ms var(--mechanism-hard-ease);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.drumsynth-trigger::before {
+  width: 0;
+  height: 0;
+  border-width: calc(6px * var(--station-ui-scale)) 0 calc(6px * var(--station-ui-scale)) calc(10px * var(--station-ui-scale));
+  border-style: solid;
+  border-color: transparent transparent transparent var(--station-accent);
+  content: '';
+}
+
+.drumsynth-trigger:active:not(:disabled) {
+  transform: translateY(calc(3px * var(--station-ui-scale)));
+  box-shadow:
+    inset 0 calc(2px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 62%),
+    0 0 0 rgb(0 0 0 / 0%);
+}
+
+.drumsynth-trigger:focus-visible {
+  outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent);
+  outline-offset: calc(2px * var(--station-ui-scale));
+}
+
+/* ---- Way out -------------------------------------------------------------
+   Navigation, not a function of the instrument, so it is the smallest key on
+   the panel and carries no accent at all. */
+.drumsynth-footer .station-key {
+  padding-bottom: calc(2px * var(--station-ui-scale));
+  min-height: calc(30px * var(--station-ui-scale));
+  font-size: calc(var(--label-section) * .94);
+}
+
+.drumsynth-footer .station-key > [data-mechanism-face] {
+  min-height: calc(24px * var(--station-ui-scale));
+  padding-inline: var(--sp-group);
+  border-color: color-mix(in srgb, var(--station-line) 70%, #000);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ds-cap-top) 62%, var(--ds-cap-bottom)), var(--ds-cap-bottom));
+  box-shadow:
+    inset 0 1px 0 rgb(238 228 214 / 10%),
+    0 calc(2px * var(--station-ui-scale)) 0 rgb(0 0 0 / 55%);
+}
+
+/* ---- Action key ----------------------------------------------------------
+   Wide because a thumb has to find it without looking, dark because a lit
+   surface that size is a dashboard CTA. The accent is a hairline along the
+   lower edge of the cap and nothing else, until the key is actually pressed -
+   then it goes down into the panel and the line brightens. */
+.drumsynth-add-to-pad {
+  width: 100%;
+  min-height: calc(42px * var(--station-ui-scale));
+  margin-top: var(--sp-tight);
+  border: 0;
+  border-radius: calc(3px * var(--station-ui-scale));
+  color: var(--station-text);
+  background:
+    linear-gradient(180deg, rgb(238 228 214 / 6%) 0%, transparent 34%),
+    linear-gradient(180deg, color-mix(in srgb, var(--ds-cap-top) 92%, var(--ds-cap-bottom)) 0%, var(--ds-cap-bottom) 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(238 228 214 / 20%),
+    inset 0 calc(-2px * var(--station-ui-scale)) 0 color-mix(in srgb, var(--station-accent) 72%, #000),
+    0 calc(3px * var(--station-ui-scale)) 0 rgb(0 0 0 / 62%),
+    0 calc(5px * var(--station-ui-scale)) calc(5px * var(--station-ui-scale)) rgb(0 0 0 / 32%);
+  font-family: var(--station-mono-font);
+  font-size: var(--label-param);
+  font-weight: 700;
+  letter-spacing: .14em;
+  cursor: pointer;
+  transition: transform 55ms var(--mechanism-hard-ease), box-shadow 55ms var(--mechanism-hard-ease);
+}
+
+.drumsynth-add-to-pad:active:not(:disabled) {
+  transform: translateY(calc(3px * var(--station-ui-scale)));
+  box-shadow:
+    inset 0 calc(2px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 58%),
+    inset 0 calc(-2px * var(--station-ui-scale)) 0 var(--station-accent),
+    0 0 0 rgb(0 0 0 / 0%);
+}
+
+.drumsynth-add-to-pad:focus-visible {
+  outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent);
+  outline-offset: calc(-3px * var(--station-ui-scale));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drumsynth-instrument-button,
+  .drumsynth-trigger,
+  .drumsynth-add-to-pad { transition: none; }
+  .drumsynth-instrument-button:active,
+  .drumsynth-instrument-button[aria-pressed='true'],
+  .drumsynth-trigger:active,
+  .drumsynth-add-to-pad:active { transform: none; }
 }

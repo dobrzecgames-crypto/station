@@ -1,6 +1,7 @@
+import type { CSSProperties } from 'react'
 import { useDragSlider } from '../shell/useDragSlider'
 import { MomentaryKey } from '../shell/UtilityKey'
-import { kickDecayToSeconds, kickPresetNames, kickTuneToHz, snareBodyDecayToSeconds, snarePresetNames, snareRattleDecayToSeconds, snareTuneToHz } from './drumSynthOperations'
+import { kickDecayToSeconds, kickTuneToHz, snareBodyDecayToSeconds, snareRattleDecayToSeconds, snareTuneToHz } from './drumSynthOperations'
 import type { KickPresetName, SnarePresetName } from './drumSynthOperations'
 import type { DrumInstrumentType, DrumKickPatch, DrumSnarePatch, DrumSynthState } from './drumSynthTypes'
 import './DrumSynthWorkspace.css'
@@ -38,14 +39,22 @@ export function DrumSynthWorkspace(props: DrumSynthWorkspaceProps) {
 
   return (
     <section className="drumsynth-workspace" aria-label={`DRUM SYNTH ${isSnare ? 'SNARE' : 'KICK'} editor`}>
-      <header className="drumsynth-heading">
+      {isSnare ? (
+        <SnareControls patch={drumSynth.snare} onPatchChange={props.onSnarePatchChange} />
+      ) : (
+        <KickControls patch={drumSynth.kick} onPatchChange={props.onKickPatchChange} />
+      )}
+
+      {/* Everything that is not a parameter sits on one line under the bank:
+          the machine's name, the voice selector that also states which voice
+          is loaded, the audition trigger and the way out. */}
+      <footer className="drumsynth-footer">
         <p className="eyebrow">DRUM SYNTH</p>
-        <div className="drumsynth-heading-identity">
-          <h2>{isSnare ? 'SNARE' : 'KICK'}</h2>
-          <div className="drumsynth-heading-keys">
-            <MomentaryKey label="← SYNTHS" ariaLabel="Back to synths" onClick={props.onBack} />
-          </div>
+        <div className="drumsynth-instrument-switch" role="group" aria-label="Choose a drum voice">
+          <button type="button" className="drumsynth-instrument-button" aria-pressed={!isSnare} onClick={() => props.onSelectInstrument('kick')}>KICK</button>
+          <button type="button" className="drumsynth-instrument-button" aria-pressed={isSnare} onClick={() => props.onSelectInstrument('snare')}>SNARE</button>
         </div>
+        <MomentaryKey label="← SYNTHS" ariaLabel="Back to synths" onClick={props.onBack} />
         <button
           className="drumsynth-trigger"
           type="button"
@@ -54,18 +63,7 @@ export function DrumSynthWorkspace(props: DrumSynthWorkspaceProps) {
           title="Tap to trigger"
           onClick={props.onTrigger}
         />
-      </header>
-
-      <div className="drumsynth-instrument-switch" role="group" aria-label="Choose a drum voice">
-        <button type="button" className="drumsynth-instrument-button" aria-pressed={!isSnare} onClick={() => props.onSelectInstrument('kick')}>KICK</button>
-        <button type="button" className="drumsynth-instrument-button" aria-pressed={isSnare} onClick={() => props.onSelectInstrument('snare')}>SNARE</button>
-      </div>
-
-      {isSnare ? (
-        <SnareControls patch={drumSynth.snare} onPatchChange={props.onSnarePatchChange} onPreset={props.onSnarePreset} />
-      ) : (
-        <KickControls patch={drumSynth.kick} onPatchChange={props.onKickPatchChange} onPreset={props.onKickPreset} />
-      )}
+      </footer>
 
       <button
         className="drumsynth-add-to-pad"
@@ -79,14 +77,13 @@ export function DrumSynthWorkspace(props: DrumSynthWorkspaceProps) {
   )
 }
 
-function KickControls({ patch, onPatchChange, onPreset }: {
+function KickControls({ patch, onPatchChange }: {
   patch: DrumKickPatch
   onPatchChange: (patch: DrumKickPatch) => void
-  onPreset: (name: KickPresetName) => void
 }) {
   const change = (changes: Partial<DrumKickPatch>) => onPatchChange({ ...patch, ...changes })
-  return <div className="drumsynth-body">
-    <div className="drumsynth-controls">
+  return <div className="drumsynth-controls">
+      <div className="drumsynth-bay">
       <InlineRange label="TUNE" value={patch.tune} format={(value) => `${Math.round(kickTuneToHz(value))} Hz`} onChange={(tune) => change({ tune })} />
       <InlineRange label="PUNCH" value={patch.punch} format={percent} onChange={(punch) => change({ punch })} />
       <InlineRange label="BODY" value={patch.body} format={percent} onChange={(body) => change({ body })} />
@@ -95,23 +92,17 @@ function KickControls({ patch, onPatchChange, onPreset }: {
       <InlineRange label="TONE" value={patch.tone} format={percent} onChange={(tone) => change({ tone })} />
       <InlineRange label="DRIVE" value={patch.drive} format={percent} onChange={(drive) => change({ drive })} />
       <InlineRange label="DUST" value={patch.dust} format={percent} dust onChange={(dust) => change({ dust })} />
-    </div>
-    <div className="drumsynth-preset-row" role="group" aria-label="Starting points">
-      {kickPresetNames.map((name) => (
-        <button key={name} type="button" className="drumsynth-preset-button" onClick={() => onPreset(name)}>{name}</button>
-      ))}
-    </div>
+      </div>
   </div>
 }
 
-function SnareControls({ patch, onPatchChange, onPreset }: {
+function SnareControls({ patch, onPatchChange }: {
   patch: DrumSnarePatch
   onPatchChange: (patch: DrumSnarePatch) => void
-  onPreset: (name: SnarePresetName) => void
 }) {
   const change = (changes: Partial<DrumSnarePatch>) => onPatchChange({ ...patch, ...changes })
-  return <div className="drumsynth-body">
-    <div className="drumsynth-controls">
+  return <div className="drumsynth-controls">
+      <div className="drumsynth-bay">
       <InlineRange label="TUNE" value={patch.tune} format={(value) => `${Math.round(snareTuneToHz(value))} Hz`} onChange={(tune) => change({ tune })} />
       <InlineRange label="BODY" value={patch.body} format={percent} onChange={(body) => change({ body })} />
       <InlineRange label="SNAP" value={patch.snap} format={percent} onChange={(snap) => change({ snap })} />
@@ -120,12 +111,7 @@ function SnareControls({ patch, onPatchChange, onPreset }: {
       <InlineRange label="RATTLE DECAY" value={patch.rattleDecay} format={(value) => `${snareRattleDecayToSeconds(value).toFixed(2)} s`} onChange={(rattleDecay) => change({ rattleDecay })} />
       <InlineRange label="TONE" value={patch.tone} format={percent} onChange={(tone) => change({ tone })} />
       <InlineRange label="DUST" value={patch.dust} format={percent} dust onChange={(dust) => change({ dust })} />
-    </div>
-    <div className="drumsynth-preset-row" role="group" aria-label="Starting points">
-      {snarePresetNames.map((name) => (
-        <button key={name} type="button" className="drumsynth-preset-button" onClick={() => onPreset(name)}>{name}</button>
-      ))}
-    </div>
+      </div>
   </div>
 }
 
@@ -140,12 +126,16 @@ function InlineRange({ label, value, format, dust, onChange }: {
   dust?: boolean
   onChange: (value: number) => void
 }) {
-  const drag = useDragSlider({ value, min: 0, max: 1, step: 0.01, onChange, focusLabel: label, formatValue: format })
-  return <label className={dust ? 'station-fader drumsynth-fader-dust' : 'station-fader'}>
+  /* The cap travels up and down, so the drag has to as well. Without this the
+     hook keeps its horizontal default and a vertical fader only responds to
+     sideways movement - MIX declares the same thing for its strip faders. */
+  const drag = useDragSlider({ value, min: 0, max: 1, step: 0.01, orientation: "vertical", onChange, focusLabel: label, formatValue: format })
+  return <label className={dust ? 'drumsynth-fader drumsynth-fader-dust' : 'drumsynth-fader'}>
     <span>{label}</span>
     <output>{format(value)}</output>
-    <span className="station-fader-slot">
+    <span className="drumsynth-fader-slot" style={{ '--ds-pos': value } as CSSProperties}>
       <input type="range" value={value} min={0} max={1} step={0.01} {...drag.inputProps} />
+      <span className="drumsynth-fader-cap" aria-hidden="true" />
     </span>
   </label>
 }

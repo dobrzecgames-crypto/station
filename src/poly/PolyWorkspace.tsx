@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import type { PadState } from '../pads/types'
 import { useDragSlider } from '../shell/useDragSlider'
-import { LatchKey, MomentaryKey } from '../shell/UtilityKey'
 import { UserSynthPresetControls } from '../synth-presets/UserSynthPresetControls'
 import { applyPolyFactoryPatch, polyFactoryPatches } from './polyPresets'
 import { clampModulationAmount } from './polyOperations'
@@ -67,7 +66,7 @@ export function PolyWorkspace(props: Props) {
   return <section className="poly-workspace" aria-label={`ZOLA-X editor for ${props.pad.label}`}>
     {/* The panel opens on its pages, not on its paperwork: the first thing
         under the chassis is the thing you came here to press. */}
-    <SelectorRow label="POLY section" className="poly-pages" options={(['osc', 'filter', 'env', 'mod'] as const)} selected={page} labelFor={(item) => pageLabels[item]} onSelect={(item) => { setPage(item); setRoutePickerOpen(false) }} />
+    <SectionBank page={page} onSelect={(item) => { setPage(item); setRoutePickerOpen(false) }} />
 
     {/* The sub-selector is as wide as its own words, which left most of this
         line empty. The way out, the patch latch and the audition key live in
@@ -75,15 +74,15 @@ export function PolyWorkspace(props: Props) {
         paperwork is gone entirely, since nothing about it changes while you
         play. */}
     <div className="poly-subrow">
-      {page === 'osc' && <SelectorRow label="Oscillator" className="poly-subpages" options={(['oscillator1', 'oscillator2'] as const)} selected={oscillatorKey} labelFor={(item) => item === 'oscillator1' ? 'OSC 1' : 'OSC 2'} onSelect={(item) => { setOscillatorKey(item); setOscillatorDetail(null) }} />}
-      {page === 'filter' && <SelectorRow label="Filter mode" className="poly-subpages" options={polyFilterModes} selected={patch.filter.mode} labelFor={(mode) => mode} onSelect={(mode) => change({ filter: { ...patch.filter, mode } })} />}
-      {page === 'env' && <SelectorRow label="Envelope" className="poly-subpages" options={(['ampEnvelope', 'filterEnvelope', 'modEnvelope'] as const)} selected={envelopeKey} labelFor={(item) => envelopeLabels[item]} onSelect={setEnvelopeKey} />}
-      {page === 'mod' && <SelectorRow label="Modulation source" className="poly-subpages" options={primaryModSources} selected={modSource} labelFor={sourceLabel} onSelect={(source) => { setModSource(source); setRoutePickerOpen(false) }} />}
+      {page === 'osc' && <ModeSelector label="Oscillator" className="poly-subpages" options={(['oscillator1', 'oscillator2'] as const)} selected={oscillatorKey} labelFor={(item) => item === 'oscillator1' ? 'OSC 1' : 'OSC 2'} onSelect={(item) => { setOscillatorKey(item); setOscillatorDetail(null) }} />}
+      {page === 'filter' && <ModeSelector label="Filter mode" className="poly-subpages" options={polyFilterModes} selected={patch.filter.mode} labelFor={(mode) => mode} onSelect={(mode) => change({ filter: { ...patch.filter, mode } })} />}
+      {page === 'env' && <ModeSelector label="Envelope" className="poly-subpages" options={(['ampEnvelope', 'filterEnvelope', 'modEnvelope'] as const)} selected={envelopeKey} labelFor={(item) => envelopeLabels[item]} onSelect={setEnvelopeKey} />}
+      {page === 'mod' && <ModeSelector label="Modulation source" className="poly-subpages" options={primaryModSources} selected={modSource} labelFor={sourceLabel} onSelect={(source) => { setModSource(source); setRoutePickerOpen(false) }} />}
       {/* One group, so that when FILTER's five-position switch pushes them onto
           a second line they travel together and stay against the right edge. */}
       <div className="poly-subrow-keys">
-        <MomentaryKey label="← SYNTHS" ariaLabel="Back to synths" onClick={props.onBack} />
-        <LatchKey label="PATCH" engaged={patchPanelOpen} onClick={() => setPatchPanelOpen((current) => !current)} />
+        <ActionKey label="← SYNTHS" ariaLabel="Back to synths" onClick={props.onBack} />
+        <ActionKey label="PATCH" expanded={patchPanelOpen} onClick={() => setPatchPanelOpen((current) => !current)} />
         <button className="poly-audition" type="button" disabled={!props.audioReady} aria-label="Hold to play ZOLA-X" onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); props.onTrigger() }} onPointerUp={props.onRelease} onPointerCancel={props.onRelease} onLostPointerCapture={props.onRelease} />
       </div>
     </div>
@@ -106,10 +105,14 @@ export function PolyWorkspace(props: Props) {
           <Control label="POSITION" value={oscillator.position} onChange={(position) => change({ [oscillatorKey]: { ...oscillator, position } })} format={percent} />
           <Control label="LEVEL" value={oscillator.level} onChange={(level) => change({ [oscillatorKey]: { ...oscillator, level } })} format={percent} />
         </div>
+        {/* Actions, not mode marks: these three open a working sub-panel, so
+            they take a key with real mass rather than a lamp. Tier 2 - one
+            step up from the utility keys on the sub-selector line, because
+            this is the bank a hand reaches for while editing an oscillator. */}
         <div className="poly-detail-keys" role="group" aria-label="Oscillator and output details">
-          <SelectorButton label="TUNE" tier="3" selected={oscillatorDetail === 'tune'} onClick={() => setOscillatorDetail('tune')} />
-          <SelectorButton label="SPREAD" tier="3" selected={oscillatorDetail === 'spread'} onClick={() => setOscillatorDetail('spread')} />
-          <SelectorButton label="OUTPUT" tier="3" selected={oscillatorDetail === 'output'} onClick={() => setOscillatorDetail('output')} />
+          <ActionKey label="TUNE" tier="2" engaged={oscillatorDetail === 'tune'} onClick={() => setOscillatorDetail('tune')} />
+          <ActionKey label="SPREAD" tier="2" engaged={oscillatorDetail === 'spread'} onClick={() => setOscillatorDetail('spread')} />
+          <ActionKey label="OUTPUT" tier="2" engaged={oscillatorDetail === 'output'} onClick={() => setOscillatorDetail('output')} />
         </div>
         {oscillatorDetail === 'tune' && <div className="poly-secondary-panel poly-secondary-panel-3" aria-label="Oscillator tuning"><Control label="OCTAVE" value={oscillator.octave} min={-2} max={2} step={1} onChange={(octave) => change({ [oscillatorKey]: { ...oscillator, octave } })} format={signed} /><Control label="SEMITONE" value={oscillator.semitone} min={-12} max={12} step={1} onChange={(semitone) => change({ [oscillatorKey]: { ...oscillator, semitone } })} format={signed} /><Control label="FINE" value={oscillator.fineCents} min={-100} max={100} step={1} onChange={(fineCents) => change({ [oscillatorKey]: { ...oscillator, fineCents } })} format={(value) => `${signed(value)} ct`} /></div>}
         {oscillatorDetail === 'spread' && <div className="poly-secondary-panel" aria-label="Oscillator spread"><Control label="DETUNE" value={oscillator.detuneCents} min={0} max={50} step={1} onChange={(detuneCents) => change({ [oscillatorKey]: { ...oscillator, detuneCents } })} format={(value) => `${value.toFixed(0)} ct`} /><Control label="WIDTH" value={oscillator.width} onChange={(width) => change({ [oscillatorKey]: { ...oscillator, width } })} format={percent} /></div>}
@@ -131,15 +134,18 @@ export function PolyWorkspace(props: Props) {
       </>}
 
       {page === 'mod' && <>
-        <div className="poly-performance-sources"><span>PERFORMANCE</span><SelectorRow label="Performance modulation source" options={performanceModSources} selected={performanceModSources.includes(modSource) ? modSource : null} labelFor={sourceLabel} onSelect={(source) => { setModSource(source); setRoutePickerOpen(false) }} /></div>
+        {/* The same five-way choice as the sub-selector line above, split over
+            two rows by where a source comes from, so both halves are the same
+            family of part and only one lamp is lit across the pair. */}
+        <div className="poly-performance-sources"><span>PERFORMANCE</span><ModeSelector label="Performance modulation source" options={performanceModSources} selected={performanceModSources.includes(modSource) ? modSource : null} labelFor={sourceLabel} onSelect={(source) => { setModSource(source); setRoutePickerOpen(false) }} /></div>
         <PolyDisplay eyebrow={`${sourceLabel(modSource)} / MODULATION`} value={`${activeRoutes.length} ACTIVE ${activeRoutes.length === 1 ? 'ROUTE' : 'ROUTES'}`}>
           {modSource === 'lfo1' || modSource === 'lfo2' ? <LfoVisual value={patch[modSource]} /> : modSource === 'modEnv' ? <EnvelopeVisual envelope={patch.modEnvelope} /> : <PerformanceModVisual source={modSource} />}
         </PolyDisplay>
         {(modSource === 'lfo1' || modSource === 'lfo2') && <LfoControls value={patch[modSource]} onChange={(value) => change({ [modSource]: value })} />}
         {modSource === 'modEnv' && <EnvelopeControls value={patch.modEnvelope} onChange={(modEnvelope) => change({ modEnvelope })} />}
         <section className="poly-route-section" aria-label={`${sourceLabel(modSource)} destinations`}>
-          <div className="poly-route-heading"><div><span>DESTINATIONS</span><strong>{sourceLabel(modSource)}</strong></div><button className="mixer-toggle" type="button" disabled={availableDestinations.length === 0} aria-expanded={routePickerOpen} onClick={() => setRoutePickerOpen((current) => !current)}>+ ROUTE</button></div>
-          {activeRoutes.length === 0 ? <p className="poly-empty-routes">NO ACTIVE ROUTES</p> : <div className="poly-active-routes">{activeRoutes.map((route) => <div className="poly-route" key={route.destination}><Control label={destinationLabel(route.destination)} value={route.amount} min={-1} max={1} step={.01} format={signedPercent} onChange={(amount) => updateRoute(route.destination, amount)} /><button className="poly-route-remove" type="button" aria-label={`Remove ${destinationLabel(route.destination)} route`} onClick={() => updateRoute(route.destination, 0)}>×</button></div>)}</div>}
+          <div className="poly-route-heading"><div><span>DESTINATIONS</span><strong>{sourceLabel(modSource)}</strong></div><ActionKey label="+ ROUTE" disabled={availableDestinations.length === 0} expanded={routePickerOpen} onClick={() => setRoutePickerOpen((current) => !current)} /></div>
+          {activeRoutes.length === 0 ? <p className="poly-empty-routes">NO ACTIVE ROUTES</p> : <div className="poly-active-routes">{activeRoutes.map((route) => <div className="poly-route" key={route.destination}><Control label={destinationLabel(route.destination)} value={route.amount} min={-1} max={1} step={.01} format={signedPercent} onChange={(amount) => updateRoute(route.destination, amount)} /><ActionKey label="×" ariaLabel={`Remove ${destinationLabel(route.destination)} route`} onClick={() => updateRoute(route.destination, 0)} /></div>)}</div>}
           {routePickerOpen && <label className="poly-route-picker"><span>ADD DESTINATION</span><select value="" onChange={(event) => { const destination = event.target.value as PolyModDestination; if (destination) updateRoute(destination, .25); setRoutePickerOpen(false) }}><option value="">SELECT…</option>{availableDestinations.map((destination) => <option key={destination} value={destination}>{destinationLabel(destination)}</option>)}</select></label>}
         </section>
       </>}
@@ -149,14 +155,89 @@ export function PolyWorkspace(props: Props) {
   </section>
 }
 
-function SelectorRow<T extends string>({ label, options, selected, labelFor, onSelect, className = '' }: { label: string; options: readonly T[]; selected: T | null; labelFor: (value: T) => string; onSelect: (value: T) => void; className?: string }) {
-  return <div className={`poly-selector-row ${className}`} role="group" aria-label={label}>{options.map((option) => <SelectorButton key={option} label={labelFor(option)} selected={selected === option} onClick={() => onSelect(option)} />)}</div>
+/* ---- Three families of hard part ------------------------------------------
+   The panel used to answer every question with the same key at two sizes: the
+   section it was on, which oscillator it was editing, and what SPREAD would
+   reveal all looked alike, so the instrument had to be read before it could be
+   used. It is three different pieces of hardware now, told apart by where each
+   one sits in the plate:
+
+     bank    sunk into it   - four faces flush inside one milled bay
+     key     standing on it - a slab on a hard drop and a contact shadow
+     mode    flush with it  - a lamp and a legend lying in a shallow trough
+
+   That order is also the order of consequence. The bank is the widest part on
+   the instrument and moves the whole panel under it; an action key does one
+   thing and carries the mass to say so; a mode position only reports which
+   member of the current section is live, so it takes no relief and no key face
+   at all. The hierarchy is legible before a word of it is.
+
+   None of the three carries [data-mechanism]. The shared grammar in index.css
+   paints one rest shadow and one engaged shadow for every family that opts in,
+   which is exactly the single voice this pass is undoing - and it loads after
+   this file, so opting in would mean fighting it at (0,4,0) on every rule.
+   These parts own their own depth instead, and repeat the parts of that
+   grammar that are not about material: focus, disabled and reduced motion. */
+
+/* The bank. Engaged is not a lit key - it is a key that has gone down and
+   changed material, to the matte floor of the bay, with the wall above casting
+   into it and a milled index groove cut under the legend. */
+function SectionBank({ page, onSelect }: { page: Page; onSelect: (page: Page) => void }) {
+  return <div className="poly-pages" role="group" aria-label="POLY section">
+    {(['osc', 'filter', 'env', 'mod'] as const).map((item) => <button
+      key={item}
+      type="button"
+      className="poly-page-key"
+      data-engaged={page === item}
+      aria-pressed={page === item}
+      onClick={() => onSelect(item)}
+    ><span className="poly-page-face">{pageLabels[item]}<span className="poly-lamp" aria-hidden="true" /></span></button>)}
+  </div>
 }
 
-/** Tier 2 by default: these choose what the panel below is editing. Detail
- *  keys that merely reveal an occasional sub-panel pass tier 3. */
-function SelectorButton({ label, selected, onClick, tier = '2' }: { label: string; selected: boolean; onClick: () => void; tier?: '2' | '3' }) {
-  return <button type="button" className={selected ? 'poly-selector-key poly-selector-key-active' : 'poly-selector-key'} data-tier={tier} data-mechanism="selector" data-engaged={selected} aria-pressed={selected} onClick={onClick}><span data-mechanism-face>{label}</span></button>
+/* A mode position: a lens and a legend lying in the same shallow cut the
+   shuttle guides run in, positions parted by a detent notch. The lamp is the
+   state - no fill, no coloured legend, no bloom around the lit one - and it
+   lights in the amber the screen already draws in, so the instrument has one
+   ink for information and one pigment for the play key.
+
+   The painted part is 7px across. The target is the whole row. */
+function ModeSelector<T extends string>({ label, options, selected, labelFor, onSelect, className = '' }: { label: string; options: readonly T[]; selected: T | null; labelFor: (value: T) => string; onSelect: (value: T) => void; className?: string }) {
+  return <div className={className ? `poly-modes ${className}` : 'poly-modes'} role="group" aria-label={label}>
+    {options.map((option) => <button
+      key={option}
+      type="button"
+      className="poly-mode"
+      data-engaged={selected === option}
+      aria-pressed={selected === option}
+      onClick={() => onSelect(option)}
+    ><span className="poly-lamp" aria-hidden="true" /><span className="poly-mode-legend">{labelFor(option)}</span></button>)}
+  </div>
+}
+
+/**
+ * An action key: a square-shouldered slab standing proud of the plate on a
+ * hard drop and a contact shadow, which is the same trick that makes the
+ * shuttle read as a part rather than as print. Engaged is the slab seated down
+ * into the plate, never a fill of colour.
+ *
+ * `lamp` is for a true binary state that has to be read while playing. A key
+ * that merely reveals a panel does not get one - the open panel says so
+ * already, and a lamp on every key would put the mode selectors' one signal
+ * back into general circulation.
+ */
+function ActionKey({ label, ariaLabel, tier = '3', engaged, expanded, lamp = false, disabled, onClick }: { label: string; ariaLabel?: string; tier?: '2' | '3'; engaged?: boolean; expanded?: boolean; lamp?: boolean; disabled?: boolean; onClick: () => void }) {
+  return <button
+    type="button"
+    className="poly-key"
+    data-tier={tier}
+    data-engaged={engaged ?? expanded ?? false}
+    aria-label={ariaLabel}
+    aria-pressed={engaged}
+    aria-expanded={expanded}
+    disabled={disabled}
+    onClick={onClick}
+  ><span className="poly-key-face">{lamp && <span className="poly-lamp" aria-hidden="true" />}{label}</span></button>
 }
 
 function PolyDisplay({ eyebrow, value, children }: { eyebrow: string; value: string; children: React.ReactNode }) {
@@ -375,9 +456,12 @@ function LfoControls({ value, onChange }: { value: PolyLfoState; onChange: (valu
   const change = (changes: Partial<PolyLfoState>) => onChange({ ...value, ...changes })
   return <div className="poly-lfo-editor">
     <label className="poly-select-control"><span>SHAPE</span><select value={value.shape} onChange={(event) => change({ shape: event.target.value as PolyLfoState['shape'] })}>{polyLfoShapes.map((shape) => <option value={shape} key={shape}>{shape.toUpperCase()}</option>)}</select></label>
-    <SelectorRow label="LFO timing mode" options={(['sync', 'free'] as const)} selected={value.mode} labelFor={(mode) => mode.toUpperCase()} onSelect={(mode) => change({ mode })} />
+    <ModeSelector label="LFO timing mode" options={(['sync', 'free'] as const)} selected={value.mode} labelFor={(mode) => mode.toUpperCase()} onSelect={(mode) => change({ mode })} />
     {value.mode === 'sync' ? <label className="poly-select-control"><span>DIVISION</span><select value={value.division} onChange={(event) => change({ division: event.target.value as PolyLfoState['division'] })}>{polyLfoDivisions.map((division) => <option value={division} key={division}>{division}</option>)}</select></label> : <Control label="RATE" value={value.rateHz} min={.01} max={30} step={.01} onChange={(rateHz) => change({ rateHz })} format={(rate) => `${rate.toFixed(2)} Hz`} />}
-    <button type="button" className={value.retrigger ? 'poly-latch poly-latch-active' : 'poly-latch'} aria-pressed={value.retrigger} onClick={() => change({ retrigger: !value.retrigger })}>RETRIGGER</button>
+    {/* The one key on the panel carrying a lamp: a true on/off that changes
+        the sound and has to be readable at a glance while playing, unlike the
+        reveal latches, whose state is the panel they opened. */}
+    <ActionKey label="RETRIGGER" tier="2" lamp engaged={value.retrigger} onClick={() => change({ retrigger: !value.retrigger })} />
     <Control label="PHASE" value={value.phase} onChange={(phase) => change({ phase })} format={percent} />
     <Control label="FADE IN" value={value.fadeInSeconds} min={0} max={10} step={.01} onChange={(fadeInSeconds) => change({ fadeInSeconds })} format={seconds} />
   </div>

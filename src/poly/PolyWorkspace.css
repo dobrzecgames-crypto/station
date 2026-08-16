@@ -22,6 +22,11 @@
    ========================================================================= */
 .poly-workspace {
   --zx-index: var(--accent-mix);
+  /* The instrument's one colour for information. The screen draws its traces
+     in it and the mode lamps light in it, so a lit lamp and a live trace are
+     recognisably the same signal from the same machine. Pigment - the cool
+     mark on the play key - stays a separate thing entirely. */
+  --zx-ink: color-mix(in srgb, var(--accent-library) 78%, #e0d3b4);
   --zx-print: color-mix(in srgb, var(--station-text-muted) 34%, transparent);
   --zx-print-major: color-mix(in srgb, var(--station-text-muted) 58%, transparent);
   --zx-rule: color-mix(in srgb, var(--station-text) 13%, transparent);
@@ -74,10 +79,55 @@
 .poly-table,
 .poly-select-control,
 .poly-route-picker { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--sp-tight); justify-items: start; color: var(--station-text-muted); font-family: var(--station-mono-font); font-size: var(--label-param); font-weight: 500; letter-spacing: .04em; }
-.poly-preset select,
-.poly-table select,
-.poly-select-control select,
-.poly-route-picker select { min-height: var(--tier-2-face); padding-inline: var(--sp-group); border: 1px solid var(--zx-rule); border-radius: calc(3px * var(--station-ui-scale)); color: var(--station-text); background: color-mix(in srgb, var(--station-text) 4%, transparent); font-size: var(--label-value); }
+/* ---- Data windows --------------------------------------------------------
+   TABLE, UNISON, SHAPE, DIVISION and the two patch lists.
+
+   These were the last generic parts left on the panel: a hairline box with a
+   system chevron, which is the shape of a web form no matter what colour it is
+   painted. They are windows now - a pane let into the plate, cut the same way
+   the display is, with the value printed on the glass in the display's own
+   type and a small etched triangle where the panel is asking to be told
+   something. ZOLA-X is the instrument whose information lives on glass, so an
+   enumerated value belongs behind glass rather than inside a control.
+
+   The open list stays the browser's own. color-scheme keeps it dark so the
+   panel is not lit up white by a menu it does not own. */
+.station-shell .poly-preset select,
+.station-shell .poly-table select,
+.station-shell .poly-select-control select,
+.station-shell .poly-route-picker select,
+.station-shell .poly-patch-panel .user-synth-preset-picker select {
+  min-height: var(--tier-2-face);
+  padding: 0 calc(20px * var(--station-ui-scale)) 0 var(--sp-card);
+  border: 1px solid rgb(0 0 0 / 62%);
+  border-radius: calc(3px * var(--station-ui-scale));
+  color: var(--station-text);
+  background-color: #0a0b10;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 5'%3E%3Cpath d='M0 0h8L4 5z' fill='%23c8bcae' fill-opacity='.6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right calc(7px * var(--station-ui-scale)) center;
+  background-size: calc(8px * var(--station-ui-scale)) calc(5px * var(--station-ui-scale));
+  box-shadow:
+    inset 0 calc(2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(0 0 0 / 58%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(238 228 214 / 6%),
+    0 1px 0 rgb(238 228 214 / 5%);
+  font-family: var(--station-mono-font);
+  font-size: var(--label-value);
+  font-weight: 600;
+  letter-spacing: .03em;
+  color-scheme: dark;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.station-shell .poly-preset select:focus-visible,
+.station-shell .poly-table select:focus-visible,
+.station-shell .poly-select-control select:focus-visible,
+.station-shell .poly-route-picker select:focus-visible,
+.station-shell .poly-patch-panel .user-synth-preset-picker select:focus-visible {
+  outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent);
+  outline-offset: calc(2px * var(--station-ui-scale));
+}
 /* R4: an enumerated select is as wide as its options, never as wide as its
    cell. TABLE and the preset lists hold names rather than values, so they are
    the capped identity case instead. */
@@ -92,99 +142,343 @@
 .poly-patch-panel { margin-top: var(--sp-group); }
 .poly-patch-panel .user-synth-presets { margin-top: 0; }
 .poly-patch-panel .user-synth-preset-picker { font-size: var(--label-section); font-weight: 600; }
-.poly-patch-panel .user-synth-preset-picker select { min-height: var(--tier-2-face); }
 .poly-patch-panel .user-synth-preset-actions { grid-template-columns: repeat(3, minmax(calc(44px * var(--station-ui-scale)), auto)); }
-.poly-patch-panel .user-synth-preset-actions button { min-height: var(--tier-3-hit); font-size: var(--label-section); font-weight: 500; }
+/* The picker's select and the three keys under it are painted with the panel's
+   own data window and action key further down this file. */
 
-.poly-selector-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--sp-tight); }
+/* ============================================================================
+   Three families of hard part
+   ----------------------------------------------------------------------------
+   The panel used to answer every question with the same key at two sizes. Which
+   section you were on, which oscillator you were editing and what SPREAD would
+   reveal all looked alike, so the instrument had to be read before it could be
+   used. That is the shape a component library leaves behind: one button, nine
+   jobs.
 
-/* ---- Page strip ----------------------------------------------------------
-   Four keys standing apart across the whole measure read as four grey slabs,
-   and two such rows stacked before the screen were 86px of chrome on a 535px
-   panel. They are one block now: a single machined strip, keys flush against
-   each other and parted by a scored line rather than by a gap, with the
-   engaged one sunk into the block. One outer edge and one shadow for the whole
-   thing instead of four.
+   There are three parts now, and what separates them is where each one sits in
+   the plate:
 
-   Not DRUM SYNTH's well - nothing is seated in a hollow here, the strip stands
-   on the face - and not BASSIC's individually pressed caps. */
-.poly-pages,
-.poly-subpages {
+     BANK   sunk into it    one milled bay, four faces flush inside it
+     KEY    standing on it  a slab on a hard drop and a contact shadow
+     MODE   flush with it   a lamp and a legend lying in a shallow trough
+
+   That order is also the order of consequence, so the hierarchy is legible
+   before a word of it is. The bank is the widest part on the instrument and
+   moves the whole panel under it. An action key does one thing and carries the
+   mass to say so. A mode position only reports which member of the current
+   section is live, so it takes no relief and no key face at all.
+
+   Depth is the whole vocabulary: sunk, standing, flush. Nothing signals state
+   by filling with colour, and the only light on the panel is a 7px lamp with
+   nothing outside its rim.
+
+   None of the three carries [data-mechanism]. The shared grammar in index.css
+   paints one rest shadow and one engaged shadow for every family that opts in,
+   which is exactly the single voice this pass is undoing - and it loads after
+   this file, so opting in would mean fighting it at (0,4,0) on every rule.
+   These parts own their depth outright and repeat only the parts of that
+   grammar that are not about material: focus, disabled and reduced motion.
+   ========================================================================= */
+
+/* ---- 1. The section bank -------------------------------------------------
+   OSC / FILTER / ENV / MOD.
+
+   Four keys standing apart across the measure read as four grey slabs, and
+   giving each its own frame made them four cards in a row. They were pulled
+   into one strip in the pass before this one; now the strip is let INTO the
+   plate. A bay is milled out, the four faces sit flush inside it, and one
+   outer edge and one shadow serve the whole assembly.
+
+   Engaged is a key that has gone down and changed material - to the matte
+   floor of the bay, with the wall above casting into it - and the same lamp
+   the mode selectors use, lit under the legend rather than beside it. Read
+   this as the section bank borrowing the mode selector's one signal for its
+   own current-page report, not as a second kind of light: it is still the
+   display's own ink, still without bloom, still never a fill of colour. */
+.poly-pages {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   gap: 0;
   overflow: hidden;
-  border: 1px solid var(--station-line);
-  border-radius: calc(3px * var(--station-ui-scale));
-  background: linear-gradient(180deg, color-mix(in srgb, var(--station-raised) 88%, var(--station-text) 10%), var(--station-raised));
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 6%), 0 calc(2px * var(--station-ui-scale)) 0 rgb(0 0 0 / 45%);
+  margin: 0 0 var(--sp-group);
+  padding: calc(2px * var(--station-ui-scale));
+  border: 1px solid rgb(0 0 0 / 58%);
+  border-radius: calc(4px * var(--station-ui-scale));
+  background: linear-gradient(180deg, #090a0f, #101117);
+  box-shadow:
+    inset 0 calc(2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(0 0 0 / 62%),
+    0 1px 0 rgb(238 228 214 / 6%);
 }
 
-/* First thing on the panel now, so no clearance above it. */
-.poly-pages { margin: 0 0 var(--sp-group); }
-
-/* The sub-selector is as wide as the words in it. Stretched to the measure, a
-   two-position switch gave OSC 1 a 179px key to say what the screen under it
-   already prints. */
-.poly-subpages { grid-auto-columns: auto; justify-self: start; width: fit-content; max-width: 100%; }
-
-.poly-pages .poly-selector-key,
-.poly-subpages .poly-selector-key { padding: 0; }
-
-.poly-pages .poly-selector-key > [data-mechanism-face],
-.poly-subpages .poly-selector-key > [data-mechanism-face] {
+.poly-page-key {
+  min-width: 0;
+  padding: 0;
   border: 0;
-  border-left: 1px solid rgb(0 0 0 / 45%);
-  border-radius: 0;
+  color: var(--zx-print-major);
   background: transparent;
-  box-shadow: inset 1px 0 0 rgb(255 255 255 / 4%);
-  transform: none;
+  cursor: pointer;
+  touch-action: manipulation;
 }
 
-.poly-pages .poly-selector-key:first-child > [data-mechanism-face],
-.poly-subpages .poly-selector-key:first-child > [data-mechanism-face] { border-left: 0; box-shadow: none; }
-
-/* Engaged is the key sitting down inside the block: a darker face, the wall
-   above it casting in, and the legend at full contrast. No coloured mark. */
-.poly-pages .poly-selector-key-active > [data-mechanism-face],
-.poly-subpages .poly-selector-key-active > [data-mechanism-face] {
-  transform: none;
-  border-color: rgb(0 0 0 / 45%);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--station-recess) 78%, #000), color-mix(in srgb, var(--station-recess) 92%, #000));
-  box-shadow: inset 0 calc(2px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 72%), inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(255 255 255 / 5%);
+.poly-page-face {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(4px * var(--station-ui-scale));
+  min-height: calc(36px * var(--station-ui-scale));
+  padding: 0 var(--sp-group);
+  border-left: 1px solid rgb(0 0 0 / 55%);
+  /* Standing gets the engaged key's own dark near-black, not Station's warm
+     --station-raised grey-brown - that warmth is what read as a plain grey
+     dashboard button sitting on a cold black bay. Both states now draw from
+     the one material; only the shadow says which one is proud and which is
+     sunk, which is also why the engaged rule below no longer repeats this
+     background at all. */
+  background: linear-gradient(180deg, #131419, #191a20);
+  box-shadow: inset 1px 0 0 rgb(238 228 214 / 5%), inset 0 1px 0 rgb(238 228 214 / 9%);
+  font-family: var(--station-mono-font);
+  font-size: var(--label-section);
+  font-weight: 600;
+  letter-spacing: .06em;
+  white-space: nowrap;
+  transition: background 65ms ease, box-shadow 65ms ease, color 65ms ease;
 }
 
-.poly-pages .poly-selector-key:active:not(.poly-selector-key-active) > [data-mechanism-face],
-.poly-subpages .poly-selector-key:active:not(.poly-selector-key-active) > [data-mechanism-face] {
-  transform: none;
-  box-shadow: inset 0 calc(2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(0 0 0 / 50%);
+/* The bay's own wall stands to the left of the first key, so it needs no
+   scored line of its own. */
+.poly-page-key:first-child .poly-page-face { border-left: 0; box-shadow: inset 0 1px 0 rgb(238 228 214 / 9%); }
+
+.poly-page-key[data-engaged='true'] { color: var(--station-text); }
+
+/* Same material as the standing face - the recess reads entirely through the
+   inset shadow going heavy at the top and a hairline picking up at the
+   bottom, not through the fill going darker. */
+.poly-page-key[data-engaged='true'] .poly-page-face {
+  box-shadow:
+    inset 0 calc(3px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 72%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(238 228 214 / 6%);
 }
 
-/* Height comes off the tier defaults: these are page marks, not parameters, so
-   they take the room a page mark needs. Scoped to beat [data-tier] in
-   layout-tiers.css, which loads last. */
-.station-shell .poly-pages .poly-selector-key { min-height: calc(30px * var(--station-ui-scale)); font-size: var(--label-section); }
-.station-shell .poly-pages .poly-selector-key > [data-mechanism-face] { min-height: calc(28px * var(--station-ui-scale)); padding-inline: var(--sp-group); }
-.station-shell .poly-subpages .poly-selector-key { min-height: calc(26px * var(--station-ui-scale)); font-size: var(--label-section); }
-.station-shell .poly-subpages .poly-selector-key > [data-mechanism-face] { min-height: calc(24px * var(--station-ui-scale)); padding-inline: var(--sp-group); }
-/* Height comes from data-tier now, so the same key serves as a tier-2 page
-   selector and a tier-3 detail reveal without a second class. */
-/* Same key face as the shared .station-key in layout-tiers.css; the selector
-   family keeps its own class only because its engaged state is a selector
-   state, not a latch. */
-/* A selector key, with the same mechanism as every other one in Station: a
-   material face inside a border, standing on its own shadow, going down into
-   the panel when engaged.
+.poly-page-key:active:not([data-engaged='true']) .poly-page-face {
+  background: linear-gradient(180deg, #0e0f13, #131419);
+  box-shadow: inset 0 calc(2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(0 0 0 / 55%);
+}
 
-   It was briefly a flat tab with a pigment underline. That is a dark-dashboard
-   device, not an instrument one - the state was carried by a coloured line
-   glowing under the label rather than by the key having moved - so the key is
-   back and the line is gone. Nothing replaces it: engaged is the cap seated
-   deeper, a darker face and the shadow it has lost. */
-.poly-selector-key { min-width: 0; padding: 0 0 calc(3px * var(--station-ui-scale)); border: 0; color: var(--zx-print-major); background: transparent; cursor: pointer; touch-action: manipulation; }
-.poly-selector-key > [data-mechanism-face] { display: grid; place-items: center; width: 100%; padding: 0 var(--sp-group); border: 1px solid var(--station-line); border-radius: calc(3px * var(--station-ui-scale)); background: linear-gradient(180deg, color-mix(in srgb, var(--station-raised) 88%, var(--station-text) 12%), var(--station-raised)); box-shadow: inset 0 1px 0 rgb(255 255 255 / 7%), 0 calc(3px * var(--station-ui-scale)) 0 rgb(0 0 0 / 55%); font-family: var(--station-mono-font); font-size: inherit; font-weight: inherit; letter-spacing: .05em; white-space: nowrap; transition: transform 65ms ease, box-shadow 65ms ease, border-color 65ms ease; }
-.poly-selector-key:active:not(.poly-selector-key-active) > [data-mechanism-face] { transform: translateY(calc(2px * var(--station-ui-scale))); box-shadow: inset 0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 45%), 0 1px 0 rgb(0 0 0 / 60%); }
-.poly-selector-key-active { color: var(--station-text); }
-.poly-selector-key-active > [data-mechanism-face] { transform: translateY(calc(3px * var(--station-ui-scale))); border-color: color-mix(in srgb, var(--control-active) 72%, var(--station-line)); background: color-mix(in srgb, var(--control-active) 22%, var(--station-raised)); box-shadow: inset 0 calc(2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(0 0 0 / 55%), 0 0 0 rgb(0 0 0 / 0%); }
-.poly-selector-key:focus-visible { outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent); outline-offset: calc(2px * var(--station-ui-scale)); }
+/* Inset, because the keys are flush inside a bay that clips its overflow. */
+.poly-page-key:focus-visible { outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent); outline-offset: calc(-3px * var(--station-ui-scale)); }
+
+/* ---- 2. Mode selectors ---------------------------------------------------
+   OSC 1 / OSC 2, the filter's five positions, AMP / FILTER / MOD, the
+   modulation sources and the LFO's SYNC / FREE.
+
+   These lost their key entirely. A mode position is a lens and a legend lying
+   in the same shallow cut the shuttle guides run in, with a detent notch
+   between neighbours - a real control point on a panel rather than a tab.
+
+   The lamp is the state. Unlit it is dark glass in a bezel; lit it is a matte
+   amber disc with a dark rim and a shaded underside, so it reads as a small
+   domed lens. There is no halo at any state, and the legend never fills with
+   colour: what changes is the lamp, and the legend coming up to full contrast
+   beside it. The amber is the ink the screen already draws in, which leaves
+   the instrument one colour for information and one pigment for the play key.
+
+   The painted part is 7px across. The target is the whole row. */
+.poly-modes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0 calc(3px * var(--station-ui-scale));
+  border-radius: calc(3px * var(--station-ui-scale));
+  background: linear-gradient(180deg, #090a0e, #0e1015 70%, #0b0c11);
+  box-shadow:
+    inset 0 calc(1.5px * var(--station-ui-scale)) calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 62%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(238 228 214 / 7%);
+}
+
+.poly-mode {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  gap: calc(6px * var(--station-ui-scale));
+  align-items: center;
+  min-height: var(--tier-3-hit);
+  padding: 0 var(--sp-card);
+  border: 0;
+  border-radius: 0;
+  color: var(--zx-print-major);
+  background: transparent;
+  font-family: var(--station-mono-font);
+  font-size: var(--label-section);
+  font-weight: 500;
+  letter-spacing: .06em;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: color 65ms linear, background 65ms linear;
+}
+
+/* The detent between two positions, cut the same way the trough is. */
+.poly-mode + .poly-mode::before {
+  position: absolute;
+  top: 26%;
+  bottom: 26%;
+  left: 0;
+  width: 1px;
+  background: rgb(0 0 0 / 66%);
+  box-shadow: 1px 0 0 rgb(238 228 214 / 6%);
+  content: '';
+}
+
+.poly-mode[data-engaged='true'] { color: var(--station-text); }
+.poly-mode:active { background: rgb(0 0 0 / 26%); }
+.poly-mode:focus-visible { outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent); outline-offset: calc(-3px * var(--station-ui-scale)); }
+
+.poly-lamp {
+  flex: 0 0 auto;
+  width: calc(7px * var(--station-ui-scale));
+  height: calc(7px * var(--station-ui-scale));
+  border-radius: 50%;
+  background: #0d0f15;
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 72%),
+    inset 0 1px 0 rgb(238 228 214 / 15%);
+  transition: background 65ms linear, box-shadow 65ms linear;
+}
+
+/* Lit. A solid disc of the screen's own ink, kept dark at the bottom of the
+   lens so it domes, and with nothing outside its rim. A lamp that spills onto
+   the plate around it is a glow, and a glow is the one thing this instrument
+   does not do. */
+.poly-workspace [data-engaged='true'] .poly-lamp {
+  background: var(--zx-ink);
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 58%),
+    inset 0 calc(-2px * var(--station-ui-scale)) calc(2px * var(--station-ui-scale)) rgb(74 45 8 / 52%);
+}
+
+.poly-workspace [data-engaged='true']:disabled .poly-lamp { background: color-mix(in srgb, var(--zx-ink) 45%, #0d0f15); }
+
+/* ---- 3. Action keys ------------------------------------------------------
+   SYNTHS, PATCH, TUNE / SPREAD / OUTPUT, RETRIGGER, + ROUTE, the route cut,
+   MAP / CLEAR and the patch panel's own three.
+
+   The only family that stands proud of the plate: a square-shouldered slab on
+   a hard drop with a soft contact shadow under it, which is the same trick
+   that makes the shuttle read as a part rather than as print. Round shoulders
+   and a moulded cap belong to the electromechanical instruments in the range;
+   this one is machined.
+
+   Engaged is the slab seated down into the plate - a darker face, the drop
+   gone, the legend at full contrast. It is never a fill of colour. The blue
+   wash the selector keys used to take for their active state is what made a
+   choice look like a status light. */
+.poly-key {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  color: var(--zx-print-major);
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.poly-key-face,
+.station-shell .poly-tools button,
+.station-shell .poly-patch-panel .user-synth-preset-actions button {
+  display: flex;
+  gap: calc(6px * var(--station-ui-scale));
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0 var(--sp-card);
+  border: 1px solid var(--station-line);
+  border-radius: calc(2px * var(--station-ui-scale));
+  /* Flat, not a paint-bucket sweep. The three-stop version of this - bright
+     top, dark bottom - was the same dashboard-button shine the section bank
+     had, and doubling it with the highlight the box-shadow below already
+     draws was the actual fault: two highlights on one key read as gloss. The
+     drop is what says "standing proud of the plate" now, not the fill. */
+  background: color-mix(in srgb, var(--station-raised) 95%, var(--station-text) 4%);
+  box-shadow:
+    inset 0 1px 0 rgb(238 228 214 / 20%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(0 0 0 / 55%),
+    0 calc(3px * var(--station-ui-scale)) 0 rgb(0 0 0 / 62%),
+    0 calc(4px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 32%);
+  font-family: var(--station-mono-font);
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: .05em;
+  white-space: nowrap;
+  transition: transform 60ms ease, box-shadow 60ms ease, background 60ms ease;
+}
+
+/* The hit box comes from data-tier and the face is painted inside it, so the
+   surplus falls below the slab as its seating slot and the drop has room. */
+.poly-key[data-tier='2'] > .poly-key-face { min-height: var(--tier-2-face); }
+.poly-key[data-tier='3'] > .poly-key-face { min-height: var(--tier-3-face); }
+
+.poly-key[data-engaged='true'] { color: var(--station-text); }
+
+.poly-key[data-engaged='true'] > .poly-key-face {
+  transform: translateY(calc(3px * var(--station-ui-scale)));
+  border-color: color-mix(in srgb, var(--station-line) 68%, #000);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--station-raised) 70%, #000), color-mix(in srgb, var(--station-raised) 84%, #000));
+  box-shadow:
+    inset 0 calc(2px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 62%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(238 228 214 / 6%),
+    0 0 0 rgb(0 0 0 / 0%);
+}
+
+.poly-key:active:not([data-engaged='true']):not(:disabled) > .poly-key-face,
+.station-shell .poly-tools button:active:not(:disabled),
+.station-shell .poly-patch-panel .user-synth-preset-actions button:active:not(:disabled) {
+  transform: translateY(calc(3px * var(--station-ui-scale)));
+  box-shadow: inset 0 1px calc(3px * var(--station-ui-scale)) rgb(0 0 0 / 52%), 0 1px 0 rgb(0 0 0 / 55%);
+}
+
+.poly-key:disabled { cursor: default; }
+
+.poly-key:disabled > .poly-key-face {
+  transform: none;
+  box-shadow: inset 0 1px 0 rgb(238 228 214 / 7%), 0 1px 0 rgb(0 0 0 / 42%);
+  opacity: .4;
+}
+
+.poly-key:focus-visible { outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent); outline-offset: calc(2px * var(--station-ui-scale)); }
+
+/* The route cut is a momentary key in a 36px column: its mark is set larger
+   than a legend would be, and there is no room for side padding. */
+.poly-route > .poly-key > .poly-key-face { padding: 0; font-size: .78rem; font-weight: 500; }
+
+/* MAP / CLEAR and the patch panel's SAVE / LOAD / DELETE are painted from the
+   same face. They are the instrument's own keys once they are mounted on it,
+   not the shared web treatment they arrive wearing. */
+.station-shell .poly-tools button,
+.station-shell .poly-patch-panel .user-synth-preset-actions button {
+  min-height: var(--tier-3-face);
+  color: var(--zx-print-major);
+  font-size: var(--label-section);
+  font-weight: 500;
+}
+
+.station-shell .poly-tools button:disabled,
+.station-shell .poly-patch-panel .user-synth-preset-actions button:disabled {
+  transform: none;
+  box-shadow: inset 0 1px 0 rgb(238 228 214 / 7%), 0 1px 0 rgb(0 0 0 / 42%);
+  opacity: .4;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .poly-key:hover:not(:disabled) > .poly-key-face,
+  .station-shell .poly-tools button:hover:not(:disabled),
+  .station-shell .poly-patch-panel .user-synth-preset-actions button:hover:not(:disabled) { border-color: var(--station-line-strong); }
+  .poly-mode:hover:not([data-engaged='true']) { color: var(--station-text-muted); }
+}
 
 /* No frame around the editor. The page tabs and their pigment rule already say
    where it begins, and a box drawn around everything under them is exactly the
@@ -214,8 +508,11 @@
      a glowing element looks like. Warm pigment reads as ink instead, and amber
      carries a light nod to the monochrome instrument displays that came before
      colour without going all the way back to a phosphor tube: there is no
-     bloom, no persistence and no green. */
-  --poly-trace: color-mix(in srgb, var(--accent-library) 78%, #e0d3b4);
+     bloom, no persistence and no green.
+
+     Defined once on the workspace as --zx-ink, because the mode lamps light in
+     the same colour. */
+  --poly-trace: var(--zx-ink);
   margin: var(--sp-group) 0;
 }
 .poly-display-glass {
@@ -392,17 +689,17 @@
 
 .poly-performance-sources { display: grid; grid-template-columns: auto minmax(0, calc(260px * var(--station-ui-scale))); gap: var(--sp-card); align-items: center; margin-top: var(--sp-group); color: var(--label-section-color); font-family: var(--station-mono-font); font-size: var(--label-section); font-weight: 600; letter-spacing: .05em; }
 .poly-lfo-editor { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-group); align-items: end; }
-.poly-lfo-editor .poly-selector-row { min-width: 0; }
-/* Same correction as the selector keys: the latch is a key with a thick lower
-   edge that thins as it goes down, not a panel that tints itself blue. */
-.poly-latch { min-height: var(--tier-2-face); border: 1px solid var(--station-line); border-bottom-width: calc(3px * var(--station-ui-scale)); border-radius: calc(3px * var(--station-ui-scale)); color: var(--station-text-muted); background: var(--station-raised); font-family: var(--station-mono-font); font-size: var(--label-param); font-weight: 600; cursor: pointer; }
-.poly-latch-active { border-bottom-width: 1px; border-color: var(--control-active); color: var(--station-text); background: color-mix(in srgb, var(--control-active) 20%, var(--station-raised)); box-shadow: inset 0 calc(2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(0 0 0 / 45%); }
+/* SYNC / FREE is a mode selector like any other, and RETRIGGER is the one
+   action key on the instrument carrying a lamp. Both sit in a 2-up parameter
+   grid whose other cells are shuttles, so neither may stretch its own row. */
+.poly-lfo-editor .poly-modes { min-width: 0; align-self: end; }
+.poly-lfo-editor .poly-key { align-self: end; }
 
 .poly-route-section { margin-top: var(--sp-sec); }
 .poly-route-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-card); }
 .poly-route-heading > div { display: grid; gap: var(--sp-hair); color: var(--label-section-color); font-family: var(--station-mono-font); font-size: var(--label-section); font-weight: 600; letter-spacing: .05em; }
 .poly-route-heading strong { color: var(--station-text); font-size: var(--label-value); }
-.poly-route-heading .mixer-toggle { flex: 0 0 auto; min-width: calc(80px * var(--station-ui-scale)); min-height: var(--tier-3-hit); font-size: var(--label-section); }
+.poly-route-heading .poly-key { flex: 0 0 auto; min-width: calc(80px * var(--station-ui-scale)); }
 .poly-empty-routes { margin: var(--sp-card) 0 0; color: var(--station-text-muted); font-family: var(--station-mono-font); font-size: var(--label-param); font-weight: 500; }
 /* Route rows are a parameter grid like any other: a modulation amount is a
    bipolar percentage and does not need the whole measure to be set. */
@@ -410,7 +707,6 @@
 /* A route row is a group inside the editor card, so it follows R3's indent
    and edge rule instead of getting its own filled surface. */
 .poly-route { display: grid; grid-template-columns: minmax(0, 1fr) var(--tier-3-hit); gap: var(--sp-group); align-items: center; padding: var(--sp-group) 0 var(--sp-group) var(--sp-card); border-left: calc(2px * var(--station-ui-scale)) solid var(--control-active); background: none; }
-.poly-route-remove { min-width: var(--tier-3-hit); min-height: var(--tier-3-hit); border: 1px solid var(--station-line); border-radius: calc(3px * var(--station-ui-scale)); color: var(--station-text-muted); background: var(--control-inactive); font-size: 1rem; cursor: pointer; }
 .poly-route-picker { margin-top: var(--sp-group); padding: var(--sp-group) 0 var(--sp-group) var(--sp-card); border-left: calc(2px * var(--station-ui-scale)) solid var(--station-line); }
 .poly-tools { margin-top: var(--sp-group); }
 
@@ -420,17 +716,23 @@
 
 @media (max-width: 430px) {
   .poly-workspace { padding: var(--sp-card); }
-  .poly-pages .poly-selector-key > [data-mechanism-face] { padding-inline: calc(3px * var(--station-ui-scale)); font-size: .52rem; }
+  .poly-page-face { padding-inline: calc(3px * var(--station-ui-scale)); }
+  /* The trough closes up rather than dropping a position: FILTER's five-way
+     switch is the widest thing on this line, and a legend that has to wrap
+     inside a milled cut stops looking like a cut. */
+  .poly-mode { gap: calc(5px * var(--station-ui-scale)); padding: 0 var(--sp-group); }
   .poly-display-glass { padding: calc(6px * var(--station-ui-scale)) calc(5px * var(--station-ui-scale)) calc(5px * var(--station-ui-scale)); }
   .poly-performance-sources { grid-template-columns: 1fr; gap: var(--sp-tight); }
-  .poly-performance-sources .poly-selector-row { max-width: none; }
   .poly-common-area > p { gap: var(--sp-group); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .poly-audition:active,
-  .poly-selector-key:active > [data-mechanism-face],
-  .poly-selector-key-active > [data-mechanism-face] { transform: none; }
+  .poly-key[data-engaged='true'] > .poly-key-face,
+  .poly-key:active > .poly-key-face { transform: none; }
   .poly-audition,
-  .poly-selector-key > [data-mechanism-face] { transition: none; }
+  .poly-key-face,
+  .poly-page-face,
+  .poly-mode,
+  .poly-lamp { transition: none; }
 }

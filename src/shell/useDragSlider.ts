@@ -59,23 +59,23 @@ export interface DragSliderHandlers {
 // on each. Nothing about the mechanism below depends on these exact numbers.
 
 /** Range-fraction moved per CSS px during a slow, deliberate drag - a whole slider's range takes a few hundred px of patient motion. */
-const FINE_SENSITIVITY = 0.00035
+export const FINE_SENSITIVITY = 0.00035
 /** Range-fraction moved per CSS px during a brisk drag - calibrated so roughly 1cm (~38 CSS px) of fast motion covers ~20% of the range. */
-const COARSE_SENSITIVITY = 0.0053
+export const COARSE_SENSITIVITY = 0.0053
 /** Below this speed (px/ms) sensitivity is fully fine. */
-const SPEED_FLOOR = 0.05
+export const SPEED_FLOOR = 0.05
 /** Above this speed (px/ms) sensitivity is fully coarse. Between the two it blends continuously (smoothstep) - no discrete mode switch. */
-const SPEED_CEILING = 0.6
+export const SPEED_CEILING = 0.6
 /** Perpendicular distance (px) the ultra-fine falloff decays over - see perpMultiplier in handleMove. */
 const PERP_FALLOFF_PX = 35
 /** Sensitivity never drops below this fraction of normal even far off-axis - a fully frozen slider would read as broken, not precise. */
 const PERP_FLOOR = 0.07
 
-function clamp(value: number, min: number, max: number): number {
+export function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
 
-function smoothstep(edge0: number, edge1: number, x: number): number {
+export function smoothstep(edge0: number, edge1: number, x: number): number {
   const t = clamp((x - edge0) / (edge1 - edge0), 0, 1)
   return t * t * (3 - 2 * t)
 }
@@ -88,7 +88,7 @@ function decimalsForStep(step: number): number {
   return dot === -1 ? 0 : text.length - dot - 1
 }
 
-function roundToStep(value: number, min: number, step: number): number {
+export function roundToStep(value: number, min: number, step: number): number {
   if (!Number.isFinite(step) || step <= 0) return value
   const steps = Math.round((value - min) / step)
   return Number((min + steps * step).toFixed(decimalsForStep(step)))

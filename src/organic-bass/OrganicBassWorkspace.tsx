@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import type { PadState } from '../pads/types'
 import { useDragSlider } from '../shell/useDragSlider'
+import { useRotaryDrag } from '../shell/useRotaryDrag'
 import { LatchKey, MomentaryKey } from '../shell/UtilityKey'
 import { UserSynthPresetControls } from '../synth-presets/UserSynthPresetControls'
 import { organicBassCutoffHz, organicBassDecaySeconds, organicBassGlideSeconds } from './organicBassOperations'
@@ -22,6 +24,17 @@ interface OrganicBassWorkspaceProps {
   onBack: () => void
 }
 
+/**
+ * MONOGORG's own control surface, and the third construction in the range:
+ * DRUM SYNTH is a bank of vertical throws in a raised bay, BASSIC is grooves cut
+ * across a one-piece face, and this is a soft dark plate with inlaid channels -
+ * flush, no cap standing proud of the surface - and one large turning knob.
+ *
+ * DRIVE leads the panel. It is the character control and the one you reach for
+ * while playing, so it takes the top of the plate rather than its place in the
+ * signal chain. Being the one round part here, and a big one, it can afford the
+ * gesture its shape promises - see useRotaryDrag.
+ */
 export function OrganicBassWorkspace(props: OrganicBassWorkspaceProps) {
   const { pad, patch } = props
   const [patchPanelOpen, setPatchPanelOpen] = useState(false)
@@ -33,9 +46,12 @@ export function OrganicBassWorkspace(props: OrganicBassWorkspaceProps) {
   return (
     <section className="organic-bass-workspace" aria-label={`MONOGORG editor for ${pad.label}`}>
       <header className="organic-bass-heading">
-        <p className="eyebrow">MONOGORG / {pad.label} / {props.usageCount} PAD{props.usageCount === 1 ? '' : 'S'} SHARE PATCH / MONO</p>
+        <p className="eyebrow">{pad.label} / {props.usageCount} PAD{props.usageCount === 1 ? '' : 'S'} SHARE PATCH / MONO</p>
         <div className="organic-bass-heading-identity">
-          <h2>{patch.name}</h2>
+          <div className="organic-bass-nameplate">
+            <span className="organic-bass-nameplate-mark" aria-hidden="true">GORG</span>
+            <h2>{patch.name}</h2>
+          </div>
           <div className="organic-bass-heading-keys">
             <MomentaryKey label="← SYNTHS" ariaLabel="Back to synths" onClick={props.onBack} />
             <LatchKey label="PATCH" engaged={patchPanelOpen} onClick={() => setPatchPanelOpen((current) => !current)} />
@@ -62,17 +78,26 @@ export function OrganicBassWorkspace(props: OrganicBassWorkspaceProps) {
         <UserSynthPresetControls kind="monogorg" instrumentLabel="MONOGORG" patch={patch} onApply={props.onPatchChange} />
       </div>}
 
-      <div className="organic-bass-controls">
-        <BassControl label="SHAPE" value={patch.shape} format={percent} onChange={(shape) => change({ shape })} />
-        <BassControl label="WEIGHT" value={patch.weight} format={percent} onChange={(weight) => change({ weight })} />
-        <BassControl label="CUTOFF" value={patch.cutoff} format={(value) => formatFrequency(organicBassCutoffHz(value))} onChange={(cutoff) => change({ cutoff })} />
-        <BassControl label="RESO" value={patch.resonance} format={percent} onChange={(resonance) => change({ resonance })} />
-        <BassControl label="CONTOUR" value={patch.contour} format={percent} onChange={(contour) => change({ contour })} />
-        <BassControl label="ATTACK" value={patch.attackSeconds} min={0} max={0.12} step={0.001} format={formatSeconds} onChange={(attackSeconds) => change({ attackSeconds })} />
-        <BassControl label="DECAY" value={patch.decay} format={(value) => formatSeconds(organicBassDecaySeconds(value))} onChange={(decay) => change({ decay })} />
-        <BassControl label="DRIVE" value={patch.drive} format={percent} onChange={(drive) => change({ drive })} />
-        <BassControl label="GLIDE" value={patch.glide} format={(value) => formatSeconds(organicBassGlideSeconds(value))} onChange={(glide) => change({ glide })} />
+      <div className="mg-drive">
+        <DriveKnob value={patch.drive} onChange={(drive) => change({ drive })} />
       </div>
+
+      <Stage>
+        <Channel stage="TONE" label="SHAPE" value={patch.shape} format={percent} onChange={(shape) => change({ shape })} />
+        <Channel label="WEIGHT" value={patch.weight} format={percent} onChange={(weight) => change({ weight })} />
+      </Stage>
+
+      <Stage>
+        <Channel stage="FILTER" label="CUTOFF" value={patch.cutoff} format={(value) => formatFrequency(organicBassCutoffHz(value))} onChange={(cutoff) => change({ cutoff })} />
+        <Channel label="RESO" value={patch.resonance} format={percent} onChange={(resonance) => change({ resonance })} />
+        <Channel label="CONTOUR" value={patch.contour} format={percent} onChange={(contour) => change({ contour })} />
+      </Stage>
+
+      <Stage>
+        <Channel stage="ENV" label="ATTACK" value={patch.attackSeconds} min={0} max={0.12} step={0.001} format={formatSeconds} onChange={(attackSeconds) => change({ attackSeconds })} />
+        <Channel label="DECAY" value={patch.decay} format={(value) => formatSeconds(organicBassDecaySeconds(value))} onChange={(decay) => change({ decay })} />
+        <Channel label="GLIDE" value={patch.glide} format={(value) => formatSeconds(organicBassGlideSeconds(value))} onChange={(glide) => change({ glide })} />
+      </Stage>
 
       <div className="organic-bass-tools sound-tools-row">
         <span>SCALE / {props.projectKeyLabel}</span>
@@ -81,12 +106,25 @@ export function OrganicBassWorkspace(props: OrganicBassWorkspaceProps) {
           <button type="button" onClick={props.onClear}>CLEAR</button>
         </div>
       </div>
-      <p className="organic-bass-note">SHAPE → WEIGHT → DRIVE → 4-POLE FILTER / LEGATO READY</p>
     </section>
   )
 }
 
-function BassControl({ label, value, min = 0, max = 1, step = 0.01, format, onChange }: {
+function Stage({ children }: { children: ReactNode }) {
+  return <div className="mg-stage-group">{children}</div>
+}
+
+/**
+ * One inlaid channel: the stage name in the left margin (printed once per group,
+ * the way a rack panel annotates its sections), then the parameter's own name,
+ * the channel, and the value.
+ *
+ * The whole row is the hit target, not just the channel - a 350px by 34px band
+ * for a thumb, against the 109px slider this replaced. The drag stays relative,
+ * so landing anywhere on the row never jumps the value to that spot.
+ */
+function Channel({ stage, label, value, min = 0, max = 1, step = 0.01, format, onChange }: {
+  stage?: string
   label: string
   value: number
   min?: number
@@ -96,11 +134,33 @@ function BassControl({ label, value, min = 0, max = 1, step = 0.01, format, onCh
   onChange: (value: number) => void
 }) {
   const drag = useDragSlider({ value, min, max, step, onChange, focusLabel: label, formatValue: format })
+  const position = (value - min) / (max - min)
   return (
-    <label className="organic-bass-control">
-      <span>{label}</span>
-      <output>{format(value)}</output>
+    <label className="mg-channel">
       <input type="range" value={value} min={min} max={max} step={step} {...drag.inputProps} />
+      <span className="mg-stage">{stage ?? ''}</span>
+      <span className="mg-channel-legend">{label}</span>
+      <span className="mg-channel-slot" style={{ '--mg-pos': position } as CSSProperties} aria-hidden="true" />
+      <output>{format(value)}</output>
+    </label>
+  )
+}
+
+/**
+ * The one round part on the plate. It turns with the finger (useRotaryDrag), so
+ * its shape and its gesture finally agree; the printed collar fills as it goes
+ * because a knob with no travel indication is a knob you have to read twice.
+ */
+function DriveKnob({ value, onChange }: { value: number; onChange: (value: number) => void }) {
+  const drag = useRotaryDrag({ value, min: 0, max: 1, step: 0.01, onChange, focusLabel: 'DRIVE', formatValue: percent })
+  return (
+    <label className="mg-knob">
+      <span className="mg-knob-seat" style={{ '--mg-pos': value } as CSSProperties}>
+        <input type="range" value={value} min={0} max={1} step={0.01} {...drag.inputProps} />
+        <span className="mg-knob-body" aria-hidden="true"><span className="mg-knob-pointer" /></span>
+      </span>
+      <span className="mg-knob-legend">DRIVE</span>
+      <output>{percent(value)}</output>
     </label>
   )
 }

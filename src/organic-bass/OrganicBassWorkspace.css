@@ -1,16 +1,52 @@
+/* ============================================================================
+   MONOGORG control surface
+   ----------------------------------------------------------------------------
+   One model of panel, not a Station-wide control kit. Nothing below belongs in
+   DRUM SYNTH, BASSIC or STRINGS - those are different machines from the same
+   maker. Shared DNA is the palette, the type, the mechanical pressed states and
+   the density; the hardware is local to this file.
+
+   Third construction in the range. DRUM SYNTH stands its parts proud of a
+   raised bay; BASSIC cuts grooves across a flat face and rides caps along them;
+   MONOGORG inlays its channels flush into a soft dark plate - nothing on this
+   panel sticks up except the one knob. Stage names are annotated in the left
+   margin rather than given a line of their own, which is what lets eight
+   controls and a 96px part share a phone panel.
+
+   The pigment is a warm amber against BASSIC's olive and DRUM SYNTH's
+   terracotta. Read through a local variable, as the other instrument panels do.
+   ========================================================================= */
 .organic-bass-workspace {
+  --mg-index: var(--accent-pads);
+  --mg-print: color-mix(in srgb, var(--station-text-muted) 30%, transparent);
+  --mg-print-major: color-mix(in srgb, var(--station-text-muted) 54%, transparent);
+  --mg-cap-top: color-mix(in srgb, var(--scene-control) 78%, #4a4038);
+  --mg-cap-bottom: color-mix(in srgb, var(--scene-recess) 70%, #17130f);
+  --mg-knob: calc(96px * var(--station-ui-scale));
+  --mg-row: calc(34px * var(--station-ui-scale));
+  --mg-channel-h: calc(12px * var(--station-ui-scale));
+  --mg-head-w: calc(3px * var(--station-ui-scale));
+
   margin-top: var(--sp-tight);
   padding: var(--sp-card);
   border: 1px solid var(--station-line);
   border-radius: calc(6px * var(--station-ui-scale));
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--station-accent) 5%, transparent), transparent 46%),
-    var(--station-panel);
+    radial-gradient(120% 68% at 50% -6%, rgb(238 228 214 / 4%), transparent 62%),
+    linear-gradient(180deg, color-mix(in srgb, var(--station-panel) 90%, var(--station-text) 5%), var(--station-panel) 36%, color-mix(in srgb, var(--station-panel) 92%, #000) 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(238 228 214 / 9%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(0 0 0 / 58%);
 }
 
-/* Context line, then the patch name with BACK and PATCH beside it, the
-   audition trigger held at the right across both. No rule line under it: the
-   gap and the section markings below already say where the heading ends. */
+.organic-bass-workspace button:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+
+/* ---- Nameplate -----------------------------------------------------------
+   Context line, then the stamped mark and the patch name with the two utility
+   keys beside them, the audition key held at the right across both rows. */
 .organic-bass-heading {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -23,8 +59,9 @@
 .organic-bass-heading > .eyebrow {
   grid-area: eyebrow;
   overflow: hidden;
-  color: var(--label-section-color);
+  color: var(--mg-print);
   font-size: var(--label-section);
+  letter-spacing: .1em;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -44,17 +81,44 @@
   gap: var(--sp-tight);
 }
 
+.organic-bass-nameplate {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--sp-group);
+  align-items: center;
+  min-width: 0;
+}
+
+/* The mark from the instrument's picker artwork, stamped into the plate. */
+.organic-bass-nameplate-mark {
+  padding: calc(2px * var(--station-ui-scale)) calc(5px * var(--station-ui-scale));
+  border-radius: calc(2px * var(--station-ui-scale));
+  color: var(--mg-index);
+  background: linear-gradient(180deg, rgb(0 0 0 / 46%), rgb(0 0 0 / 22%));
+  box-shadow:
+    inset 0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 75%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(238 228 214 / 10%);
+  font-family: var(--station-mono-font);
+  font-size: var(--label-section);
+  font-weight: 700;
+  letter-spacing: .1em;
+}
+
 .organic-bass-heading h2 {
   overflow: hidden;
-  margin: var(--sp-hair) 0 0;
+  margin: 0;
   font-size: var(--label-identity);
   font-weight: 600;
+  letter-spacing: .05em;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
 .organic-bass-heading p { margin: 0; }
 
+/* ---- Audition key --------------------------------------------------------
+   Round, because this is the rounded machine, but dark: a lit disc that size is
+   a web CTA, and the accent belongs on the play mark alone. */
 .organic-bass-audition {
   grid-area: audition;
   display: grid;
@@ -65,11 +129,19 @@
   padding: 0;
   border: 0;
   border-radius: 50%;
-  color: var(--station-bg);
-  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--station-accent) 88%, #fff), var(--station-accent) 58%, color-mix(in srgb, var(--station-accent) 75%, #000));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--station-accent) 38%, transparent), 0 calc(5px * var(--station-ui-scale)) calc(12px * var(--station-ui-scale)) rgb(0 0 0 / 22%);
+  background:
+    radial-gradient(circle at 38% 26%, rgb(238 228 214 / 12%), transparent 52%),
+    linear-gradient(180deg, color-mix(in srgb, var(--mg-cap-top) 94%, var(--mg-cap-bottom)), var(--mg-cap-bottom));
+  box-shadow:
+    inset 0 1px 0 rgb(238 228 214 / 24%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(0 0 0 / 80%),
+    0 calc(3px * var(--station-ui-scale)) 0 rgb(0 0 0 / 58%),
+    0 calc(4px * var(--station-ui-scale)) calc(5px * var(--station-ui-scale)) rgb(0 0 0 / 32%);
   cursor: pointer;
+  transition: transform 55ms var(--mechanism-hard-ease), box-shadow 55ms var(--mechanism-hard-ease);
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .organic-bass-audition::before {
@@ -78,11 +150,21 @@
   height: 0;
   margin-left: calc(3px * var(--station-ui-scale));
   border-style: solid;
-  border-width: calc(7px * var(--station-ui-scale)) 0 calc(7px * var(--station-ui-scale)) calc(11px * var(--station-ui-scale));
-  border-color: transparent transparent transparent currentColor;
+  border-width: calc(6px * var(--station-ui-scale)) 0 calc(6px * var(--station-ui-scale)) calc(10px * var(--station-ui-scale));
+  border-color: transparent transparent transparent var(--mg-index);
 }
 
-.organic-bass-audition:disabled { cursor: not-allowed; opacity: .45; }
+.organic-bass-audition:active:not(:disabled) {
+  transform: translateY(calc(3px * var(--station-ui-scale)));
+  box-shadow:
+    inset 0 calc(2px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 60%),
+    0 0 0 rgb(0 0 0 / 0%);
+}
+
+.organic-bass-audition:focus-visible {
+  outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent);
+  outline-offset: calc(2px * var(--station-ui-scale));
+}
 
 /* Storage lives behind the PATCH latch, the same as every other synth. */
 .organic-bass-patch-panel { margin-top: var(--sp-group); }
@@ -92,69 +174,301 @@
 .organic-bass-patch-panel .user-synth-preset-actions { grid-template-columns: repeat(3, minmax(calc(44px * var(--station-ui-scale)), auto)); }
 .organic-bass-patch-panel .user-synth-preset-actions button { min-height: var(--tier-3-hit); font-size: var(--label-section); font-weight: 500; }
 
-/* Nine controls, so N=3 divides them into three full rows. The 2-up variant
-   this used below 560px made four rows with an empty half at the end - the
-   exact hole R4 exists to prevent. Every label here is seven characters or
-   fewer, so they survive the narrower cell. */
-.organic-bass-controls {
+/* ---- Stages --------------------------------------------------------------
+   A group is one block of rows with its name in the margin of the first. No
+   legend line and no rule (R7): the marking costs nothing at all here, which is
+   what buys the room for a 96px knob further down the plate. */
+.mg-stage-group {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--sp-group);
+  gap: calc(1px * var(--station-ui-scale));
   margin-top: var(--sp-group);
-}
-
-.organic-bass-control {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--sp-hair) var(--sp-tight);
   min-width: 0;
-  color: var(--station-text-muted);
-  font-family: var(--station-mono-font);
-  font-size: var(--label-param);
-  font-weight: 500;
-  letter-spacing: .04em;
 }
 
-/* R5: the value outranks its own legend. It is the part that moves. */
-.organic-bass-control output {
-  color: var(--station-text);
-  font-size: var(--label-value);
+/* The knob leads the panel, so its own clearance comes off the nameplate. */
+.mg-drive + .mg-stage-group { margin-top: var(--sp-group); }
+
+/* ---- Inlaid channel ------------------------------------------------------
+   Stage margin, name, channel, value - one line, and the line is the target. */
+.mg-channel {
+  position: relative;
+  display: grid;
+  grid-template-columns: calc(38px * var(--station-ui-scale)) calc(48px * var(--station-ui-scale)) minmax(0, 1fr) calc(44px * var(--station-ui-scale));
+  gap: var(--sp-tight);
+  align-items: center;
+  min-height: var(--mg-row);
+  min-width: 0;
+  color: var(--mg-print-major);
+  font-family: var(--station-mono-font);
+  font-size: var(--label-section);
   font-weight: 600;
+  letter-spacing: .05em;
+}
+
+/* Margin annotation: dimmer than the parameter names it brackets, because it
+   names the stage rather than anything you can turn. */
+.mg-stage {
+  overflow: hidden;
+  color: var(--mg-print);
+  font-size: var(--label-section);
+  font-weight: 700;
+  letter-spacing: .1em;
+  white-space: nowrap;
+}
+
+.mg-channel-legend {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.mg-channel > output {
+  overflow: hidden;
+  color: color-mix(in srgb, var(--mg-index) 72%, var(--station-text));
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Flush with the plate: a channel let into the surface, not a slot with
+   something riding in it. Rounded ends, dark interior, a lit lip along the
+   bottom edge of the cut and a shadow along the top. */
+.mg-channel-slot {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: var(--mg-channel-h);
+  min-width: 0;
+  border-radius: calc(var(--mg-channel-h) / 2);
+  background: linear-gradient(180deg, #07080c, #0d0e13 62%, #08090e);
+  box-shadow:
+    inset 0 calc(2px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 92%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(238 228 214 / 9%),
+    0 1px 0 rgb(238 228 214 / 6%);
+}
+
+/* The travelled part: warm, dim, and deliberately not a lit surface - the
+   accent on this panel is a marker, and the marker is the head below. */
+.mg-channel-slot::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: calc(var(--mg-pos, 0) * 100%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--mg-index) 30%, #0a0810), color-mix(in srgb, var(--mg-index) 17%, #06050a));
+  content: '';
+}
+
+/* Position marker. Its travel is inset by its own width so it never runs half
+   out of the channel at either end. */
+.mg-channel-slot::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--mg-pos, 0) * (100% - var(--mg-head-w)));
+  width: var(--mg-head-w);
+  border-radius: calc(1px * var(--station-ui-scale));
+  background: var(--mg-index);
+  box-shadow: 0 0 calc(6px * var(--station-ui-scale)) color-mix(in srgb, var(--mg-index) 50%, transparent);
+  content: '';
+}
+
+/* The whole row is the target, transparent and unstyled. Scoped under
+   .station-shell so it outranks the shared range geometry in layout-tiers.css,
+   which loads last - matching its specificity is not enough, and losing that
+   race is what once left a control grabbable only in its top fifth. */
+.station-shell .mg-channel input[type="range"] {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  opacity: 0;
+  /* App.css still rotates plain range inputs; a rotated input lays its hit box
+     across the row instead of along it. */
+  transform: none;
+  cursor: ew-resize;
+  touch-action: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.station-shell .mg-channel input[type="range"]:focus-visible ~ .mg-channel-slot {
+  outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent);
+  outline-offset: calc(2px * var(--station-ui-scale));
+}
+
+/* ---- Drive stage ---------------------------------------------------------
+   The knob alone, centred, with panel either side of it. The signal chain used
+   to be printed in that space, from when DRIVE sat mid-panel where the chain
+   actually runs; at the top of the plate it was annotating nothing. */
+.mg-drive {
+  display: grid;
+  justify-items: center;
+  margin-top: var(--sp-group);
+  min-width: 0;
+}
+
+/* ---- The knob ------------------------------------------------------------
+   A rounded, soft-touch part rather than a milled pot: a dome with a shallow
+   finger dish, one printed index, and a collar that fills as it turns. The
+   collar is what makes a rotary readable at a glance - the pointer alone means
+   reading the part twice, once for direction and once for how far. */
+.mg-knob {
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-areas: 'seat seat' 'legend value';
+  justify-content: center;
+  gap: var(--sp-hair) var(--sp-group);
+  color: var(--mg-print-major);
+  font-family: var(--station-mono-font);
+  font-size: var(--label-section);
+  font-weight: 600;
+  letter-spacing: .08em;
+}
+
+.mg-knob-legend { grid-area: legend; }
+
+.mg-knob > output {
+  grid-area: value;
+  color: color-mix(in srgb, var(--mg-index) 72%, var(--station-text));
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
 
-/* Same twelve pixels of air around the cap reclaimed as elsewhere; the cap
-   and the printed track are untouched. */
-.organic-bass-control input[type="range"] {
-  box-sizing: border-box;
-  grid-column: 1 / -1;
-  display: block;
-  width: calc(100% - var(--sp-tight));
-  min-width: 0;
+.mg-knob-seat {
+  position: relative;
+  grid-area: seat;
+  display: grid;
+  place-items: center;
+  width: var(--mg-knob);
+  height: var(--mg-knob);
+  justify-self: center;
+}
+
+/* Printed collar: the travelled arc carries the pigment, the rest of the sweep
+   is an engraved track, and the last 90 degrees are blank because the part does
+   not turn there. */
+.mg-knob-seat::before {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 225deg,
+    var(--mg-index) 0deg calc(var(--mg-pos, 0) * 270deg),
+    rgb(0 0 0 / 62%) calc(var(--mg-pos, 0) * 270deg) 270deg,
+    transparent 270deg 360deg);
+  -webkit-mask-image: radial-gradient(closest-side, transparent 0 86%, #000 86% 100%);
+  mask-image: radial-gradient(closest-side, transparent 0 86%, #000 86% 100%);
+  opacity: .8;
+  content: '';
+}
+
+/* The recess the part sits in. */
+.mg-knob-seat::after {
+  position: absolute;
+  inset: calc(9px * var(--station-ui-scale));
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 46%, #0b0a10, #05060a 76%);
+  box-shadow:
+    inset 0 calc(2px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 90%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(238 228 214 / 8%),
+    0 1px 0 rgb(238 228 214 / 6%);
+  content: '';
+}
+
+.mg-knob-body {
+  position: relative;
+  z-index: 2;
+  width: calc(100% - calc(24px * var(--station-ui-scale)));
+  height: calc(100% - calc(24px * var(--station-ui-scale)));
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 26%, color-mix(in srgb, var(--mg-cap-top) 78%, var(--station-text) 16%) 0%, var(--mg-cap-top) 44%, var(--mg-cap-bottom) 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(238 228 214 / 24%),
+    inset 0 calc(-3px * var(--station-ui-scale)) calc(6px * var(--station-ui-scale)) rgb(0 0 0 / 68%),
+    0 calc(4px * var(--station-ui-scale)) calc(9px * var(--station-ui-scale)) rgb(0 0 0 / 62%),
+    0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 60%);
+  transform: rotate(calc(var(--mg-pos, 0) * 270deg - 135deg));
+}
+
+/* The finger dish. A concave centre is what reads as a part meant to be turned
+   with a thumb rather than a moulded cap meant to be pushed. */
+.mg-knob-body::before {
+  position: absolute;
+  inset: 21%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 64%, rgb(0 0 0 / 32%), transparent 70%);
+  box-shadow:
+    inset 0 calc(2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(0 0 0 / 42%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(238 228 214 / 7%);
+  content: '';
+}
+
+.mg-knob-pointer {
+  position: absolute;
+  top: calc(6px * var(--station-ui-scale));
+  left: 50%;
+  z-index: 1;
+  width: calc(2px * var(--station-ui-scale));
+  height: 30%;
+  border-radius: calc(1px * var(--station-ui-scale));
+  background: linear-gradient(180deg, var(--mg-index), color-mix(in srgb, var(--mg-index) 38%, #000));
+  box-shadow: 0 0 calc(5px * var(--station-ui-scale)) color-mix(in srgb, var(--mg-index) 34%, transparent);
+  transform: translateX(-50%);
+}
+
+/* The turning target is the whole seat, invisible and unstyled. */
+.station-shell .mg-knob-seat input[type="range"] {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
   min-height: 0;
-  margin-inline: var(--sp-hair);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  opacity: 0;
+  transform: none;
+  cursor: grab;
   touch-action: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.station-shell .mg-knob-seat input[type="range"]:active { cursor: grabbing; }
+
+.station-shell .mg-knob-seat input[type="range"]:focus-visible ~ .mg-knob-body {
+  outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent);
+  outline-offset: calc(2px * var(--station-ui-scale));
 }
 
 .organic-bass-tools { margin-top: var(--sp-group); }
 
-.organic-bass-note {
-  margin: var(--sp-group) 0 0;
-  color: var(--label-section-color);
-  font-family: var(--station-mono-font);
-  font-size: var(--label-section);
-  letter-spacing: .055em;
-  text-align: right;
+@media (prefers-reduced-motion: reduce) {
+  .organic-bass-audition { transition: none; }
+  .organic-bass-audition:active { transform: none; }
 }
 
-/* At the 320px floor the two utility keys leave the patch name too narrow to
-   read beside them, so they drop to their own line under it. */
+/* At the 320px floor the stage margin and the value column leave the channel
+   too little to be worth dragging, so the stage name moves onto the row's own
+   left edge and the channel takes the width back. */
 @media (max-width: 360px) {
-  .organic-bass-heading-identity { grid-template-columns: minmax(0, 1fr); }
-  .organic-bass-heading-keys { justify-content: start; }
-}
-
-@media (max-width: 390px) {
-  .organic-bass-note { text-align: left; }
+  .mg-channel { grid-template-columns: calc(34px * var(--station-ui-scale)) calc(44px * var(--station-ui-scale)) minmax(0, 1fr) calc(42px * var(--station-ui-scale)); }
+  /* FILTER is the longest annotation and overruns the narrowed margin by a
+     pixel at its printed tracking, which clips the last stroke off the R. */
+  .mg-stage { letter-spacing: .03em; }
 }

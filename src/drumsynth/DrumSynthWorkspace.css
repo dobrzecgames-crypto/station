@@ -189,7 +189,11 @@
    its input box, so a full-width input paints the cap off to one side of the
    cut. Narrowing the input to the slot and widening only the hit area keeps
    the cap on the groove it rides in. */
-.drumsynth-fader-slot input[type="range"] {
+/* Scoped under .station-shell so it outranks the shared range height in
+   layout-tiers.css. Same specificity loses to it on load order, which left
+   the input 49px tall inside a 268px groove: the fader could only be grabbed
+   in its top fifth and every touch below that scrolled the page instead. */
+.station-shell .drumsynth-fader-slot input[type="range"] {
   position: absolute;
   inset: 0;
   z-index: 1;
@@ -210,7 +214,7 @@
   touch-action: none;
 }
 
-.drumsynth-fader-slot input[type="range"]::-webkit-slider-runnable-track {
+.station-shell .drumsynth-fader-slot input[type="range"]::-webkit-slider-runnable-track {
   width: 100%;
   height: 100%;
   border-radius: 0;
@@ -245,7 +249,7 @@
 }
 
 /* The native thumb keeps the drag it always had and stops painting. */
-.drumsynth-fader-slot input[type="range"]::-webkit-slider-thumb {
+.station-shell .drumsynth-fader-slot input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: calc(var(--ds-cap-w) + calc(10px * var(--station-ui-scale)));
   height: var(--ds-cap-h);
@@ -257,7 +261,7 @@
   cursor: ns-resize;
 }
 
-.drumsynth-fader-slot input[type="range"]::-moz-range-thumb {
+.station-shell .drumsynth-fader-slot input[type="range"]::-moz-range-thumb {
   width: calc(var(--ds-cap-w) + calc(10px * var(--station-ui-scale)));
   height: var(--ds-cap-h);
   border: 0;
@@ -268,11 +272,11 @@
 
 
 
-.drumsynth-fader-slot input[type="range"]:disabled ~ .drumsynth-fader-cap {
+.station-shell .drumsynth-fader-slot input[type="range"]:disabled ~ .drumsynth-fader-cap {
   --ds-index: var(--status-inactive);
 }
 
-.drumsynth-fader-slot input[type="range"]:focus-visible ~ .drumsynth-fader-cap {
+.station-shell .drumsynth-fader-slot input[type="range"]:focus-visible ~ .drumsynth-fader-cap {
   outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent);
   outline-offset: calc(1px * var(--station-ui-scale));
 }
@@ -321,7 +325,7 @@
 }
 
 /* The native thumb keeps the drag it always had and stops painting. */
-.drumsynth-fader-slot input[type="range"]::-webkit-slider-thumb {
+.station-shell .drumsynth-fader-slot input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: calc(var(--ds-cap-w) + calc(10px * var(--station-ui-scale)));
   height: var(--ds-cap-h);
@@ -333,7 +337,7 @@
   cursor: ns-resize;
 }
 
-.drumsynth-fader-slot input[type="range"]::-moz-range-thumb {
+.station-shell .drumsynth-fader-slot input[type="range"]::-moz-range-thumb {
   width: calc(var(--ds-cap-w) + calc(10px * var(--station-ui-scale)));
   height: var(--ds-cap-h);
   border: 0;
@@ -342,11 +346,11 @@
   cursor: ns-resize;
 }
 
-.drumsynth-fader-slot input[type="range"]:disabled ~ .drumsynth-fader-cap {
+.station-shell .drumsynth-fader-slot input[type="range"]:disabled ~ .drumsynth-fader-cap {
   --ds-index: var(--status-inactive);
 }
 
-.drumsynth-fader-slot input[type="range"]:focus-visible ~ .drumsynth-fader-cap {
+.station-shell .drumsynth-fader-slot input[type="range"]:focus-visible ~ .drumsynth-fader-cap {
   outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent);
   outline-offset: calc(1px * var(--station-ui-scale));
 }

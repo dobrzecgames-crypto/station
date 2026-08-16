@@ -1,14 +1,64 @@
+/* ============================================================================
+   BASSIC control surface
+   ----------------------------------------------------------------------------
+   One model of panel, not a Station-wide control kit. Nothing below is meant to
+   be lifted into DRUM SYNTH, ZOLA-X or STRINGS - those are different machines
+   from the same maker. The shared DNA is the palette, the type, the mechanical
+   pressed states and the density; the hardware itself is local to this file.
+
+   DRUM SYNTH is a bank of long vertical throws standing in a raised bay. BASSIC
+   is built the other way round: a one-piece matte face with grooves cut across
+   it, wide low caps riding along them, glyph keycaps for the waveforms and
+   slide switches for the octave. Sections are marked by an engraved score
+   running out of the legend, so a group costs a line of print and no clearance
+   at all (R7).
+
+   The panel carried rotary pots first. They looked right and were wrong: a
+   round part promises a turning gesture, and one that answers to a straight
+   drag reads as broken under a thumb. A part that travels along a line says
+   what it does, and a groove the width of the panel gives a phone 350px of
+   throw where a knob gave it 66px of diameter.
+
+   One light source, high and slightly front: every top edge catches, every
+   bottom edge drops, and the accent appears only as a hairline or an index -
+   never as a lit surface.
+   ========================================================================= */
 .synth-workspace {
+  /* One index pigment for the whole panel, from the SYNTH workspace colour. */
+  --bs-index: var(--accent-synth);
+  --bs-print: color-mix(in srgb, var(--station-text-muted) 30%, transparent);
+  --bs-print-major: color-mix(in srgb, var(--station-text-muted) 54%, transparent);
+  --bs-cap-top: color-mix(in srgb, var(--scene-control) 80%, #46404a);
+  --bs-cap-bottom: color-mix(in srgb, var(--scene-recess) 72%, #17141b);
+  --bs-slot-h: calc(30px * var(--station-ui-scale));
+  --bs-cap-w: calc(24px * var(--station-ui-scale));
+  --bs-cap-h: calc(22px * var(--station-ui-scale));
+  --bs-groove-h: calc(9px * var(--station-ui-scale));
+  /* The groove sits above the middle of the slot; the printed scale takes the
+     band underneath, where the cap cannot cover it. */
+  --bs-groove-mid: 40%;
+
   margin-top: var(--sp-group);
   padding: var(--sp-card);
   border: 1px solid var(--station-line);
   border-radius: calc(6px * var(--station-ui-scale));
-  background: var(--station-panel);
+  background:
+    radial-gradient(130% 72% at 50% -8%, rgb(238 228 214 / 5%), transparent 62%),
+    linear-gradient(180deg, color-mix(in srgb, var(--station-panel) 88%, var(--station-text) 6%), var(--station-panel) 32%, color-mix(in srgb, var(--station-panel) 90%, #000) 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(238 228 214 / 10%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(0 0 0 / 60%);
 }
 
-/* Context line, then the patch name with BACK and PATCH beside it, with the
-   audition trigger held at the right across both rows. The separate BACK row
-   above the heading is gone: it was a full-size control for a tier-3 action. */
+.synth-workspace button:disabled {
+  cursor: not-allowed;
+  opacity: .4;
+}
+
+/* ---- Nameplate -----------------------------------------------------------
+   Context line, then the engraved plate carrying the instrument mark and the
+   patch name, with the two utility keys beside it and the audition key held at
+   the right across both rows. */
 .synth-heading {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -21,8 +71,9 @@
 .synth-heading > .eyebrow {
   grid-area: eyebrow;
   overflow: hidden;
-  color: var(--label-section-color);
+  color: var(--bs-print);
   font-size: var(--label-section);
+  letter-spacing: .1em;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -42,11 +93,37 @@
   gap: var(--sp-tight);
 }
 
+.synth-nameplate {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--sp-group);
+  align-items: center;
+  min-width: 0;
+}
+
+/* The mark from the instrument's picker artwork, stamped into the panel. */
+.synth-nameplate-mark {
+  display: grid;
+  place-items: center;
+  width: calc(19px * var(--station-ui-scale));
+  height: calc(19px * var(--station-ui-scale));
+  border-radius: calc(2px * var(--station-ui-scale));
+  color: var(--bs-index);
+  background: linear-gradient(180deg, rgb(0 0 0 / 46%), rgb(0 0 0 / 22%));
+  box-shadow:
+    inset 0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 75%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(238 228 214 / 10%);
+  font-family: var(--station-mono-font);
+  font-size: var(--label-section);
+  font-weight: 700;
+}
+
 .synth-heading h2 {
   overflow: hidden;
-  margin: var(--sp-hair) 0 0;
+  margin: 0;
   font-size: var(--label-identity);
   font-weight: 600;
+  letter-spacing: .06em;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -55,15 +132,54 @@
   margin: 0;
 }
 
+/* ---- Audition key --------------------------------------------------------
+   A keycap of its own, wider than it is tall, with the play mark carried by a
+   small accent glyph rather than by lighting the whole face. */
 .synth-audition {
   grid-area: audition;
-  width: var(--tier-1-face);
-  min-width: var(--tier-1-face);
-  height: var(--tier-1-face);
-  min-height: var(--tier-1-face);
+  display: grid;
+  place-items: center;
+  width: calc(46px * var(--station-ui-scale));
+  min-width: calc(46px * var(--station-ui-scale));
+  height: calc(38px * var(--station-ui-scale));
+  min-height: calc(38px * var(--station-ui-scale));
   flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: calc(3px * var(--station-ui-scale));
+  background:
+    linear-gradient(96deg, rgb(238 228 214 / 8%) 0%, transparent 46%, rgb(0 0 0 / 22%) 100%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bs-cap-top) 92%, var(--bs-cap-bottom)) 0%, var(--bs-cap-bottom) 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(238 228 214 / 22%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(0 0 0 / 80%),
+    0 calc(3px * var(--station-ui-scale)) 0 rgb(0 0 0 / 62%),
+    0 calc(4px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 34%);
+  cursor: pointer;
+  transition: transform 55ms var(--mechanism-hard-ease), box-shadow 55ms var(--mechanism-hard-ease);
   user-select: none;
   -webkit-user-select: none;
+}
+
+.synth-audition::before {
+  width: 0;
+  height: 0;
+  border-width: calc(6px * var(--station-ui-scale)) 0 calc(6px * var(--station-ui-scale)) calc(10px * var(--station-ui-scale));
+  border-style: solid;
+  border-color: transparent transparent transparent var(--bs-index);
+  content: '';
+}
+
+.synth-audition:active:not(:disabled) {
+  transform: translateY(calc(3px * var(--station-ui-scale)));
+  box-shadow:
+    inset 0 calc(2px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 62%),
+    0 0 0 rgb(0 0 0 / 0%);
+}
+
+.synth-audition:focus-visible {
+  outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent);
+  outline-offset: calc(2px * var(--station-ui-scale));
 }
 
 /* Storage lives behind the PATCH latch, the same as ZOLA-X. */
@@ -77,143 +193,376 @@
 .synth-patch-panel .user-synth-preset-actions { grid-template-columns: repeat(3, minmax(calc(44px * var(--station-ui-scale)), auto)); }
 .synth-patch-panel .user-synth-preset-actions button { min-height: var(--tier-3-hit); font-size: var(--label-section); font-weight: 500; }
 
-.synth-oscillators {
-  display: grid;
-  gap: var(--sp-sec);
-  margin-top: var(--sp-group);
+/* ---- Section marking -----------------------------------------------------
+   Legend and the score it runs into are one line. A rule between two groups
+   would need its own clearance above and below - close to twenty pixels on a
+   phone - where an engraved line beside the print costs nothing. */
+.synth-workspace > .bassic-osc-bay,
+.synth-workspace > .bassic-section {
+  margin-top: var(--sp-sec);
 }
 
-/* No rule line between oscillators: the section marking and the wider gap
-   above it already say where one group ends. A hairline here cost its own
-   clearance above and below, three times over. */
-.synth-oscillator-row {
+.bassic-section {
   display: grid;
-  gap: var(--sp-tight);
   min-width: 0;
 }
 
-/* A scope label, which COLOR_BIBLE.md lets carry the workspace accent - it
-   keeps its colour and only loses the size it did not need. */
-.synth-oscillator-selects > strong {
-  color: var(--station-accent);
-  font-size: var(--label-section);
-  font-weight: 600;
-  letter-spacing: .08em;
-}
-
-/* The section marking sits in the row rather than above it, and the wave
-   select carries no printed legend. Together those were two lines of pure
-   overhead per oscillator, three oscillators deep. */
-.synth-oscillator-selects {
+.bassic-legend {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: var(--sp-group);
   align-items: center;
-  min-width: 0;
+  margin: 0 0 var(--sp-tight);
+  color: var(--bs-print-major);
+  font-family: var(--station-mono-font);
+  font-size: var(--label-section);
+  font-weight: 600;
+  letter-spacing: .14em;
 }
 
-.synth-oscillator-row-sub .synth-oscillator-selects {
-  grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr);
+.bassic-legend::after {
+  height: 0;
+  border-top: 1px solid rgb(0 0 0 / 62%);
+  box-shadow: 0 1px 0 rgb(238 228 214 / 6%);
+  content: '';
 }
 
-.synth-oscillator-ranges {
+/* ---- Oscillator columns --------------------------------------------------
+   Two full voices standing side by side. The SUB section reuses the same two
+   columns for its switch pair, so every part on the panel lines up with the
+   one above it. */
+.bassic-osc-bay {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--sp-group);
-  align-items: end;
+  gap: var(--sp-sec);
   min-width: 0;
 }
 
-.synth-inline-control {
+.bassic-osc-column {
   display: grid;
-  min-width: 0;
-  color: var(--station-text-muted);
-  font-family: var(--station-mono-font);
-  font-size: var(--label-param);
-  font-weight: 500;
-  letter-spacing: .04em;
-}
-
-.synth-inline-select {
-  gap: var(--sp-hair);
-}
-
-.synth-inline-control select {
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-  height: var(--tier-2-face);
-  padding: 0 var(--sp-tight);
-  border: 1px solid var(--station-line);
-  border-radius: calc(4px * var(--station-ui-scale));
-  color: var(--station-text);
-  background: var(--station-raised);
-  font: inherit;
-  font-size: var(--label-value);
-}
-
-/* Positional selectors broke the moment the section marking joined the row,
-   so these say what they mean: the bare wave select takes the measure, a
-   labelled one is as wide as its options and keeps its legend beside it
-   rather than above, which is the line this pass was removing. */
-.synth-oscillator-selects .synth-inline-select-bare select {
-  width: 100%;
-}
-
-.synth-oscillator-selects .synth-inline-select:not(.synth-inline-select-bare) {
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
   gap: var(--sp-tight);
+  min-width: 0;
 }
 
-.synth-oscillator-selects .synth-inline-select:not(.synth-inline-select-bare) select {
-  width: fit-content;
-  min-width: calc(52px * var(--station-ui-scale));
-}
-
-.synth-inline-range {
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--sp-hair) var(--sp-group);
+/* ---- Waveform keys -------------------------------------------------------
+   Four narrow caps standing on the panel surface, each printing the wave it
+   selects. Always a four-wide footprint: the sub's two-position bank keeps the
+   same key size and the same pitch as the oscillators above it. */
+.bassic-wave-keys {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: calc(2px * var(--station-ui-scale));
   width: 100%;
   min-width: 0;
 }
 
-.synth-inline-range output {
-  color: var(--station-text);
-  font-size: var(--label-value);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-
-/* Same twelve pixels of air around the cap as ZOLA-X had; the cap and the
-   printed track are untouched. */
-.synth-inline-range input[type="range"] {
-  box-sizing: border-box;
-  grid-column: 1 / -1;
-  display: block;
-  width: calc(100% - var(--sp-tight));
+.bassic-wave-key {
+  display: grid;
+  place-items: center;
   min-width: 0;
-  max-width: calc(100% - var(--sp-tight));
-  min-height: 0;
-  margin-inline: var(--sp-hair);
+  min-height: calc(28px * var(--station-ui-scale));
+  padding: 0;
+  border: 0;
+  border-radius: calc(2px * var(--station-ui-scale));
+  color: var(--bs-print-major);
+  background:
+    linear-gradient(96deg, rgb(238 228 214 / 7%) 0%, transparent 48%, rgb(0 0 0 / 20%) 100%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bs-cap-top) 90%, var(--bs-cap-bottom)) 0%, var(--bs-cap-bottom) 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(238 228 214 / 18%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(0 0 0 / 72%),
+    0 calc(2px * var(--station-ui-scale)) 0 rgb(0 0 0 / 55%);
+  cursor: pointer;
+  transition: transform 55ms var(--mechanism-hard-ease), box-shadow 55ms var(--mechanism-hard-ease), color 55ms linear;
 }
 
-.synth-display-hint {
-  margin: var(--sp-group) 0 0;
-  color: var(--label-section-color);
+/* Engaged is a mechanical fact before it is a colour: the cap has gone down
+   into the panel, lost its stand-off and taken one hairline of the index. */
+.bassic-wave-key[aria-pressed='true'] {
+  transform: translateY(calc(2px * var(--station-ui-scale)));
+  color: var(--station-text);
+  background:
+    linear-gradient(96deg, rgb(238 228 214 / 5%) 0%, transparent 48%, rgb(0 0 0 / 24%) 100%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bs-cap-top) 68%, var(--bs-cap-bottom)) 0%, var(--bs-cap-bottom) 100%);
+  box-shadow:
+    inset 0 calc(2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(0 0 0 / 62%),
+    inset 0 calc(-2px * var(--station-ui-scale)) 0 var(--bs-index),
+    0 0 0 rgb(0 0 0 / 0%);
+}
+
+.bassic-wave-key:active:not([aria-pressed='true']) {
+  transform: translateY(calc(2px * var(--station-ui-scale)));
+  box-shadow:
+    inset 0 calc(2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(0 0 0 / 55%),
+    0 0 0 rgb(0 0 0 / 0%);
+}
+
+.bassic-wave-key:focus-visible {
+  outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent);
+  outline-offset: calc(-2px * var(--station-ui-scale));
+}
+
+.bassic-wave-glyph {
+  width: calc(17px * var(--station-ui-scale));
+  height: calc(13px * var(--station-ui-scale));
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---- Octave slide switch -------------------------------------------------
+   Every position is printed on the panel and the actuator sits under the
+   engaged one, riding an engraved rail with a notch at each stop. Five stops
+   wide throughout, so the sub's two-position switch keeps the oscillators'
+   pitch instead of stretching across the column. */
+.bassic-detents {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  width: 100%;
+  min-width: 0;
+}
+
+.bassic-detent {
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  min-height: calc(28px * var(--station-ui-scale));
+  padding: 0 0 calc(6px * var(--station-ui-scale));
+  border: 0;
+  color: var(--bs-print);
+  background: transparent;
   font-family: var(--station-mono-font);
   font-size: var(--label-section);
-  letter-spacing: .05em;
+  font-weight: 600;
+  letter-spacing: .04em;
+  cursor: pointer;
+  transition: color 55ms linear;
+}
+
+/* Rail and stop notch, drawn per position so the rail exists only where the
+   switch actually has somewhere to go. */
+.bassic-detent::after {
+  position: absolute;
+  right: 0;
+  bottom: calc(1px * var(--station-ui-scale));
+  left: 0;
+  height: calc(4px * var(--station-ui-scale));
+  background:
+    linear-gradient(180deg, rgb(0 0 0 / 70%) 0 1px, rgb(238 228 214 / 7%) 1px 2px, transparent 2px) top left / 100% 100% no-repeat,
+    linear-gradient(180deg, rgb(0 0 0 / 55%) 0 100%) top center / 1px 100% no-repeat;
+  content: '';
+}
+
+/* The actuator: a small moulded shoe that has come to rest on this stop. */
+.bassic-detent[aria-pressed='true'] {
+  color: var(--station-text);
+}
+
+.bassic-detent[aria-pressed='true']::before {
+  position: absolute;
+  z-index: -1;
+  top: calc(1px * var(--station-ui-scale));
+  right: calc(3px * var(--station-ui-scale));
+  bottom: calc(6px * var(--station-ui-scale));
+  left: calc(3px * var(--station-ui-scale));
+  border-radius: calc(2px * var(--station-ui-scale));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bs-cap-top) 92%, var(--bs-cap-bottom)), var(--bs-cap-bottom));
+  box-shadow:
+    inset 0 1px 0 rgb(238 228 214 / 22%),
+    inset 0 calc(-2px * var(--station-ui-scale)) 0 var(--bs-index),
+    0 calc(2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(0 0 0 / 58%);
+  content: '';
+}
+
+.bassic-detent:focus-visible {
+  outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent);
+  outline-offset: calc(-2px * var(--station-ui-scale));
+}
+
+/* ---- Linear pot ----------------------------------------------------------
+   Legend at the left of its line, value at the right, the groove under both
+   and spanning the full width of whatever holds it. Both text lines reserve
+   their height whether or not they need it, so a stack does not shift when
+   RESONANCE replaces CUTOFF or 1.20 kHz replaces 80 Hz.
+
+   The whole slot is the hit target - the full width of the panel by 32px -
+   which is the point of the part: a thumb never has to find a small round
+   thing, it just lands on the line and pushes. */
+.bassic-fader-stack {
+  display: grid;
+  gap: var(--sp-tight);
+  min-width: 0;
+}
+
+.bassic-fader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0 var(--sp-group);
+  min-width: 0;
+  color: var(--bs-print-major);
+  font-family: var(--station-mono-font);
+  font-size: var(--label-section);
+  font-weight: 600;
+  letter-spacing: .06em;
+}
+
+.bassic-fader-legend {
+  overflow: hidden;
+  height: calc(1lh);
+  white-space: nowrap;
+}
+
+.bassic-fader > output {
+  overflow: hidden;
+  height: calc(1lh);
+  color: color-mix(in srgb, var(--bs-index) 70%, var(--station-text));
+  font-size: var(--label-section);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.bassic-fader-slot {
+  position: relative;
+  grid-column: 1 / -1;
+  width: 100%;
+  height: var(--bs-slot-h);
+  min-width: 0;
+}
+
+/* The groove is a cut through the face, not a drawn line: dark interior, a lit
+   lip along the lower edge where the cut ends and a shadowed one where it
+   begins. The travelled part carries a dim line of the index, the way a
+   console shows where a control has been. */
+.bassic-fader-slot::before {
+  position: absolute;
+  top: var(--bs-groove-mid);
+  right: 0;
+  left: 0;
+  height: var(--bs-groove-h);
+  border-radius: calc(5px * var(--station-ui-scale));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--bs-index) 24%, #05060a) 0 calc(var(--bs-pos, 0) * 100%), transparent calc(var(--bs-pos, 0) * 100%) 100%),
+    linear-gradient(180deg, #050609, #0a0b10 52%, #06070a);
+  box-shadow:
+    inset 0 calc(3px * var(--station-ui-scale)) calc(6px * var(--station-ui-scale)) rgb(0 0 0 / 95%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(238 228 214 / 10%),
+    inset calc(1px * var(--station-ui-scale)) 0 0 rgb(0 0 0 / 60%),
+    0 1px 0 rgb(238 228 214 / 8%);
+  transform: translateY(-50%);
+  content: '';
+}
+
+/* Silkscreen scale in the band under the groove, where the cap cannot cover
+   it: a mark every eighth of the throw, inset by half a cap so the end marks
+   line up with the ends of the travel. */
+.bassic-fader-slot::after {
+  position: absolute;
+  right: calc(var(--bs-cap-w) / 2);
+  bottom: 0;
+  left: calc(var(--bs-cap-w) / 2);
+  height: calc(4px * var(--station-ui-scale));
+  background:
+    linear-gradient(180deg, var(--bs-print) 0 100%) 50% / 1px 100% no-repeat,
+    repeating-linear-gradient(90deg, var(--bs-print) 0 1px, transparent 1px 12.5%) left / calc(100% + 1px) 100% no-repeat;
+  pointer-events: none;
+  content: '';
+}
+
+/* A bipolar parameter prints its zero brighter than the rest of the scale. */
+.bassic-fader-bipolar .bassic-fader-slot::after {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--bs-index) 62%, transparent) 0 100%) 50% / 1px 100% no-repeat,
+    repeating-linear-gradient(90deg, var(--bs-print) 0 1px, transparent 1px 12.5%) left / calc(100% + 1px) 100% no-repeat;
+}
+
+/* The cap is a real element positioned from the value, not the native thumb:
+   Chromium paints a thumb from the lane centre and no offset survives a change
+   of lane width. A wide low console cap - flat matte face, one index line
+   across it, two fine grip cuts - rather than DRUM SYNTH's tall moulding. */
+.bassic-fader-cap {
+  position: absolute;
+  top: var(--bs-groove-mid);
+  left: calc(var(--bs-pos, 0) * (100% - var(--bs-cap-w)));
+  z-index: 2;
+  width: var(--bs-cap-w);
+  height: var(--bs-cap-h);
+  border-radius: calc(3px * var(--station-ui-scale));
+  background:
+    linear-gradient(90deg, transparent 0 46%, var(--bs-index) 46% 54%, transparent 54% 100%),
+    linear-gradient(90deg, transparent 0 22%, rgb(0 0 0 / 42%) 22% 24%, transparent 24% 76%, rgb(0 0 0 / 42%) 76% 78%, transparent 78% 100%),
+    linear-gradient(96deg, rgb(238 228 214 / 9%) 0%, transparent 44%, rgb(0 0 0 / 22%) 100%),
+    linear-gradient(180deg, rgb(238 228 214 / 12%) 0 1px, transparent 1px calc(100% - 1px), rgb(0 0 0 / 52%) calc(100% - 1px) 100%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bs-cap-top) 88%, var(--bs-cap-bottom)) 0%, var(--bs-cap-bottom) 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(238 228 214 / 24%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(0 0 0 / 88%),
+    calc(2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) calc(5px * var(--station-ui-scale)) rgb(0 0 0 / 62%),
+    0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 70%);
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+/* The hit target is the whole slot, invisible and unstyled. Scoped under
+   .station-shell so it outranks the shared range geometry in layout-tiers.css,
+   which loads last - matching its specificity is not enough, and losing that
+   race is what once left a control grabbable only in its top fifth. */
+.station-shell .bassic-fader-slot input[type="range"] {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  opacity: 0;
+  /* App.css still rotates plain range inputs; a rotated input lays its hit box
+     across the slot instead of along it. */
+  transform: none;
+  cursor: ew-resize;
+  touch-action: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Focus is painted on the part, because the control itself is transparent. */
+.station-shell .bassic-fader-slot input[type="range"]:focus-visible ~ .bassic-fader-cap {
+  outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent);
+  outline-offset: calc(1px * var(--station-ui-scale));
+}
+
+/* Silkscreen: where the rest of the voice lives. */
+.synth-display-hint {
+  margin: var(--sp-sec) 0 0;
+  color: var(--bs-print);
+  font-family: var(--station-mono-font);
+  font-size: var(--label-section);
+  letter-spacing: .12em;
   text-align: right;
 }
 
-.synth-workspace button:disabled,
-.synth-workspace select:disabled {
-  cursor: not-allowed;
-  opacity: .4;
+@media (prefers-reduced-motion: reduce) {
+  .bassic-wave-key,
+  .synth-audition { transition: none; }
+  .bassic-wave-key:active,
+  .bassic-wave-key[aria-pressed='true'],
+  .synth-audition:active { transform: none; }
 }
 
+/* ============================================================================
+   System Display tenant
+   ----------------------------------------------------------------------------
+   FILTER ENV, AMP, LFO, VOICE and PAD are rented pages on the chassis display,
+   not part of this panel - the material below belongs to that screen.
+   ========================================================================= */
 .synth-display-pages {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -318,13 +667,10 @@
   text-align: right;
 }
 
-/* At the 320px floor the two utility keys leave the patch name too narrow to
-   read beside them, so they drop to their own line under it. */
-@media (max-width: 360px) {
-  .synth-heading-identity { grid-template-columns: minmax(0, 1fr); }
-  .synth-heading-keys { justify-content: start; }
-}
-
+/* The nameplate ellipsises instead of pushing the two utility keys onto a line
+   of their own, which is what the old layout did below 360px. The plate and
+   both keys measure 232px inside a 298px row at the 320px floor, and the 28px
+   that stacking cost is what keeps FILTER inside the chassis down there. */
 @media (max-width: 390px) {
   .synth-display-hint {
     text-align: left;

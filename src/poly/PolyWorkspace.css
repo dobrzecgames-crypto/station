@@ -588,18 +588,24 @@
    at the ends and the middle rather than a ruler.
 
    Modern rather than machined: no knurling, no grip cuts, no chamfer stack.
-   The shuttle is a clean slug with one highlight and one shadow. */
+   The shuttle is a clean slug with one highlight and one shadow.
+
+   A pass toward BASSIC's weight thickened the slug and deepened the cut it
+   rides in, without borrowing BASSIC's own material - no colour in the
+   channel, no diagonal sheen, no grip lines across the cap. What moved is
+   mass alone, so the part reads heavier under a thumb without picking up a
+   second instrument's vocabulary. */
 .poly-control { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-hair) var(--sp-group); align-content: center; min-height: var(--zx-row); min-width: 0; color: var(--zx-print-major); font-family: var(--station-mono-font); font-size: var(--label-section); font-weight: 500; letter-spacing: .06em; }
 .poly-control-legend { overflow: hidden; white-space: nowrap; }
 /* R5: the value outranks its own legend. It is the part that moves. */
 .poly-control output { overflow: hidden; color: var(--station-text); font-size: var(--label-value); font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 
 .poly-control-track {
-  --zx-shuttle-w: calc(22px * var(--station-ui-scale));
-  --zx-shuttle-h: calc(12px * var(--station-ui-scale));
+  --zx-shuttle-w: calc(26px * var(--station-ui-scale));
+  --zx-shuttle-h: calc(20px * var(--station-ui-scale));
   position: relative;
   grid-column: 1 / -1;
-  height: calc(16px * var(--station-ui-scale));
+  height: calc(26px * var(--station-ui-scale));
   min-width: 0;
 }
 
@@ -611,12 +617,13 @@
   top: 50%;
   right: 0;
   left: 0;
-  height: calc(6px * var(--station-ui-scale));
-  border-radius: calc(3px * var(--station-ui-scale));
+  height: calc(10px * var(--station-ui-scale));
+  border-radius: calc(5px * var(--station-ui-scale));
   background: linear-gradient(180deg, #090a0e, #0e1015 70%, #0b0c11);
   box-shadow:
-    inset 0 calc(1.5px * var(--station-ui-scale)) calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 62%),
-    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(238 228 214 / 7%);
+    inset 0 calc(3px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 72%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(238 228 214 / 8%),
+    inset calc(1px * var(--station-ui-scale)) 0 0 rgb(0 0 0 / 45%);
   transform: translateY(-50%);
   content: '';
 }
@@ -646,14 +653,14 @@
   z-index: 1;
   width: var(--zx-shuttle-w);
   height: var(--zx-shuttle-h);
-  border-radius: calc(2px * var(--station-ui-scale));
+  border-radius: calc(3px * var(--station-ui-scale));
   background:
     linear-gradient(90deg, rgb(238 228 214 / 10%) 0 1px, transparent 1px calc(100% - 1px), rgb(0 0 0 / 48%) calc(100% - 1px) 100%),
     linear-gradient(180deg, color-mix(in srgb, var(--station-raised) 78%, var(--station-text) 20%) 0%, color-mix(in srgb, var(--station-raised) 96%, var(--station-text) 4%) 44%, color-mix(in srgb, var(--station-raised) 66%, #000) 100%);
   box-shadow:
-    inset 0 1px 0 rgb(238 228 214 / 24%),
-    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(0 0 0 / 66%),
-    calc(1px * var(--station-ui-scale)) calc(2px * var(--station-ui-scale)) calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 55%);
+    inset 0 1px 0 rgb(238 228 214 / 28%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(0 0 0 / 70%),
+    calc(1px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 60%);
   transform: translateY(-50%);
   pointer-events: none;
 }

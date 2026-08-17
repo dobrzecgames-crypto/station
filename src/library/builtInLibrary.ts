@@ -36,6 +36,7 @@ const breakFilenames = [
   'ledzeppelin-boogiewithstu.wav',
   'levertallison-sugardaddy.wav',
   'loucourtney-heyjoyce.wav',
+  'oh.wav',
   'rogerroger-jerkmachine.wav',
   'royporter-partytime.wav',
   'serguei-ourico.wav',

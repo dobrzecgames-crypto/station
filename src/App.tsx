@@ -2425,6 +2425,9 @@ export function App({ audioEngine }: AppProps) {
                   />}
               <div className="instrument-layout">
                 <div className="pad-workspace">
+                  <div className="pad-grid-toolbar">
+                    <ChordModeToggle enabled={selectedGroup.padMode === 'chords'} available={chordModeAvailable} onChange={(enabled) => changePadMode(enabled ? 'chords' : 'notes')} />
+                  </div>
                   <PadGrid
                     pads={pads}
                     selectedPadId={selectedPadId}
@@ -2441,14 +2444,6 @@ export function App({ audioEngine }: AppProps) {
                     }}
                     chordLabels={chordLabels}
                   />
-                  {/* Below the grid, not above it: there is a whole dead stretch of
-                      panel down here on every bank, while the space above the grid
-                      belongs to the tab row and nothing else. A bank-wide mode
-                      switch reads fine as the last thing on the page rather than
-                      the first. */}
-                  <div className="pad-grid-toolbar">
-                    <ChordModeToggle enabled={selectedGroup.padMode === 'chords'} available={chordModeAvailable} onChange={(enabled) => changePadMode(enabled ? 'chords' : 'notes')} />
-                  </div>
                 </div>
               </div>
               {sampleEditorOpen && (

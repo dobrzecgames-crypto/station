@@ -6,10 +6,18 @@ interface SynthPickerProps {
   onSelect: (instrument: SynthPickerInstrument) => void
 }
 
+/* STRINGS is paused, not removed: taken out of this list only, so it can no
+   longer be picked for a new pattern. Everything else stays wired - the
+   'strings' branch of SynthPickerInstrument, every function keyed on it in
+   App.tsx, StringsWorkspace/StringsDisplay, stringsOperations, its own
+   preset library and its own tests. Any pad created before this pause keeps
+   opening its full STRINGS editor exactly as before; this only blocks
+   *creating new* STRINGS pads. To bring it back, restore the entry below
+   (kept here for the exact copy) - nothing else needs to change. */
+// { id: 'strings', name: 'STRINGS', description: 'Polyphonic strings, pads and analog brass.' },
 const instruments: ReadonlyArray<{ id: SynthPickerInstrument; name: string; description: string }> = [
   { id: 'monopoly', name: 'BASSIC', description: 'Monophonic bass, leads and short synth sounds.' },
   { id: 'organicbass', name: 'MONOGORG', description: 'Dark, rounded mono bass for sampled beats.' },
-  { id: 'strings', name: 'STRINGS', description: 'Polyphonic strings, pads and analog brass.' },
   { id: 'poly', name: 'ZOLA-X', description: 'Modern polyphonic wavetable synthesizer.' },
   { id: 'drumsynth', name: 'DRUM SYNTH', description: 'Synthesized kicks for electronic drum patterns.' },
 ]

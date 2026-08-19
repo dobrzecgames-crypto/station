@@ -1,14 +1,58 @@
+/* ============================================================================
+   STRINGS control surface
+   ----------------------------------------------------------------------------
+   One model of panel, not a Station-wide control kit. Nothing below is meant
+   to be lifted into ZOLA-X, BASSIC or DRUM SYNTH - those are different
+   machines from the same maker. The shared DNA is the palette, the type, the
+   mechanical pressed states and the density; the hardware itself is local to
+   this file - which is why it borrows BASSIC's groove-and-cap and DRUM
+   SYNTH's vertical bay as its own two parts rather than inventing a fourth.
+
+   STRINGS moved every sound parameter off the shared System Display onto its
+   own panel in this pass, the same migration BASSIC made earlier (its own
+   hint line still reads FILTER ENV / AMP / LFO / VOICE / PAD -> DISPLAY for
+   what it kept there). CHARACTER, OCTAVE and OCTAVE LAYER are macros set once
+   per patch, so they sit above the pages and never disappear when a page
+   changes. ENVELOPE, ENSEMBLE and TEXTURE hold the parameters a player
+   actually reaches for while shaping a sound, paged the way ZOLA-X pages
+   OSC/FILTER/ENV/MOD - too many parts for one screen, not too many for one
+   instrument. The one part neither BASSIC nor DRUM SYNTH has is the small
+   envelope screen: STRINGS keeps it because there's something worth drawing.
+   ========================================================================= */
 .strings-workspace {
+  --st-index: var(--accent-strings);
+  --st-print: color-mix(in srgb, var(--station-text-muted) 30%, transparent);
+  --st-print-major: color-mix(in srgb, var(--station-text-muted) 54%, transparent);
+  /* A cool slate rather than BASSIC's plum or MONOGORG's brown - the cap
+     material carries a hint of the instrument's own pigment even before the
+     index line does. */
+  --st-cap-top: color-mix(in srgb, var(--scene-control) 80%, #3c4450);
+  --st-cap-bottom: color-mix(in srgb, var(--scene-recess) 72%, #10141b);
+  --st-travel: color-mix(in srgb, var(--accent-strings) 26%, #05060a);
+  --st-vfader-length: calc(148px * var(--station-ui-scale));
+  --st-vcap-w: calc(26px * var(--station-ui-scale));
+  --st-vcap-h: calc(20px * var(--station-ui-scale));
+
   margin-top: var(--sp-tight);
   padding: var(--sp-card);
   border: 1px solid var(--station-line);
   border-radius: calc(6px * var(--station-ui-scale));
-  background: var(--station-panel);
+  background:
+    radial-gradient(130% 72% at 50% -8%, rgb(238 228 214 / 5%), transparent 62%),
+    linear-gradient(180deg, color-mix(in srgb, var(--station-panel) 88%, var(--station-text) 6%), var(--station-panel) 32%, color-mix(in srgb, var(--station-panel) 90%, #000) 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(238 228 214 / 10%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(0 0 0 / 60%);
+}
+
+.strings-workspace button:disabled,
+.strings-workspace select:disabled {
+  cursor: not-allowed;
+  opacity: .4;
 }
 
 /* Context line, then the patch name with BACK and PATCH beside it, the
-   audition trigger held at the right across both. The separate BACK row and
-   the rule line under the heading are gone. */
+   audition trigger held at the right across both. */
 .strings-heading {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -21,8 +65,9 @@
 .strings-heading > .eyebrow {
   grid-area: eyebrow;
   overflow: hidden;
-  color: var(--label-section-color);
+  color: var(--st-print);
   font-size: var(--label-section);
+  letter-spacing: .1em;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -40,6 +85,37 @@
   display: grid;
   grid-auto-flow: column;
   gap: var(--sp-tight);
+}
+
+/* ---- Utility keys: quietest thing in the header ---------------------------
+   .station-key is the shared MOMENTARY/LATCH part every instrument's own
+   workspace uses for its way out and its patch latch (DRUM SYNTH scopes the
+   identical override for its own footer). Left alone it is a tier-3 key -
+   already the smallest tier station-wide - but on this panel it now sits
+   beside a bigger CHARACTER bank and a bigger page bank, so it drops a size
+   further and loses most of its contrast: this is instrument-local, nothing
+   about .station-key itself changes, so every other workspace's SYNTHS/PATCH
+   keys are untouched. */
+.strings-heading .station-key {
+  min-height: calc(26px * var(--station-ui-scale));
+  font-size: .5rem;
+  font-weight: 500;
+}
+
+.strings-heading .station-key > [data-mechanism-face] {
+  min-height: calc(22px * var(--station-ui-scale));
+  padding-inline: var(--sp-group);
+  border-color: color-mix(in srgb, var(--station-line) 65%, #000);
+  color: var(--st-print-major);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--st-cap-top) 55%, var(--st-cap-bottom)), var(--st-cap-bottom));
+  box-shadow:
+    inset 0 1px 0 rgb(238 228 214 / 8%),
+    0 calc(2px * var(--station-ui-scale)) 0 rgb(0 0 0 / 50%);
+}
+
+.strings-heading .station-key-engaged > [data-mechanism-face] {
+  color: var(--station-text);
+  background: color-mix(in srgb, var(--st-index) 18%, var(--st-cap-bottom));
 }
 
 .strings-heading h2 {
@@ -63,69 +139,14 @@
 .strings-patch-panel .user-synth-preset-actions { grid-template-columns: repeat(3, minmax(calc(44px * var(--station-ui-scale)), auto)); }
 .strings-patch-panel .user-synth-preset-actions button { min-height: var(--tier-3-hit); font-size: var(--label-section); font-weight: 500; }
 
-/* CHARACTER, OCTAVE LAYER and OCTAVE MIX are three controls, so they take one
-   3-up row instead of a 2-up row plus a lone full-width slider underneath. */
-.strings-starter-row {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--sp-group);
-  align-items: end;
-  margin-top: var(--sp-group);
-}
-
-.strings-inline-control {
-  display: grid;
-  min-width: 0;
-  color: var(--station-text-muted);
-  font-family: var(--station-mono-font);
-  font-size: var(--label-param);
-  font-weight: 500;
-  letter-spacing: .04em;
-  gap: var(--sp-hair);
-}
-
-.strings-inline-control select {
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-  height: var(--tier-2-face);
-  padding: 0 var(--sp-tight);
-  border: 1px solid var(--station-line);
-  border-radius: calc(4px * var(--station-ui-scale));
-  color: var(--station-text);
-  background: var(--station-raised);
-  font: inherit;
-  font-size: var(--label-value);
-}
-
-.strings-inline-range {
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--sp-hair) var(--sp-tight);
-  min-width: 0;
-  margin-top: 0;
-}
-
-/* R5: the value outranks its own legend. It is the part that moves. */
-.strings-inline-range output {
-  color: var(--station-text);
-  font-size: var(--label-value);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-
-/* Same twelve pixels of air around the cap reclaimed as elsewhere; the cap
-   and the printed track are untouched. */
-.strings-inline-range input[type="range"] {
-  box-sizing: border-box;
-  grid-column: 1 / -1;
-  display: block;
-  width: calc(100% - var(--sp-tight));
-  min-width: 0;
-  min-height: 0;
-  margin-inline: var(--sp-hair);
-}
-
+/* ---- Primary performance control -----------------------------------------
+   The one part on this panel allowed to dominate by size. It was a lit
+   accent-coloured plane before this pass - exactly the web-CTA shape the
+   brief singles out - and reads as a key now instead: dark stock the same
+   material family as every cap on the panel, standing proud on a harder
+   drop than anything else here (this is the one place a deeper shadow is
+   earned), with the STRINGS pigment carried only by the play mark itself.
+   No glow, no lit face - the depth is what says "press me", not the colour. */
 .strings-audition {
   grid-area: audition;
   display: grid;
@@ -136,11 +157,19 @@
   min-height: var(--tier-1-face);
   flex: 0 0 auto;
   padding: 0;
-  border: 0;
+  border: 1px solid var(--station-line);
   border-radius: calc(8px * var(--station-ui-scale));
-  color: var(--station-bg);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--station-accent) 88%, #000), var(--station-accent) 60%, color-mix(in srgb, var(--station-accent) 88%, #fff));
+  color: var(--st-index);
+  background:
+    linear-gradient(96deg, rgb(238 228 214 / 9%) 0%, transparent 46%, rgb(0 0 0 / 22%) 100%),
+    linear-gradient(180deg, color-mix(in srgb, var(--st-cap-top) 92%, var(--st-cap-bottom)) 0%, var(--st-cap-bottom) 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(238 228 214 / 22%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(0 0 0 / 80%),
+    0 calc(4px * var(--station-ui-scale)) 0 rgb(0 0 0 / 66%),
+    0 calc(6px * var(--station-ui-scale)) calc(7px * var(--station-ui-scale)) rgb(0 0 0 / 40%);
   cursor: pointer;
+  transition: transform 55ms var(--mechanism-hard-ease), box-shadow 55ms var(--mechanism-hard-ease);
   user-select: none;
   -webkit-user-select: none;
 }
@@ -155,18 +184,27 @@
   border-color: transparent transparent transparent currentColor;
 }
 
+/* The hardest press on the panel, to match the hardest drop at rest. */
+.strings-audition:active:not(:disabled) {
+  transform: translateY(calc(4px * var(--station-ui-scale)));
+  box-shadow:
+    inset 0 calc(2px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 65%),
+    0 0 0 rgb(0 0 0 / 0%);
+}
+
+.strings-audition:focus-visible {
+  outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent);
+  outline-offset: calc(2px * var(--station-ui-scale));
+}
+
 .strings-audition:disabled {
   cursor: not-allowed;
   opacity: .45;
 }
 
-.strings-display-hint {
-  margin: var(--sp-group) 0 0;
-  color: var(--label-section-color);
-  font-family: var(--station-mono-font);
-  font-size: var(--label-section);
-  letter-spacing: .05em;
-  text-align: right;
+@media (prefers-reduced-motion: reduce) {
+  .strings-audition { transition: none; }
+  .strings-audition:active { transform: none; }
 }
 
 /* At the 320px floor the two utility keys leave the patch name too narrow to
@@ -176,93 +214,551 @@
   .strings-heading-keys { justify-content: start; }
 }
 
-.strings-display-pages {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  min-height: calc(32px * var(--station-ui-scale));
-  border-top: 1px solid rgb(var(--display-light) / 8%);
-  border-bottom: 1px solid rgb(var(--display-light) / 8%);
-}
+/* ============================================================================
+   Macros: CHARACTER, OCTAVE, OCTAVE LAYER, OCTAVE MIX
+   ----------------------------------------------------------------------------
+   Set once per patch, so they sit above the page bank and never disappear
+   when the page changes underneath them.
+   ========================================================================= */
 
-.strings-display-pages button {
-  border: 0;
-  border-right: 1px solid rgb(var(--display-light) / 8%);
-  color: rgb(var(--display-light) / 48%);
-  background: transparent;
-  font-family: var(--station-mono-font);
-  font-size: .48rem;
-  letter-spacing: .04em;
-  cursor: pointer;
-}
-
-.strings-display-pages button:last-child {
-  border-right: 0;
-}
-
-.strings-display-pages button[aria-pressed='true'] {
-  color: rgb(var(--display-light));
-  background: rgb(var(--display-light) / 10%);
-  text-shadow: 0 0 calc(6px * var(--station-ui-scale)) rgb(var(--display-light) / var(--display-bloom));
-}
-
-.strings-display-pages button:focus-visible,
-.strings-display-pages button:hover {
-  color: rgb(var(--display-light));
-  outline: none;
-}
-
-.strings-display-switch {
-  display: grid;
-  gap: calc(3px * var(--station-ui-scale)) calc(10px * var(--station-ui-scale));
-  padding: calc(6px * var(--station-ui-scale)) calc(12px * var(--station-ui-scale)) calc(8px * var(--station-ui-scale));
-  border-top: 1px solid rgb(var(--display-light) / 8%);
-}
-
-.strings-display-switch-label {
-  color: rgb(var(--display-light) / 55%);
-  font-family: var(--station-mono-font);
-  font-size: .58rem;
-  letter-spacing: .05em;
-  text-transform: uppercase;
-}
-
-.strings-display-switch-options {
+/* ---- Detent switch ---------------------------------------------------------
+   BASSIC's own part, lifted whole and split into two weights. CHARACTER is
+   the bigger of the two decisions: its three keys sit in a shared housing
+   and even the two you didn't pick keep a faint proud face, so the bank
+   reads as three real keys at a glance, not three words that only become a
+   key once you touch one. OCTAVE and OCTAVE LAYER are the auxiliary pair -
+   .strings-detents-minor turns the same part quieter and flatter: smaller,
+   dimmer, and back to BASSIC's own bare rail when nothing is pressed,
+   because a bank-switch has less to say for itself than a voice choice. */
+.strings-detents {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: calc(4px * var(--station-ui-scale));
+  gap: calc(2px * var(--station-ui-scale));
+  width: 100%;
+  min-width: 0;
+  margin-top: var(--sp-sec);
+  padding: calc(3px * var(--station-ui-scale));
+  border-radius: calc(4px * var(--station-ui-scale));
+  background: linear-gradient(180deg, #090a0f, #0d0e13);
+  box-shadow:
+    inset 0 calc(2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(0 0 0 / 70%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(238 228 214 / 6%);
 }
 
-.strings-display-switch-options button {
-  min-height: calc(26px * var(--station-ui-scale));
-  border: 1px solid rgb(var(--display-light) / 25%);
-  border-radius: calc(3px * var(--station-ui-scale));
-  color: rgb(var(--display-light) / 70%);
-  background: rgb(var(--display-light) / 5%);
+.strings-detent {
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  min-height: calc(32px * var(--station-ui-scale));
+  padding: 0;
+  border: 0;
+  color: var(--st-print-major);
+  background: transparent;
   font-family: var(--station-mono-font);
-  font-size: .54rem;
-  letter-spacing: .04em;
+  font-size: .6rem;
+  font-weight: 600;
+  letter-spacing: .03em;
   cursor: pointer;
+  transition: color 55ms linear;
 }
 
-.strings-display-switch-options button[aria-pressed='true'] {
-  color: rgb(var(--display-light));
-  background: rgb(var(--display-light) / 14%);
-  border-color: rgb(var(--display-light) / 55%);
-  text-shadow: 0 0 calc(6px * var(--station-ui-scale)) rgb(var(--display-light) / var(--display-bloom));
+/* The unpressed face: a slab standing a little proud of the housing floor,
+   dim enough that the pressed key is unmistakably the one in charge. */
+.strings-detent:not([aria-pressed='true'])::before {
+  position: absolute;
+  z-index: -1;
+  inset: calc(2px * var(--station-ui-scale));
+  border-radius: calc(2px * var(--station-ui-scale));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--st-cap-top) 55%, #14151b), color-mix(in srgb, var(--st-cap-bottom) 70%, #0c0d11));
+  box-shadow:
+    inset 0 1px 0 rgb(238 228 214 / 10%),
+    0 1px 0 rgb(0 0 0 / 45%);
+  content: '';
 }
 
-.strings-display-switch-options button:focus-visible,
-.strings-display-switch-options button:hover:not(:disabled) {
-  border-color: rgb(var(--display-light) / 55%);
-  color: rgb(var(--display-light));
-  outline: none;
+.strings-detent[aria-pressed='true'] { color: var(--station-text); }
+
+.strings-detent[aria-pressed='true']::before {
+  position: absolute;
+  z-index: -1;
+  inset: calc(2px * var(--station-ui-scale));
+  border-radius: calc(2px * var(--station-ui-scale));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--st-cap-top) 68%, var(--st-cap-bottom)), var(--st-cap-bottom));
+  box-shadow:
+    inset 0 calc(2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(0 0 0 / 60%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 color-mix(in srgb, var(--st-index) 60%, transparent);
+  content: '';
 }
 
-.strings-display-switch-options button:disabled {
-  cursor: not-allowed;
-  opacity: .4;
+.strings-detent:focus-visible {
+  outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent);
+  outline-offset: calc(-2px * var(--station-ui-scale));
 }
 
+.strings-macro-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-sec);
+  min-width: 0;
+  margin-top: var(--sp-sec);
+}
+.strings-macro-row .strings-detents { margin-top: 0; }
+
+/* ---- Minor tier: OCTAVE, OCTAVE LAYER --------------------------------------
+   Smaller, plainer, printed rather than moulded - the housing drops its own
+   depth and goes back to a bare engraved rail, the unpressed key drops its
+   proud face entirely, and the pressed key gets a notch rather than a slab. */
+.strings-detents-minor {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.strings-detents-minor .strings-detent {
+  min-height: calc(24px * var(--station-ui-scale));
+  padding: 0 0 calc(5px * var(--station-ui-scale));
+  color: var(--st-print);
+  font-size: .52rem;
+  font-weight: 500;
+  letter-spacing: .02em;
+}
+
+.strings-detents-minor .strings-detent::after {
+  position: absolute;
+  right: 0;
+  bottom: calc(1px * var(--station-ui-scale));
+  left: 0;
+  height: calc(3px * var(--station-ui-scale));
+  background:
+    linear-gradient(180deg, rgb(0 0 0 / 65%) 0 1px, rgb(238 228 214 / 6%) 1px 2px, transparent 2px) top left / 100% 100% no-repeat,
+    linear-gradient(180deg, rgb(0 0 0 / 50%) 0 100%) top center / 1px 100% no-repeat;
+  content: '';
+}
+
+.strings-detents-minor .strings-detent:not([aria-pressed='true'])::before {
+  content: none;
+}
+
+.strings-detents-minor .strings-detent[aria-pressed='true'] { color: var(--st-print-major); }
+
+.strings-detents-minor .strings-detent[aria-pressed='true']::before {
+  inset: auto calc(4px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale));
+  height: calc(15px * var(--station-ui-scale));
+  box-shadow:
+    inset 0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 55%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 color-mix(in srgb, var(--st-index) 55%, transparent);
+}
+
+/* ============================================================================
+   Horizontal fader - BASSIC's groove and cap
+   ----------------------------------------------------------------------------
+   A wide low cap riding a groove cut the full width of the card. Used for
+   OCTAVE MIX alone, and for the two parameters paired with the envelope
+   screen where a full-width row reads better than a dense column. */
+.strings-fader-stack { display: grid; gap: var(--sp-tight); min-width: 0; margin-top: var(--sp-sec); }
+.strings-fader-stack .strings-fader { margin-top: 0; }
+
+.strings-fader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0 var(--sp-group);
+  min-width: 0;
+  margin-top: var(--sp-sec);
+  color: var(--st-print-major);
+  font-family: var(--station-mono-font);
+  font-size: var(--label-section);
+  font-weight: 600;
+  letter-spacing: .06em;
+}
+
+.strings-fader-disabled { opacity: .4; }
+
+.strings-fader-legend { overflow: hidden; height: 1lh; white-space: nowrap; }
+
+.strings-fader > output {
+  overflow: hidden;
+  height: 1lh;
+  color: color-mix(in srgb, var(--st-index) 70%, var(--station-text));
+  font-size: var(--label-section);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.strings-fader-slot {
+  position: relative;
+  grid-column: 1 / -1;
+  width: 100%;
+  height: calc(30px * var(--station-ui-scale));
+  min-width: 0;
+}
+
+.strings-fader-slot::before {
+  position: absolute;
+  top: 40%;
+  right: 0;
+  left: 0;
+  height: calc(9px * var(--station-ui-scale));
+  border-radius: calc(5px * var(--station-ui-scale));
+  background:
+    linear-gradient(90deg, var(--st-travel) 0 calc(var(--st-pos, 0) * 100%), transparent calc(var(--st-pos, 0) * 100%) 100%),
+    linear-gradient(180deg, #050609, #0a0b10 52%, #06070a);
+  box-shadow:
+    inset 0 calc(3px * var(--station-ui-scale)) calc(6px * var(--station-ui-scale)) rgb(0 0 0 / 95%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(238 228 214 / 10%),
+    inset calc(1px * var(--station-ui-scale)) 0 0 rgb(0 0 0 / 60%),
+    0 1px 0 rgb(238 228 214 / 8%);
+  transform: translateY(-50%);
+  content: '';
+}
+
+.strings-fader-slot::after {
+  position: absolute;
+  right: calc(12px * var(--station-ui-scale));
+  bottom: 0;
+  left: calc(12px * var(--station-ui-scale));
+  height: calc(4px * var(--station-ui-scale));
+  background:
+    linear-gradient(180deg, var(--st-print) 0 100%) 50% / 1px 100% no-repeat,
+    repeating-linear-gradient(90deg, var(--st-print) 0 1px, transparent 1px 12.5%) left / calc(100% + 1px) 100% no-repeat;
+  pointer-events: none;
+  content: '';
+}
+
+.station-shell .strings-fader-slot input[type="range"] {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  opacity: 0;
+  transform: none;
+  cursor: ew-resize;
+  touch-action: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.station-shell .strings-fader-slot input[type="range"]:focus-visible ~ .strings-fader-cap {
+  outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent);
+  outline-offset: calc(1px * var(--station-ui-scale));
+}
+
+.strings-fader-cap {
+  position: absolute;
+  top: 40%;
+  left: calc(var(--st-pos, 0) * (100% - calc(24px * var(--station-ui-scale))));
+  z-index: 2;
+  width: calc(24px * var(--station-ui-scale));
+  height: calc(22px * var(--station-ui-scale));
+  border-radius: calc(3px * var(--station-ui-scale));
+  background:
+    linear-gradient(90deg, transparent 0 46%, var(--st-index) 46% 54%, transparent 54% 100%),
+    linear-gradient(90deg, transparent 0 22%, rgb(0 0 0 / 42%) 22% 24%, transparent 24% 76%, rgb(0 0 0 / 42%) 76% 78%, transparent 78% 100%),
+    linear-gradient(96deg, rgb(238 228 214 / 9%) 0%, transparent 44%, rgb(0 0 0 / 22%) 100%),
+    linear-gradient(180deg, rgb(238 228 214 / 12%) 0 1px, transparent 1px calc(100% - 1px), rgb(0 0 0 / 52%) calc(100% - 1px) 100%),
+    linear-gradient(180deg, color-mix(in srgb, var(--st-cap-top) 88%, var(--st-cap-bottom)) 0%, var(--st-cap-bottom) 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(238 228 214 / 24%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(0 0 0 / 88%),
+    calc(2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) calc(5px * var(--station-ui-scale)) rgb(0 0 0 / 62%),
+    0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 70%);
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+/* ============================================================================
+   Page bank: ENVELOPE / ENSEMBLE / TEXTURE
+   ----------------------------------------------------------------------------
+   The main way to navigate the instrument's architecture, so it carries the
+   heaviest label and the biggest keys of any selector on the panel - a
+   shared well with three wide caps in it, DRUM SYNTH's voice selector
+   extended from two positions to three and scaled up a size, not a row of
+   web tabs. The mechanical fact carries the state: unpressed is a harder
+   plastic cap standing proud with real top light and a real drop; pressed
+   is that same cap seated down into the well, its top edge gone dark where
+   the wall now casts into it. STRINGS' own pigment shows only as a faint
+   trace at the very bottom of the pressed cap - a confirmation once you've
+   already read the depth, never the first thing the eye lands on. */
+.strings-pages {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: calc(2px * var(--station-ui-scale));
+  min-width: 0;
+  margin-top: var(--sp-sec);
+  padding: calc(3px * var(--station-ui-scale));
+  border-radius: calc(5px * var(--station-ui-scale));
+  background: linear-gradient(180deg, #05060a, #0a0b11);
+  box-shadow:
+    inset 0 calc(2px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 90%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(238 228 214 / 8%);
+}
+
+.strings-pages button {
+  min-height: calc(42px * var(--station-ui-scale));
+  border: 0;
+  border-radius: calc(3px * var(--station-ui-scale));
+  color: var(--st-print-major);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--st-cap-top) 90%, var(--st-cap-bottom)) 0%, var(--st-cap-bottom) 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(238 228 214 / 20%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(0 0 0 / 72%),
+    0 calc(3px * var(--station-ui-scale)) 0 rgb(0 0 0 / 60%),
+    0 calc(4px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 28%);
+  font-family: var(--station-mono-font);
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  cursor: pointer;
+  transition: transform 55ms var(--mechanism-hard-ease), box-shadow 55ms var(--mechanism-hard-ease), color 55ms linear;
+}
+
+.strings-pages button[aria-pressed='true'] {
+  transform: translateY(calc(3px * var(--station-ui-scale)));
+  color: var(--station-text);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--st-cap-top) 62%, var(--st-cap-bottom)) 0%, var(--st-cap-bottom) 100%);
+  box-shadow:
+    inset 0 calc(3px * var(--station-ui-scale)) calc(5px * var(--station-ui-scale)) rgb(0 0 0 / 68%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 color-mix(in srgb, var(--st-index) 55%, transparent),
+    0 0 0 rgb(0 0 0 / 0%);
+}
+
+.strings-pages button:active:not([aria-pressed='true']) {
+  transform: translateY(calc(2px * var(--station-ui-scale)));
+  box-shadow: inset 0 calc(2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(0 0 0 / 55%), 0 0 0 rgb(0 0 0 / 0%);
+}
+
+.strings-pages button:focus-visible {
+  outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent);
+  outline-offset: calc(-2px * var(--station-ui-scale));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .strings-pages button { transition: none; }
+  .strings-pages button:active,
+  .strings-pages button[aria-pressed='true'] { transform: none; }
+}
+
+/* ============================================================================
+   Envelope screen
+   ----------------------------------------------------------------------------
+   Small and quiet on purpose: sized to the two controls that shape it, not a
+   hero display. Neither BASSIC nor DRUM SYNTH has one of these - it stays
+   because there is something worth drawing here that a fader alone can't
+   show, not because every instrument needs a screen. */
+.strings-screen {
+  height: calc(58px * var(--station-ui-scale));
+  margin-top: var(--sp-sec);
+  border-radius: calc(4px * var(--station-ui-scale));
+  background: linear-gradient(180deg, #07080c, #05060a);
+  box-shadow:
+    inset 0 2px 4px rgb(0 0 0 / 62%),
+    inset 0 -1px 0 rgb(255 255 255 / 4%);
+}
+
+.strings-screen svg { display: block; width: 100%; height: 100%; }
+.strings-screen-grid { fill: none; stroke: rgb(255 255 255 / 6%); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.strings-screen-trace { fill: none; stroke: var(--st-index); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+
+/* ============================================================================
+   Section marking
+   ----------------------------------------------------------------------------
+   BASSIC's own trick: the legend and the score it runs into are one line, so
+   a group costs a line of print and no clearance at all (R7). */
+.strings-section { display: grid; min-width: 0; margin-top: var(--sp-sec); }
+
+.strings-legend {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--sp-group);
+  align-items: center;
+  margin: 0 0 var(--sp-tight);
+  color: var(--st-print-major);
+  font-family: var(--station-mono-font);
+  font-size: var(--label-section);
+  font-weight: 600;
+  letter-spacing: .14em;
+}
+
+.strings-legend::after {
+  height: 0;
+  border-top: 1px solid rgb(0 0 0 / 62%);
+  box-shadow: 0 1px 0 rgb(238 228 214 / 6%);
+  content: '';
+}
+
+/* ============================================================================
+   Vertical fader bay - DRUM SYNTH's own part
+   ----------------------------------------------------------------------------
+   A shallow bay milled into the panel with several caps standing in cut
+   slots, for a page where comparing a handful of parameters at a glance
+   matters more than any one of them reading full width. */
+.strings-bay {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: calc(1px * var(--station-ui-scale));
+  margin-top: var(--sp-sec);
+  padding: var(--sp-tight) var(--sp-hair) var(--sp-hair);
+  border-radius: calc(3px * var(--station-ui-scale));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--station-raised) 88%, var(--station-text) 12%), var(--station-raised) 34%, color-mix(in srgb, var(--station-raised) 84%, #000));
+  box-shadow:
+    inset 0 1px 0 rgb(238 228 214 / 14%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(0 0 0 / 60%),
+    0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 45%);
+}
+
+.strings-vfader {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 0;
+  min-width: 0;
+  color: var(--station-text-muted);
+  font-family: var(--station-mono-font);
+  font-size: var(--label-section);
+  font-weight: 600;
+  letter-spacing: .05em;
+}
+
+.strings-vfader > span:first-child {
+  display: -webkit-box;
+  overflow: hidden;
+  height: 2lh;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--st-print-major);
+  text-align: center;
+}
+
+.strings-vfader > output {
+  overflow: hidden;
+  height: 1lh;
+  color: color-mix(in srgb, var(--st-index) 72%, var(--station-text));
+  font-size: var(--label-section);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.strings-vfader-slot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: var(--st-vfader-length);
+  margin-top: var(--sp-hair);
+}
+
+.strings-vfader-slot::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: calc(9px * var(--station-ui-scale));
+  border-radius: calc(5px * var(--station-ui-scale));
+  background:
+    linear-gradient(to top, var(--st-travel) 0 calc(var(--st-pos, 0) * 100%), transparent calc(var(--st-pos, 0) * 100%) 100%),
+    linear-gradient(180deg, #050609, #0a0b10 52%, #06070a);
+  box-shadow:
+    inset 0 calc(3px * var(--station-ui-scale)) calc(6px * var(--station-ui-scale)) rgb(0 0 0 / 95%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(238 228 214 / 10%),
+    inset calc(1px * var(--station-ui-scale)) 0 0 rgb(0 0 0 / 60%),
+    0 1px 0 rgb(238 228 214 / 8%);
+  transform: translateX(-50%);
+  content: '';
+}
+
+.station-shell .strings-vfader-slot input[type="range"] {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  writing-mode: vertical-rl;
+  direction: rtl;
+  transform: none;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.station-shell .strings-vfader-slot input[type="range"]::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.station-shell .strings-vfader-slot input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: calc(var(--st-vcap-w) + calc(10px * var(--station-ui-scale)));
+  height: var(--st-vcap-h);
+  margin: 0;
+  border: 0;
+  appearance: none;
+  background: transparent;
+  box-shadow: none;
+  cursor: ns-resize;
+}
+
+.station-shell .strings-vfader-slot input[type="range"]::-moz-range-thumb {
+  width: calc(var(--st-vcap-w) + calc(10px * var(--station-ui-scale)));
+  height: var(--st-vcap-h);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  cursor: ns-resize;
+}
+
+.station-shell .strings-vfader-slot input[type="range"]:disabled ~ .strings-vfader-cap {
+  --st-index: var(--status-inactive);
+}
+
+.station-shell .strings-vfader-slot input[type="range"]:focus-visible ~ .strings-vfader-cap {
+  outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent);
+  outline-offset: calc(1px * var(--station-ui-scale));
+}
+
+.strings-vfader-cap {
+  position: absolute;
+  bottom: calc(var(--st-pos, 0) * (100% - var(--st-vcap-h)));
+  left: 50%;
+  z-index: 2;
+  width: var(--st-vcap-w);
+  height: var(--st-vcap-h);
+  border-radius: calc(3px * var(--station-ui-scale));
+  background:
+    linear-gradient(180deg, transparent 0 45%, var(--st-index) 45% 55%, transparent 55% 100%),
+    linear-gradient(90deg, rgb(238 228 214 / 14%) 0 1px, transparent 1px calc(100% - 1px), rgb(0 0 0 / 52%) calc(100% - 1px) 100%),
+    linear-gradient(180deg, color-mix(in srgb, var(--st-cap-top) 88%, var(--st-cap-bottom)) 0%, var(--st-cap-bottom) 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(238 228 214 / 24%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(0 0 0 / 88%),
+    0 calc(4px * var(--station-ui-scale)) calc(6px * var(--station-ui-scale)) rgb(0 0 0 / 70%),
+    0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 60%);
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+/* ============================================================================
+   What's left on the shared display: BASE NOTE, GATE, chord voicing, SCALE -
+   pad and performance mapping, not sound. Same parts the display always used.
+   ========================================================================= */
 .strings-display-chord,
 .strings-display-add {
   display: grid;
@@ -324,18 +820,8 @@
   font-size: .54rem;
 }
 
-.strings-workspace button:disabled,
-.strings-workspace select:disabled {
-  cursor: not-allowed;
-  opacity: .4;
-}
-
 @media (max-width: 390px) {
   .strings-workspace {
     padding: calc(12px * var(--station-ui-scale));
-  }
-
-  .strings-display-hint {
-    text-align: left;
   }
 }

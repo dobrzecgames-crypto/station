@@ -10,16 +10,23 @@
   z-index: 9999;
 }
 
+/* Still deliberately not a Station key - dev chrome keeps its own identity
+   rather than borrowing an instrument's hardware language, which is exactly
+   what would make it readable as a real control. What changed is loudness,
+   not identity: this was sized and outlined to beat every real control on
+   the loudest instrument panel on the site, which is a bar STRINGS' own
+   hierarchy pass made impossible to clear by accident. Smaller, thinner
+   border, dimmer ink - still plainly a dev marker, just not shouting. */
 .type-lab-toggle {
-  min-width: 44px;
-  min-height: 44px;
-  padding: 0 12px;
-  border: 1px solid #ff7a1a;
-  border-radius: 6px;
-  color: #ff7a1a;
+  min-width: 32px;
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1px solid #7a4a24;
+  border-radius: 4px;
+  color: #c67a3e;
   background: #111;
-  font: 700 11px/1 monospace;
-  letter-spacing: .08em;
+  font: 600 9px/1 monospace;
+  letter-spacing: .06em;
   cursor: pointer;
 }
 

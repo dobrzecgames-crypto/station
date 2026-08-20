@@ -2,6 +2,8 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { AudioEngine } from './audio/AudioEngine'
+import { installGlobalErrorHandlers } from './diagnostics/ApplicationErrorLog'
+import { ApplicationErrorBoundary } from './shell/ApplicationErrorBoundary'
 import './index.css'
 // Must load after the component tree: Vinyl Dust is the final visual layer.
 import './vinyl-dust.css'
@@ -12,12 +14,23 @@ import './global-scale.css'
 // passes in App.css set the same properties repeatedly and this layer is the
 // one that decides them from function rather than from cascade order.
 import './layout-tiers.css'
+import './shell/applicationErrorBoundary.css'
 
 const audioEngine = new AudioEngine()
+installGlobalErrorHandlers(window)
+
+function StationRoot() {
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('stationCrash') === 'render') {
+    throw new Error('Intentional Station render crash for recovery-screen verification.')
+  }
+  return <App audioEngine={audioEngine} />
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App audioEngine={audioEngine} />
+    <ApplicationErrorBoundary>
+      <StationRoot />
+    </ApplicationErrorBoundary>
   </StrictMode>,
 )
 

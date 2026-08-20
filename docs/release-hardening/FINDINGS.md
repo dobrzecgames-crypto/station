@@ -283,9 +283,32 @@ serial-tail calculation. Full gate passed with 145/145 tests, typecheck PASS,
 build PASS. Real OfflineAudioContext waveform verification remains assigned to
 the Chromium smoke stage; live/render A/B listening remains a manual check.
 
+### P1 — A fatal React render had no in-app recovery path — FIXED
+
+Evidence: the root mounted `App` directly inside `StrictMode`. Station had no
+React error boundary, no local record of uncaught errors or unhandled promise
+rejections, and no truthful guidance separating a committed browser save from
+newer unsaved edits. A fatal render could therefore leave only a blank or
+partially mounted interface and console output.
+
+Fix: a top-level boundary now replaces a failed component tree with a small
+Vinyl Dust recovery surface. It states that the last successfully saved local
+project remains in browser storage while DIRTY/SAVING edits may be lost, and
+offers RELOAD, viewable diagnostic details, and explicit copy. A bounded
+in-memory log captures React errors, `window.error`, and
+`unhandledrejection`; it records only error metadata and never sends telemetry
+or project content. A development-only `?stationCrash=render` hook makes the
+fatal path reproducible without shipping a production crash switch.
+
+Verification: two deterministic tests prove bounded capture and safe report
+formatting. A real local Chromium page forced the render error, displayed the
+recovery copy/actions, exposed the intentional error with React source in the
+details, and confirmed COPY DETAILS. Full gate passed with 147/147 tests,
+typecheck PASS, build PASS.
+
 ## Open audits
 
-- Fatal React render recovery and unhandled-error diagnostics.
+- Opt-in runtime diagnostics surface and build identity.
 - Real Chromium startup/save/reload/play/stop coverage and CI enforcement.
 
 ## Baseline observations

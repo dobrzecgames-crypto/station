@@ -23,7 +23,7 @@
 | Autosave | Latest state wins; unchanged asset blobs are not rewritten | PASS — 5 deterministic strategy/revision tests |
 | Quota | Quota errors remain dirty and do not replace a valid save | PASS — classified abort plus transactional/revision tests |
 | Render | Event planning for bounded SONG + TRACKS material and FX tails | PASS — 2 deterministic render-plan tests; browser waveform pending |
-| Crash | Forced React render failure shows recovery UI | Pending |
+| Crash | Forced React render failure shows truthful recovery UI with view/copy diagnostics | PASS — 2 unit tests plus local Chromium DOM/control verification |
 | Browser | Startup, audio gesture, play/stop, save, reload, reopen | Pending |
 
 ## Requires real listening or device behavior

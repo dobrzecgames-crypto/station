@@ -4,13 +4,19 @@ import type { Page } from '@playwright/test'
 const sampleFilename = '1998 - Kick 1.wav'
 const projectName = 'Station Browser Smoke'
 
-test('startup, sample, transport, save, reload, and project restore remain coherent', async ({ page }) => {
+test('startup, built-in assets, transport, save, reload, and project restore remain coherent', async ({ page }) => {
   const pageErrors: Error[] = []
   page.on('pageerror', (error) => pageErrors.push(error))
 
   await page.goto('/?diagnostics=1')
   await expect(page.getByRole('region', { name: 'STATION', exact: true })).toBeVisible()
   await startAudio(page)
+
+  await page.getByRole('button', { name: 'LASER', exact: true }).click()
+  const chop = page.getByRole('region', { name: 'Chop', exact: true })
+  await chop.getByRole('button', { name: '1', exact: true }).click()
+  await expect(chop.getByRole('button', { name: 'Preview source', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'PADS', exact: true }).click()
 
   await page.getByRole('button', { name: 'PAD 01 sample browser settings', exact: true }).click()
   await page.getByRole('button', { name: 'SELECT', exact: true }).first().click()

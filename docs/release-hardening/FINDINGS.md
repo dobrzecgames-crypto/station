@@ -344,9 +344,28 @@ not hidden by a later attempt. Trace and screenshot artifacts are retained
 only on failure.
 
 Automation verified AudioContext reached RUNNING after a genuine UI gesture and
-that WAV decode/scheduling paths did not error. Headless execution is not proof
+that both built-in Chop and pad-library WAV fetch/decode paths did not error.
+Headless execution is not proof
 of audible output, click/glitch quality, hardware routing, or device lifecycle;
 those stay on the manual Chrome/Edge checklist.
+
+### P1 — Built-in Chop test buttons referenced missing WAV files — FIXED
+
+Evidence: all four entries in `src/chop/chopTestSamples.ts` targeted
+`public/library/chop-sample-1.wav` through `chop-sample-4.wav`, but none of
+those files existed in the starting tree. Selecting any of the four visible
+`OR TRY A SAMPLE` controls therefore produced an HTTP 404 and left the Chop
+workspace empty.
+
+Fix: the four controls now reference four existing, non-empty WAV files from
+the bundled breaks library. A static regression test extracts every Chop test
+asset reference and requires each corresponding public file to exist.
+
+Verification: the logic suite passes 150/150. The zero-retry release smoke now
+opens LASER, loads test sample 1 through the real control, waits for the decoded
+source workspace, and then continues through its pad, transport, save, reload,
+and restore checks. That full flow passed in installed Chrome and Microsoft
+Edge on Windows.
 
 ### Investigated — CI now enforces the release validation commands
 

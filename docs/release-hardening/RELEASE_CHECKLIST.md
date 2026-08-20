@@ -13,7 +13,8 @@ are incomplete.
 - [x] Opt-in diagnostics expose release-torture state without hot-path polling.
 - [x] Chromium/Chrome browser smoke suite passes on Windows.
 - [x] Edge-channel smoke suite passes on Windows.
-- [ ] GitHub Actions validation gate passes.
+- [x] GitHub Actions release-validation workflow covers frozen install, tests, types, build, and pinned Chromium smoke.
+- [ ] First hosted GitHub Actions validation run passes after owner-authorized push.
 
 ## Chrome on Windows — real audio
 

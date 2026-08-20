@@ -348,9 +348,27 @@ that WAV decode/scheduling paths did not error. Headless execution is not proof
 of audible output, click/glitch quality, hardware routing, or device lifecycle;
 those stay on the manual Chrome/Edge checklist.
 
+### Investigated — CI now enforces the release validation commands
+
+There was no GitHub Actions configuration. A single non-deploying Ubuntu job
+now runs on pushes and pull requests with read-only repository permissions. It
+installs the package-manager version declared by `packageManager`, installs
+dependencies with `--frozen-lockfile`, and runs the logic suite, typecheck,
+production build, a pinned Playwright Chromium install, and the release browser
+smoke as separate fail-fast steps. The job has a 20-minute ceiling and the
+browser smoke retains its zero-retry policy.
+
+The workflow uses the current official action majors (`actions/checkout@v7`,
+`actions/setup-node@v7`, and `pnpm/action-setup@v6`) and Node 24, matching the
+local hardening baseline. It has no deployment, publishing, Vercel, domain,
+secret-write, or repository-write step.
+
+Local equivalents are green. The first hosted Actions result remains unchecked
+because this branch has deliberately not been pushed.
+
 ## Open audits
 
-- CI enforcement for tests, types, build, and stable Chromium smoke.
+- First hosted GitHub Actions result after the owner chooses to push.
 
 ## Baseline observations
 

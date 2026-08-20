@@ -26,6 +26,7 @@
 | Crash | Forced React render failure shows truthful recovery UI with view/copy diagnostics | PASS — 2 unit tests plus local Chromium DOM/control verification |
 | Diagnostics | Hidden-by-default 1 Hz runtime state with 30 s storage refresh and build SHA | PASS — 2 unit tests plus local Chromium opt-in/default-state verification |
 | Browser | Startup, real audio gesture, WAV load/pad trigger, 10× play/stop, save, reload, reopen/restore | PASS — Playwright in current Chrome and Edge on Windows; audible output not claimed |
+| CI | Frozen install, logic tests, typecheck, production build, pinned Chromium smoke | CONFIGURED — local equivalents pass; first hosted run pending because branch is not pushed |
 
 ## Browser smoke commands
 

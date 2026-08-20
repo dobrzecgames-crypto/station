@@ -36,9 +36,46 @@ one intentional StepSequencer-only path.
 Verification: four deterministic lifecycle regression tests; full gate passed
 with 114/114 tests, typecheck PASS, build PASS.
 
+### P1 — Late scheduler wakes restarted patterns and burst stale TRACKS starts — FIXED
+
+Evidence:
+
+- When `StepSequencer.nextStepTime` was more than its look-ahead behind
+  `AudioContext.currentTime`, it reset `nextStepIndex` and the pattern section
+  to zero. A browser stall therefore changed musical position.
+- `TimelineScheduler` marked every newly visible clip as scheduled even when
+  its calculated `when` was already in the past. Web Audio clamps such starts
+  to the present, so several expired clips could begin together after a stall.
+- Resuming inside a pitched/tempo-matched clip advanced its source position by
+  wall-clock seconds rather than rate-adjusted audible source seconds. Loop
+  bounds were also coupled to the resume offset.
+
+Root cause: both schedulers had independent implicit late-wake behavior rather
+than an explicit catch-up rule.
+
+Fix:
+
+- Both schedulers allow 12.5 ms of bounded late-start grace (half the normal
+  ticker interval), then preserve the audio-clock transport position.
+- StepSequencer advances its step/section/SONG cursor without firing expired
+  step events. It never resets to the beginning because JavaScript woke late.
+- TimelineScheduler skips fully expired clips, resumes a still-active clip at
+  `now`, and supplies a rate-correct offset without moving the clip's original
+  loop region.
+- Both schedulers expose cumulative late-wake/max-lateness/skip diagnostics.
+
+Musical behavior decision: transient starts that are more than 12.5 ms late are
+skipped. Sustained TRACKS audio resumes only while its fixed timeline slot and
+its non-looped audible source are both still active. Small ordinary wake jitter
+retains the established immediate-start behavior.
+
+Verification: six deterministic recovery tests cover 25, 70, 150, 500, and
+2000 ms wake delays, coherent SONG-slot advancement, expired transient
+suppression, rate-correct sustained-clip recovery, and absence of past timeline
+timestamps. Full gate passed with 120/120 tests, typecheck PASS, build PASS.
+
 ## Open audits
 
-- Scheduler behavior after late wakeups from 25 ms through 2000 ms.
 - Active sample/synth/timeline voice and reverse-cache lifecycle under stress.
 - Optional POLY/ZOLA-X AudioWorklet failure isolation.
 - IndexedDB rejected-open caching, blocked upgrades, and `versionchange` cleanup.

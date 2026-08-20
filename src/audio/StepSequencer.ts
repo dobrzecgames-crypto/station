@@ -88,6 +88,13 @@ export interface SequencerTicker {
   cancel(): void
 }
 
+export interface StepSequencerDiagnostics {
+  lateWakeCount: number
+  maxLatenessSeconds: number
+  skippedExpiredStepCount: number
+  skippedExpiredEventCount: number
+}
+
 class TimeoutTicker implements SequencerTicker {
   private timer: number | undefined
   private readonly intervalMilliseconds: number
@@ -109,11 +116,19 @@ export function createTimeoutTicker(intervalMilliseconds = 25): SequencerTicker 
 }
 
 export class StepSequencer {
+  /** Half the normal 25 ms ticker interval. A tiny late wake remains an
+      immediate Web Audio start; anything older is musically expired. */
+  private static readonly maximumLateStartSeconds = 0.0125
   private nextStepTime = 0
   private nextStepIndex = 0
   private currentSongSlot = 1
   private currentPatternSection = 0
   private running = false
+  private hasCompletedSchedulingPass = false
+  private lateWakeCount = 0
+  private maxLatenessSeconds = 0
+  private skippedExpiredStepCount = 0
+  private skippedExpiredEventCount = 0
   private readonly audioEngine: AudioEngine
   private readonly ticker: SequencerTicker
   private readonly lookAheadSeconds: number
@@ -136,6 +151,7 @@ export class StepSequencer {
     this.currentSongSlot = 1
     this.currentPatternSection = 0
     this.nextStepTime = startAt
+    this.hasCompletedSchedulingPass = false
     this.schedule(getConfig)
   }
 
@@ -146,15 +162,34 @@ export class StepSequencer {
 
   isRunning(): boolean { return this.running }
 
+  getDiagnostics(): StepSequencerDiagnostics {
+    return {
+      lateWakeCount: this.lateWakeCount,
+      maxLatenessSeconds: this.maxLatenessSeconds,
+      skippedExpiredStepCount: this.skippedExpiredStepCount,
+      skippedExpiredEventCount: this.skippedExpiredEventCount,
+    }
+  }
+
   private schedule(getConfig: () => StepSequencerConfig): void {
     if (!this.running) return
     const config = getConfig()
     const now = this.audioEngine.getCurrentTime()
     const stepDuration = 60 / config.bpm / 4
-    if (this.nextStepTime < now - this.lookAheadSeconds) {
-      this.nextStepIndex = 0
-      this.currentPatternSection = 0
-      this.nextStepTime = now
+    // The ordinary 100 ms look-ahead means a healthy timer wake always finds
+    // nextStepTime in the future. If it is already in the past after an
+    // earlier pass, the main thread missed part of the transport. Advance the
+    // musical cursor without firing expired transient starts; never restart a
+    // section/song merely because JavaScript woke late.
+    if (this.hasCompletedSchedulingPass && this.nextStepTime < now - StepSequencer.maximumLateStartSeconds) {
+      const latenessSeconds = now - this.nextStepTime
+      this.lateWakeCount += 1
+      this.maxLatenessSeconds = Math.max(this.maxLatenessSeconds, latenessSeconds)
+      while (this.running && this.nextStepTime < now - StepSequencer.maximumLateStartSeconds) {
+        this.skippedExpiredStepCount += 1
+        this.skippedExpiredEventCount += this.countCurrentStepEvents(config, stepDuration)
+        if (!this.advanceStep(config, stepDuration)) return
+      }
     }
     while (this.nextStepTime < now + this.lookAheadSeconds) {
       const scheduledTime = this.nextStepTime + (this.nextStepIndex % 2 === 1 ? stepDuration * config.swing * 0.5 : 0)
@@ -197,26 +232,52 @@ export class StepSequencer {
           this.audioEngine.schedulePolyPad(track.groupId, track.channelId, track.patch, track.midiNotes, when, when + Math.max(1, length) * track.patch.gate * stepDuration, velocity)
         }
       }
-      const wasLastStep = this.nextStepIndex === 15
-      this.nextStepIndex = (this.nextStepIndex + 1) % 16
-      this.nextStepTime += stepDuration
-      if (config.mode === 'pattern' && wasLastStep) {
-        const requestedSectionCount = config.shouldAutoExtendPattern?.() ? 4 : config.getPatternSectionCount?.() ?? 1
-        const sectionCount = Math.min(4, Math.max(1, Math.floor(requestedSectionCount)))
-        this.currentPatternSection = (this.currentPatternSection + 1) % sectionCount
-      }
-      if (config.mode === 'song' && wasLastStep) {
-        if (config.lastSongSlot === null || this.currentSongSlot >= config.lastSongSlot) {
-          if (config.loopSong && config.lastSongSlot !== null) this.currentSongSlot = 1
-          else {
-            this.running = false
-            this.ticker.cancel()
-            config.onSongComplete?.()
-            return
-          }
-        } else this.currentSongSlot += 1
-      }
+      if (!this.advanceStep(config, stepDuration)) return
     }
+    this.hasCompletedSchedulingPass = true
     this.ticker.wake(() => this.schedule(getConfig))
+  }
+
+  private advanceStep(config: StepSequencerConfig, stepDuration: number): boolean {
+    const wasLastStep = this.nextStepIndex === 15
+    this.nextStepIndex = (this.nextStepIndex + 1) % 16
+    this.nextStepTime += stepDuration
+    if (config.mode === 'pattern' && wasLastStep) {
+      const requestedSectionCount = config.shouldAutoExtendPattern?.() ? 4 : config.getPatternSectionCount?.() ?? 1
+      const sectionCount = Math.min(4, Math.max(1, Math.floor(requestedSectionCount)))
+      this.currentPatternSection = (this.currentPatternSection + 1) % sectionCount
+    }
+    if (config.mode === 'song' && wasLastStep) {
+      if (config.lastSongSlot === null || this.currentSongSlot >= config.lastSongSlot) {
+        if (config.loopSong && config.lastSongSlot !== null) this.currentSongSlot = 1
+        else {
+          this.running = false
+          this.ticker.cancel()
+          config.onSongComplete?.()
+          return false
+        }
+      } else this.currentSongSlot += 1
+    }
+    return true
+  }
+
+  private countCurrentStepEvents(config: StepSequencerConfig, stepDuration: number): number {
+    const tracks = config.getTracksForSlot(config.mode === 'song' ? this.currentSongSlot : this.currentPatternSection + 1)
+    const simultaneousChordKeys = new Set<string>()
+    let count = 0
+    for (const track of tracks) {
+      if (track.steps[this.nextStepIndex] <= 0) continue
+      const event = getStepEventRange(track.steps, track.lengths, this.nextStepIndex)
+      if (!event || event.headIndex !== this.nextStepIndex) continue
+      if (track.source === 'synthChord' || track.source === 'polyChord') {
+        const shift = track.shifts[event.headIndex] ?? 0
+        const when = this.nextStepTime + (this.nextStepIndex % 2 === 1 ? stepDuration * config.swing * 0.5 : 0) + shift * stepDuration
+        const key = `${track.chordGroupId}:${when}`
+        if (simultaneousChordKeys.has(key)) continue
+        simultaneousChordKeys.add(key)
+      }
+      count += 1
+    }
+    return count
   }
 }

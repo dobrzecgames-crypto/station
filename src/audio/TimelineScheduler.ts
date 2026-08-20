@@ -1,6 +1,6 @@
 import type { AudioEngine, GroupId, SampleAssetId } from './AudioEngine'
-import { createTimeoutTicker } from './StepSequencer'
-import type { SequencerTicker } from './StepSequencer'
+import { createTimeoutTicker } from './StepSequencer.ts'
+import type { SequencerTicker } from './StepSequencer.ts'
 
 /**
  * Everything TimelineScheduler needs to schedule one clip, in the engine's
@@ -38,6 +38,13 @@ export interface TimelineSchedulerConfig {
   onClipScheduled?: (clipId: string, trackId: GroupId, scheduledTime: number, durationSeconds: number) => void
 }
 
+export interface TimelineSchedulerDiagnostics {
+  lateWakeCount: number
+  maxLatenessSeconds: number
+  skippedExpiredClipCount: number
+  recoveredInProgressClipCount: number
+}
+
 function beatsToSeconds(beats: number, bpm: number): number {
   return beats * (60 / bpm)
 }
@@ -62,16 +69,28 @@ function secondsToBeats(seconds: number, bpm: number): number {
  * region instead of waiting for a startBeat that has already passed.
  */
 export class TimelineScheduler {
+  private static readonly maximumLateStartSeconds = 0.0125
   private startedAtAudioTime = 0
   private startBeat = 0
   private scheduledClipIds = new Set<string>()
   private running = false
+  private lateWakeCount = 0
+  private maxLatenessSeconds = 0
+  private skippedExpiredClipCount = 0
+  private recoveredInProgressClipCount = 0
+  private readonly audioEngine: AudioEngine
+  private readonly ticker: SequencerTicker
+  private readonly lookAheadSeconds: number
 
   constructor(
-    private readonly audioEngine: AudioEngine,
-    private readonly ticker: SequencerTicker = createTimeoutTicker(),
-    private readonly lookAheadSeconds = 0.1,
-  ) {}
+    audioEngine: AudioEngine,
+    ticker: SequencerTicker = createTimeoutTicker(),
+    lookAheadSeconds = 0.1,
+  ) {
+    this.audioEngine = audioEngine
+    this.ticker = ticker
+    this.lookAheadSeconds = lookAheadSeconds
+  }
 
   /** startBeat is the timeline position (in beats) playback begins from - 0
       for "from the top", or the current playhead position for resume/scrub.
@@ -94,6 +113,15 @@ export class TimelineScheduler {
 
   isRunning(): boolean { return this.running }
 
+  getDiagnostics(): TimelineSchedulerDiagnostics {
+    return {
+      lateWakeCount: this.lateWakeCount,
+      maxLatenessSeconds: this.maxLatenessSeconds,
+      skippedExpiredClipCount: this.skippedExpiredClipCount,
+      recoveredInProgressClipCount: this.recoveredInProgressClipCount,
+    }
+  }
+
   /** Clips whose span already covers startBeat begin immediately, partway
       through their own source region, rather than waiting for their own
       startBeat (already in the past) or being silently skipped. Runs once,
@@ -103,25 +131,8 @@ export class TimelineScheduler {
     for (const clip of config.getClips()) {
       const clipEndBeat = clip.startBeat + clip.lengthBeats
       if (clip.startBeat >= this.startBeat || clipEndBeat <= this.startBeat) continue
-      const elapsedSourceSeconds = beatsToSeconds(this.startBeat - clip.startBeat, config.bpm)
-      const remainingLengthSeconds = beatsToSeconds(clipEndBeat - this.startBeat, config.bpm)
       this.scheduledClipIds.add(clip.clipId)
-      this.audioEngine.scheduleClip(clip.trackId, clip.trackId, clip.assetId, this.startedAtAudioTime, {
-        // Region bounds stay in constant forward-source coordinates (see
-        // AudioEngine's toPlaybackRegion) - a reversed clip's audible edge is
-        // its sourceEndSeconds, so elapsed time eats into that end instead.
-        sourceOffsetSeconds: clip.reversed ? clip.sourceOffsetSeconds : clip.sourceOffsetSeconds + elapsedSourceSeconds,
-        sourceEndSeconds: clip.reversed ? clip.sourceEndSeconds - elapsedSourceSeconds : clip.sourceEndSeconds,
-        lengthSeconds: remainingLengthSeconds,
-        gain: clip.gain,
-        pitchSemitones: clip.pitchSemitones,
-        tempoRate: clip.tempoRate,
-        fadeInSeconds: 0, // already mid-clip - the engine's own click-safety floor still applies
-        fadeOutSeconds: clip.fadeOutSeconds,
-        loop: clip.loop,
-        reversed: clip.reversed,
-      })
-      config.onClipScheduled?.(clip.clipId, clip.trackId, this.startedAtAudioTime, remainingLengthSeconds)
+      this.scheduleInProgressClip(config, clip, this.startBeat, this.startedAtAudioTime)
     }
   }
 
@@ -129,11 +140,25 @@ export class TimelineScheduler {
     if (!this.running) return
     const config = getConfig()
     const now = this.audioEngine.getCurrentTime()
+    const currentBeat = this.startBeat + Math.max(0, secondsToBeats(now - this.startedAtAudioTime, config.bpm))
     const lookAheadEndBeat = this.startBeat + Math.max(0, secondsToBeats(now + this.lookAheadSeconds - this.startedAtAudioTime, config.bpm))
+    const maximumLateStartBeats = secondsToBeats(TimelineScheduler.maximumLateStartSeconds, config.bpm)
+    let passWasLate = false
+    let passMaxLatenessSeconds = 0
 
     for (const clip of config.getClips()) {
       if (this.scheduledClipIds.has(clip.clipId)) continue
-      if (clip.startBeat < this.startBeat || clip.startBeat >= lookAheadEndBeat) continue
+      if (clip.startBeat < this.startBeat) continue
+      if (clip.startBeat < currentBeat - maximumLateStartBeats) {
+        this.scheduledClipIds.add(clip.clipId)
+        passWasLate = true
+        passMaxLatenessSeconds = Math.max(passMaxLatenessSeconds, beatsToSeconds(currentBeat - clip.startBeat, config.bpm))
+        const clipEndBeat = clip.startBeat + clip.lengthBeats
+        if (clipEndBeat <= currentBeat || !this.scheduleInProgressClip(config, clip, currentBeat, now)) this.skippedExpiredClipCount += 1
+        else this.recoveredInProgressClipCount += 1
+        continue
+      }
+      if (clip.startBeat >= lookAheadEndBeat) continue
       this.scheduledClipIds.add(clip.clipId)
       const when = this.startedAtAudioTime + beatsToSeconds(clip.startBeat - this.startBeat, config.bpm)
       const lengthSeconds = beatsToSeconds(clip.lengthBeats, config.bpm)
@@ -152,6 +177,39 @@ export class TimelineScheduler {
       config.onClipScheduled?.(clip.clipId, clip.trackId, when, lengthSeconds)
     }
 
+    if (passWasLate) {
+      this.lateWakeCount += 1
+      this.maxLatenessSeconds = Math.max(this.maxLatenessSeconds, passMaxLatenessSeconds)
+    }
+
     this.ticker.wake(() => this.schedule(getConfig))
+  }
+
+  private scheduleInProgressClip(config: TimelineSchedulerConfig, clip: TimelineSchedulerClip, playheadBeat: number, when: number): boolean {
+    const clipEndBeat = clip.startBeat + clip.lengthBeats
+    const elapsedTimelineSeconds = beatsToSeconds(playheadBeat - clip.startBeat, config.bpm)
+    const remainingLengthSeconds = beatsToSeconds(clipEndBeat - playheadBeat, config.bpm)
+    const playbackRate = Math.pow(2, clip.pitchSemitones / 12) * (clip.tempoRate > 0 ? clip.tempoRate : 1)
+    const playbackOffsetSeconds = elapsedTimelineSeconds * playbackRate
+    const sourceDurationSeconds = Math.max(0, clip.sourceEndSeconds - clip.sourceOffsetSeconds)
+    // A pitched-up non-looped source may already be silent even though its
+    // fixed-width timeline slot has not ended. Do not manufacture a tail.
+    if (remainingLengthSeconds <= 0 || (!clip.loop && playbackOffsetSeconds >= sourceDurationSeconds)) return false
+
+    this.audioEngine.scheduleClip(clip.trackId, clip.trackId, clip.assetId, when, {
+      sourceOffsetSeconds: clip.sourceOffsetSeconds,
+      sourceEndSeconds: clip.sourceEndSeconds,
+      playbackOffsetSeconds,
+      lengthSeconds: remainingLengthSeconds,
+      gain: clip.gain,
+      pitchSemitones: clip.pitchSemitones,
+      tempoRate: clip.tempoRate,
+      fadeInSeconds: 0,
+      fadeOutSeconds: clip.fadeOutSeconds,
+      loop: clip.loop,
+      reversed: clip.reversed,
+    })
+    config.onClipScheduled?.(clip.clipId, clip.trackId, when, remainingLengthSeconds)
+    return true
   }
 }

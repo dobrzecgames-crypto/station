@@ -120,7 +120,9 @@ function scheduledSectionStarts(sectionCount: number, autoExtend: boolean, count
   }
   sequencer.start(() => config)
   for (let pass = 0; pass < 200 && sectionStarts.length < count; pass += 1) {
-    engine.now += 0.13
+    // This helper verifies section order, not late-wake recovery. Advance by
+    // the exact 120 BPM sixteenth so schedulerRecovery.test.ts owns stalls.
+    engine.now += 0.125
     ticker.run()
   }
   sequencer.stop()

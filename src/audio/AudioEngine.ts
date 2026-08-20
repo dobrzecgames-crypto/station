@@ -87,6 +87,9 @@ export interface TriggerSampleOptions {
 export interface ScheduleClipOptions {
   sourceOffsetSeconds: number
   sourceEndSeconds: number
+  /** Elapsed audible source time when transport resumes inside a clip. The
+      original region remains unchanged so loop bounds do not move. */
+  playbackOffsetSeconds?: number
   /** Hard timeline-slot duration in seconds. Playback is always truncated
       here regardless of loop/pitch/tempo rate, so a clip never bleeds past
       its own slot into the next one. */
@@ -1222,7 +1225,11 @@ export class AudioEngine {
 
     this.activeVoices.add(voice)
     this.triggerPumpRoutesForChannel(channelId, scheduledWhen)
-    source.start(scheduledWhen, region.startSeconds)
+    const requestedPlaybackOffset = Math.max(0, options.playbackOffsetSeconds ?? 0)
+    const playbackOffset = options.loop
+      ? requestedPlaybackOffset % region.durationSeconds
+      : Math.min(requestedPlaybackOffset, Math.max(0, region.durationSeconds - Math.min(0.005, region.durationSeconds)))
+    source.start(scheduledWhen, region.startSeconds + playbackOffset)
     // Always truncated at the timeline slot boundary: a pitched-down clip may
     // not finish its natural region, a pitched-up or non-looped short one
     // goes silent for the remainder rather than bleeding into the next clip.

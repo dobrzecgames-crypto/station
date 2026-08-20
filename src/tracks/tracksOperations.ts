@@ -5,6 +5,7 @@ import { beatsToSeconds, secondsToBeats } from './timelineGrid'
 import { resolveClipSourceRegion } from './clipSourceRegion'
 import { maximumAudioTracks } from './tracksTypes'
 import type { AudioClip, AudioTrack } from './tracksTypes'
+export { resolveTempoMatchRate } from './tempoMatchRate'
 
 /** Matches Waveform.tsx's minimumSliceSeconds - the same "can't trim a
     region to nothing" floor, reused here for clip source regions. */
@@ -221,20 +222,6 @@ export function collectAudioTrackAssetIds(tracks: readonly AudioTrack[]): Set<Sa
   const ids = new Set<SampleAssetId>()
   for (const track of tracks) for (const clip of track.clips) ids.add(clip.assetId)
   return ids
-}
-
-/**
- * Rate-based tempo match (DEC-008 rules out real time-stretching): when
- * tempoMatch is on and a source tempo is known, playback rate is scaled by
- * projectBpm/detectedSourceBpm on top of pitchSemitones, so it changes pitch
- * too - documented in the UI, not hidden. detectedSourceBpm comes from
- * chop/tempoDetection.ts's detector, run once per asset and cached by the
- * caller (mirror App.tsx's existing chopAnalysis useEffect/cache shape)
- * rather than recomputed on every schedule call.
- */
-export function resolveTempoMatchRate(tempoMatch: boolean, detectedSourceBpm: number | null, projectBpm: number): number {
-  if (!tempoMatch || !detectedSourceBpm || detectedSourceBpm <= 0) return 1
-  return projectBpm / detectedSourceBpm
 }
 
 export function validateAudioTracks(tracks: readonly AudioTrack[], knownAssetIds: ReadonlySet<SampleAssetId>): string[] {

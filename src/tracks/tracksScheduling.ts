@@ -1,6 +1,6 @@
 import type { GroupId } from '../audio/AudioEngine'
 import type { TimelineSchedulerClip } from '../audio/TimelineScheduler'
-import { resolveTempoMatchRate } from './tracksOperations'
+import { resolveTempoMatchRate } from './tempoMatchRate.ts'
 import type { AudioTrack } from './tracksTypes'
 
 /**

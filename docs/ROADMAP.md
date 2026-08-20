@@ -8,7 +8,7 @@
 - The approved M9 Chop foundation was implemented early; equal and transient-detection auto-chop are now implemented too, with listening/UX acceptance pending.
 - The current approved task is Pattern Groups A–D + Pattern Playlist / Song Mode. It is implemented locally; acceptance, listening and Chrome/Edge validation remain pending.
 - WAV export of the SONG playlist was approved and implemented outside the milestone sequence (see `DECISIONS.md` DEC-021). Listening acceptance and Android/Chrome/Edge validation are pending.
-- TRACKS, a real linear multitrack audio timeline, was approved and implemented outside the milestone sequence as a deliberate, scoped extension of DEC-002/DEC-018 (see `DECISIONS.md` DEC-027): a compact all-tracks view, a fullscreen single-track editor, per-track mixer buses, and a new `TimelineScheduler` alongside the pattern sequencer. RENDER does not yet include TRACKS audio, and per-clip tempo-match has no BPM-detection UI wired up yet. Listening acceptance and real-device touch-gesture validation are pending.
+- TRACKS, a real linear multitrack audio timeline, was approved and implemented outside the milestone sequence as a deliberate, scoped extension of DEC-002/DEC-018 (see `DECISIONS.md` DEC-027): a compact all-tracks view, a fullscreen single-track editor, per-track mixer buses, and a `TimelineScheduler` alongside the pattern sequencer. RENDER includes clips intersecting the bounded SONG interval; per-clip tempo-match still has no BPM-detection UI wired up. Listening acceptance and real-device touch-gesture validation are pending.
 
 ## M0 — Project Definition
 

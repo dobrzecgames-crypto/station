@@ -127,7 +127,7 @@ function projectTenant(props: ProjectDisplayButtonProps): DisplayTenant {
       </div>
       <p className="project-display-note">SAVE STATE / {saveStatus}</p>
       <div className="display-param">
-        <span className="display-param-label">SONG FILE</span>
+        <span className="display-param-label">SONG + TRACKS FILE</span>
         <div className="display-actions">
           {renderBusy
             ? <button className="display-action display-action-danger" type="button" onClick={props.onCancelRender}>CANCEL</button>

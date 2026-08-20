@@ -1,14 +1,15 @@
 import { AudioEngine } from '../audio/AudioEngine'
 import { createChannelId } from '../audio/channelIdentity'
-import { getDelayTimeSeconds } from '../audio/effects'
-import type { EffectRackState } from '../audio/effects'
 import { StepSequencer } from '../audio/StepSequencer'
 import type { SequencerTicker, StepSequencerConfig } from '../audio/StepSequencer'
+import { TimelineScheduler } from '../audio/TimelineScheduler'
+import type { TimelineSchedulerConfig } from '../audio/TimelineScheduler'
 import { getLastOccupiedSlot } from '../song/songOperations'
 import { getSongTracksForSlot } from '../song/songTracks'
 import { organicBassEnvelopeShape } from '../organic-bass/organicBassOperations'
 import type { ProjectState } from './ProjectState'
 import { getStepEventRange } from '../patterns/stepEvents.ts'
+import { createRenderTimelinePlan, getEffectRackTailSeconds } from './renderPlan'
 
 export interface RenderSongOptions {
   state: ProjectState
@@ -52,7 +53,10 @@ export async function renderSongToBuffer({ state, liveEngine, onProgress, signal
 
   const sampleRate = liveEngine.getSampleRate()
   if (!sampleRate) throw new Error('Start audio before rendering.')
+  const missingAsset = state.assets.find((asset) => !liveEngine.getDecodedSampleAsset(asset.id))
+  if (missingAsset) throw new Error(`Cannot render because ${missingAsset.filename} is not loaded.`)
 
+  const timelinePlan = createRenderTimelinePlan(state.audioTracks, state.bpm, lastSlot)
   const totalSeconds = getRenderSeconds(state, lastSlot)
   if (totalSeconds > maximumRenderSeconds) {
     throw new Error(`This song renders to ${Math.ceil(totalSeconds / 60)} minutes, past the ${maximumRenderSeconds / 60}-minute render limit.`)
@@ -62,9 +66,19 @@ export async function renderSongToBuffer({ state, liveEngine, onProgress, signal
   const engine = new AudioEngine()
   await engine.initializeForRender(context)
   applyRenderState(engine, liveEngine, state)
+  if (getPolyTailSeconds(state) > 0 && engine.getDiagnostics().optionalInstruments.zolaX.status !== 'ready') {
+    engine.dispose()
+    throw new Error('ZOLA-X could not be loaded for offline rendering. Core audio remains available; retry the render, or use this browser without ZOLA-X export.')
+  }
 
   const ticker = new RenderTicker(context, totalSeconds, onProgress)
   const sequencer = new StepSequencer(engine, ticker, renderLookAheadSeconds)
+  // All TRACKS starts inside the bounded SONG interval are cheap enough to
+  // schedule at time zero (eight tracks maximum). This still uses the live
+  // TimelineScheduler/AudioEngine path while avoiding two clients competing
+  // for OfflineAudioContext.suspend() at the same render quantum.
+  const timelineScheduler = new TimelineScheduler(engine, passiveRenderTicker, timelinePlan.songEndSeconds + renderLookAheadSeconds)
+  const timelineConfig: TimelineSchedulerConfig = { bpm: state.bpm, getClips: () => timelinePlan.clips }
   const config: StepSequencerConfig = {
     bpm: state.bpm,
     swing: state.swing,
@@ -92,15 +106,18 @@ export async function renderSongToBuffer({ state, liveEngine, onProgress, signal
 
   const suspendedAtStart = context.suspend(0)
   const rendering = context.startRendering()
-  await suspendedAtStart
-  sequencer.start(() => config)
 
   try {
+    await suspendedAtStart
+    timelineScheduler.start(() => timelineConfig, 0, 0)
+    timelineScheduler.stopAt(timelinePlan.songEndSeconds)
+    sequencer.start(() => config)
     const buffer = await Promise.race([rendering, cancelled])
     onProgress?.(1)
     return { buffer, ...measureRender(buffer) }
   } finally {
     sequencer.stop()
+    timelineScheduler.stop()
     engine.dispose()
   }
 }
@@ -187,10 +204,11 @@ function applyRenderState(engine: AudioEngine, liveEngine: AudioEngine, state: P
   engine.syncSynthPatches(state.patternGroups.flatMap((group) => group.synthPatches.map((patch) => ({ groupId: group.id, patch }))))
   engine.syncOrganicBassPatches(state.patternGroups.flatMap((group) => group.organicBassPatches.map((patch) => ({ groupId: group.id, patch }))))
   engine.syncPolyPatches(state.patternGroups.flatMap((group) => group.polyPatches.map((patch) => ({ groupId: group.id, patch }))))
+  for (const asset of state.assets) {
+    engine.setDecodedSampleAsset(asset.id, liveEngine.getDecodedSampleAsset(asset.id)!)
+  }
   for (const group of state.patternGroups) {
     for (const pad of group.bank.pads) {
-      const buffer = pad.assetId ? liveEngine.getDecodedSampleAsset(pad.assetId) : undefined
-      if (pad.assetId && buffer) engine.setDecodedSampleAsset(pad.assetId, buffer)
       const channelId = createChannelId({ patternGroupId: group.id, padId: pad.id })
       engine.setChannelVolume(group.id, channelId, pad.volume)
       engine.setChannelMuted(group.id, channelId, pad.muted)
@@ -201,6 +219,12 @@ function applyRenderState(engine: AudioEngine, liveEngine: AudioEngine, state: P
     engine.setGroupVolume(group.id, group.bus!.volume)
     engine.setGroupMuted(group.id, group.bus!.muted)
     engine.setGroupSolo(group.id, group.bus!.solo)
+  }
+  for (const track of state.audioTracks) {
+    engine.setGroupVolume(track.id, track.gain)
+    engine.setGroupMuted(track.id, track.muted)
+    engine.setGroupSolo(track.id, track.solo)
+    engine.setGroupEffects(track.id, track.effects)
   }
   engine.setMasterVolume(state.master.volume)
   engine.setMasterMuted(state.master.muted)
@@ -227,7 +251,7 @@ function getRenderSeconds(state: ProjectState, lastSlot: number): number {
   const stepSeconds = 60 / state.bpm / 4
   const songSeconds = lastSlot * 16 * stepSeconds
   const latestStartSeconds = stepSeconds * (0.5 + Math.max(0, state.swing) * 0.5)
-  const tailSeconds = Math.min(maximumTailSeconds, Math.max(getSampleTailSeconds(state), getSynthTailSeconds(state), getOrganicBassTailSeconds(state), getPolyTailSeconds(state), getDelayTailSeconds(state)))
+  const tailSeconds = Math.min(maximumTailSeconds, Math.max(getSampleTailSeconds(state), getSynthTailSeconds(state), getOrganicBassTailSeconds(state), getPolyTailSeconds(state), getEffectTailSeconds(state, lastSlot)))
   return songSeconds + latestStartSeconds + tailSeconds + tailSafetySeconds
 }
 
@@ -304,21 +328,16 @@ function longestEventSpan(steps: readonly number[], lengths: readonly number[] |
   return longest
 }
 
-function getDelayTailSeconds(state: ProjectState): number {
+function getEffectTailSeconds(state: ProjectState, lastSlot: number): number {
   const played = new Set(state.playlist.map((clip) => clip.patternGroupId))
-  const racks = [state.masterEffects, ...state.patternGroups.filter((group) => played.has(group.id)).map((group) => group.effects)]
-  let longest = 0
-  for (const rack of racks) longest = Math.max(longest, getRackDelayTailSeconds(rack, state.bpm))
-  return longest
+  const songEndBeats = lastSlot * 4
+  const playedTracks = state.audioTracks.filter((track) => track.clips.some((clip) => clip.startBeat < songEndBeats))
+  const upstreamRacks = [
+    ...state.patternGroups.filter((group) => played.has(group.id)).map((group) => group.effects),
+    ...playedTracks.map((track) => track.effects),
+  ]
+  const upstreamTail = upstreamRacks.reduce((longest, rack) => Math.max(longest, getEffectRackTailSeconds(rack, state.bpm)), 0)
+  return upstreamTail + getEffectRackTailSeconds(state.masterEffects, state.bpm)
 }
 
-function getRackDelayTailSeconds(rack: EffectRackState, bpm: number): number {
-  let longest = 0
-  for (const slot of rack.slots) {
-    if (slot.type !== 'delay' || !slot.enabled || !slot.delay.enabled) continue
-    const feedback = Math.min(0.999, Math.max(0, slot.delay.feedback))
-    const repeats = feedback <= 0 ? 1 : Math.ceil(Math.log(0.001) / Math.log(feedback))
-    longest = Math.max(longest, getDelayTimeSeconds(slot.delay, bpm) * repeats)
-  }
-  return longest
-}
+const passiveRenderTicker: SequencerTicker = { wake: () => undefined, cancel: () => undefined }

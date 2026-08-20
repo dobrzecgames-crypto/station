@@ -253,9 +253,38 @@ continued last-window TRACKS planning without post-boundary starts,
 audio-clock-delayed completion without sequencer-tail stop, and cancellation
 by manual STOP. Full gate passed with 143/143 tests, typecheck PASS, build PASS.
 
+### P0 — Offline WAV render omitted all TRACKS audio — FIXED
+
+Evidence: live normal transport starts both `StepSequencer` and
+`TimelineScheduler`, but `renderSongToBuffer` constructed only the step
+scheduler. It loaded only pad-owned buffers and applied only Pattern Group/master
+buses. A project could therefore monitor TRACKS, press RENDER, and receive a
+fundamentally different file with that entire supported subsystem absent.
+
+Product decision: RENDER remains a bounded SONG export—slot 1 through the last
+occupied Pattern Clip slot—not an infinite timeline or PATTERN-loop bounce.
+Every TRACKS clip whose start intersects that interval is included. A clip that
+crosses the final SONG boundary is stamped to stop there; clips starting at or
+after it are excluded, matching live non-looping SONG completion.
+
+Fix: the offline engine now loads every project asset, applies track gain/
+mute/solo/effect buses, and schedules the bounded clip list through the same
+`toTimelineSchedulerClips` → `TimelineScheduler` → `AudioEngine.scheduleClip`
+path as live playback. Missing decoded material fails before graph creation.
+An unavailable optional worklet fails explicitly only when rendered SONG
+material uses ZOLA-X; it does not produce a partial file or disable live core
+audio. Tail allocation now includes TRACKS racks and TIGHT ROOM as well as
+delay, sums serial upstream/master paths conservatively, and retains the
+twelve-second cap.
+
+Verification: two deterministic render-plan tests prove interval inclusion/
+exclusion while preserving clip gain/fades/reverse/pitch, plus delay/TIGHT ROOM
+serial-tail calculation. Full gate passed with 145/145 tests, typecheck PASS,
+build PASS. Real OfflineAudioContext waveform verification remains assigned to
+the Chromium smoke stage; live/render A/B listening remains a manual check.
+
 ## Open audits
 
-- Offline render parity with live TRACKS playback and release-tail handling.
 - Fatal React render recovery and unhandled-error diagnostics.
 - Real Chromium startup/save/reload/play/stop coverage and CI enforcement.
 

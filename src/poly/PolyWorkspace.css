@@ -78,7 +78,8 @@
 .poly-preset,
 .poly-table,
 .poly-select-control,
-.poly-route-picker { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--sp-tight); justify-items: start; color: var(--station-text-muted); font-family: var(--station-mono-font); font-size: var(--label-param); font-weight: 500; letter-spacing: .04em; }
+.poly-route-picker,
+.poly-detail-selector { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--sp-tight); justify-items: start; color: var(--station-text-muted); font-family: var(--station-control-font); font-size: var(--label-param); font-weight: 500; letter-spacing: .04em; }
 /* ---- Data windows --------------------------------------------------------
    TABLE, UNISON, SHAPE, DIVISION and the two patch lists.
 
@@ -96,6 +97,7 @@
 .station-shell .poly-table select,
 .station-shell .poly-select-control select,
 .station-shell .poly-route-picker select,
+.station-shell .poly-detail-selector select,
 .station-shell .poly-patch-panel .user-synth-preset-picker select {
   min-height: var(--tier-2-face);
   padding: 0 calc(20px * var(--station-ui-scale)) 0 var(--sp-card);
@@ -111,7 +113,7 @@
     inset 0 calc(2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(0 0 0 / 58%),
     inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(238 228 214 / 6%),
     0 1px 0 rgb(238 228 214 / 5%);
-  font-family: var(--station-mono-font);
+  font-family: var(--station-control-font);
   font-size: var(--label-value);
   font-weight: 600;
   letter-spacing: .03em;
@@ -124,6 +126,7 @@
 .station-shell .poly-table select:focus-visible,
 .station-shell .poly-select-control select:focus-visible,
 .station-shell .poly-route-picker select:focus-visible,
+.station-shell .poly-detail-selector select:focus-visible,
 .station-shell .poly-patch-panel .user-synth-preset-picker select:focus-visible {
   outline: calc(2px * var(--station-ui-scale)) solid var(--focus-accent);
   outline-offset: calc(2px * var(--station-ui-scale));
@@ -132,9 +135,12 @@
    cell. TABLE and the preset lists hold names rather than values, so they are
    the capped identity case instead. */
 .poly-select-control select,
-.poly-route-picker select { width: fit-content; min-width: calc(88px * var(--station-ui-scale)); max-width: 100%; }
+.poly-route-picker select,
+.poly-detail-selector select { width: fit-content; min-width: calc(88px * var(--station-ui-scale)); max-width: 100%; }
 .poly-preset select,
 .poly-table select { width: 100%; max-width: calc(220px * var(--station-ui-scale)); }
+.poly-detail-selector { width: fit-content; min-width: calc(150px * var(--station-ui-scale)); margin-top: var(--sp-group); }
+.poly-detail-selector select { min-width: calc(106px * var(--station-ui-scale)); }
 
 /* Everything that stores or recalls a sound now lives behind the PATCH latch:
    the factory list, the user list and SAVE/LOAD/DELETE. Together they used to
@@ -239,7 +245,7 @@
      background at all. */
   background: linear-gradient(180deg, #131419, #191a20);
   box-shadow: inset 1px 0 0 rgb(238 228 214 / 5%), inset 0 1px 0 rgb(238 228 214 / 9%);
-  font-family: var(--station-mono-font);
+  font-family: var(--station-control-font);
   font-size: var(--label-section);
   font-weight: 600;
   letter-spacing: .06em;
@@ -312,7 +318,7 @@
   border-radius: 0;
   color: var(--zx-print-major);
   background: transparent;
-  font-family: var(--station-mono-font);
+  font-family: var(--station-control-font);
   font-size: var(--label-section);
   font-weight: 500;
   letter-spacing: .06em;
@@ -364,8 +370,9 @@
 .poly-workspace [data-engaged='true']:disabled .poly-lamp { background: color-mix(in srgb, var(--zx-ink) 45%, #0d0f15); }
 
 /* ---- 3. Action keys ------------------------------------------------------
-   SYNTHS, PATCH, TUNE / SPREAD / OUTPUT, RETRIGGER, + ROUTE, the route cut,
-   MAP / CLEAR and the patch panel's own three.
+   SYNTHS, PATCH, RETRIGGER, + ROUTE, the route cut, MAP / CLEAR and the patch
+   panel's own three. TUNE / SPREAD / OUTPUT are the recessed selector strip
+   below, because revealing one detail surface is not a momentary action.
 
    The only family that stands proud of the plate: a square-shouldered slab on
    a hard drop with a soft contact shadow under it, which is the same trick
@@ -409,7 +416,7 @@
     inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(0 0 0 / 55%),
     0 calc(3px * var(--station-ui-scale)) 0 rgb(0 0 0 / 62%),
     0 calc(4px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 32%);
-  font-family: var(--station-mono-font);
+  font-family: var(--station-control-font);
   font-size: inherit;
   font-weight: inherit;
   letter-spacing: .05em;
@@ -595,14 +602,14 @@
    channel, no diagonal sheen, no grip lines across the cap. What moved is
    mass alone, so the part reads heavier under a thumb without picking up a
    second instrument's vocabulary. */
-.poly-control { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-hair) var(--sp-group); align-content: center; min-height: var(--zx-row); min-width: 0; color: var(--zx-print-major); font-family: var(--station-mono-font); font-size: var(--label-section); font-weight: 500; letter-spacing: .06em; }
+.poly-control { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-hair) var(--sp-group); align-content: center; min-height: var(--zx-row); min-width: 0; color: var(--zx-print-major); font-family: var(--station-control-font); font-size: var(--label-section); font-weight: 500; letter-spacing: .035em; }
 .poly-control-legend { overflow: hidden; white-space: nowrap; }
 /* R5: the value outranks its own legend. It is the part that moves. */
 .poly-control output { overflow: hidden; color: var(--station-text); font-size: var(--label-value); font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 
 .poly-control-track {
-  --zx-shuttle-w: calc(26px * var(--station-ui-scale));
-  --zx-shuttle-h: calc(20px * var(--station-ui-scale));
+  --zx-shuttle-w: calc(18px * var(--station-ui-scale));
+  --zx-shuttle-h: calc(21px * var(--station-ui-scale));
   position: relative;
   grid-column: 1 / -1;
   height: calc(26px * var(--station-ui-scale));
@@ -617,13 +624,15 @@
   top: 50%;
   right: 0;
   left: 0;
-  height: calc(10px * var(--station-ui-scale));
-  border-radius: calc(5px * var(--station-ui-scale));
-  background: linear-gradient(180deg, #090a0e, #0e1015 70%, #0b0c11);
+  box-sizing: border-box;
+  height: calc(8px * var(--station-ui-scale));
+  border: 1px solid rgb(0 0 0 / 68%);
+  border-radius: calc(2px * var(--station-ui-scale));
+  background: var(--station-recess);
   box-shadow:
-    inset 0 calc(3px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 72%),
-    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(238 228 214 / 8%),
-    inset calc(1px * var(--station-ui-scale)) 0 0 rgb(0 0 0 / 45%);
+    inset 0 calc(2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(0 0 0 / 74%),
+    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(238 228 214 / 12%),
+    0 1px 0 rgb(238 228 214 / 4%);
   transform: translateY(-50%);
   content: '';
 }
@@ -635,7 +644,7 @@
   right: calc(var(--zx-shuttle-w) / 2);
   bottom: 0;
   left: calc(var(--zx-shuttle-w) / 2);
-  height: calc(2px * var(--station-ui-scale));
+  height: calc(3px * var(--station-ui-scale));
   background:
     linear-gradient(180deg, var(--zx-mark) 0 100%) left / 1px 100% no-repeat,
     linear-gradient(180deg, var(--zx-mark) 0 100%) center / 1px 100% no-repeat,
@@ -653,16 +662,39 @@
   z-index: 1;
   width: var(--zx-shuttle-w);
   height: var(--zx-shuttle-h);
-  border-radius: calc(3px * var(--station-ui-scale));
-  background:
-    linear-gradient(90deg, rgb(238 228 214 / 10%) 0 1px, transparent 1px calc(100% - 1px), rgb(0 0 0 / 48%) calc(100% - 1px) 100%),
-    linear-gradient(180deg, color-mix(in srgb, var(--station-raised) 78%, var(--station-text) 20%) 0%, color-mix(in srgb, var(--station-raised) 96%, var(--station-text) 4%) 44%, color-mix(in srgb, var(--station-raised) 66%, #000) 100%);
+  border: 1px solid color-mix(in srgb, var(--station-line) 82%, #000);
+  border-radius: calc(2px * var(--station-ui-scale));
+  /* A fader cap has one small top plane, a matte face and a dark lower skirt.
+     The single recessed centre line is an orientation mark, not decorative
+     knurling: it gives a fingertip and the eye a physical reference while the
+     cap stays restrained enough for ZOLA-X's compact digital panel. */
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--station-raised) 70%, var(--station-text) 30%) 0%,
+    color-mix(in srgb, var(--station-raised) 90%, var(--station-text) 10%) 18%,
+    var(--station-raised) 58%,
+    color-mix(in srgb, var(--station-raised) 72%, #000) 100%
+  );
   box-shadow:
-    inset 0 1px 0 rgb(238 228 214 / 28%),
-    inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(0 0 0 / 70%),
-    calc(1px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 60%);
+    inset 1px 0 0 rgb(238 228 214 / 11%),
+    inset -1px 0 0 rgb(0 0 0 / 46%),
+    inset 0 1px 0 rgb(238 228 214 / 42%),
+    inset 0 calc(-2px * var(--station-ui-scale)) calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 54%),
+    0 calc(3px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 68%);
   transform: translateY(-50%);
   pointer-events: none;
+}
+
+.poly-control-shuttle::after {
+  position: absolute;
+  top: calc(4px * var(--station-ui-scale));
+  bottom: calc(4px * var(--station-ui-scale));
+  left: 50%;
+  width: 1px;
+  background: rgb(0 0 0 / 48%);
+  box-shadow: 1px 0 0 rgb(238 228 214 / 12%);
+  content: '';
+  transform: translateX(-50%);
 }
 
 /* The whole row is the target - label, value and track alike. Scoped under
@@ -675,15 +707,11 @@
    count needs 94px, and giving each its own full-width row left 245px of dead
    card beside the smaller one. */
 .poly-osc-selects { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-group); align-items: end; }
-/* One bank of three reveal keys, stretched across the card. Previously TUNE and
-   SPREAD stopped at 272px of 339 and OUTPUT sat alone on its own row at 128px
-   of 339 - two holes for three keys of exactly the same kind. */
-.poly-detail-keys { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-tight); margin-top: var(--sp-group); }
 /* Flattened: a revealed sub-group is an indent and an edge rule, not a second
    framed surface inside the editor card. */
 .poly-secondary-panel { margin-top: var(--sp-group); padding: 0 0 0 var(--sp-card); border-left: calc(2px * var(--station-ui-scale)) solid var(--control-active); background: none; }
 .poly-common-area { margin-top: var(--sp-sec); }
-.poly-common-area > p { display: flex; justify-content: center; gap: var(--sp-card); margin: 0 0 var(--sp-tight); color: var(--label-section-color); font-family: var(--station-mono-font); font-size: var(--label-section); font-weight: 600; }
+.poly-common-area > p { display: flex; justify-content: center; gap: var(--sp-card); margin: 0 0 var(--sp-tight); color: var(--label-section-color); font-family: var(--station-control-font); font-size: var(--label-section); font-weight: 600; }
 .poly-common-area > p span { color: var(--label-section-color); }
 /* N is a property of the labels, not of the window. Station renders the same
    447px panel at every viewport size, so the 3-up filter and 4-up envelope
@@ -694,7 +722,7 @@
    cell, so the tuning panel is the one 3-up group on this screen. */
 .poly-secondary-panel-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
-.poly-performance-sources { display: grid; grid-template-columns: auto minmax(0, calc(260px * var(--station-ui-scale))); gap: var(--sp-card); align-items: center; margin-top: var(--sp-group); color: var(--label-section-color); font-family: var(--station-mono-font); font-size: var(--label-section); font-weight: 600; letter-spacing: .05em; }
+.poly-performance-sources { display: grid; grid-template-columns: auto minmax(0, calc(260px * var(--station-ui-scale))); gap: var(--sp-card); align-items: center; margin-top: var(--sp-group); color: var(--label-section-color); font-family: var(--station-control-font); font-size: var(--label-section); font-weight: 600; letter-spacing: .035em; }
 .poly-lfo-editor { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-group); align-items: end; }
 /* SYNC / FREE is a mode selector like any other, and RETRIGGER is the one
    action key on the instrument carrying a lamp. Both sit in a 2-up parameter
@@ -704,10 +732,10 @@
 
 .poly-route-section { margin-top: var(--sp-sec); }
 .poly-route-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-card); }
-.poly-route-heading > div { display: grid; gap: var(--sp-hair); color: var(--label-section-color); font-family: var(--station-mono-font); font-size: var(--label-section); font-weight: 600; letter-spacing: .05em; }
+.poly-route-heading > div { display: grid; gap: var(--sp-hair); color: var(--label-section-color); font-family: var(--station-control-font); font-size: var(--label-section); font-weight: 600; letter-spacing: .035em; }
 .poly-route-heading strong { color: var(--station-text); font-size: var(--label-value); }
 .poly-route-heading .poly-key { flex: 0 0 auto; min-width: calc(80px * var(--station-ui-scale)); }
-.poly-empty-routes { margin: var(--sp-card) 0 0; color: var(--station-text-muted); font-family: var(--station-mono-font); font-size: var(--label-param); font-weight: 500; }
+.poly-empty-routes { margin: var(--sp-card) 0 0; color: var(--station-text-muted); font-family: var(--station-control-font); font-size: var(--label-param); font-weight: 500; }
 /* Route rows are a parameter grid like any other: a modulation amount is a
    bipolar percentage and does not need the whole measure to be set. */
 .poly-active-routes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-group); margin-top: var(--sp-card); }

@@ -114,15 +114,25 @@ export function PolyWorkspace(props: Props) {
           <Control label="POSITION" value={oscillator.position} onChange={(position) => change({ [oscillatorKey]: { ...oscillator, position } })} format={percent} />
           <Control label="LEVEL" value={oscillator.level} onChange={(level) => change({ [oscillatorKey]: { ...oscillator, level } })} format={percent} />
         </div>
-        {/* Actions, not mode marks: these three open a working sub-panel, so
-            they take a key with real mass rather than a lamp. Tier 2 - one
-            step up from the utility keys on the sub-selector line, because
-            this is the bank a hand reaches for while editing an oscillator. */}
-        <div className="poly-detail-keys" role="group" aria-label="Oscillator and output details">
-          <ActionKey label="TUNE" tier="2" engaged={oscillatorDetail === 'tune'} onClick={() => setOscillatorDetail('tune')} />
-          <ActionKey label="SPREAD" tier="2" engaged={oscillatorDetail === 'spread'} onClick={() => setOscillatorDetail('spread')} />
-          <ActionKey label="OUTPUT" tier="2" engaged={oscillatorDetail === 'output'} onClick={() => setOscillatorDetail('output')} />
-        </div>
+        {/* Detail pages are consulted, not performed. One compact data window
+            chooses the current detail without making three permanent tabs
+            compete with the oscillator's actual controls. */}
+        <label className="poly-detail-selector">
+          <span>DETAIL</span>
+          <select
+            aria-label="Oscillator detail"
+            value={oscillatorDetail ?? ''}
+            onChange={(event) => {
+              const detail = event.target.value
+              if (detail === 'tune' || detail === 'spread' || detail === 'output') setOscillatorDetail(detail)
+            }}
+          >
+            <option value="" disabled>SELECT</option>
+            <option value="tune">TUNE</option>
+            <option value="spread">SPREAD</option>
+            <option value="output">OUTPUT</option>
+          </select>
+        </label>
         {oscillatorDetail === 'tune' && <div className="poly-secondary-panel poly-secondary-panel-3" aria-label="Oscillator tuning"><Control label="OCTAVE" value={oscillator.octave} min={-2} max={2} step={1} onChange={(octave) => change({ [oscillatorKey]: { ...oscillator, octave } })} format={signed} /><Control label="SEMITONE" value={oscillator.semitone} min={-12} max={12} step={1} onChange={(semitone) => change({ [oscillatorKey]: { ...oscillator, semitone } })} format={signed} /><Control label="FINE" value={oscillator.fineCents} min={-100} max={100} step={1} onChange={(fineCents) => change({ [oscillatorKey]: { ...oscillator, fineCents } })} format={(value) => `${signed(value)} ct`} /></div>}
         {oscillatorDetail === 'spread' && <div className="poly-secondary-panel" aria-label="Oscillator spread"><Control label="DETUNE" value={oscillator.detuneCents} min={0} max={50} step={1} onChange={(detuneCents) => change({ [oscillatorKey]: { ...oscillator, detuneCents } })} format={(value) => `${value.toFixed(0)} ct`} /><Control label="WIDTH" value={oscillator.width} onChange={(width) => change({ [oscillatorKey]: { ...oscillator, width } })} format={percent} /></div>}
         {oscillatorDetail === 'output' && <div className="poly-secondary-panel" aria-label="Patch output"><Control label="MASTER LEVEL" value={patch.level} onChange={(level) => change({ level })} format={percent} /><Control label="PAN" value={patch.pan} min={-1} max={1} onChange={(pan) => change({ pan })} format={signedPercent} /></div>}

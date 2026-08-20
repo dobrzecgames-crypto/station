@@ -1,5 +1,6 @@
 import type { RuntimeSampleAsset, SampleAssetId } from '../audio/AudioEngine'
 import type { StoredAssetRecord } from './storageTypes'
+import { toStationStorageError } from './storageErrors.ts'
 
 /** Stable asset IDs are immutable blob identities. Existing keys are left
  * untouched; normal manifest saves therefore do not rewrite audio data. */
@@ -10,7 +11,7 @@ export async function writeMissingRuntimeAssets(
 ): Promise<number> {
   const results = await Promise.all(assetIds.map((assetId) => new Promise<number>((resolve, reject) => {
     const lookup = store.getKey(assetId)
-    lookup.onerror = () => reject(lookup.error ?? new Error(`Could not check WAV asset ${assetId}.`))
+    lookup.onerror = () => reject(toStationStorageError(`Could not check WAV asset ${assetId}.`, lookup.error))
     lookup.onsuccess = () => {
       if (lookup.result !== undefined) {
         resolve(0)
@@ -29,7 +30,7 @@ export async function writeMissingRuntimeAssets(
         blob: asset.blob,
       }
       const write = store.put(record)
-      write.onerror = () => reject(write.error ?? new Error(`Could not store WAV asset ${assetId}.`))
+      write.onerror = () => reject(toStationStorageError(`Could not store WAV asset ${assetId}.`, write.error))
       write.onsuccess = () => resolve(1)
     }
   })))

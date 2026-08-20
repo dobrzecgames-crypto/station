@@ -60,6 +60,7 @@ import { ChordPriority } from './music/chordPriority'
 import { findProjectScaleMapConflicts, mapPadBankToProjectScale } from './music/scaleMapping'
 import { projectRepository } from './storage/ProjectRepository'
 import { ProjectSaveStateTracker } from './storage/ProjectSaveState'
+import { browserStorageMonitor } from './storage/BrowserStorageMonitor'
 import type { LoadedProject, ProjectDocument, ProjectSummary } from './storage/storageTypes'
 import { addPatternGroup, clearVariant, copyVariantSequence, createInitialPatternGroups, duplicateVariant, getVariant, getVariantLengths, getVariantShifts, paintVariantStepSpan, pasteVariantSequence, patternStepCount, renamePatternGroup, repairPatternGroupChords, setPatternGroupChordAssignment, setPatternGroupChordPerformance, setPatternGroupPadMode, setVariantStepPresence, setVariantStepShift, setVariantStepVelocity } from './patterns/patternOperations'
 import type { PatternSequenceClipboard } from './patterns/patternOperations'
@@ -751,6 +752,7 @@ export function App({ audioEngine }: AppProps) {
       const saved = await enqueueProjectWrite(() => projectRepository.updateProject(currentProject.projectId, snapshot, runtimeAssetsForProject(snapshot)))
       setCurrentProject(projectSummaryFromDocument(saved))
       setProjectSaveState(projectSaveTrackerRef.current.succeed(saveAttempt))
+      void browserStorageMonitor.requestPersistenceAfterExplicitSave()
       await refreshProjectLibrary()
       setProjectMessage('Project saved.')
     } catch (error) {
@@ -1036,6 +1038,7 @@ export function App({ audioEngine }: AppProps) {
         const saved = await enqueueProjectWrite(() => projectRepository.createProject(document, runtimeAssetsForProject(snapshot)))
         setCurrentProject(projectSummaryFromDocument(saved))
         setProjectSaveState(projectSaveTrackerRef.current.succeed(saveAttempt!))
+        void browserStorageMonitor.requestPersistenceAfterExplicitSave()
         if (legacyRecoveryActive) await projectRepository.markLegacyRecovered()
         setLegacyRecoveryActive(false)
         setProjectMessage(`Saved ${name}. Autosave is now active.`)

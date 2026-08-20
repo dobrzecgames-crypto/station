@@ -201,9 +201,34 @@ state wins, error remains dirty through failure/retry, and a late completion
 from a replaced project is ignored. Full gate passed with 135/135 tests,
 typecheck PASS, build PASS.
 
+### P1 — Storage quota failures were indistinguishable — FIXED
+
+Evidence: IndexedDB request/transaction helpers replaced the browser error with
+a generic `Error`, discarding `QuotaExceededError`. The UI could report only
+that a save failed, with no way to distinguish capacity pressure from an
+invalid operation or database lifecycle failure.
+
+Fix: storage errors now preserve an explicit quota/blocked/unavailable/
+operation classification and retain the browser cause. Quota failure states
+that the transaction was not committed and existing projects are unchanged;
+the revision tracker remains DIRTY/ERROR so success is never implied. An
+on-demand monitor exposes `navigator.storage.estimate()` usage/quota ratio and
+persisted state. Station makes at most one best-effort persistence request per
+page session, only after a successful explicit save; denial does not make that
+already completed save fail.
+
+Browser limitation: estimates are approximate and browser-managed, persistence
+may be denied without explanation, and neither API guarantees protection from
+user-initiated site-data deletion. Station does not request persistence at
+startup and does not send storage data externally.
+
+Verification: four deterministic tests cover nested quota classification,
+transaction-abort propagation, usage/quota/persisted diagnostics with a
+single persistence request, and unsupported-API degradation. Full gate passed
+with 139/139 tests, typecheck PASS, build PASS.
+
 ## Open audits
 
-- Quota error classification, storage diagnostics, and dirty/save-error state.
 - Offline render parity with live TRACKS playback and release-tail handling.
 - Fatal React render recovery and unhandled-error diagnostics.
 - Real Chromium startup/save/reload/play/stop coverage and CI enforcement.

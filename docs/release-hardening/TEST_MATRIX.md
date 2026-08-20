@@ -21,7 +21,7 @@
 | Worklet | Forced optional worklet failure is captured, retryable, and cannot poison core startup | PASS — 5 deterministic lifecycle tests plus AudioEngine wiring audit |
 | Storage | Failed/blocked opens can recover; `versionchange` closes stale DB | PASS — 3 deterministic lifecycle tests |
 | Autosave | Latest state wins; unchanged asset blobs are not rewritten | PASS — 5 deterministic strategy/revision tests |
-| Quota | Quota errors remain dirty and do not replace a valid save | Pending |
+| Quota | Quota errors remain dirty and do not replace a valid save | PASS — classified abort plus transactional/revision tests |
 | Render | Event/waveform parity for supported SONG and TRACKS material | Pending |
 | Crash | Forced React render failure shows recovery UI | Pending |
 | Browser | Startup, audio gesture, play/stop, save, reload, reopen | Pending |

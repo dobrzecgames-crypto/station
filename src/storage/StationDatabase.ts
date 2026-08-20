@@ -1,3 +1,5 @@
+import { StationStorageError, toStationStorageError } from './storageErrors.ts'
+
 const databaseName = 'station-projects'
 const databaseVersion = 1
 
@@ -21,7 +23,7 @@ export function openStationDatabase(): Promise<IDBDatabase> {
   if (!('indexedDB' in window)) {
     connectionState = 'unavailable'
     connectionError = 'Project storage is unavailable in this browser.'
-    return Promise.reject(new Error(connectionError))
+    return Promise.reject(new StationStorageError('unavailable', connectionError))
   }
   if (databasePromise) return databasePromise
 
@@ -53,14 +55,14 @@ export function openStationDatabase(): Promise<IDBDatabase> {
     request.onerror = () => {
       if (settled) return
       settled = true
-      const error = storageError('Could not open project storage.', request.error)
+      const error = toStationStorageError('Could not open project storage.', request.error)
       releaseFailedAttempt(attempt, 'error', error.message)
       reject(error)
     }
     request.onblocked = () => {
       if (settled) return
       settled = true
-      const error = new Error('Project storage is blocked by another open Station tab.')
+      const error = new StationStorageError('blocked', 'Project storage is blocked by another open Station tab.')
       releaseFailedAttempt(attempt, 'blocked', error.message)
       reject(error)
     }
@@ -85,15 +87,15 @@ export function getStationDatabaseDiagnostics(): StationDatabaseDiagnostics {
 export function requestResult<T>(request: IDBRequest<T>, failureMessage: string): Promise<T> {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(new Error(failureMessage))
+    request.onerror = () => reject(toStationStorageError(failureMessage, request.error))
   })
 }
 
 export function transactionComplete(transaction: IDBTransaction, failureMessage: string): Promise<void> {
   return new Promise((resolve, reject) => {
     transaction.oncomplete = () => resolve()
-    transaction.onerror = () => reject(new Error(failureMessage))
-    transaction.onabort = () => reject(new Error(failureMessage))
+    transaction.onerror = () => reject(toStationStorageError(failureMessage, transaction.error))
+    transaction.onabort = () => reject(toStationStorageError(failureMessage, transaction.error))
   })
 }
 
@@ -109,11 +111,4 @@ function releaseDatabase(database: IDBDatabase, attempt: Promise<IDBDatabase>): 
   if (databasePromise === attempt) databasePromise = undefined
   connectionState = 'closed'
   connectionError = null
-}
-
-function storageError(message: string, cause: DOMException | null): Error {
-  if (!cause) return new Error(message)
-  const error = new Error(`${message} ${cause.message}`.trim(), { cause })
-  error.name = cause.name
-  return error
 }

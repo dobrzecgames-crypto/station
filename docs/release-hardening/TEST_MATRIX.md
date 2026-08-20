@@ -24,6 +24,7 @@
 | Quota | Quota errors remain dirty and do not replace a valid save | PASS — classified abort plus transactional/revision tests |
 | Render | Event planning for bounded SONG + TRACKS material and FX tails | PASS — 2 deterministic render-plan tests; browser waveform pending |
 | Crash | Forced React render failure shows truthful recovery UI with view/copy diagnostics | PASS — 2 unit tests plus local Chromium DOM/control verification |
+| Diagnostics | Hidden-by-default 1 Hz runtime state with 30 s storage refresh and build SHA | PASS — 2 unit tests plus local Chromium opt-in/default-state verification |
 | Browser | Startup, audio gesture, play/stop, save, reload, reopen | Pending |
 
 ## Requires real listening or device behavior

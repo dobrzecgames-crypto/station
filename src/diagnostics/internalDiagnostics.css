@@ -1,0 +1,67 @@
+.internal-diagnostics {
+  position: fixed;
+  z-index: 1000;
+  top: 10px;
+  right: 10px;
+  width: min(390px, calc(100vw - 20px));
+  max-height: calc(100vh - 20px);
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid var(--station-line-strong);
+  border-radius: 5px;
+  color: var(--station-text);
+  background: rgb(9 10 16 / 96%);
+  box-shadow: 0 14px 40px rgb(0 0 0 / 48%);
+  font-family: var(--system-display-font);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.internal-diagnostics-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 8px;
+  color: var(--signal-focus);
+  letter-spacing: .05em;
+}
+
+.internal-diagnostics-heading span {
+  color: var(--station-text-muted);
+}
+
+.internal-diagnostics-group {
+  padding: 7px 0;
+  border-top: 1px solid var(--station-line);
+}
+
+.internal-diagnostics-group h2 {
+  margin: 0 0 4px;
+  color: var(--focus-accent);
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: .08em;
+}
+
+.internal-diagnostics-group dl,
+.internal-diagnostics-group dd {
+  margin: 0;
+}
+
+.internal-diagnostics-group dl > div {
+  display: grid;
+  grid-template-columns: minmax(88px, .8fr) minmax(0, 1.5fr);
+  gap: 8px;
+}
+
+.internal-diagnostics-group dt {
+  color: var(--station-text-muted);
+}
+
+.internal-diagnostics-group dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--station-text);
+  text-align: right;
+}

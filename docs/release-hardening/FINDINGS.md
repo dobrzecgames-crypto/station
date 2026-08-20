@@ -306,9 +306,28 @@ recovery copy/actions, exposed the intentional error with React source in the
 details, and confirmed COPY DETAILS. Full gate passed with 147/147 tests,
 typecheck PASS, build PASS.
 
+### Investigated — opt-in runtime diagnostics are sufficient for torture tests
+
+Station now exposes a read-only `?diagnostics=1` panel and renders no
+diagnostics DOM without that exact opt-in. The panel samples existing counters
+at 1 Hz and refreshes browser storage estimates every 30 seconds; it does not
+instrument audio callbacks, scheduler hot paths, or React animation frames.
+
+Visible state includes the build SHA; AudioContext state/rate/latencies and
+optional-worklet availability; paired scheduler state, musical position,
+late-wake maxima and skipped events; voice counts by origin/type; asset/cache
+and routing counts; project ID, revision-aware save status and queue; IndexedDB
+connection state plus approximate usage/quota/persistence; and render activity.
+The SHA comes from an explicit build environment value when supplied, then a
+local Git fallback, and degrades to `unknown` rather than failing the build.
+
+Verification: two formatting/opt-in tests plus real local Chromium checks prove
+the panel is absent on the normal URL, complete on the opt-in URL, carries the
+current SHA, and refreshes at the documented cadence. Full gate passed with
+149/149 tests, typecheck PASS, build PASS.
+
 ## Open audits
 
-- Opt-in runtime diagnostics surface and build identity.
 - Real Chromium startup/save/reload/play/stop coverage and CI enforcement.
 
 ## Baseline observations

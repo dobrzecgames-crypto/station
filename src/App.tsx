@@ -36,6 +36,7 @@ import { StationConfirm } from './shell/StationConfirm'
 import { TransportBar } from './shell/TransportBar'
 import { SystemDisplayProvider, useSystemDisplayHost } from './shell/systemDisplayContext'
 import { TypographyLab } from './dev/TypographyLab'
+import { InternalDiagnosticsPanel } from './diagnostics/InternalDiagnosticsPanel'
 import { applyKickPreset, applySnarePreset, createDefaultDrumSynthState } from './drumsynth/drumSynthOperations'
 import type { KickPresetName, SnarePresetName } from './drumsynth/drumSynthOperations'
 import type { DrumInstrumentType, DrumKickPatch, DrumSnarePatch, DrumSynthState } from './drumsynth/drumSynthTypes'
@@ -2854,6 +2855,20 @@ export function App({ audioEngine }: AppProps) {
         />
       )}
     </main>
+    <InternalDiagnosticsPanel
+      audioEngine={audioEngine}
+      stepSequencer={sequencerRef.current}
+      timelineScheduler={timelineSchedulerRef.current}
+      projectId={currentProject?.projectId ?? null}
+      projectSaveState={projectSaveState}
+      transportMode={transportMode}
+      songSlot={playingSongSlot}
+      patternSection={selectedPatternVariant}
+      patternStep={playingStep}
+      tracksPlayheadBeat={tracksLivePlayheadBeat}
+      rendering={renderBusy}
+      renderProgress={renderProgress}
+    />
     <TypographyLab />
     </SystemDisplayProvider>
   );

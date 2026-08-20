@@ -10,6 +10,7 @@ are incomplete.
 - [x] Untouched `pnpm build` baseline passes.
 - [ ] Hardening regression suite passes.
 - [x] Intentional render crash shows local recovery and view/copy diagnostics.
+- [x] Opt-in diagnostics expose release-torture state without hot-path polling.
 - [ ] Chromium browser smoke suite passes.
 - [ ] Edge-channel smoke suite passes on Windows.
 - [ ] GitHub Actions validation gate passes.

@@ -15,6 +15,7 @@ import './global-scale.css'
 // one that decides them from function rather than from cascade order.
 import './layout-tiers.css'
 import './shell/applicationErrorBoundary.css'
+import './diagnostics/internalDiagnostics.css'
 
 const audioEngine = new AudioEngine()
 installGlobalErrorHandlers(window)

@@ -326,9 +326,31 @@ the panel is absent on the normal URL, complete on the opt-in URL, carries the
 current SHA, and refreshes at the documented cadence. Full gate passed with
 149/149 tests, typecheck PASS, build PASS.
 
+### Investigated — release-critical browser behavior now has a product smoke
+
+A minimal Playwright test now executes one continuous, user-visible workflow:
+page startup, a real click on START AUDIO, built-in WAV loading and pad
+triggering, ten PLAY/STOP cycles, an explicit named-project save, page reload,
+audio restart, library reopen, project restore, stable project identity, saved
+state, restored pad material, and playback after restore. It also waits for
+sequencer/timeline voice counts to return to zero and fails on uncaught page
+errors. The selectors use roles, labels, and state rather than pixels.
+
+The same workflow passed headlessly in current installed Chrome and Microsoft
+Edge on Windows. The Chromium project can use Playwright's pinned browser in
+CI; `STATION_CHROMIUM_EXECUTABLE` is an optional local override for an already
+installed Chromium-family executable. There are no retries, so a failure is
+not hidden by a later attempt. Trace and screenshot artifacts are retained
+only on failure.
+
+Automation verified AudioContext reached RUNNING after a genuine UI gesture and
+that WAV decode/scheduling paths did not error. Headless execution is not proof
+of audible output, click/glitch quality, hardware routing, or device lifecycle;
+those stay on the manual Chrome/Edge checklist.
+
 ## Open audits
 
-- Real Chromium startup/save/reload/play/stop coverage and CI enforcement.
+- CI enforcement for tests, types, build, and stable Chromium smoke.
 
 ## Baseline observations
 

@@ -25,7 +25,26 @@
 | Render | Event planning for bounded SONG + TRACKS material and FX tails | PASS — 2 deterministic render-plan tests; browser waveform pending |
 | Crash | Forced React render failure shows truthful recovery UI with view/copy diagnostics | PASS — 2 unit tests plus local Chromium DOM/control verification |
 | Diagnostics | Hidden-by-default 1 Hz runtime state with 30 s storage refresh and build SHA | PASS — 2 unit tests plus local Chromium opt-in/default-state verification |
-| Browser | Startup, audio gesture, play/stop, save, reload, reopen | Pending |
+| Browser | Startup, real audio gesture, WAV load/pad trigger, 10× play/stop, save, reload, reopen/restore | PASS — Playwright in current Chrome and Edge on Windows; audible output not claimed |
+
+## Browser smoke commands
+
+Playwright's pinned Chromium is the portable/CI target:
+
+```text
+pnpm exec playwright install chromium
+pnpm test:browser
+```
+
+Current installed Windows channels can run the identical spec with:
+
+```text
+pnpm test:browser:chrome
+pnpm test:browser:edge
+```
+
+For a local Chromium-family executable without a Playwright download, set
+`STATION_CHROMIUM_EXECUTABLE` to its absolute path before `pnpm test:browser`.
 
 ## Requires real listening or device behavior
 

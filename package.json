@@ -10,6 +10,9 @@
   "scripts": {
     "dev": "vite",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "test:browser": "playwright test --project=chromium",
+    "test:browser:chrome": "playwright test --project=chrome",
+    "test:browser:edge": "playwright test --project=edge",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
     "preview": "vite preview"
@@ -19,6 +22,7 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@types/node": "26.1.1",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",

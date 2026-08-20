@@ -130,9 +130,39 @@ Verification: five deterministic tests cover asynchronous rejection,
 synchronous throw, recovery on retry, concurrent initialization, and disposal
 during load. Full gate passed with 127/127 tests, typecheck PASS, build PASS.
 
+### P1 — A failed main IndexedDB open poisoned storage until reload — FIXED
+
+Evidence: `StationDatabase` cached the first open promise indefinitely.
+`onerror` and `onblocked` rejected that promise without clearing it, so every
+later project operation received the same rejection. Successful connections
+also had no `versionchange` handler and could keep a schema upgrade in another
+tab blocked.
+
+Root cause: connection ownership consisted only of a memoized promise; it had
+no failed-attempt release or live-connection lifecycle.
+
+Fix: failed and blocked attempts now release the cache, a late success from an
+already rejected/stale attempt is immediately closed, and successful
+connections close and release themselves on `versionchange` or an unexpected
+`close`. A normal close API and low-cost connection diagnostics expose the
+current state without opening the database.
+
+Verification: deterministic request/connection doubles prove retry after
+`onerror`, close/reopen after `versionchange`, and recovery after `onblocked`
+including a late stale success. Full gate passed with 130/130 tests, typecheck
+PASS, build PASS.
+
+### Investigated — project manifest/asset transaction atomicity
+
+Create, update, replace, delete, and their asset/metadata mutations already use
+one IndexedDB `readwrite` transaction. Repository methods wait for transaction
+completion and surface abort/error, so IndexedDB either commits the manifest
+and its asset mutations together or retains the previous committed state.
+Corrupt or missing project assets fail load explicitly. Browser integration
+coverage for real IndexedDB transaction-abort behavior remains pending.
+
 ## Open audits
 
-- IndexedDB rejected-open caching, blocked upgrades, and `versionchange` cleanup.
 - Autosave ordering and unnecessary rewrites of unchanged WAV blobs.
 - Quota error classification, storage diagnostics, and dirty/save-error state.
 - Offline render parity with live TRACKS playback and release-tail handling.

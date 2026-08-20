@@ -156,7 +156,7 @@ Transport STOP cancels further scheduling and stops voices created by the sequen
 
 ### M4 implementation history
 
-The original M4 scheduler established the 25 ms wake interval and 100 ms look-ahead strategy. Its current extension schedules every loaded pad track, and the wake timer only invokes planning; it does not provide musical time. Before scheduling a step, the scheduler resolves its event owner: an ordinary active cell owns itself, while every tail cell in an explicitly merged run belongs to the run's first cell and is skipped. Sample events are capped to the stored span (apart from migrated legacy unbounded one-shots), and synth event gates scale from the same span.
+The original M4 scheduler established the 25 ms wake interval and 100 ms look-ahead strategy. Its current extension schedules every loaded pad track, and the wake timer only invokes planning; it does not provide musical time. Before scheduling a step, the scheduler resolves its event owner: an ordinary active cell owns itself, while every tail cell in an explicitly merged run belongs to the run's first cell and is skipped. Sample events are capped to the stored span (apart from migrated legacy unbounded one-shots), and synth event gates scale from the same span. Natural SONG completion reports the final audio-clock grid boundary rather than treating the earlier planning callback as completion: TRACKS continues planning the remaining pre-boundary starts, stamps every current/new source to stop at that boundary, rejects starts beyond it, and the UI changes state from an audio-clock marker while pattern release tails remain audible. Manual STOP remains immediate and cancels the marker.
 
 ## Basic Pump
 

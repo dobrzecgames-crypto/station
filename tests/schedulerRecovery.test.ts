@@ -51,6 +51,25 @@ test('a stalled SONG advances to the coherent slot rather than restarting slot o
   assert.ok(slots.includes(2))
 })
 
+test('SONG completion reports the final audio-clock grid boundary, not planning time', () => {
+  const ticker = new ManualTicker()
+  const engine = new SchedulerEngine()
+  engine.now = 5
+  const sequencer = new StepSequencer(engine as never, ticker, 3)
+  let completionTime: number | null = null
+  const config: StepSequencerConfig = {
+    bpm: 120, swing: 0, metronomeEnabled: false, mode: 'song', loopSong: false, lastSongSlot: 1,
+    getTracksForSlot: () => [sampleTrack('one-slot')],
+    onSongComplete: (when) => { completionTime = when },
+  }
+
+  sequencer.start(() => config, 5)
+
+  assert.equal(engine.now, 5)
+  assert.equal(completionTime, 7)
+  assert.equal(engine.samples.at(-1)?.when, 6.875)
+})
+
 test('TimelineScheduler does not dump a transient whose start and end expired during a 150 ms stall', () => {
   const run = runTimelineAfter(0.15, [timelineClip('transient', 0.25, 0.04)])
 
@@ -82,6 +101,27 @@ test('TimelineScheduler never schedules past timestamps after 500-2000 ms stalls
     const run = runTimelineAfter(delaySeconds, clips)
     assert.ok(run.engine.clips.every((event) => event.when >= delaySeconds))
   }
+})
+
+test('TimelineScheduler keeps planning through a stamped stop boundary without starting beyond it', () => {
+  const ticker = new ManualTicker()
+  const engine = new SchedulerEngine()
+  const scheduler = new TimelineScheduler(engine as never, ticker, 0.1)
+  const config: TimelineSchedulerConfig = {
+    bpm: 120,
+    getClips: () => [timelineClip('last-valid', 0.3, 1), timelineClip('past-boundary', 0.45, 1)],
+  }
+  scheduler.start(() => config)
+  scheduler.stopAt(0.2)
+
+  engine.now = 0.1
+  ticker.run()
+  engine.now = 0.15
+  ticker.run()
+
+  assert.deepEqual(engine.clips.map((event) => event.assetId), ['last-valid'])
+  assert.ok(engine.timelineStopsAt.length >= 2)
+  assert.ok(engine.timelineStopsAt.every((when) => when === 0.2))
 })
 
 function runStepSequencerAfter(delaySeconds: number) {
@@ -144,9 +184,11 @@ class SchedulerEngine {
   now = 0
   samples: Array<{ assetId: string; when: number }> = []
   clips: Array<{ assetId: string; when: number; options: ScheduleClipOptions }> = []
+  timelineStopsAt: number[] = []
   getCurrentTime(): number { return this.now }
   scheduleSample(_groupId: string, _channelId: string, assetId: string, when: number): void { this.samples.push({ assetId, when }) }
   scheduleClip(_groupId: string, _channelId: string, assetId: string, when: number, options: ScheduleClipOptions): void { this.clips.push({ assetId, when, options }) }
+  stopTimelineVoicesAt(when: number): void { this.timelineStopsAt.push(when) }
   scheduleMetronome(): void {}
   stopSequencerChokeGroupAt(): void {}
   releaseSequencerChordAt(): void {}

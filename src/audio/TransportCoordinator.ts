@@ -10,6 +10,7 @@ interface StepTransportScheduler {
 interface TimelineTransportScheduler {
   start(getConfig: () => TimelineSchedulerConfig, startBeat?: number, startAt?: number): void
   stop(): void
+  stopAt(when: number): void
   isRunning(): boolean
 }
 
@@ -17,6 +18,7 @@ interface TransportAudioOwner {
   getCurrentTime(): number
   stopSequencerVoices(): void
   stopTimelineVoices(): void
+  scheduleAudioClockCallback(when: number, callback: () => void): () => void
 }
 
 /**
@@ -28,6 +30,7 @@ export class TransportCoordinator {
   private readonly stepSequencer: StepTransportScheduler
   private readonly timelineScheduler: TimelineTransportScheduler
   private readonly audioOwner: TransportAudioOwner
+  private pendingCompletionCancel: (() => void) | null = null
 
   constructor(
     stepSequencer: StepTransportScheduler,
@@ -53,8 +56,8 @@ export class TransportCoordinator {
 
     const startAt = this.audioOwner.getCurrentTime()
     try {
-      // Timeline first means a synchronously completing one-slot SONG can
-      // still stop both sides through its onSongComplete callback.
+      // Timeline first means even a one-slot SONG whose whole schedule is
+      // planned synchronously can stamp its natural completion on both sides.
       this.timelineScheduler.start(getTimelineConfig, timelineStartBeat, startAt)
       this.stepSequencer.start(getStepConfig, startAt)
       return startAt
@@ -65,6 +68,8 @@ export class TransportCoordinator {
   }
 
   stop(): void {
+    this.pendingCompletionCancel?.()
+    this.pendingCompletionCancel = null
     this.stepSequencer.stop()
     this.timelineScheduler.stop()
     this.audioOwner.stopSequencerVoices()
@@ -72,6 +77,20 @@ export class TransportCoordinator {
   }
 
   isRunning(): boolean {
-    return this.stepSequencer.isRunning() || this.timelineScheduler.isRunning()
+    return this.pendingCompletionCancel !== null || this.stepSequencer.isRunning() || this.timelineScheduler.isRunning()
+  }
+
+  /** Planning reaches the final SONG boundary before audio does. Stop future
+      planning now, cut TRACKS at the stamped boundary, and finish UI state only
+      when an audio-clock marker reaches it. Sequencer release tails are not a
+      global STOP and are deliberately allowed to ring. */
+  completeSong(completionTime: number, onComplete: () => void): void {
+    if (this.pendingCompletionCancel) return
+    this.timelineScheduler.stopAt(completionTime)
+    this.pendingCompletionCancel = this.audioOwner.scheduleAudioClockCallback(completionTime, () => {
+      this.timelineScheduler.stop()
+      this.pendingCompletionCancel = null
+      onComplete()
+    })
   }
 }

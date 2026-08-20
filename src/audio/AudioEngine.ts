@@ -517,6 +517,7 @@ export class AudioEngine {
   private readonly drumPreviewVoices = new Set<DrumVoiceHandle>()
   private status: AudioEngineStatus = 'inactive'
   private readonly statusListeners = new Set<(status: AudioEngineStatus) => void>()
+  private readonly audioClockCallbackCancellations = new Set<() => void>()
   private lifecycleRecoveryInstalled = false
   private readonly handleVisibilityChange = () => {
     if (document.visibilityState === 'visible') this.requestLiveContextResume()
@@ -1279,11 +1280,11 @@ export class AudioEngine {
     const source = this.context.createBufferSource()
     const gain = this.context.createGain()
     const scheduledWhen = Math.max(this.context.currentTime, when)
-    const voice: ActiveVoice = { source, gain, cleanedUp: false, origin: 'timeline', isSample: true, startsAt: scheduledWhen }
+    const outputDuration = Math.max(0.005, options.lengthSeconds)
+    const voice: ActiveVoice = { source, gain, cleanedUp: false, origin: 'timeline', isSample: true, startsAt: scheduledWhen, stopAt: scheduledWhen + outputDuration }
     const playbackRate = this.toPlaybackRate(options.pitchSemitones) * (options.tempoRate && options.tempoRate > 0 ? options.tempoRate : 1)
     const region = this.toPlaybackRegion(sampleBuffer.duration, options.sourceOffsetSeconds, options.sourceEndSeconds, options.reversed)
     const voiceGain = this.toGain(options.gain)
-    const outputDuration = Math.max(0.005, options.lengthSeconds)
     source.buffer = sampleBuffer
     source.playbackRate.setValueAtTime(playbackRate, scheduledWhen)
     if (options.loop) {
@@ -1461,11 +1462,70 @@ export class AudioEngine {
     }
   }
 
+  /** Natural SONG completion is known during look-ahead planning. Stamp the
+      timeline cut onto the audio clock without prematurely cleaning up nodes
+      or truncating clips that already end before the boundary. */
+  stopTimelineVoicesAt(when: number): void {
+    if (!this.context) return
+    const stopAt = Math.max(this.context.currentTime, when)
+    for (const voice of this.activeVoices) {
+      if (voice.origin !== 'timeline' || (voice.stopAt !== undefined && voice.stopAt <= stopAt)) continue
+      try {
+        voice.source.stop(stopAt)
+        voice.stopAt = stopAt
+      } catch {
+        // A clip may have ended between planning the boundary and this call.
+      }
+    }
+  }
+
   getCurrentTime(): number {
     return this.context?.currentTime ?? 0
   }
 
+  /** Runs a lightweight callback when the audio clock reaches `when`. The
+      zero-gain one-frame source is timing authority; JavaScript timers are not
+      involved. The returned cancellation prevents stale completion callbacks
+      after manual STOP, project replacement, or disposal. */
+  scheduleAudioClockCallback(when: number, callback: () => void): () => void {
+    const context = this.context
+    if (!context) {
+      let active = true
+      queueMicrotask(() => { if (active) callback() })
+      return () => { active = false }
+    }
+    const source = context.createBufferSource()
+    const silence = context.createGain()
+    source.buffer = context.createBuffer(1, 1, context.sampleRate)
+    silence.gain.value = 0
+    source.connect(silence)
+    silence.connect(context.destination)
+    let active = true
+    const cleanUp = () => {
+      source.disconnect()
+      silence.disconnect()
+      this.audioClockCallbackCancellations.delete(cancel)
+    }
+    const cancel = () => {
+      if (!active) return
+      active = false
+      source.onended = null
+      try { source.stop() } catch { /* The marker may already have ended. */ }
+      cleanUp()
+    }
+    source.onended = () => {
+      if (!active) return
+      active = false
+      cleanUp()
+      callback()
+    }
+    this.audioClockCallbackCancellations.add(cancel)
+    source.start(Math.max(context.currentTime, when))
+    return cancel
+  }
+
   dispose(): void {
+    for (const cancel of [...this.audioClockCallbackCancellations]) cancel()
     this.stopAll()
     this.samples.clear()
     this.waveforms.clear()

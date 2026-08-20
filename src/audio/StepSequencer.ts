@@ -20,7 +20,9 @@ export interface StepSequencerConfig {
   getTracksForSlot: (slot: number) => readonly StepSequencerTrack[]
   onStepScheduled?: (stepIndex: number, scheduledTime: number, durationSeconds: number, patternSectionIndex: number) => void
   onSongSlotChange?: (slot: number) => void
-  onSongComplete?: () => void
+  /** Called when the final grid boundary has been scheduled. The timestamp is
+      in AudioContext time and may still be ahead of the planning callback. */
+  onSongComplete?: (completionTime: number) => void
 }
 
 interface StepSequencerTrackBase {
@@ -253,7 +255,7 @@ export class StepSequencer {
         else {
           this.running = false
           this.ticker.cancel()
-          config.onSongComplete?.()
+          config.onSongComplete?.(this.nextStepTime)
           return false
         }
       } else this.currentSongSlot += 1

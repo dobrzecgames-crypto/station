@@ -485,7 +485,7 @@ export function App({ audioEngine }: AppProps) {
       ? getSongTracksForSlot(patternGroupsRef.current, playlist, slot, hasSampleAsset, projectKey)
       : getPatternTracks(patternGroupsRef.current, selectedPatternGroupId, patternVariantForSection(slot - 1), hasSampleAsset, projectKey),
     onSongSlotChange: setPlayingSongSlot,
-    onSongComplete: stopPlayback,
+    onSongComplete: (completionTime) => transportCoordinatorRef.current.completeSong(completionTime, finishNaturalSongPlayback),
     onStepScheduled: (stepIndex, scheduledTime, durationSeconds, sectionIndex) => {
       if (stepIndex === 0) {
         recordingGridRef.current = { startsAt: scheduledTime, stepDurationSeconds: durationSeconds, sectionIndex }
@@ -1812,11 +1812,21 @@ export function App({ audioEngine }: AppProps) {
   }
   function stopPlayback() {
     transportCoordinatorRef.current.stop()
+    freezeTracksPlayhead()
+    finishPlaybackUi()
+  }
+  function finishNaturalSongPlayback() {
+    freezeTracksPlayhead()
+    finishPlaybackUi()
+  }
+  function freezeTracksPlayhead() {
     if (tracksPlaybackAnchorRef.current) {
       const anchor = tracksPlaybackAnchorRef.current
       setTracksPlayheadBeat(Math.max(0, anchor.startBeat + secondsToBeats(audioEngine.getCurrentTime() - anchor.startedAt, bpm)))
       tracksPlaybackAnchorRef.current = null
     }
+  }
+  function finishPlaybackUi() {
     finishPatternTake()
     recordingArmedRef.current = false
     pendingRecordingStartRef.current = false

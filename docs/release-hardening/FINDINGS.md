@@ -227,6 +227,32 @@ transaction-abort propagation, usage/quota/persisted diagnostics with a
 single persistence request, and unsupported-API degradation. Full gate passed
 with 139/139 tests, typecheck PASS, build PASS.
 
+### P0 — Look-ahead SONG completion cut the final scheduled step — FIXED
+
+Evidence: `StepSequencer` invokes its completion hook when planning advances
+past step 16, up to the 100 ms look-ahead before the audio clock reaches the
+song boundary. The initial paired-lifecycle fix correctly routed that hook to
+global STOP, but global STOP immediately removed the final events that had just
+been scheduled. The UI also changed to stopped before the boundary.
+
+Root cause: a scheduling-complete notification was treated as if it meant
+audio-time completion. This regression was exposed while comparing live SONG
+boundaries with offline render duration.
+
+Fix: the sequencer now supplies the exact final grid-boundary timestamp.
+`TransportCoordinator` gives TRACKS that boundary; it continues planning the
+remaining valid pre-boundary starts, stamps every existing/new source to stop
+at the audio time, and rejects starts beyond it. A zero-gain one-frame Web
+Audio marker finishes UI state at the boundary. Manual STOP cancels the marker
+and still removes both voice origins immediately. Natural completion does not
+invoke the manual sequencer-voice cut, so valid sample/synth release and FX
+tails can ring as they did before the lifecycle centralization.
+
+Verification: four deterministic regressions prove the boundary timestamp,
+continued last-window TRACKS planning without post-boundary starts,
+audio-clock-delayed completion without sequencer-tail stop, and cancellation
+by manual STOP. Full gate passed with 143/143 tests, typecheck PASS, build PASS.
+
 ## Open audits
 
 - Offline render parity with live TRACKS playback and release-tail handling.

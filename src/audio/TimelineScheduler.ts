@@ -78,6 +78,7 @@ export class TimelineScheduler {
   private maxLatenessSeconds = 0
   private skippedExpiredClipCount = 0
   private recoveredInProgressClipCount = 0
+  private stopBoundaryAudioTime: number | null = null
   private readonly audioEngine: AudioEngine
   private readonly ticker: SequencerTicker
   private readonly lookAheadSeconds: number
@@ -101,6 +102,7 @@ export class TimelineScheduler {
     this.running = true
     this.startBeat = Math.max(0, startBeat)
     this.startedAtAudioTime = startAt
+    this.stopBoundaryAudioTime = null
     this.scheduledClipIds = new Set()
     this.scheduleClipsAlreadyInProgress(getConfig())
     this.schedule(getConfig)
@@ -108,7 +110,18 @@ export class TimelineScheduler {
 
   stop(): void {
     this.running = false
+    this.stopBoundaryAudioTime = null
     this.ticker.cancel()
+  }
+
+  /** Natural SONG completion is discovered by the sibling StepSequencer
+      during look-ahead. Keep planning the last TRACKS events up to that exact
+      boundary, reject starts beyond it, and stamp every current/new clip voice
+      to stop there. */
+  stopAt(when: number): void {
+    if (!this.running) return
+    this.stopBoundaryAudioTime = Math.max(this.audioEngine.getCurrentTime(), when)
+    this.audioEngine.stopTimelineVoicesAt(this.stopBoundaryAudioTime)
   }
 
   isRunning(): boolean { return this.running }
@@ -140,6 +153,11 @@ export class TimelineScheduler {
     if (!this.running) return
     const config = getConfig()
     const now = this.audioEngine.getCurrentTime()
+    if (this.stopBoundaryAudioTime !== null && now >= this.stopBoundaryAudioTime) {
+      this.running = false
+      this.ticker.cancel()
+      return
+    }
     const currentBeat = this.startBeat + Math.max(0, secondsToBeats(now - this.startedAtAudioTime, config.bpm))
     const lookAheadEndBeat = this.startBeat + Math.max(0, secondsToBeats(now + this.lookAheadSeconds - this.startedAtAudioTime, config.bpm))
     const maximumLateStartBeats = secondsToBeats(TimelineScheduler.maximumLateStartSeconds, config.bpm)
@@ -161,6 +179,7 @@ export class TimelineScheduler {
       if (clip.startBeat >= lookAheadEndBeat) continue
       this.scheduledClipIds.add(clip.clipId)
       const when = this.startedAtAudioTime + beatsToSeconds(clip.startBeat - this.startBeat, config.bpm)
+      if (this.stopBoundaryAudioTime !== null && when >= this.stopBoundaryAudioTime) continue
       const lengthSeconds = beatsToSeconds(clip.lengthBeats, config.bpm)
       this.audioEngine.scheduleClip(clip.trackId, clip.trackId, clip.assetId, when, {
         sourceOffsetSeconds: clip.sourceOffsetSeconds,
@@ -181,6 +200,8 @@ export class TimelineScheduler {
       this.lateWakeCount += 1
       this.maxLatenessSeconds = Math.max(this.maxLatenessSeconds, passMaxLatenessSeconds)
     }
+
+    if (this.stopBoundaryAudioTime !== null) this.audioEngine.stopTimelineVoicesAt(this.stopBoundaryAudioTime)
 
     this.ticker.wake(() => this.schedule(getConfig))
   }

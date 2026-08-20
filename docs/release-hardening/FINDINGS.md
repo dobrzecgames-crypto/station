@@ -388,9 +388,32 @@ secret-write, or repository-write step.
 Local equivalents are green. The first hosted Actions result remains unchecked
 because this branch has deliberately not been pushed.
 
-## Open audits
+### Investigated — final release-candidate code audit is clean
+
+The complete hardening diff passes `git diff --check` and contains no added
+console logging, debugger statements, P0/P1 TODO/FIXME markers, test-only/
+test-skip bypasses, TypeScript suppressions, or eslint escape hatches. The
+development render-crash switch remains correctly guarded by `import.meta.env.DEV`;
+the runtime diagnostics panel still requires the exact `?diagnostics=1` opt-in.
+
+Static asset inventory found 135 listed library WAVs, 135 corresponding public
+files, no missing/unlisted files, and no zero-byte files after the Chop repair.
+All six referenced font files and the Vite-bundled worklet source exist. Promise
+and storage failure paths, save-queue reporting, unmount/project-switch audio
+cleanup, paired transport shutdown, and the count-in-only direct sequencer stop
+were reviewed without another P0/P1 finding.
+
+Final local validation passes 150/150 logic tests, typecheck, production build,
+and the zero-retry release workflow in installed Chrome and Microsoft Edge.
+The browser workflow includes a genuine audio gesture, two bundled WAV fetch/
+decode paths, a real non-silent offline WAV render, ten transport cycles, save,
+reload, reopen, state restoration, and a final transport cycle.
+
+## Pending external/manual evidence
 
 - First hosted GitHub Actions result after the owner chooses to push.
+- Every unchecked real-audio, device-lifecycle, storage-pressure, long-session,
+  and audible render A/B item in `RELEASE_CHECKLIST.md`.
 
 ## Baseline observations
 
@@ -400,5 +423,5 @@ Evidence: Vite produced a 615.78 kB minified main JavaScript chunk and emitted
 its standard chunk-size warning.
 
 Impact: startup/download and parse cost may be higher than ideal. This is not
-currently evidence of a correctness or release-safety failure, so code splitting
-is deferred while P0/P1 audits are open.
+evidence of a correctness or release-safety failure, so code splitting is
+intentionally deferred from this release-safety branch.

@@ -1,7 +1,8 @@
 # Station Release Candidate Checklist
 
-Current status: **NOT READY** — hardening audits and target-browser acceptance
-are incomplete.
+Current status: **READY FOR MANUAL RC ACCEPTANCE** — all local automated
+hardening gates are green. The recorded manual matrix and first hosted CI run
+remain required before a production-release decision.
 
 Record for each manual pass: Station build SHA, browser name/version, Windows
 version, audio output/device, test WAV filenames, date, tester, and any console
@@ -119,8 +120,8 @@ evidence.
 
 ## Final review
 
-- [ ] No P0 findings remain.
-- [ ] No accepted P1 findings remain.
-- [ ] No temporary debug code, test bypass, or release hack remains.
-- [ ] Remaining P2 findings and browser limitations are documented.
+- [x] No P0 findings remain.
+- [x] No accepted P1 findings remain.
+- [x] No temporary debug code, test bypass, or release hack remains.
+- [x] Remaining P2 findings and browser limitations are documented.
 - [ ] Product owner has completed manual RC acceptance.

@@ -1,4 +1,11 @@
 .mixer.mixer-channels {
+  /* MIX's measuring path borrows its low end from the selected module key and
+     reaches Station's existing focus orange at the top of the meter. These
+     are local to the continuous controls: the smoke-blue signal token remains
+     reserved for the System Display and ready state. */
+  --mixer-meter-low: #14212c;
+  --mixer-meter-mid: #2c4954;
+  --mixer-meter-hot: var(--focus-accent);
   margin-top: calc(16px * var(--station-ui-scale));
 }
 
@@ -71,6 +78,50 @@
 .mixer-strip-level .mixer-strip-fader {
   right: calc(-10px * var(--station-ui-scale));
   left: calc(-10px * var(--station-ui-scale));
+  --mixer-fader-position: 100%;
+}
+
+/* The cap is Station's own material. The native range stays over the full
+   touch lane to retain pointer, touch and keyboard behaviour, but contributes
+   no browser paint underneath this part. */
+.mixer-strip-fader::after {
+  position: absolute;
+  z-index: 1;
+  bottom: var(--mixer-fader-position);
+  left: 50%;
+  width: calc(26px * var(--station-ui-scale));
+  height: calc(10px * var(--station-ui-scale));
+  border: 1px solid color-mix(in srgb, var(--station-text) 34%, var(--station-line));
+  border-radius: calc(2px * var(--station-ui-scale));
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--station-text) 16%, var(--scene-control)) 0%,
+    color-mix(in srgb, var(--scene-control) 76%, var(--mixer-meter-low)) 42%,
+    color-mix(in srgb, var(--mixer-meter-low) 84%, var(--scene-recess)) 100%);
+  box-shadow: 0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 62%), inset 0 1px 0 rgb(255 239 220 / 13%), inset 0 -1px 0 rgb(0 0 0 / 52%);
+  content: '';
+  pointer-events: none;
+  transform: translate(-50%, 50%);
+}
+
+/* The one printed index line makes the cap's position readable in the mixer
+   without turning the physical control into a coloured status light. */
+.mixer-strip-fader::before {
+  position: absolute;
+  z-index: 2;
+  bottom: var(--mixer-fader-position);
+  left: 50%;
+  width: 1px;
+  height: calc(7px * var(--station-ui-scale));
+  background: color-mix(in srgb, var(--station-text) 76%, var(--scene-control));
+  box-shadow: 0 1px 0 rgb(0 0 0 / 48%);
+  content: '';
+  pointer-events: none;
+  transform: translate(-50%, 50%);
+}
+
+.mixer-strip-fader:focus-within::after {
+  outline: 1px solid var(--focus-accent);
+  outline-offset: calc(2px * var(--station-ui-scale));
 }
 
 .channel-meter {
@@ -95,6 +146,12 @@
   padding: 0;
   writing-mode: vertical-rl;
   direction: rtl;
+  /* Remove Chromium's own blue progress paint. The input remains the hit
+     target and source of truth, but every visible part of the rail belongs to
+     ChannelMeter so an active signal cannot be mistaken for a browser widget. */
+  -webkit-appearance: none;
+  appearance: none;
+  opacity: 0;
   /* The old rotate hack still applies from App.css otherwise, and rotating an
      already-vertical input lays it back down across the strip. */
   transform: none;
@@ -114,30 +171,9 @@
   height: 100%;
   width: 100%;
   border-radius: 0;
+  border: 0;
   background: transparent;
   box-shadow: none;
-}
-
-/* A dark bridge across the electric spine, not a beige hi-fi fader cap. The
-   physical hit area still overhangs the 10px rail for touch, while the narrow
-   signal-blue inlay makes its position precise without adding a glow. */
-.mixer-strip-fader input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: calc(22px * var(--station-ui-scale));
-  height: calc(8px * var(--station-ui-scale));
-  /* Chromium keeps the native vertical thumb's layout box centred inside the
-     30px touch lane, but paints this horizontal cap about four pixels to the
-     right of that box. Offset only the paint; the generous hit lane stays put. */
-  margin: 0;
-  transform: translateX(calc(-4px * var(--station-ui-scale)));
-  border: 1px solid color-mix(in srgb, var(--control-active) 34%, var(--scene-line));
-  border-radius: calc(2px * var(--station-ui-scale));
-  background:
-    linear-gradient(90deg, transparent 0 45%, var(--signal-accent) 45% 55%, transparent 55% 100%),
-    linear-gradient(180deg, color-mix(in srgb, var(--control-active) 16%, var(--scene-control)), var(--scene-control) 52%, var(--scene-recess));
-  box-shadow: 0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 56%), inset 0 1px 0 rgb(255 239 220 / 8%), inset 0 -1px 0 rgb(0 0 0 / 38%);
-  cursor: ns-resize;
 }
 
 .channel-meter-track {
@@ -145,18 +181,19 @@
   display: block;
   width: 100%;
   overflow: hidden;
-  /* A dormant conductive spine under smoked glass. It gives the live signal
-     a physical path without falling back to a literal vintage LED ladder. */
+  /* The idle rail is deliberately dark. A coloured centre line made silence
+     look like a permanently lit, faded signal; only the measured fill below
+     is allowed to read as audio. */
   background:
     linear-gradient(
       90deg,
       rgb(0 0 0 / 32%) 0%,
-      transparent 34%,
-      color-mix(in srgb, var(--signal-accent) 11%, var(--scene-control)) 44% 56%,
-      transparent 66%,
+      transparent 40%,
+      color-mix(in srgb, var(--mixer-meter-low) 76%, var(--scene-recess)) 46% 54%,
+      transparent 60%,
       rgb(255 239 220 / 3%) 100%
     ),
-    var(--scene-recess);
+    var(--mixer-meter-low);
   box-shadow: inset 1px 0 1px rgb(0 0 0 / 42%), inset -1px 0 0 rgb(255 239 220 / 3%);
 }
 
@@ -167,8 +204,11 @@
   left: 0;
   min-height: 0;
   overflow: visible;
-  background: color-mix(in srgb, var(--signal-accent) 13%, transparent);
-  box-shadow: inset 0 0 calc(3px * var(--station-ui-scale)) color-mix(in srgb, var(--signal-accent) 12%, transparent);
+  /* The dark petrol rail is the resting path. Once audio is present, the
+     moving level is Station's actual focus signal — not a washed-out blue
+     approximation of it. */
+  background: color-mix(in srgb, var(--focus-accent) 18%, transparent);
+  box-shadow: inset 0 0 calc(3px * var(--station-ui-scale)) color-mix(in srgb, var(--focus-accent) 26%, transparent);
 }
 
 .channel-meter-fill::before {
@@ -176,16 +216,16 @@
   top: 0;
   bottom: 0;
   left: 50%;
-  width: calc(2px * var(--station-ui-scale));
+  width: calc(3px * var(--station-ui-scale));
   background: linear-gradient(
     to top,
-    var(--signal-accent) 0 72%,
-    var(--loaded-accent) 72% 88%,
-    var(--focus-accent) 88% 100%
+    var(--focus-pressed) 0%,
+    var(--focus-accent) 42%,
+    var(--focus-accent) 100%
   );
   background-position: center bottom;
   background-size: 100% calc(140px * var(--station-ui-scale));
-  box-shadow: 0 0 calc(3px * var(--station-ui-scale)) color-mix(in srgb, var(--signal-accent) 34%, transparent);
+  box-shadow: 0 0 calc(3px * var(--station-ui-scale)) color-mix(in srgb, var(--focus-accent) 34%, transparent);
   content: '';
   transform: translateX(-50%);
 }
@@ -197,8 +237,8 @@
   width: calc(7px * var(--station-ui-scale));
   height: calc(3px * var(--station-ui-scale));
   border-radius: 50%;
-  background: var(--signal-focus);
-  box-shadow: 0 0 calc(4px * var(--station-ui-scale)) color-mix(in srgb, var(--signal-focus) 54%, transparent);
+  background: var(--mixer-meter-hot);
+  box-shadow: 0 0 calc(4px * var(--station-ui-scale)) color-mix(in srgb, var(--mixer-meter-hot) 42%, transparent);
   content: '';
   transform: translateX(-50%);
 }
@@ -210,8 +250,8 @@
   height: calc(2px * var(--station-ui-scale));
   margin-bottom: -1px;
   border-radius: 1px;
-  background: var(--signal-focus);
-  box-shadow: 0 0 calc(4px * var(--station-ui-scale)) color-mix(in srgb, var(--signal-focus) 42%, transparent);
+  background: var(--mixer-meter-hot);
+  box-shadow: 0 0 calc(4px * var(--station-ui-scale)) color-mix(in srgb, var(--mixer-meter-hot) 34%, transparent);
   transform: translateX(-50%);
 }
 
@@ -514,65 +554,6 @@
 .pump-choice-row .pump-curves .step {
   min-width: 0;
   margin: 0;
-}
-
-.mix-pump-entry {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: calc(8px * var(--station-ui-scale));
-  align-items: center;
-  width: 100%;
-  min-height: calc(38px * var(--station-ui-scale));
-  margin-top: calc(10px * var(--station-ui-scale));
-  padding: 0 calc(10px * var(--station-ui-scale));
-  border: 1px solid var(--station-line);
-  border-radius: calc(4px * var(--station-ui-scale));
-  color: var(--station-text);
-  background: var(--station-card);
-  cursor: pointer;
-  font: inherit;
-  text-align: left;
-}
-
-/* Only the token redirect (family -> Inter) was applied here during the
-   STATION hierarchy pass; size/weight were never individually reviewed and
-   still carried their old values - .76rem/800 made SIDECHAIN read bigger
-   and bolder than MODULE itself. Regular weight throughout, matching the
-   post-review rule that bold is reserved for MODULE alone; sizes capped at
-   or below MODULE's .58rem. */
-.mix-pump-entry span,
-.mix-pump-entry strong,
-.mix-pump-entry small {
-  font-family: var(--station-display-font);
-  font-size: .6rem;
-  font-weight: 400;
-  letter-spacing: .08em;
-}
-
-.mix-pump-entry strong {
-  color: var(--station-accent);
-}
-
-.mix-pump-entry small {
-  color: var(--station-text-muted);
-}
-
-.mix-pump-entry .mix-pump-entry-title {
-  font-size: .6rem;
-  letter-spacing: .08em;
-}
-
-.mix-pump-entry .mix-pump-entry-kind {
-  margin-left: calc(3px * var(--station-ui-scale));
-  font-size: .52rem;
-  font-weight: 400;
-  letter-spacing: .03em;
-  opacity: .68;
-}
-
-.mix-pump-entry-active {
-  border-color: var(--station-accent);
-  box-shadow: inset calc(3px * var(--station-ui-scale)) 0 0 var(--station-accent);
 }
 
 .system-display .display-action-active {

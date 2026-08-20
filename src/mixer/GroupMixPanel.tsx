@@ -35,7 +35,7 @@ export function MixTargetSelector({ groups, selectedGroup, tracks, selectedTrack
       {groups.map((group, index) => {
         const isActive = scope === 'group' && group.id === selectedGroup.id
         return <button
-          className={isActive ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'}
+          className={isActive ? 'mixer-toggle mixer-selector-active' : 'mixer-toggle'}
           key={group.id}
           type="button"
           aria-pressed={isActive}
@@ -45,7 +45,7 @@ export function MixTargetSelector({ groups, selectedGroup, tracks, selectedTrack
       {tracks.map((track, index) => {
         const isActive = scope === 'track' && track.id === selectedTrackId
         return <button
-          className={isActive ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'}
+          className={isActive ? 'mixer-toggle mixer-selector-active' : 'mixer-toggle'}
           key={track.id}
           type="button"
           aria-pressed={isActive}
@@ -54,7 +54,7 @@ export function MixTargetSelector({ groups, selectedGroup, tracks, selectedTrack
         >T{index + 1}</button>
       })}
       <button
-        className={scope === 'master' ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'}
+        className={scope === 'master' ? 'mixer-toggle mixer-selector-active' : 'mixer-toggle'}
         type="button"
         aria-pressed={scope === 'master'}
         onClick={() => onScopeChange('master')}

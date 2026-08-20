@@ -2,7 +2,7 @@
    BASSIC control surface
    ----------------------------------------------------------------------------
    One model of panel, not a Station-wide control kit. Nothing below is meant to
-   be lifted into DRUM SYNTH, ZOLA-X or STRINGS - those are different machines
+   be lifted into DRUM SYNTH or ZOLA-X - those are different machines
    from the same maker. The shared DNA is the palette, the type, the mechanical
    pressed states and the density; the hardware itself is local to this file.
 
@@ -24,8 +24,8 @@
    never as a lit surface.
    ========================================================================= */
 .synth-workspace {
-  /* One index pigment for the whole panel, from the SYNTH workspace colour. */
-  --bs-index: var(--accent-synth);
+  /* A subdued olive index, mixed from the SYNTH pigment into the recessed face. */
+  --bs-index: color-mix(in srgb, var(--accent-synth) 50%, var(--station-recess));
   --bs-print: color-mix(in srgb, var(--station-text-muted) 30%, transparent);
   --bs-print-major: color-mix(in srgb, var(--station-text-muted) 54%, transparent);
   --bs-cap-top: color-mix(in srgb, var(--scene-control) 80%, #46404a);

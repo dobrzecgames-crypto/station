@@ -44,6 +44,14 @@
   padding: 0;
 }
 
+/* The module rail already frames the workspace transition. The legacy header
+   separator added a blank bottom strip below it, so the workspace must begin
+   at the header's content edge instead of below a second border and inset. */
+.station-header {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
 /* The legacy top margin doubled the visual inset above transport. With the
    chassis gutter gone, transport now follows the same inner edge as the rest
    of the instrument. Its contents share the navigation rail's three-pixel
@@ -63,6 +71,13 @@
   padding-inline: 0;
 }
 
+/* The module rail is the shared boundary for every active workspace. A view
+   may space its internal controls, but its first surface cannot insert a
+   second, empty chassis strip before the content begins. */
+.station-workspace > :first-child {
+  margin-top: 0;
+}
+
 /* On phone-sized viewports the workspace panel is already the protective
    frame. SEQ can use its full width, while ZOLA-X keeps the same narrow
    three-pixel mounting inset as the main module keys. This avoids both the
@@ -79,15 +94,9 @@
 
 /* MIX always renders inside the same capped instrument chassis, even when
    the surrounding browser viewport is wide. Its channel bank therefore uses
-   the reclaimed width at every viewport size. The Sidechain launcher is a
-   secondary latch entry, so its rim follows the module-key mounting line. */
+   the reclaimed width at every viewport size. */
 .mixer.mixer-channels {
   padding-inline: calc(3px * var(--station-ui-scale));
-}
-
-.mix-pump-entry {
-  width: calc(100% - calc(8px * var(--station-ui-scale)));
-  margin-inline: calc(4px * var(--station-ui-scale));
 }
 
 /* Workspace selectors use more of their rail without making the whole header

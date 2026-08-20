@@ -21,9 +21,12 @@
 .station-shell[data-view='chop'] { --workspace-accent: var(--accent-chop); }
 .station-shell[data-view='pad'] { --workspace-accent: var(--accent-pads); }
 .station-shell[data-view='synth'] { --workspace-accent: var(--accent-synth); }
-.station-shell[data-view='strings'] { --workspace-accent: var(--accent-strings); }
 .station-shell[data-view='drumsynth'] { --workspace-accent: var(--accent-drumsynth); }
-.station-shell[data-view='seq'] { --workspace-accent: var(--accent-seq); }
+.station-shell[data-view='seq'] {
+  --workspace-accent: var(--accent-seq);
+  --sequencer-accent: #3e3a62;
+  --sequencer-pressed: #19182f;
+}
 .station-shell[data-view='song'] { --workspace-accent: var(--accent-song); }
 .station-shell[data-view='mix'] { --workspace-accent: var(--accent-mix); }
 .station-shell[data-view='project'] { --workspace-accent: var(--accent-project); }
@@ -50,7 +53,7 @@
 
 .mixer-toggle, .main-nav-button, .group-strip-button, .group-strip-master,
 .header-project-button, .clear-button, .effect-slot-button, .effect-slot-card,
-.pump-target-toggle, .mix-pump-entry, input[type="text"], input[type="number"],
+.pump-target-toggle, input[type="text"], input[type="number"],
 select, textarea {
   border-color: var(--station-line);
   color: var(--station-text);
@@ -61,7 +64,7 @@ select, textarea {
 .mixer-toggle:hover:not(:disabled),
 .header-project-button:hover:not(:disabled),
 .clear-button:hover:not(:disabled), .effect-slot-button:hover:not(:disabled),
-.effect-slot-card:hover:not(:disabled), .mix-pump-entry:hover:not(:disabled) {
+.effect-slot-card:hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--control-active) 72%, var(--station-line-strong));
   color: var(--station-text);
 }
@@ -98,9 +101,7 @@ select, textarea {
 }
 .main-nav-button > [data-mechanism-face] {
   border-color: #4a4660;
-  background:
-    linear-gradient(180deg, rgb(187 193 229 / 10%) 0%, transparent 34%),
-    linear-gradient(180deg, #34334d 0%, #24263d 42%, #151727 100%);
+  background: linear-gradient(180deg, #34334d 0%, #24263d 42%, #151727 100%);
   box-shadow: var(--mechanism-rest-shadow);
   /* A shallow engraved legend: the upper cut stays dark and the lower edge
      catches a trace of panel light. No bloom - this is pigment in a groove. */
@@ -111,9 +112,7 @@ select, textarea {
     color: var(--station-text);
   }
   .main-nav-button:not(.main-nav-button-active):hover:not(:disabled) > [data-mechanism-face] {
-    background:
-      linear-gradient(180deg, rgb(205 211 246 / 13%) 0%, transparent 36%),
-      linear-gradient(180deg, #3d3d5a 0%, #292b47 44%, #181a2d 100%);
+    background: linear-gradient(180deg, #3d3d5a 0%, #292b47 44%, #181a2d 100%);
   }
 }
 .main-nav-button-active {
@@ -131,7 +130,6 @@ select, textarea {
 .main-nav-button[data-workspace='chop'] { --nav-face-top: #493547; --nav-face-mid: #2e263a; --nav-face-bottom: #191827; }
 .main-nav-button[data-workspace='pad'] { --nav-face-top: #334454; --nav-face-mid: #263444; --nav-face-bottom: #171e2b; }
 .main-nav-button[data-workspace='synth'] { --nav-face-top: #3a4a3a; --nav-face-mid: #283a2a; --nav-face-bottom: #17231a; }
-.main-nav-button[data-workspace='strings'] { --nav-face-top: #354356; --nav-face-mid: #253244; --nav-face-bottom: #16202f; }
 .main-nav-button[data-workspace='seq'] { --nav-face-top: #3e3a62; --nav-face-mid: #2c2b4b; --nav-face-bottom: #19182f; }
 .main-nav-button[data-workspace='song'] { --nav-face-top: #503549; --nav-face-mid: #36263c; --nav-face-bottom: #201827; }
 .main-nav-button[data-workspace='tracks'] { --nav-face-top: #34334d; --nav-face-mid: #24263d; --nav-face-bottom: #151727; }
@@ -143,16 +141,13 @@ select, textarea {
   /* The engaged key keeps its own material colour. Only the lighting model
      changes: the top falls into shadow and the lower edge catches a thin,
      faded trace of the workspace pigment. */
-  background:
-    linear-gradient(180deg, rgb(0 0 0 / 20%) 0%, transparent 40%),
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--nav-face-top) 78%, var(--scene-recess)) 0%,
-      color-mix(in srgb, var(--nav-face-mid) 88%, var(--scene-recess)) 52%,
-      color-mix(in srgb, var(--nav-face-bottom) 92%, var(--scene-recess)) 100%);
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--nav-face-top) 78%, var(--scene-recess)) 0%,
+    color-mix(in srgb, var(--nav-face-mid) 88%, var(--scene-recess)) 52%,
+    color-mix(in srgb, var(--nav-face-bottom) 92%, var(--scene-recess)) 100%);
   box-shadow:
     inset 0 calc(2px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 48%),
     inset 0 -1px 0 rgb(255 239 220 / 3%),
-    inset 0 calc(-2px * var(--station-ui-scale)) 0 color-mix(in srgb, var(--nav-face-top) 58%, transparent),
     0 1px 1px rgb(0 0 0 / 18%);
   text-shadow: 0 -1px 0 rgb(0 0 0 / 40%), 0 1px 0 rgb(255 247 238 / 8%);
 }
@@ -161,11 +156,32 @@ select, textarea {
 .main-nav-button[data-workspace='chop']:not(.main-nav-button-active) > [data-mechanism-face] { background: linear-gradient(180deg, #493547 0%, #2e263a 45%, #191827 100%); }
 .main-nav-button[data-workspace='pad']:not(.main-nav-button-active) > [data-mechanism-face] { background: linear-gradient(180deg, #334454 0%, #263444 45%, #171e2b 100%); }
 .main-nav-button[data-workspace='synth']:not(.main-nav-button-active) > [data-mechanism-face] { background: linear-gradient(180deg, #3a4a3a 0%, #283a2a 45%, #17231a 100%); }
-.main-nav-button[data-workspace='strings']:not(.main-nav-button-active) > [data-mechanism-face] { background: linear-gradient(180deg, #354356 0%, #253244 45%, #16202f 100%); }
 .main-nav-button[data-workspace='seq']:not(.main-nav-button-active) > [data-mechanism-face] { background: linear-gradient(180deg, #3e3a62 0%, #2c2b4b 45%, #19182f 100%); }
 .main-nav-button[data-workspace='song']:not(.main-nav-button-active) > [data-mechanism-face] { background: linear-gradient(180deg, #503549 0%, #36263c 45%, #201827 100%); }
 .main-nav-button[data-workspace='mix']:not(.main-nav-button-active) > [data-mechanism-face] { background: linear-gradient(180deg, #2c4954 0%, #213744 45%, #14212c 100%); }
 .main-nav-button[data-workspace='project']:not(.main-nav-button-active) > [data-mechanism-face] { background: linear-gradient(180deg, #3e4556 0%, #2d3444 45%, #1a202d 100%); }
+
+/* Channel pages and BUS & FX are mutually exclusive MIX selectors, not generic
+   function latches. They therefore share the mechanically engaged MIX key's
+   petrol face, including on hover; the global blue active state is reserved
+   for controls whose function, rather than workspace, is active. */
+.mixer-selector-active,
+.mixer-selector-active:hover:not(:disabled) {
+  --mix-selector-top: #2c4954;
+  --mix-selector-mid: #213744;
+  --mix-selector-bottom: #14212c;
+  border-color: color-mix(in srgb, var(--mix-selector-top) 76%, var(--station-text));
+  color: color-mix(in srgb, var(--station-text) 94%, var(--mix-selector-top));
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--mix-selector-top) 78%, var(--scene-recess)) 0%,
+    color-mix(in srgb, var(--mix-selector-mid) 88%, var(--scene-recess)) 52%,
+    color-mix(in srgb, var(--mix-selector-bottom) 92%, var(--scene-recess)) 100%);
+  box-shadow:
+    inset 0 calc(2px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 48%),
+    inset 0 -1px 0 rgb(255 239 220 / 3%),
+    0 1px 1px rgb(0 0 0 / 18%);
+}
+
 .mixer-toggle-active,
 .pump-target-toggle.mixer-toggle-active {
   border-color: color-mix(in srgb, var(--control-active) 76%, var(--station-text));
@@ -548,10 +564,6 @@ select, textarea {
   16% { opacity: .96; }
   58% { opacity: .38; }
   100% { opacity: 0; }
-}
-.mix-pump-entry-active {
-  border-color: var(--station-accent);
-  box-shadow: inset calc(3px * var(--station-ui-scale)) 0 0 var(--station-accent), inset 0 1px 0 rgb(255 239 220 / 7%);
 }
 .step, .pattern-step {
   border-color: var(--station-line);

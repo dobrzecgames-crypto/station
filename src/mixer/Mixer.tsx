@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import type { AudioEngine } from '../audio/AudioEngine'
 import { createChannelId } from '../audio/channelIdentity'
 import type { PadState } from '../pads/types'
@@ -34,7 +34,7 @@ export function Mixer({ audioEngine, patternGroupId, pads, pumpSourcePadIds, onV
             const end = Math.min(start + channelsPerPage - 1, pads.length)
             return (
               <button
-                className={index === pageIndex ? 'mixer-toggle mixer-toggle-active' : 'mixer-toggle'}
+                className={index === pageIndex ? 'mixer-toggle mixer-selector-active' : 'mixer-toggle'}
                 key={start}
                 type="button"
                 aria-pressed={index === pageIndex}
@@ -83,6 +83,7 @@ interface MixerStripProps {
     fader's useDragSlider has to be called once per rendered strip, and a hook
     cannot be called from inside a .map() callback. */
 function MixerStrip({ audioEngine, patternGroupId, pad, isPumpSource, onVolumeChange, onMutedChange, onSoloChange }: MixerStripProps) {
+  const faderPositionStyle = { '--mixer-fader-position': `${pad.volume * 100}%` } as CSSProperties
   const drag = useDragSlider({
     value: pad.volume,
     min: 0,
@@ -98,9 +99,9 @@ function MixerStrip({ audioEngine, patternGroupId, pad, isPumpSource, onVolumeCh
     <article className="mixer-strip">
       <strong className="mixer-strip-label">{pad.label.replace('PAD ', '')}</strong>
       <span
-        className={pad.fileName || pad.synthPatchId || pad.stringsPatchId || pad.organicBassPatchId || pad.polyPatchId ? 'mixer-strip-status mixer-strip-status-loaded' : 'mixer-strip-status'}
-        title={pad.synthPatchId ? 'BASSIC' : pad.stringsPatchId ? 'STRINGS' : pad.organicBassPatchId ? 'MONOGORG' : pad.polyPatchId ? 'ZOLA-X' : pad.fileName ?? undefined}
-        aria-label={pad.synthPatchId ? 'MONOPOLY loaded' : pad.stringsPatchId ? 'STRINGS loaded' : pad.organicBassPatchId ? 'MONOGORG loaded' : pad.polyPatchId ? 'POLY loaded' : pad.fileName ? `${pad.fileName} loaded` : 'Empty'}
+        className={pad.fileName || pad.synthPatchId || pad.organicBassPatchId || pad.polyPatchId ? 'mixer-strip-status mixer-strip-status-loaded' : 'mixer-strip-status'}
+        title={pad.synthPatchId ? 'BASSIC' : pad.organicBassPatchId ? 'MONOGORG' : pad.polyPatchId ? 'ZOLA-X' : pad.fileName ?? undefined}
+        aria-label={pad.synthPatchId ? 'BASSIC loaded' : pad.organicBassPatchId ? 'MONOGORG loaded' : pad.polyPatchId ? 'ZOLA-X loaded' : pad.fileName ? `${pad.fileName} loaded` : 'Empty'}
       />
       <span
         className={isPumpSource ? 'mixer-strip-pump mixer-strip-pump-source' : 'mixer-strip-pump'}
@@ -113,7 +114,7 @@ function MixerStrip({ audioEngine, patternGroupId, pad, isPumpSource, onVolumeCh
           channelId={createChannelId({ patternGroupId, padId: pad.id })}
           label={pad.label}
         />
-        <div className="mixer-strip-fader">
+        <div className="mixer-strip-fader" style={faderPositionStyle}>
           <input aria-label={`${pad.label} volume`} type="range" min="0" max="1" step="0.01" value={pad.volume} {...drag.inputProps} />
         </div>
       </div>

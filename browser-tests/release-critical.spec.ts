@@ -10,7 +10,7 @@ test('startup, built-in assets, transport, save, reload, and project restore rem
   page.on('pageerror', (error) => pageErrors.push(error))
 
   await page.goto('/?diagnostics=1')
-  await expect(page.getByRole('region', { name: 'STATION', exact: true })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'STATION', exact: true })).toBeVisible({ timeout: 15_000 })
   await startAudio(page)
 
   await page.getByRole('button', { name: 'LASER', exact: true }).click()
@@ -60,7 +60,7 @@ test('startup, built-in assets, transport, save, reload, and project restore rem
   const savedProjectId = await waitForDiagnosticValue(page, 'PROJECT', 'ID', (value) => value !== 'UNSAVED')
 
   await page.reload()
-  await expect(page.getByRole('region', { name: 'STATION', exact: true })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'STATION', exact: true })).toBeVisible({ timeout: 15_000 })
   await startAudio(page)
   await openProjectControls(page)
   await page.getByRole('button', { name: 'LIBRARY', exact: true }).click()

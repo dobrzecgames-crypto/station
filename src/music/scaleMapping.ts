@@ -10,13 +10,13 @@ export interface ScaleMapResult {
 
 export function findProjectScaleMapConflicts(pads: readonly PadState[], sourcePadId: PadState['id']): PadState[] {
   const sourceIndex = pads.findIndex((pad) => pad.id === sourcePadId)
-  return sourceIndex < 0 ? [] : pads.slice(sourceIndex + 1).filter((pad) => pad.assetId !== null || pad.synthPatchId !== null || pad.stringsPatchId !== null || pad.organicBassPatchId !== null || pad.polyPatchId !== null)
+  return sourceIndex < 0 ? [] : pads.slice(sourceIndex + 1).filter((pad) => pad.assetId !== null || pad.synthPatchId !== null || pad.organicBassPatchId !== null || pad.polyPatchId !== null)
 }
 
 export function mapPadBankToProjectScale(pads: readonly PadState[], sourcePadId: PadState['id'], projectKey: ProjectKey): ScaleMapResult {
   const sourceIndex = pads.findIndex((pad) => pad.id === sourcePadId)
   const sourcePad = pads[sourceIndex]
-  if (sourceIndex < 0 || !sourcePad || (!sourcePad.assetId && !sourcePad.synthPatchId && !sourcePad.stringsPatchId && !sourcePad.organicBassPatchId && !sourcePad.polyPatchId)) {
+  if (sourceIndex < 0 || !sourcePad || (!sourcePad.assetId && !sourcePad.synthPatchId && !sourcePad.organicBassPatchId && !sourcePad.polyPatchId)) {
     throw new Error('Choose a pad with a sample or synth patch before mapping it to the project scale.')
   }
   if (sourcePad.assetId && (!sourcePad.fileName || sourcePad.durationSeconds === null)) {
@@ -38,7 +38,6 @@ export function mapPadBankToProjectScale(pads: readonly PadState[], sourcePadId:
           slices: [],
           chopSessionId: null,
           synthPatchId: null,
-          stringsPatchId: null,
           organicBassPatchId: sourcePad.organicBassPatchId,
           polyPatchId: null,
           chordIntervals: [0],
@@ -48,26 +47,8 @@ export function mapPadBankToProjectScale(pads: readonly PadState[], sourcePadId:
       if (sourcePad.polyPatchId) {
         return {
           ...pad, assetId: null, fileName: null, durationSeconds: null, region: { startSeconds: 0, endSeconds: 0 }, reversed: false, slices: [], chopSessionId: null,
-          synthPatchId: null, stringsPatchId: null, organicBassPatchId: null, polyPatchId: sourcePad.polyPatchId,
+          synthPatchId: null, organicBassPatchId: null, polyPatchId: sourcePad.polyPatchId,
           chordIntervals: [...sourcePad.chordIntervals], pitchSemitones: pitchOffsets[index - sourceIndex],
-        }
-      }
-      if (sourcePad.stringsPatchId) {
-        return {
-          ...pad,
-          assetId: null,
-          fileName: null,
-          durationSeconds: null,
-          region: { startSeconds: 0, endSeconds: 0 },
-          reversed: false,
-          slices: [],
-          chopSessionId: null,
-          synthPatchId: null,
-          stringsPatchId: sourcePad.stringsPatchId,
-          organicBassPatchId: null,
-          polyPatchId: null,
-          chordIntervals: [...sourcePad.chordIntervals],
-          pitchSemitones: pitchOffsets[index - sourceIndex],
         }
       }
       return sourcePad.synthPatchId
@@ -81,7 +62,6 @@ export function mapPadBankToProjectScale(pads: readonly PadState[], sourcePadId:
             slices: [],
             chopSessionId: null,
             synthPatchId: sourcePad.synthPatchId,
-            stringsPatchId: null,
             organicBassPatchId: null,
             polyPatchId: null,
             chordIntervals: [...sourcePad.chordIntervals],
@@ -97,7 +77,6 @@ export function mapPadBankToProjectScale(pads: readonly PadState[], sourcePadId:
             slices: [],
             chopSessionId: null,
             synthPatchId: null,
-            stringsPatchId: null,
             organicBassPatchId: null,
             polyPatchId: null,
             chordIntervals: [0],
@@ -117,15 +96,13 @@ export function remapScalarChordBank(group: PatternGroup, projectKey: ProjectKey
   const pads = group.bank.pads
   const source = pads[0]
   if (!source) return group
-  const sourceKind = source.synthPatchId ? 'synth' : source.stringsPatchId ? 'strings' : 'poly'
-  const sourceId = source.synthPatchId ?? source.stringsPatchId ?? source.polyPatchId
+  const sourceKind = source.synthPatchId ? 'synth' : 'poly'
+  const sourceId = source.synthPatchId ?? source.polyPatchId
   if (!sourceId) return group
   const canRemap = pads.every((pad) => {
     return sourceKind === 'synth'
-      ? pad.assetId === null && pad.synthPatchId === sourceId && pad.stringsPatchId === null && pad.organicBassPatchId == null && pad.polyPatchId == null
-      : sourceKind === 'strings'
-        ? pad.assetId === null && pad.stringsPatchId === sourceId && pad.synthPatchId === null && pad.organicBassPatchId == null && pad.polyPatchId == null
-        : pad.assetId === null && pad.polyPatchId === sourceId && pad.synthPatchId === null && pad.stringsPatchId === null && pad.organicBassPatchId == null
+      ? pad.assetId === null && pad.synthPatchId === sourceId && pad.organicBassPatchId == null && pad.polyPatchId == null
+      : pad.assetId === null && pad.polyPatchId === sourceId && pad.synthPatchId === null && pad.organicBassPatchId == null
   })
   if (!canRemap) return group
   const pitchOffsets = getCenteredScalePitchOffsets(projectKey.scale, pads.length)

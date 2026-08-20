@@ -4,15 +4,14 @@ import { join } from 'node:path'
 import test from 'node:test'
 import { createDefaultOrganicBassPatch } from '../src/organic-bass/organicBassOperations.ts'
 import { createDefaultPolyPatch } from '../src/poly/polyOperations.ts'
-import { createDefaultStringsPatch } from '../src/strings/stringsOperations.ts'
 import { createDefaultSynthPatch } from '../src/synth/synthOperations.ts'
 import { applyUserSynthPreset, createUserSynthPreset, isUserSynthPreset, normalizeUserSynthPresetName, userSynthPresetKinds } from '../src/synth-presets/userSynthPresetCore.ts'
 
 const now = '2026-08-13T18:00:00.000Z'
 
 test('every supported synth owns a distinct preset kind', () => {
-  assert.deepEqual(userSynthPresetKinds, ['basic', 'monogorg', 'strings', 'zola-x'])
-  assert.equal(new Set(userSynthPresetKinds).size, 4)
+  assert.deepEqual(userSynthPresetKinds, ['basic', 'monogorg', 'zola-x'])
+  assert.equal(new Set(userSynthPresetKinds).size, 3)
 })
 
 test('each synth editor is wired only to its own user preset library', () => {
@@ -20,7 +19,6 @@ test('each synth editor is wired only to its own user preset library', () => {
   const workspaces = [
     ['synth/SynthWorkspace.tsx', 'basic'],
     ['organic-bass/OrganicBassWorkspace.tsx', 'monogorg'],
-    ['strings/StringsWorkspace.tsx', 'strings'],
     ['poly/PolyWorkspace.tsx', 'zola-x'],
   ] as const
 
@@ -53,23 +51,18 @@ test('BASSIC preset restores sound parameters but preserves the current patch id
   assert.notEqual(loaded.oscillator1, preset.patch.oscillator1)
 })
 
-test('MONOGORG, STRINGS and ZOLA-X snapshots stay isolated from their live patches', () => {
+test('MONOGORG and ZOLA-X snapshots stay isolated from their live patches', () => {
   const monogorg = createDefaultOrganicBassPatch('mono')
-  const strings = createDefaultStringsPatch('strings')
   const zola = createDefaultPolyPatch('zola')
   const monoPreset = createUserSynthPreset({ id: 'preset-mono', kind: 'monogorg', name: 'HEAVY', patch: monogorg, now })
-  const stringsPreset = createUserSynthPreset({ id: 'preset-strings', kind: 'strings', name: 'AIR', patch: strings, now })
   const zolaPreset = createUserSynthPreset({ id: 'preset-zola', kind: 'zola-x', name: 'GLASS', patch: zola, now })
 
   monogorg.weight = 0
-  strings.ampEnvelope.attackSeconds = 9
   zola.modulation[0].amount = -1
 
   assert.notEqual(monoPreset.patch.weight, monogorg.weight)
-  assert.notEqual(stringsPreset.patch.ampEnvelope.attackSeconds, strings.ampEnvelope.attackSeconds)
   assert.notEqual(zolaPreset.patch.modulation[0].amount, zola.modulation[0].amount)
   assert.equal(isUserSynthPreset(monoPreset), true)
-  assert.equal(isUserSynthPreset(stringsPreset), true)
   assert.equal(isUserSynthPreset(zolaPreset), true)
 })
 

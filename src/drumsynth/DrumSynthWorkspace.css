@@ -33,7 +33,7 @@
    DRUM SYNTH control surface
    ----------------------------------------------------------------------------
    This is one model of panel, not a Station-wide control kit. Nothing below is
-   meant to be lifted into ZOLA-X, BASSIC or STRINGS - those are different
+   meant to be lifted into ZOLA-X or BASSIC - those are different
    machines from the same maker and get their own construction. The shared DNA
    is the palette, the type, the mechanical pressed states and the density; the
    hardware itself is local to this file.

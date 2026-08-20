@@ -40,7 +40,6 @@ export function assignOrganicBassSource(pad: PadState, patchId: OrganicBassPatch
     slices: [],
     chopSessionId: null,
     synthPatchId: null,
-    stringsPatchId: null,
     organicBassPatchId: patchId,
     polyPatchId: null,
     chordIntervals: [0],

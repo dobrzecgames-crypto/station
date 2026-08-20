@@ -79,11 +79,10 @@ test('velocity subtly raises level, cutoff and saturation pressure', () => {
 })
 
 test('MONOGORG assignment remains mutually exclusive with every older source', () => {
-  const pad = { ...createPadBank()[0], assetId: 'sample', synthPatchId: 'mono', stringsPatchId: 'strings' }
+  const pad = { ...createPadBank()[0], assetId: 'sample', synthPatchId: 'mono' }
   const assigned = assignOrganicBassSource(pad, 'bass-1')
   assert.equal(assigned.assetId, null)
   assert.equal(assigned.synthPatchId, null)
-  assert.equal(assigned.stringsPatchId, null)
   assert.equal(assigned.organicBassPatchId, 'bass-1')
   assert.deepEqual(assigned.chordIntervals, [0])
 })
@@ -130,7 +129,6 @@ class FakeOrganicBassEngine {
   scheduleOrganicBassPad(_groupId: string, _channelId: string, _patch: unknown, midiNote: number, when: number, off: number, velocity: number): void { this.scheduled.push({ midiNote, when, off, velocity }) }
   scheduleSynthChord(): void {}
   scheduleSynthPad(): void {}
-  scheduleStringsPad(): void {}
   scheduleSample(): void {}
   releaseSequencerChordAt(): void {}
   stopSequencerChokeGroupAt(): void {}

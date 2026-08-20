@@ -2,20 +2,17 @@ import { cloneOrganicBassPatch } from '../organic-bass/organicBassOperations.ts'
 import type { OrganicBassPatch } from '../organic-bass/organicBassTypes'
 import { clonePolyPatch } from '../poly/polyOperations.ts'
 import type { PolyPatch } from '../poly/polyTypes'
-import { cloneStringsPatch } from '../strings/stringsOperations.ts'
-import type { StringsPatch } from '../strings/stringsTypes'
 import { cloneSynthPatch } from '../synth/synthOperations.ts'
 import type { SynthPatch } from '../synth/synthTypes'
 
 export const userSynthPresetSchemaVersion = 1
-export const userSynthPresetKinds = ['basic', 'monogorg', 'strings', 'zola-x'] as const
+export const userSynthPresetKinds = ['basic', 'monogorg', 'zola-x'] as const
 
 export type UserSynthPresetKind = typeof userSynthPresetKinds[number]
 
 export interface UserSynthPresetPatchMap {
   basic: SynthPatch
   monogorg: OrganicBassPatch
-  strings: StringsPatch
   'zola-x': PolyPatch
 }
 
@@ -81,7 +78,6 @@ function clonePresetPatch<K extends UserSynthPresetKind>(kind: K, patch: UserSyn
   switch (kind) {
     case 'basic': return cloneSynthPatch(patch as SynthPatch) as UserSynthPresetPatchMap[K]
     case 'monogorg': return cloneOrganicBassPatch(patch as OrganicBassPatch) as UserSynthPresetPatchMap[K]
-    case 'strings': return cloneStringsPatch(patch as StringsPatch) as UserSynthPresetPatchMap[K]
     case 'zola-x': return clonePolyPatch(patch as PolyPatch) as UserSynthPresetPatchMap[K]
   }
 }

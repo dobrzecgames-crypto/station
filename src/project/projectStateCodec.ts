@@ -23,6 +23,7 @@ import {
   migrateV19ProjectState,
   migrateV20ProjectState,
   migrateV21ProjectState,
+  migrateV22ProjectState,
   normalizeProjectState,
   previousProjectSchemaVersion,
   projectSchemaVersion,
@@ -45,6 +46,7 @@ import {
   v18ProjectSchemaVersion,
   v19ProjectSchemaVersion,
   v20ProjectSchemaVersion,
+  v21ProjectSchemaVersion,
   validateProjectState,
 } from './ProjectState'
 import type { ProjectState } from './ProjectState'
@@ -70,6 +72,7 @@ const supportedProjectSchemas = new Set<number>([
   v18ProjectSchemaVersion,
   v19ProjectSchemaVersion,
   v20ProjectSchemaVersion,
+  v21ProjectSchemaVersion,
   previousProjectSchemaVersion,
   projectSchemaVersion,
 ])
@@ -147,8 +150,11 @@ export function decodeProjectState(value: unknown): ProjectState {
     case v20ProjectSchemaVersion:
       migratedState = migrateV20ProjectState(baseState)
       break
-    case previousProjectSchemaVersion:
+    case v21ProjectSchemaVersion:
       migratedState = migrateV21ProjectState(baseState)
+      break
+    case previousProjectSchemaVersion:
+      migratedState = migrateV22ProjectState(baseState)
       break
   }
 

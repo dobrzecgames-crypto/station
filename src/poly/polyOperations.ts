@@ -40,7 +40,7 @@ export function clonePolyPatch(patch: PolyPatch): PolyPatch {
 }
 
 export function assignPolySource(pad: PadState, polyPatchId: PolyPatchId, chordIntervals: readonly number[] = [0]): PadState {
-  return { ...pad, assetId: null, fileName: null, durationSeconds: null, region: { startSeconds: 0, endSeconds: 0 }, reversed: false, slices: [], chopSessionId: null, synthPatchId: null, stringsPatchId: null, organicBassPatchId: null, polyPatchId, chordIntervals: [...chordIntervals] }
+  return { ...pad, assetId: null, fileName: null, durationSeconds: null, region: { startSeconds: 0, endSeconds: 0 }, reversed: false, slices: [], chopSessionId: null, synthPatchId: null, organicBassPatchId: null, polyPatchId, chordIntervals: [...chordIntervals] }
 }
 
 export function removeUnreferencedPolyPatches(group: PatternGroup): PatternGroup {

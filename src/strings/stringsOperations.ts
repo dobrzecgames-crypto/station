@@ -1,84 +1,9 @@
-import type { PadState } from '../pads/types'
-import type { PatternGroup } from '../patterns/patternTypes'
-import { maximumSynthMidiNote, minimumSynthMidiNote } from '../synth/synthOperations.ts'
-import type { StringsCharacter, StringsPatch, StringsPatchId } from './stringsTypes'
+import type { StringsCharacter, StringsPatch } from './stringsTypes'
 
 export const maximumStringsVoices = 8
-export const minimumStringsMidiNote = minimumSynthMidiNote
-export const maximumStringsMidiNote = maximumSynthMidiNote
-
-export function createDefaultStringsPatch(id: StringsPatchId, name = 'STRINGS'): StringsPatch {
-  return {
-    id,
-    name,
-    baseMidiNote: 48,
-    detuneCents: 9,
-    brightness: 0.5,
-    ensemble: 0.55,
-    vibrato: 0.18,
-    level: 0.75,
-    gate: 0.92,
-    ampEnvelope: { attackSeconds: 0.3, decaySeconds: 0.4, sustain: 0.88, releaseSeconds: 0.8 },
-    octave: 0,
-    octaveLayer: 'off',
-    octaveLayerMix: 0,
-    character: 'strings',
-    // 0.5 reproduces the pre-BODY equal two-oscillator mix exactly - see stringsBodyToOscillatorBGain.
-    body: 0.5,
-    motion: 0,
-    // 1 (100%) reproduces the pre-WIDTH fixed +/-0.7 ensemble pan exactly - see stringsWidthToPan.
-    width: 1,
-    bow: 0,
-    vibratoDelayMs: 0,
-    warmth: 0,
-    space: 0,
-  }
-}
 
 export function cloneStringsPatch(patch: StringsPatch): StringsPatch {
   return { ...patch, ampEnvelope: { ...patch.ampEnvelope } }
-}
-
-export function assignStringsSource(pad: PadState, stringsPatchId: StringsPatchId, chordIntervals: readonly number[] = [0]): PadState {
-  return {
-    ...pad,
-    assetId: null,
-    fileName: null,
-    durationSeconds: null,
-    region: { startSeconds: 0, endSeconds: 0 },
-    reversed: false,
-    slices: [],
-    chopSessionId: null,
-    synthPatchId: null,
-    stringsPatchId,
-    organicBassPatchId: null,
-    polyPatchId: null,
-    chordIntervals: [...chordIntervals],
-  }
-}
-
-export function removeUnreferencedStringsPatches(group: PatternGroup): PatternGroup {
-  const referenced = new Set(group.bank.pads.flatMap((pad) => pad.stringsPatchId ? [pad.stringsPatchId] : []))
-  return { ...group, stringsPatches: group.stringsPatches.filter((patch) => referenced.has(patch.id)).map(cloneStringsPatch) }
-}
-
-export function getStringsPatch(group: PatternGroup, patchId: StringsPatchId | null): StringsPatch | undefined {
-  return patchId ? group.stringsPatches.find((patch) => patch.id === patchId) : undefined
-}
-
-/**
- * OCTAVE transposes playback only - the pattern's stored `chordIntervals` and
- * the patch's `baseMidiNote` are never touched, matching how `pitchSemitones`
- * already works. The result is clamped to the same MIDI range the project
- * validator enforces, so a pad voiced near C0/C8 cannot be pushed out of range
- * (and fail project save/load) just by turning OCTAVE up or down.
- */
-export function resolveStringsPadMidiNotes(patch: StringsPatch, pad: Pick<PadState, 'pitchSemitones' | 'chordIntervals'>): number[] {
-  return pad.chordIntervals.map((interval) => clampStringsMidiNote(patch.baseMidiNote + pad.pitchSemitones + interval + patch.octave * 12))
-}
-
-function clampStringsMidiNote(note: number): number {
-  return Math.min(maximumStringsMidiNote, Math.max(minimumStringsMidiNote, note))
 }
 
 /** Musical log taper: BRIGHTNESS reads as a tone knob, not a raw Hz slider. */

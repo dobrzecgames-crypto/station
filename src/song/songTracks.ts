@@ -7,7 +7,6 @@ import type { PatternGroup, PatternVariantName, StepLengthPattern, StepPattern, 
 import { getActiveClipsForSlot } from './songOperations'
 import type { PatternClip } from './songTypes'
 import { getSynthPatch, resolveSynthPadMidiNotes } from '../synth/synthOperations'
-import { getStringsPatch, resolveStringsPadMidiNotes } from '../strings/stringsOperations'
 import { getOrganicBassPatch, resolveOrganicBassPadMidiNote } from '../organic-bass/organicBassOperations'
 import type { ProjectKey } from '../music/scales'
 import { getPolyPatch, resolvePolyPadMidiNotes } from '../poly/polyOperations'
@@ -62,10 +61,6 @@ function toTracks(variants: readonly (ResolvedVariant | undefined)[], hasSampleA
       if (patch) return chordAssignment
         ? [{ ...common, source: 'synthChord', chordGroupId: pattern.group.id, patch, voices: resolveChordVoicing(pattern.group, pad, chordAssignment, projectKey), performance: pattern.group.chordPerformance }]
         : chordMode ? [] : [{ ...common, source: 'synth', patch, midiNotes: resolveSynthPadMidiNotes(patch, pad) }]
-      const stringsPatch = getStringsPatch(pattern.group, pad.stringsPatchId)
-      if (stringsPatch) return chordAssignment
-        ? [{ ...common, source: 'stringsChord', chordGroupId: pattern.group.id, patch: stringsPatch, voices: resolveChordVoicing(pattern.group, pad, chordAssignment, projectKey), performance: pattern.group.chordPerformance }]
-        : chordMode ? [] : [{ ...common, source: 'strings', patch: stringsPatch, midiNotes: resolveStringsPadMidiNotes(stringsPatch, pad) }]
       const organicBassPatch = getOrganicBassPatch(pattern.group, pad.organicBassPatchId)
       if (organicBassPatch) return [{ ...common, source: 'organicBass', patch: organicBassPatch, midiNote: resolveOrganicBassPadMidiNote(organicBassPatch, pad) }]
       const polyPatch = getPolyPatch(pattern.group, pad.polyPatchId)

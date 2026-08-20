@@ -164,7 +164,7 @@ test('a current supported assignment remains selectable while NOTES to CHORDS de
 
 test('pads in different octaves keep their own chord voicing', () => {
   const [low, high] = fakePads().map((pad, index) => ({ ...pad, pitchSemitones: index === 1 ? 12 : 0 }))
-  const group = { synthPatches: [{ id: 'patch', baseMidiNote: 36 }], stringsPatches: [] } as never
+  const group = { synthPatches: [{ id: 'patch', baseMidiNote: 36 }] } as never
   const lowNotes = resolveChordMidiNotes(group, { ...low, synthPatchId: 'patch' } as never, { type: 'minor' }, defaultProjectKey)
   const highNotes = resolveChordMidiNotes(group, { ...high, synthPatchId: 'patch' } as never, { type: 'minor7' }, defaultProjectKey)
   assert.equal(highNotes[0] - lowNotes[0], 12)
@@ -336,7 +336,6 @@ test('a scalar SMART CHORDS bank follows the changed Project Key', () => {
     ...pad,
     assetId: null,
     synthPatchId: 'patch',
-    stringsPatchId: null,
     chordIntervals: [0],
     pitchSemitones: getScalePitchOffsets('naturalMinor', 16)[index],
   }))
@@ -407,8 +406,6 @@ class FakeChordEngine {
   releaseSequencerChordAt(_groupId: string, when: number): void { this.releases.push(when) }
   scheduleSynthChord(_groupId: string, channelId: string, _patch: unknown, voices: ReturnType<typeof voicedChord>, performance: typeof defaultChordPerformance, when: number, off: number, inputVelocity: number): void { this.scheduled.push({ channelId, when, off, inputVelocity, harmonicVelocity: voices.map((voice) => voice.harmonicVelocity), performance }) }
   scheduleSynthPad(): void {}
-  scheduleStringsPad(): void {}
-  scheduleStringsChord(): void {}
   schedulePolyChord(): void {}
   scheduleSample(): void {}
   stopSequencerChokeGroupAt(): void {}

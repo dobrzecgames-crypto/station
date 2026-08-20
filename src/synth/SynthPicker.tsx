@@ -1,6 +1,6 @@
 import './SynthPicker.css'
 
-export type SynthPickerInstrument = 'monopoly' | 'organicbass' | 'strings' | 'poly' | 'drumsynth'
+export type SynthPickerInstrument = 'monopoly' | 'organicbass' | 'poly' | 'drumsynth'
 
 interface SynthPickerProps {
   onSelect: (instrument: SynthPickerInstrument) => void
@@ -9,7 +9,6 @@ interface SynthPickerProps {
 const instruments: ReadonlyArray<{ id: SynthPickerInstrument; name: string; description: string }> = [
   { id: 'monopoly', name: 'BASSIC', description: 'Monophonic bass, leads and short synth sounds.' },
   { id: 'organicbass', name: 'MONOGORG', description: 'Dark, rounded mono bass for sampled beats.' },
-  { id: 'strings', name: 'STRINGS', description: 'Polyphonic strings, pads and analog brass.' },
   { id: 'poly', name: 'ZOLA-X', description: 'Modern polyphonic wavetable synthesizer.' },
   { id: 'drumsynth', name: 'DRUM SYNTH', description: 'Synthesized kicks for electronic drum patterns.' },
 ]
@@ -39,9 +38,6 @@ export function SynthPicker({ onSelect }: SynthPickerProps) {
   )
 }
 
-const whiteKeyDividers = [15.36, 29.21, 43.07, 56.93, 70.79, 84.64]
-const blackKeys = [15.36, 29.21, 56.93, 70.79, 84.64]
-const knobCenters = [49, 63, 77, 91]
 const drumPadColors = [
   'var(--synth-glyph-primary)',
   'var(--synth-glyph-secondary)',
@@ -92,27 +88,6 @@ function SynthGlyph({ variant, className }: { variant: SynthPickerInstrument; cl
           ))}
           {[22.83, 32.67, 52.33, 62.17].map((x) => (
             <rect key={x} x={x - 2.7} y="39" width="5.4" height="10" fill="var(--station-recess)" />
-          ))}
-        </g>
-      ) : variant === 'strings' ? (
-        <g transform="matrix(.88 0 0 .9 6 3.4)">
-          <rect x="1.5" y="1.5" width="97" height="65" rx="6" fill="var(--synth-glyph-surface)" />
-          <rect x="1.5" y="1.5" width="97" height="65" rx="6" stroke="currentColor" strokeWidth="2" />
-          <line x1="1.5" y1="30" x2="98.5" y2="30" stroke="currentColor" strokeWidth="2" />
-          <polyline points="9,15 13,9 17,20 21,10 25,17 29,14 33,14" stroke="var(--synth-glyph-secondary)" strokeWidth="1.8" />
-          <line x1="9" y1="23" x2="16" y2="23" stroke="var(--synth-glyph-secondary)" strokeWidth="1.6" />
-          {knobCenters.map((cx) => (
-            <g key={cx}>
-              <circle cx={cx} cy="15" r="6.5" fill="var(--station-recess)" stroke="currentColor" strokeWidth="1.6" />
-              <line x1={cx} y1="15" x2={cx} y2="9.5" stroke="var(--synth-glyph-tertiary)" strokeWidth="1.6" />
-            </g>
-          ))}
-          <rect x="1.5" y="30" width="97" height="36.5" fill="var(--station-text)" opacity=".76" stroke="none" />
-          {whiteKeyDividers.map((x) => (
-            <line key={x} x1={x} y1="30" x2={x} y2="66.5" stroke="var(--station-recess)" strokeWidth="1.2" />
-          ))}
-          {blackKeys.map((x) => (
-            <rect key={x} x={x - 3.25} y="30" width="6.5" height="20" fill="var(--station-recess)" />
           ))}
         </g>
       ) : variant === 'poly' ? (

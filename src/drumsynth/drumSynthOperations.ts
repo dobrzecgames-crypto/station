@@ -33,7 +33,7 @@ export function applyKickPreset(patch: DrumKickPatch, name: KickPresetName): Dru
   return values ? { ...patch, ...values } : patch
 }
 
-/** Musical log taper, same shape as STRINGS' brightness curve: TUNE reads as a pitch knob, not a raw Hz slider. This is the frequency the pitch envelope resolves to, not its starting point. */
+/** Musical log taper: TUNE reads as a pitch knob, not a raw Hz slider. This is the frequency the pitch envelope resolves to, not its starting point. */
 export function kickTuneToHz(tune: number): number {
   const minimumHz = 30
   const maximumHz = 200

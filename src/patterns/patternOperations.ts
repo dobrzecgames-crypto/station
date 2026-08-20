@@ -4,7 +4,6 @@ import { clonePadBank, createPadBankState } from '../pads/padBank.ts'
 import { patternVariantNames, maximumPatternGroups } from './patternTypes.ts'
 import type { GroupBusState, PatternGroup, PatternVariantName, StepPattern, StepShiftPattern, StepLengthPattern } from './patternTypes'
 import { cloneSynthPatch } from '../synth/synthOperations.ts'
-import { cloneStringsPatch } from '../strings/stringsOperations.ts'
 import { cloneOrganicBassPatch } from '../organic-bass/organicBassOperations.ts'
 import { clonePolyPatch } from '../poly/polyOperations.ts'
 import type { ChordAssignment } from '../music/chords'
@@ -54,7 +53,7 @@ export function cloneStepLengthPattern(pattern: StepLengthPattern): StepLengthPa
 }
 
 export function createPatternGroup(id: string, groupNumber: number, padIds: readonly SampleId[]): PatternGroup {
-  return { id, name: `Pattern ${groupNumber}`, bank: createPadBankState(), bus: createGroupBusState(), effects: createEmptyEffectRack(id), synthPatches: [], stringsPatches: [], organicBassPatches: [], polyPatches: [], padMode: 'notes', chordAssignments: Array(padIds.length).fill(null), chordPerformance: { ...defaultChordPerformance }, variants: { A: createEmptyStepPattern(padIds) }, shifts: { A: createEmptyStepShiftPattern(padIds) }, lengths: { A: createEmptyStepLengthPattern(padIds) } }
+  return { id, name: `Pattern ${groupNumber}`, bank: createPadBankState(), bus: createGroupBusState(), effects: createEmptyEffectRack(id), synthPatches: [], organicBassPatches: [], polyPatches: [], padMode: 'notes', chordAssignments: Array(padIds.length).fill(null), chordPerformance: { ...defaultChordPerformance }, variants: { A: createEmptyStepPattern(padIds) }, shifts: { A: createEmptyStepShiftPattern(padIds) }, lengths: { A: createEmptyStepLengthPattern(padIds) } }
 }
 
 export function createInitialPatternGroups(padIds: readonly SampleId[]): PatternGroup[] {
@@ -302,7 +301,7 @@ export function splitMergedVariantStep(groups: readonly PatternGroup[], groupId:
 }
 
 export function clonePatternGroup(group: PatternGroup): PatternGroup {
-  return { ...group, ...normalizePatternChordFields(group, group.bank.pads.length), chordPerformance: normalizeChordPerformance(group.chordPerformance), bank: clonePadBank(group.bank), bus: group.bus ? { ...group.bus } : createGroupBusState(), effects: cloneEffectRackState(group.effects ?? createEmptyEffectRack(group.id)), synthPatches: (group.synthPatches ?? []).map(cloneSynthPatch), stringsPatches: (group.stringsPatches ?? []).map(cloneStringsPatch), organicBassPatches: (group.organicBassPatches ?? []).map(cloneOrganicBassPatch), polyPatches: (group.polyPatches ?? []).map(clonePolyPatch), variants: Object.fromEntries(patternVariantNames.flatMap((variant) => group.variants[variant] ? [[variant, cloneStepPattern(group.variants[variant]!)] as const] : [])), shifts: Object.fromEntries(patternVariantNames.flatMap((variant) => group.shifts?.[variant] ? [[variant, cloneStepShiftPattern(group.shifts[variant]!)] as const] : [])), lengths: Object.fromEntries(patternVariantNames.flatMap((variant) => group.lengths?.[variant] ? [[variant, cloneStepLengthPattern(group.lengths[variant]!)] as const] : [])) }
+  return { ...group, ...normalizePatternChordFields(group, group.bank.pads.length), chordPerformance: normalizeChordPerformance(group.chordPerformance), bank: clonePadBank(group.bank), bus: group.bus ? { ...group.bus } : createGroupBusState(), effects: cloneEffectRackState(group.effects ?? createEmptyEffectRack(group.id)), synthPatches: (group.synthPatches ?? []).map(cloneSynthPatch), organicBassPatches: (group.organicBassPatches ?? []).map(cloneOrganicBassPatch), polyPatches: (group.polyPatches ?? []).map(clonePolyPatch), variants: Object.fromEntries(patternVariantNames.flatMap((variant) => group.variants[variant] ? [[variant, cloneStepPattern(group.variants[variant]!)] as const] : [])), shifts: Object.fromEntries(patternVariantNames.flatMap((variant) => group.shifts?.[variant] ? [[variant, cloneStepShiftPattern(group.shifts[variant]!)] as const] : [])), lengths: Object.fromEntries(patternVariantNames.flatMap((variant) => group.lengths?.[variant] ? [[variant, cloneStepLengthPattern(group.lengths[variant]!)] as const] : [])) }
 }
 
 /** Copies only playable sequencer data. The Pattern Group's private pad bank,

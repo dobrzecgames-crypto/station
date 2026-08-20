@@ -1,6 +1,5 @@
 import type { SampleAssetId, SampleId } from '../audio/AudioEngine'
 import type { SynthPatchId } from '../synth/synthTypes'
-import type { StringsPatchId } from '../strings/stringsTypes'
 import type { OrganicBassPatchId } from '../organic-bass/organicBassTypes'
 import type { PolyPatchId } from '../poly/polyTypes'
 
@@ -54,7 +53,6 @@ export interface PadState extends ChannelState {
   /** End fade for newly triggered pad voices. Kept short for samples and slices. */
   releaseMs: number
   synthPatchId: SynthPatchId | null
-  stringsPatchId: StringsPatchId | null
   organicBassPatchId: OrganicBassPatchId | null
   polyPatchId: PolyPatchId | null
   chordIntervals: number[]

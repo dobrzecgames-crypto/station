@@ -15,6 +15,9 @@ type PumpRouteChanges = Partial<Pick<PumpRoute, 'source' | 'targetGroupId' | 'de
 interface PumpDisplayLauncherProps {
   patternGroups: readonly PatternGroup[]
   routes: readonly PumpRoute[]
+  /** Bumped by MIX's System Display action. Each request creates a route and
+      opens its existing editor in the same display. */
+  addRouteRequestNonce: number
   /** Returns the new route's id so the caller can jump straight into editing it. */
   onAddRoute: (source: GroupPadReference, targetGroupId: string) => string
   onRemoveRoute: (routeId: string) => void
@@ -55,14 +58,15 @@ function stepId<T extends { id: string }>(items: readonly T[], currentId: string
 /**
  * Pump's routing list and per-route editor, both living in the shared MIX
  * display - the same place BUS and FX already put their controls, instead of
- * a workspace of its own. The entry button sits ahead of the channel rails so
- * it is the first thing MIX shows, not something to scroll past.
+ * a workspace of its own. The MIX display's + ADD ROUTE action is its only
+ * entry point; this component deliberately has no workspace face.
  */
 export function PumpDisplayLauncher(props: PumpDisplayLauncherProps) {
   const { claim, release, ownerId } = useSystemDisplay()
   const [open, setOpen] = useState(false)
   const [editingRouteId, setEditingRouteId] = useState<string | null>(null)
   const hasOwnedDisplayRef = useRef(false)
+  const addRouteRequestNonceRef = useRef(props.addRouteRequestNonce)
   const editingRoute = props.routes.find((route) => route.id === editingRouteId) ?? null
 
   const latestPropsRef = useRef(props)
@@ -87,6 +91,24 @@ export function PumpDisplayLauncher(props: PumpDisplayLauncherProps) {
 
   useEffect(() => () => release(displayId), [release])
 
+  /* The command comes from BUS's resting display panel. It does exactly what
+     the former route-list action did, then gives Pump ownership so the new
+     route can be configured immediately. The nonce makes repeated presses
+     distinct without coupling the display tenants to each other's state. */
+  useEffect(() => {
+    const requested = addRouteRequestNonceRef.current !== props.addRouteRequestNonce
+    addRouteRequestNonceRef.current = props.addRouteRequestNonce
+    if (!requested) return
+
+    const firstGroup = props.patternGroups[0]
+    const firstPad = firstGroup?.bank.pads[0]
+    if (!firstGroup || !firstPad) return
+
+    const routeId = handlers.onAddRoute({ patternGroupId: firstGroup.id, padId: firstPad.id }, firstGroup.id)
+    setEditingRouteId(routeId)
+    setOpen(true)
+  }, [props.addRouteRequestNonce, props.patternGroups, handlers])
+
   useEffect(() => {
     if (!open) {
       hasOwnedDisplayRef.current = false
@@ -99,17 +121,7 @@ export function PumpDisplayLauncher(props: PumpDisplayLauncherProps) {
     if (hasOwnedDisplayRef.current && ownerId !== null) setOpen(false)
   }, [open, ownerId])
 
-  // Reopening always lands on the route list, not wherever it was left.
-  const toggleOpen = () => setOpen((current) => {
-    if (!current) setEditingRouteId(null)
-    return !current
-  })
-
-  return <button className={open ? 'mix-pump-entry mix-pump-entry-active' : 'mix-pump-entry'} type="button" aria-pressed={open} onClick={toggleOpen}>
-    <span className="mix-pump-entry-title">SIDECHAIN</span>
-    <strong>{props.routes.length}</strong>
-    <small>{props.routes.length === 1 ? 'ROUTE' : 'ROUTES'}</small>
-  </button>
+  return null
 }
 
 function routeListTenant(routes: readonly PumpRoute[], groups: readonly PatternGroup[], handlers: PumpHandlers, onOpenRoute: (routeId: string) => void): DisplayTenant {

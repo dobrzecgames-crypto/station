@@ -60,15 +60,8 @@
   --synth-glyph-quaternary: var(--station-text-muted);
 }
 
-.synth-picker-card-strings {
-  --synth-glyph-primary: var(--accent-strings);
-  --synth-glyph-secondary: var(--music-accent);
-  --synth-glyph-tertiary: var(--station-text-muted);
-  --synth-glyph-quaternary: var(--accent-synth);
-}
-
 .synth-picker-card-poly {
-  --synth-glyph-primary: var(--accent-strings);
+  --synth-glyph-primary: var(--accent-seq);
   --synth-glyph-secondary: var(--accent-seq);
   --synth-glyph-tertiary: var(--accent-synth);
   --synth-glyph-quaternary: var(--loaded-accent);
@@ -96,7 +89,7 @@
 
 .synth-picker-card-name {
   /* IDENTITY level (docs/TYPOGRAPHY_BIBLE.md §6): Inter, not the numeric
-     mono face - MONOGORG/MONOPOLY/STRINGS/POLY are instrument identity, not
+     mono face - MONOGORG/BASSIC/ZOLA-X are instrument identity, not
      a measurement. Individually wired (rather than through
      --station-mono-font, whose other consumers are real numeric readouts
      that must stay mono) - still overridable by the Typography Lab's

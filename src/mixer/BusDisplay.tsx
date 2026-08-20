@@ -29,6 +29,10 @@ interface BusDisplayLauncherProps {
   onMutedChange: (muted: boolean) => void
   onSoloChange?: (solo: boolean) => void
   onOpenSlot: (slotIndex: 0 | 1) => void
+  /** Creates a sidechain route and hands the display to its editor. The route
+      controls themselves stay with Pump, rather than turning the bus screen
+      into a second routing implementation. */
+  onAddPumpRoute: () => void
 }
 
 const displayId = 'bus-controls'
@@ -61,10 +65,12 @@ export function BusDisplayLauncher(props: BusDisplayLauncherProps) {
   const onMutedChangeRef = useRef(props.onMutedChange)
   const onSoloChangeRef = useRef(props.onSoloChange)
   const onOpenSlotRef = useRef(props.onOpenSlot)
+  const onAddPumpRouteRef = useRef(props.onAddPumpRoute)
   onVolumeChangeRef.current = props.onVolumeChange
   onMutedChangeRef.current = props.onMutedChange
   onSoloChangeRef.current = props.onSoloChange
   onOpenSlotRef.current = props.onOpenSlot
+  onAddPumpRouteRef.current = props.onAddPumpRoute
 
   /* App rebuilds its handlers every render, so the tenant is memoised on the
      values actually rendered and reaches the live handlers through refs.
@@ -78,6 +84,7 @@ export function BusDisplayLauncher(props: BusDisplayLauncherProps) {
     onMutedChange: (muted) => onMutedChangeRef.current(muted),
     onSoloChange: onSoloChangeRef.current ? (solo: boolean) => onSoloChangeRef.current!(solo) : undefined,
     onOpenSlot: (slotIndex) => onOpenSlotRef.current(slotIndex),
+    onAddPumpRoute: () => onAddPumpRouteRef.current(),
   }), [props.scopeLabel, props.bus.volume, props.bus.muted, props.bus.solo, props.rack])
 
   /* Resting behaviour is deferential: claim only when nothing else holds the
@@ -105,6 +112,7 @@ interface BusTenantProps {
   onMutedChange: (muted: boolean) => void
   onSoloChange?: (solo: boolean) => void
   onOpenSlot: (slotIndex: 0 | 1) => void
+  onAddPumpRoute: () => void
 }
 
 function busTenant(props: BusTenantProps): DisplayTenant {
@@ -136,6 +144,9 @@ function busTenant(props: BusTenantProps): DisplayTenant {
         <span className="display-param-label">FX {index + 1}</span>
         <span className="display-toggle-value" aria-hidden="true">{slotLabel(slot)} ›</span>
       </button>)}
+      <div className="display-actions">
+        <button className="display-action" type="button" aria-label="Add sidechain route" onClick={props.onAddPumpRoute}>+ ADD ROUTE</button>
+      </div>
     </>,
   }
 }

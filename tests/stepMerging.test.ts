@@ -154,9 +154,6 @@ test('scheduler gives every current synth source one note-on and a gate spanning
     source: 'synth', groupId, channelId: firstPadId, patch: { gate: 1 } as never, midiNotes: [48],
   }, {
     ...common,
-    source: 'strings', patch: { gate: 1 } as never, midiNotes: [48, 55],
-  }, {
-    ...common,
     source: 'organicBass', patch: { gate: 1 } as never, midiNote: 36,
   }]
   const config: StepSequencerConfig = { ...sequencerConfig(tracks[0]), getTracksForSlot: () => tracks }
@@ -164,10 +161,8 @@ test('scheduler gives every current synth source one note-on and a gate spanning
   engine.now = 0.13; ticker.run()
   engine.now = 0.26; ticker.run()
   assert.equal(engine.synths.length, 1)
-  assert.equal(engine.strings.length, 1)
   assert.equal(engine.organicBass.length, 1)
   assert.ok(Math.abs(engine.synths[0].off - 0.375) < 1e-9)
-  assert.ok(Math.abs(engine.strings[0].off - 0.375) < 1e-9)
   assert.ok(Math.abs(engine.organicBass[0].off - 0.375) < 1e-9)
 })
 
@@ -186,13 +181,11 @@ class FakeEngine {
   now = 0
   samples: Array<{ when: number; duration: number }> = []
   synths: Array<{ when: number; off: number }> = []
-  strings: Array<{ when: number; off: number }> = []
   organicBass: Array<{ when: number; off: number }> = []
   getCurrentTime(): number { return this.now }
   scheduleSample(_groupId: string, _channelId: string, _assetId: string, when: number, options: { maxDurationSeconds?: number }): void { this.samples.push({ when, duration: options.maxDurationSeconds ?? Infinity }) }
   scheduleSynthPad(_groupId: string, _channelId: string, _patch: unknown, _notes: readonly number[], when: number, off: number): void { this.synths.push({ when, off }) }
   scheduleSynthChord(): void {}
-  scheduleStringsPad(_groupId: string, _channelId: string, _patch: unknown, _notes: readonly number[], when: number, off: number): void { this.strings.push({ when, off }) }
   scheduleOrganicBassPad(_groupId: string, _channelId: string, _patch: unknown, _note: number, when: number, off: number): void { this.organicBass.push({ when, off }) }
   releaseSequencerChordAt(): void {}
   stopSequencerChokeGroupAt(): void {}

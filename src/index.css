@@ -224,7 +224,6 @@
   --accent-chop: #a5769d;
   --accent-pads: #c69b61;
   --accent-synth: #87a066;
-  --accent-strings: #8fa8c7;
   --accent-drumsynth: #bd6b4a;
   --accent-seq: #9a88c3;
   --accent-song: #b07085;
@@ -233,7 +232,7 @@
      reads as system chrome. */
   --accent-project: #9aa5af;
   /* TRACKS is a teal, deliberately distinct from every warm (chop/pads/
-     drumsynth/song) and blue/violet (strings/seq/mix) accent already in use. */
+     drumsynth/song) and blue/violet (seq/mix) accent already in use. */
   --accent-tracks: #5fa88f;
 
   /* Status. Fixed across every module. --station-amber is the old name for the
@@ -312,7 +311,7 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-.station-shell :where(.pad, .pattern-step, .arrangement-slot, .synth-audition, .strings-audition) {
+.station-shell :where(.pad, .pattern-step, .arrangement-slot, .synth-audition) {
   touch-action: none;
 }
 

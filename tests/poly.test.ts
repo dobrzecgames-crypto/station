@@ -25,11 +25,10 @@ test('default POLY patch is musical, serializable, and fully independent when cl
 })
 
 test('POLY assignment is mutually exclusive and cleanup keeps only referenced patches', () => {
-  const pad = { ...createPadBankState().pads[0], assetId: 'sample', synthPatchId: 'mono', stringsPatchId: 'strings', organicBassPatchId: 'bass' }
+  const pad = { ...createPadBankState().pads[0], assetId: 'sample', synthPatchId: 'mono', organicBassPatchId: 'bass' }
   const assigned = assignPolySource(pad, 'poly-1', [0, 4, 7])
   assert.equal(assigned.assetId, null)
   assert.equal(assigned.synthPatchId, null)
-  assert.equal(assigned.stringsPatchId, null)
   assert.equal(assigned.organicBassPatchId, null)
   assert.equal(assigned.polyPatchId, 'poly-1')
   const group = createPatternGroup('group-1', 1, createPadBankState().pads.map((item) => item.id))

@@ -45,7 +45,7 @@ export type DrumPatch = DrumKickPatch | DrumSnarePatch
 
 /**
  * One editable, project-persisted workbench per instrument - not a collection
- * referenced by id like SynthPatch/StringsPatch. Nothing on a pad ever points
+ * referenced by id like SynthPatch. Nothing on a pad ever points
  * back at these; ADD TO PAD renders whichever is selected once and the result
  * becomes an ordinary sample. See docs/DECISIONS.md DEC-024/DEC-025.
  */

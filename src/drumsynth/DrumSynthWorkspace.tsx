@@ -22,7 +22,7 @@ interface DrumSynthWorkspaceProps {
 
 /**
  * DRUM SYNTH's own full-page panel, in the same mainView==='synth' slot as
- * SynthWorkspace/StringsWorkspace but pad-independent - see App.tsx's
+ * SynthWorkspace but pad-independent - see App.tsx's
  * drumSynthPanelOpen gate. Unlike those two, every control lives directly on
  * this page rather than split into the shared System Display: eight flat
  * parameters per voice have no natural FILTER/AMP/LFO grouping that would

@@ -52,12 +52,11 @@ export function Pad({
   const [isPointerPressed, setIsPointerPressed] = useState(false)
   const [isActivationKeyPressed, setIsActivationKeyPressed] = useState(false)
   const isSynth = pad.synthPatchId !== null
-  const isStrings = pad.stringsPatchId !== null
   const isOrganicBass = pad.organicBassPatchId !== null
   const isPoly = pad.polyPatchId !== null
-  const isInstrument = isSynth || isStrings || isOrganicBass || isPoly
+  const isInstrument = isSynth || isOrganicBass || isPoly
   const isLoaded = pad.fileName !== null || isInstrument
-  const sourceLabel = isSynth ? 'BASSIC' : isStrings ? 'STRINGS' : isOrganicBass ? 'MONOGORG' : isPoly ? 'ZOLA-X' : pad.fileName
+  const sourceLabel = isSynth ? 'BASSIC' : isOrganicBass ? 'MONOGORG' : isPoly ? 'ZOLA-X' : pad.fileName
   // One line, not two: an instrument pad's name IS its status once loaded -
   // "BASSIC" beats "BASSIC" over "SYNTH" for the same reason it beat "POLY"
   // for ZOLA-X. Real sample pads still show their filename + READY/LOCKED,

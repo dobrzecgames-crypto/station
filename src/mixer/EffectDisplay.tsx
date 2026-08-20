@@ -185,7 +185,7 @@ function EffectDisplayPanel({ scopeLabel, slotIndex, rack, bpm, onChange, onClos
       <DisplayRange idPrefix="fx-display" label="HIGH GAIN" formatValue={formatEqGain} min="-15" max="15" step="0.1" current={slot.eq.highShelfGainDb} onChange={(value) => updateEQ({ highShelfGainDb: value })} />
     </>}
 
-    {/* Split across two light "pages" (mirroring STRINGS' own MORE page)
+    {/* Split across two light "pages"
         instead of listing all 6 parameters plus MODE in one long scroll. */}
     {!showChooser && slot.type === 'tightRoom' && <>
       <div className="display-param">

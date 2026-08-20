@@ -12,7 +12,7 @@ export function ChordModeToggle({ enabled, available, onChange }: ChordModeToggl
     aria-label="SMART CHORDS"
     aria-checked={enabled}
     disabled={!enabled && !available}
-    title={!enabled && !available ? 'SMART CHORDS requires one MONOPOLY or STRINGS instrument mapped across all 16 pads.' : undefined}
+    title={!enabled && !available ? 'SMART CHORDS requires one BASSIC or ZOLA-X instrument mapped across all 16 pads.' : undefined}
     onClick={() => onChange(!enabled)}
   >
     <span className="pad-chord-mode-led" aria-hidden="true" />

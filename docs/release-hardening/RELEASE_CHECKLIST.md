@@ -1,13 +1,14 @@
 # Station Release Candidate Checklist
 
-Current status: **READY FOR MANUAL RC ACCEPTANCE** — all local automated
-hardening gates are green. The recorded manual matrix and first hosted CI run
-remain required before a production-release decision.
+Current status: **WAITING FOR PHYSICAL TIER 1 MOBILE RC ACCEPTANCE** — local
+automated hardening gates and desktop evidence do not substitute for iOS Safari
+and Android Chrome on physical phones. Edge coverage is best effort and cannot
+make this status NO-GO by itself.
 
-Record for each manual pass: Station build SHA, browser name/version, Windows
-version, audio output/device, test WAV filenames, date, tester, and any console
-or diagnostic evidence. A checkbox without that session record is not release
-evidence.
+Record for each physical mobile pass: Station build SHA, phone model, OS
+version, browser version, orientation, audio route, test WAV filenames, date,
+tester, and any console or diagnostic evidence. A checkbox without that session
+record is not release evidence.
 
 ## Automated release gate
 
@@ -17,13 +18,42 @@ evidence.
 - [x] Hardening regression suite passes (150/150).
 - [x] Intentional render crash shows local recovery and view/copy diagnostics.
 - [x] Opt-in diagnostics expose release-torture state without hot-path polling.
-- [x] Chromium/Chrome browser smoke suite passes on Windows.
-- [x] Edge-channel smoke suite passes on Windows.
-- [x] Browser smoke produces a structurally valid, non-silent offline WAV in Chrome and Edge.
+- [x] Chromium/Chrome browser smoke suite passes on Windows as Tier 2 evidence.
+- [x] Edge-channel smoke suite passes on Windows as non-blocking Tier 3 evidence.
+- [x] Desktop browser smoke produces a structurally valid, non-silent offline WAV.
+- [x] MOBILE RC automatic/emulated preflight is recorded in `MOBILE_RC_QA.md` — PASS, with physical-device limitations explicit.
+- [ ] Physical iPhone Safari Tier 1 pass is complete.
+- [ ] Physical Android Chrome Tier 1 pass is complete.
 - [x] GitHub Actions release-validation workflow covers frozen install, tests, types, build, and pinned Chromium smoke.
 - [ ] First hosted GitHub Actions validation run passes after owner-authorized push.
 
-## Chrome on Windows — real audio
+## Tier 1 — iPhone Safari physical RC
+
+- [ ] Start audio from a fresh page with a touch gesture.
+- [ ] Import a real WAV and rapidly tap pads without stuck audio or obvious clicks.
+- [ ] Drag representative sample, mixer, Pump, and synth sliders.
+- [ ] Exercise PLAY/STOP, synth controls, TRACKS gestures, and scrolling boundaries.
+- [ ] Exercise intentional multitouch, including overlapping pad touches and a TRACKS pinch where supported.
+- [ ] Save, reload, reopen, and verify critical project state.
+- [ ] Render a short mixed project and confirm the file is valid and audible.
+- [ ] Rotate portrait → landscape → portrait during editing and playback.
+- [ ] Background/foreground and lock/unlock during playback; verify AudioContext recovery.
+- [ ] Confirm no critical control is hidden by safe areas, browser chrome, or the virtual keyboard.
+
+## Tier 1 — Android Chrome physical RC
+
+- [ ] Start audio from a fresh page with a touch gesture.
+- [ ] Import a real WAV and rapidly tap pads without stuck audio or obvious clicks.
+- [ ] Drag representative sample, mixer, Pump, and synth sliders.
+- [ ] Exercise PLAY/STOP, synth controls, TRACKS gestures, and scrolling boundaries.
+- [ ] Exercise intentional multitouch, including overlapping pad touches and a TRACKS pinch where supported.
+- [ ] Save, reload, reopen, and verify critical project state.
+- [ ] Render a short mixed project and confirm the file is valid and audible.
+- [ ] Rotate portrait → landscape → portrait during editing and playback.
+- [ ] Background/foreground and lock/unlock during playback; verify AudioContext recovery.
+- [ ] Confirm no critical control is hidden by cutouts, system bars, browser chrome, or the virtual keyboard.
+
+## Tier 2 — desktop Chrome on Windows
 
 - [ ] Start Audio from a fresh page.
 - [ ] Import a real WAV and trigger it by mouse.
@@ -49,7 +79,10 @@ evidence.
 - [ ] Change audio output where possible.
 - [ ] Disconnect/reconnect headphones.
 
-## Edge on Windows — real audio
+## Tier 3 — Edge on Windows, best effort
+
+This section preserves useful compatibility coverage. Unchecked Edge items do
+not block the mobile-first release.
 
 - [ ] Start Audio from a fresh page.
 - [ ] Import a real WAV and trigger it by mouse.
@@ -75,7 +108,7 @@ evidence.
 - [ ] Change audio output where possible.
 - [ ] Disconnect/reconnect headphones.
 
-## Projects and storage — both browsers
+## Projects and storage — both Tier 1 browsers
 
 - [ ] Create a new project.
 - [ ] Explicitly save and observe SAVING → SAVED.
@@ -91,7 +124,7 @@ evidence.
 - [ ] Simulate quota pressure/failure where feasible and confirm ERROR/DIRTY remains visible.
 - [ ] Confirm a failed save leaves the previous valid project recoverable.
 
-## Long session — both browsers
+## Long session — both Tier 1 browsers
 
 - [ ] Run a continuous transport session.
 - [ ] Repeatedly switch projects.
@@ -99,7 +132,7 @@ evidence.
 - [ ] Confirm voice, cache, routing, and storage diagnostics do not grow monotonically.
 - [ ] Confirm no unexplained console errors or unhandled rejections.
 
-## Offline render A/B — both browsers
+## Offline render A/B — both Tier 1 browsers
 
 - [ ] Short SONG.
 - [ ] Long SONG.
@@ -116,7 +149,7 @@ evidence.
 - [ ] Every observed failure has reproduction steps and evidence in `FINDINGS.md`.
 - [ ] Every observed failure is classified P0, P1, or P2 before acceptance continues.
 - [ ] No P0/P1 failure is waived by a headless pass or an unrelated successful check.
-- [ ] Every P0/P1 failure is fixed, regression-tested, and rechecked in both target browsers.
+- [ ] Every P0/P1 failure is fixed, regression-tested, and rechecked in both Tier 1 browsers.
 
 ## Final review
 
@@ -124,4 +157,5 @@ evidence.
 - [x] No accepted P1 findings remain.
 - [x] No temporary debug code, test bypass, or release hack remains.
 - [x] Remaining P2 findings and browser limitations are documented.
-- [ ] Product owner has completed manual RC acceptance.
+- [ ] Product owner has completed physical iPhone Safari and Android Chrome RC acceptance.
+- [x] Edge is explicitly non-blocking for the release decision.

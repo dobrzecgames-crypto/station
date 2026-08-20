@@ -8,9 +8,21 @@ Required URL: `http://127.0.0.1:4173/?diagnostics=1`
 
 ## Acceptance status
 
+> **Superseded release-target note (2026-08-20):** this run was executed and
+> originally judged under the former desktop Chrome + Edge blocking matrix.
+> The current target is mobile-first: iOS Safari and Android Chrome are Tier 1,
+> desktop Chrome is Tier 2, and Edge is Tier 3 / best effort. Therefore the
+> unavailable Edge pass below is no longer a release NO-GO. The Chrome results
+> remain valid Tier 2 evidence, but this desktop run does not satisfy either
+> physical Tier 1 acceptance requirement.
+
 **Chrome result: conditional PASS.** No P0 or P1 product defect was confirmed in the exercised Chrome scope. One P2 issue was reproduced in the opt-in internal diagnostics layout and intentionally left unfixed because this acceptance task authorized fixes only for confirmed P0/P1 defects.
 
-**Overall manual RC result: INCOMPLETE / NO-GO for final acceptance.** The candidate cannot receive a full two-browser manual acceptance result from this run because the Edge browser bridge was unavailable. File-upload-dependent import and TRACKS cases were also blocked because the Chrome extension did not have access to `file://` URLs. These are coverage gaps, not product failures.
+**Current mobile-first interpretation: INCOMPLETE pending physical Tier 1
+acceptance.** The reason is the absence of real iPhone Safari and Android Chrome
+passes, not the unavailable Edge bridge. File-upload-dependent import and
+TRACKS cases were also blocked because the Chrome extension did not have access
+to `file://` URLs. These are coverage gaps, not product failures.
 
 The run contained 58 executed scenario rows and 11 explicitly blocked/not-run rows. Deliberately counted repetition loops produced at least 464 real mouse/keyboard/transport input events; one-off setup, editing, navigation, persistence, render, and multi-tab actions take the total above 500.
 
@@ -137,14 +149,20 @@ The initial sandboxed typecheck/build attempt was blocked by a local `EPERM` rea
 
 Before final release acceptance, a human should complete:
 
-1. the full critical path in current Edge on Windows with diagnostics enabled;
-2. actual user-WAV import, mouse trigger, keyboard trigger, TRACKS clip playback, simultaneous SONG+TRACKS playback, and combined render in both browsers;
-3. malformed project, missing WAV, forced worklet failure, IndexedDB blocked, and quota/storage-failure recovery where a safe fixture is available;
-4. audible comparison of live playback and rendered WAV, including clicks/pops, delay tails, Pump behavior, perceived latency, and clipping choices;
-5. actual background/foreground, sleep/wake, headphones, and audio-output-device changes;
-6. project deletion after action-time confirmation.
+1. the Tier 1 critical path on a physical iPhone in Safari and a physical
+   Android phone in Chrome, including real touch, orientation, safe areas,
+   background/foreground, lock/unlock, AudioContext recovery, and audible output;
+2. actual user-WAV import, rapid pad touch, slider dragging, TRACKS gestures,
+   simultaneous SONG+TRACKS playback, save/reload, and combined render on both
+   Tier 1 devices;
+3. malformed project, missing WAV, forced worklet failure, IndexedDB blocked,
+   and quota/storage-failure recovery where a safe fixture is available;
+4. audible comparison of live playback and rendered WAV, including clicks/pops,
+   delay tails, Pump behavior, perceived latency, and clipping choices;
+5. project deletion after action-time confirmation.
 
-To unblock Chrome file upload, enable **Allow access to file URLs** for the ChatGPT browser extension in `chrome://extensions`. To run Edge, enable/configure the Edge browser extension in Codex **Settings → Computer use**.
+Edge may still be checked as best effort, but missing Edge coverage cannot block
+the mobile-first release status.
 
 ## Scope confirmation
 

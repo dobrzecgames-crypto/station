@@ -5,6 +5,7 @@ const localChromiumExecutable = process.env.STATION_CHROMIUM_EXECUTABLE
 
 export default defineConfig({
   testDir: './browser-tests',
+  testIgnore: 'mobile-rc.spec.ts',
   outputDir: 'test-results/browser',
   fullyParallel: false,
   workers: 1,

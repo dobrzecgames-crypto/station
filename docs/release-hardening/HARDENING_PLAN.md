@@ -10,6 +10,18 @@ This pass is a feature freeze. Work is limited to correctness, reliability,
 recoverability, testability, diagnostics, release safety, persistence safety,
 timing stability, and browser lifecycle handling.
 
+## Mobile-first release target
+
+Product-owner decision recorded on 2026-08-20:
+
+- **Tier 1 / release blocking:** iOS Safari and Android Chrome.
+- **Tier 2:** desktop Chrome.
+- **Tier 3 / best effort:** Microsoft Edge and all other browsers.
+
+A missing or incomplete Edge matrix is not a release NO-GO. Automated mobile
+emulation is required as early evidence, but it never substitutes for the
+physical iPhone Safari and Android Chrome acceptance passes.
+
 ## Order of work
 
 1. Establish and record the untouched baseline.
@@ -22,8 +34,11 @@ timing stability, and browser lifecycle handling.
 8. Surface quota/storage pressure and save-state failures.
 9. Define and verify offline render parity, including TRACKS.
 10. Add fatal React recovery and lightweight internal diagnostics.
-11. Add behavior-focused Chromium/Edge smoke coverage and a CI validation gate.
+11. Add behavior-focused browser smoke coverage, mobile viewport/touch
+    emulation, and a CI validation gate. Preserve desktop Chromium/Edge results
+    as supporting evidence rather than treating Edge as release blocking.
 12. Perform a release-candidate code review and final validation.
+13. Complete physical Tier 1 RC acceptance on iPhone Safari and Android Chrome.
 
 P0 findings take priority over P1. P2 cleanup is deferred while any P0/P1
 finding remains open.
@@ -38,9 +53,11 @@ pnpm typecheck
 pnpm build
 ```
 
-Browser stages also run the release smoke suite. Real audio quality, device
-interruption, sleep/wake, and output-device changes remain explicit listening
-checks; headless automation is not evidence for those claims.
+Browser stages also run the release smoke suite and the maximum practical
+mobile emulation matrix. Real touch hardware, mobile Safari/Chrome engine
+behavior, audio quality, device interruption, lock/background transitions,
+orientation changes, and output-route changes remain explicit physical-device
+checks; headless or desktop-device emulation is not evidence for those claims.
 
 ## Commit boundaries
 

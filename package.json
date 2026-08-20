@@ -13,6 +13,7 @@
     "test:browser": "playwright test --project=chromium",
     "test:browser:chrome": "playwright test --project=chrome",
     "test:browser:edge": "playwright test --project=edge",
+    "test:mobile-rc": "playwright test --config=playwright.mobile-rc.config.ts",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
     "preview": "vite preview"

@@ -74,9 +74,41 @@ Verification: six deterministic recovery tests cover 25, 70, 150, 500, and
 suppression, rate-correct sustained-clip recovery, and absence of past timeline
 timestamps. Full gate passed with 120/120 tests, typecheck PASS, build PASS.
 
+### P1 — Project replacement retained old routing graphs — FIXED
+
+Evidence: sample assets, waveform caches, reverse buffers, and instrument patch
+runtimes had explicit removal paths, but `channels`, `groupBuses`,
+`groupEffects`, `groupEffectStates`, and chord-performance occurrence keys did
+not. Pattern Group and TRACKS IDs are project-owned, so repeatedly opening
+projects with different IDs monotonically grew those maps and retained their
+Web Audio nodes/effect feedback graphs until page teardown.
+
+Root cause: project replacement synchronized assets and instrument patches but
+had no equivalent synchronization boundary for group/track routing resources.
+
+Fix: after a replacement project has decoded successfully and transport/manual/
+preview voices are stopped, `syncRuntimeRouting` disposes every channel, bus,
+effect rack, state, Pump route, and occurrence key outside the loaded project's
+group/channel set. Low-cost `AudioEngine.getDiagnostics()` snapshots now expose
+voice counts by origin/type, asset/reverse-cache counts, routing-map sizes, and
+AudioContext latency/state without continuous polling.
+
+Verification: a deterministic 100-project-cycle registry stress test remains
+bounded at the two active resources and proves exactly-once/idempotent disposal.
+Full gate passed with 122/122 tests, typecheck PASS, build PASS.
+
+### Investigated — active voice and reverse-cache ownership
+
+No additional automatic eviction policy was added. Sample and timeline sources
+clean themselves on `ended`; every STOP path catches already-ended/double-stop
+conditions and cleanup guards are idempotent. Synth/organic-bass/strings/POLY
+runtime disposal stops and disconnects owned voices. The reverse cache is one
+whole buffer per loaded asset, is replaced on same-ID sample replacement, and
+is cleared on asset removal/project replacement/dispose. Audible click/glitch
+quality and browser memory behavior remain manual checks.
+
 ## Open audits
 
-- Active sample/synth/timeline voice and reverse-cache lifecycle under stress.
 - Optional POLY/ZOLA-X AudioWorklet failure isolation.
 - IndexedDB rejected-open caching, blocked upgrades, and `versionchange` cleanup.
 - Autosave ordering and unnecessary rewrites of unchanged WAV blobs.

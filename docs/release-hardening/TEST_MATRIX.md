@@ -15,7 +15,9 @@
 | Transport | Shared start timestamp; idempotent paired stop; partial-start repair/rollback | PASS — 4 deterministic tests |
 | Transport | Manual STOP, SONG completion, project switch, context interruption, unmount all use paired boundary | PASS — source-wiring audit |
 | Timing | Deterministic recovery at 25/70/150/500/2000 ms lateness | PASS — 6 deterministic tests |
-| Voices | Repeated lifecycle cycles return owned voice counts to zero | Pending |
+| Voices | Paired STOP invokes both owned voice cleanup paths idempotently | PASS — lifecycle tests/source audit |
+| Routing | 100 project replacements retain only current routing resources | PASS — deterministic registry stress test |
+| Assets | Same-ID replacement/removal clears reverse/runtime/waveform caches | PASS — source audit; browser memory pending |
 | Worklet | Forced optional worklet failure preserves core audio startup | Pending |
 | Storage | Failed/blocked opens can recover; `versionchange` closes stale DB | Pending |
 | Autosave | Latest state wins; unchanged asset blobs are not rewritten | Pending |
@@ -38,3 +40,17 @@ These checks cannot be claimed from unit/headless tests alone:
 
 Results are recorded here as the pass progresses; unchecked manual items remain
 unverified rather than implicitly passing.
+
+## AudioEngine torture matrix
+
+| Scenario | Automatic evidence | Real listening/browser check |
+| --- | --- | --- |
+| 100 PLAY/STOP cycles | Paired/idempotent shutdown paths covered | Required in Chrome and Edge |
+| Rapid repeated pad triggering | Cleanup ownership inspected | Required for clicks, latency, retained voices |
+| High synth polyphony | Voice caps/stealing/cleanup inspected | Required for sound and CPU behavior |
+| Reverse sample triggering | One-buffer-per-asset lifecycle inspected | Required while watching memory diagnostics |
+| Repeated project open/close | 100-cycle routing registry test passes | Required with real IndexedDB/WAV projects |
+| Repeated audio start/stop | Dispose paths inspected | Required with browser autoplay/context policy |
+| Multiple FX active | Rack disposal included in project pruning | Required for feedback tails/clicks |
+| Pump active | Transport timestamps remain audio-clock based | Required listening test |
+| Long-running transport | Late-wake counters now available | Required long-session browser test |

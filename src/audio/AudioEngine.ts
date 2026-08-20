@@ -43,6 +43,7 @@ import type { ChordVoice } from '../music/chords'
 import { isPendingChordVoice, performChordVoices } from '../music/chordPerformance'
 import type { ChordPerformanceSettings } from '../music/chordPerformance'
 import polyProcessorUrl from '../poly/polyProcessor.ts?worker&url'
+import { pruneRuntimeMap } from './runtimeLifecycle'
 
 export type SampleId = string
 export type SampleAssetId = string
@@ -50,6 +51,48 @@ export type ChannelId = string
 export type GroupId = string
 
 export type AudioEngineStatus = 'inactive' | 'starting' | 'ready' | 'suspended' | 'interrupted' | 'error'
+
+export interface RuntimeRoutingScope {
+  groupId: GroupId
+  channelIds: readonly ChannelId[]
+}
+
+export interface AudioEngineDiagnostics {
+  status: AudioEngineStatus
+  context: {
+    state: string
+    sampleRate: number
+    baseLatency: number | null
+    outputLatency: number | null
+  }
+  voices: {
+    total: number
+    manualSamples: number
+    sequencerSamples: number
+    timelineSamples: number
+    previewSamples: number
+    synth: number
+    organicBass: number
+    strings: number
+    poly: number
+    drumPreview: number
+  }
+  assets: {
+    loadedSamples: number
+    waveformCaches: number
+    reverseBuffers: number
+    runtimeBlobs: number
+  }
+  routing: {
+    channels: number
+    groupBuses: number
+    groupEffectRacks: number
+    synthRuntimes: number
+    organicBassRuntimes: number
+    stringsRuntimes: number
+    polyRuntimes: number
+  }
+}
 
 export interface LoadedSampleInfo {
   filename: string
@@ -717,6 +760,29 @@ export class AudioEngine {
   setGroupSolo(groupId: GroupId, solo: boolean): void { const bus = this.ensureGroupBus(groupId); bus.solo = solo; this.applyAllGroupGains() }
   setMasterVolume(volume: number): void { this.masterVolume = this.toGain(volume); this.applyMasterGain() }
   setMasterMuted(muted: boolean): void { this.masterMuted = muted; this.applyMasterGain() }
+
+  /**
+   * Removes routing resources owned only by the project being replaced. The
+   * caller stops voices first, then supplies every Pattern Group/pad channel
+   * and TRACKS bus/channel belonging to the loaded project.
+   */
+  syncRuntimeRouting(scopes: readonly RuntimeRoutingScope[]): void {
+    const retainedGroupIds = new Set(scopes.map((scope) => scope.groupId))
+    const retainedChannelIds = new Set(scopes.flatMap((scope) => scope.channelIds))
+
+    pruneRuntimeMap(this.channels, retainedChannelIds, (channel) => {
+      channel.gain?.disconnect()
+      channel.meter?.disconnect()
+    })
+    pruneRuntimeMap(this.groupBuses, retainedGroupIds, (bus) => {
+      bus.gain?.disconnect()
+      bus.pumpGain?.disconnect()
+    })
+    pruneRuntimeMap(this.groupEffects, retainedGroupIds, (rack) => this.disposeRuntimeEffectRack(rack))
+    pruneRuntimeMap(this.groupEffectStates, retainedGroupIds)
+    this.chordPerformanceOccurrences.clear()
+    this.pumpRoutes = this.pumpRoutes.filter((route) => retainedGroupIds.has(route.targetGroupId) && retainedChannelIds.has(route.sourceChannelId))
+  }
   setMasterEffects(config: EffectRackState): void {
     this.masterEffectState = normalizeEffectRackState(config, 'master', createDefaultMasterEffectRack())
     this.applyRuntimeEffectRack(this.masterEffects, this.masterEffectState)
@@ -1342,6 +1408,47 @@ export class AudioEngine {
 
   getActiveVoiceCount(): number {
     return this.activeVoices.size + this.activeSynthVoices.size + this.activeOrganicBassVoices.size + this.activeStringsVoices.size + this.activePolyVoices.size
+  }
+
+  getDiagnostics(): AudioEngineDiagnostics {
+    const liveContext = this.liveContext
+    const countSamples = (origin: ActiveVoice['origin']) => [...this.activeVoices].filter((voice) => voice.origin === origin).length
+    return {
+      status: this.status,
+      context: {
+        state: this.context?.state ?? 'unavailable',
+        sampleRate: this.context?.sampleRate ?? 0,
+        baseLatency: liveContext && Number.isFinite(liveContext.baseLatency) ? liveContext.baseLatency : null,
+        outputLatency: liveContext && 'outputLatency' in liveContext && Number.isFinite(liveContext.outputLatency) ? liveContext.outputLatency : null,
+      },
+      voices: {
+        total: this.getActiveVoiceCount() + this.drumPreviewVoices.size,
+        manualSamples: countSamples('manual'),
+        sequencerSamples: countSamples('sequencer'),
+        timelineSamples: countSamples('timeline'),
+        previewSamples: countSamples('preview'),
+        synth: this.activeSynthVoices.size,
+        organicBass: this.activeOrganicBassVoices.size,
+        strings: this.activeStringsVoices.size,
+        poly: this.activePolyVoices.size,
+        drumPreview: this.drumPreviewVoices.size,
+      },
+      assets: {
+        loadedSamples: this.samples.size,
+        waveformCaches: this.waveforms.size,
+        reverseBuffers: this.reversedSamples.size,
+        runtimeBlobs: this.runtimeAssets.size,
+      },
+      routing: {
+        channels: this.channels.size,
+        groupBuses: this.groupBuses.size,
+        groupEffectRacks: this.groupEffects.size,
+        synthRuntimes: this.synthRuntimes.size,
+        organicBassRuntimes: this.organicBassRuntimes.size,
+        stringsRuntimes: this.stringsRuntimes.size,
+        polyRuntimes: this.polyRuntimes.size,
+      },
+    }
   }
 
   getCurrentTime(): number {

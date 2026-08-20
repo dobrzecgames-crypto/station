@@ -818,8 +818,13 @@ export function App({ audioEngine }: AppProps) {
     const state = loadedProject.state
     const openedAssetIds = new Set(loadedProject.assets.map((asset) => asset.id))
     for (const assetId of audioEngine.getSampleAssetIds()) if (!openedAssetIds.has(assetId)) audioEngine.removeSampleAsset(assetId)
-    for (const group of patternGroups) audioEngine.setGroupSolo(group.id, false)
-    for (const track of audioTracks) audioEngine.setGroupSolo(track.id, false)
+    audioEngine.syncRuntimeRouting([
+      ...state.patternGroups.map((group) => ({
+        groupId: group.id,
+        channelIds: group.bank.pads.map((pad) => createChannelId({ patternGroupId: group.id, padId: pad.id })),
+      })),
+      ...state.audioTracks.map((track) => ({ groupId: track.id, channelIds: [track.id] })),
+    ])
     for (const group of state.patternGroups) for (const pad of group.bank.pads) {
       const channelId = createChannelId({ patternGroupId: group.id, padId: pad.id })
       audioEngine.setChannelVolume(group.id, channelId, pad.volume)

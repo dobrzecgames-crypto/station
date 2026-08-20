@@ -8,6 +8,7 @@ import { StepSequencer } from './audio/StepSequencer'
 import type { StepSequencerConfig } from './audio/StepSequencer'
 import { TimelineScheduler } from './audio/TimelineScheduler'
 import type { TimelineSchedulerConfig } from './audio/TimelineScheduler'
+import { TransportCoordinator } from './audio/TransportCoordinator'
 import { encodeWav } from './audio/wavEncoder'
 import { ChopDisplayLauncher } from './chop/ChopDisplay'
 import { ChopWorkspace } from './chop/ChopWorkspace'
@@ -281,6 +282,7 @@ export function App({ audioEngine }: AppProps) {
   const sequencerRef = useRef(new StepSequencer(audioEngine))
   const chordPriorityRef = useRef(new ChordPriority())
   const timelineSchedulerRef = useRef(new TimelineScheduler(audioEngine))
+  const transportCoordinatorRef = useRef(new TransportCoordinator(sequencerRef.current, timelineSchedulerRef.current, audioEngine))
   /** Where TRACKS playback last began, in (timeline beat, AudioContext time)
       terms - lets the live playhead be derived each render (visualAudioTime
       already re-renders during playback, see DEC-004) instead of a second
@@ -477,7 +479,7 @@ export function App({ audioEngine }: AppProps) {
       ? getSongTracksForSlot(patternGroupsRef.current, playlist, slot, hasSampleAsset, projectKey)
       : getPatternTracks(patternGroupsRef.current, selectedPatternGroupId, patternVariantForSection(slot - 1), hasSampleAsset, projectKey),
     onSongSlotChange: setPlayingSongSlot,
-    onSongComplete: () => { setIsPlaying(false); setPlayingSongSlot(null); setSequencerPlayhead(null) },
+    onSongComplete: stopPlayback,
     onStepScheduled: (stepIndex, scheduledTime, durationSeconds, sectionIndex) => {
       if (stepIndex === 0) {
         recordingGridRef.current = { startsAt: scheduledTime, stepDurationSeconds: durationSeconds, sectionIndex }
@@ -515,19 +517,9 @@ export function App({ audioEngine }: AppProps) {
   useEffect(() => { for (const group of patternGroups) audioEngine.setGroupEffects(group.id, group.effects) }, [audioEngine, patternGroups])
   useEffect(() => audioEngine.subscribeToStatus((status) => {
     setAudioStatus(status)
-    if ((status === 'suspended' || status === 'interrupted') && sequencerRef.current.isRunning()) {
-      sequencerRef.current.stop()
-      audioEngine.stopSequencerVoices()
-      finishPatternTake()
-      recordingArmedRef.current = false
-      pendingRecordingStartRef.current = false
-      recordingGridRef.current = null
-      setIsPlaying(false)
-      setCountingIn(false)
-      setRecording(false)
-    }
+    if ((status === 'suspended' || status === 'interrupted') && transportCoordinatorRef.current.isRunning()) stopPlayback()
   }), [audioEngine])
-  useEffect(() => () => { sequencerRef.current.stop(); audioEngine.stopSequencerVoices() }, [audioEngine])
+  useEffect(() => () => transportCoordinatorRef.current.stop(), [])
 
   const triggerPad = (padId: PadState['id']) => {
     const pad = pads.find((candidate) => candidate.id === padId)
@@ -1727,20 +1719,20 @@ export function App({ audioEngine }: AppProps) {
     if (transportMode === 'song' && playlist.length === 0) { setTransportNotice(emptySongPlaylistNotice); return }
     const hasTrackContent = audioTracks.some((track) => track.clips.length > 0)
     if (sequenceConfigRef.current.getTracksForSlot(1).length === 0 && !pads.some((pad) => (pad.assetId && audioEngine.hasSampleAsset(pad.assetId)) || pad.synthPatchId || pad.organicBassPatchId || pad.polyPatchId) && !metronomeEnabled && !hasTrackContent) { setErrorMessage('Load a sample or create a synth patch first.'); return }
-    sequencerRef.current.start(() => sequenceConfigRef.current)
     // TRACKS plays independently of PATTERN/SONG mode - it is arrangement
     // content, not another pattern to pick, so both schedulers always start
     // together from the same audio-clock instant. See docs/DECISIONS.md DEC-027.
-    const tracksStartAt = audioEngine.getCurrentTime()
+    const tracksStartAt = transportCoordinatorRef.current.start(
+      () => sequenceConfigRef.current,
+      () => tracksSchedulerConfigRef.current,
+      tracksPlayheadBeat,
+    )
+    if (tracksStartAt === null) return
     tracksPlaybackAnchorRef.current = { startBeat: tracksPlayheadBeat, startedAt: tracksStartAt }
-    timelineSchedulerRef.current.start(() => tracksSchedulerConfigRef.current, tracksPlayheadBeat, tracksStartAt)
     setIsPlaying(true)
   }
-  const stopPlayback = () => {
-    sequencerRef.current.stop()
-    audioEngine.stopSequencerVoices()
-    timelineSchedulerRef.current.stop()
-    audioEngine.stopTimelineVoices()
+  function stopPlayback() {
+    transportCoordinatorRef.current.stop()
     if (tracksPlaybackAnchorRef.current) {
       const anchor = tracksPlaybackAnchorRef.current
       setTracksPlayheadBeat(Math.max(0, anchor.startBeat + secondsToBeats(audioEngine.getCurrentTime() - anchor.startedAt, bpm)))

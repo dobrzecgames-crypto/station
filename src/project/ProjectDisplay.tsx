@@ -4,12 +4,14 @@ import type { ProjectKey } from '../music/scales'
 import type { DisplayTenant } from '../shell/SystemDisplay'
 import { useSystemDisplay } from '../shell/systemDisplayContext'
 import type { RenderSongResult } from './renderSong'
+import type { ProjectSaveStatus } from '../storage/ProjectSaveState'
 import './projectDisplay.css'
 
 interface ProjectDisplayButtonProps {
   currentProjectName: string | null
   projectKey: ProjectKey
   projectBusy: boolean
+  projectSaveStatus: ProjectSaveStatus
   audioReady: boolean
   renderProgress: number | null
   soloActive: boolean
@@ -47,6 +49,7 @@ export function ProjectDisplayButton(props: ProjectDisplayButtonProps) {
     props.projectKey.root,
     props.projectKey.scale,
     props.projectBusy,
+    props.projectSaveStatus,
     props.audioReady,
     props.renderProgress,
     props.soloActive,
@@ -88,11 +91,12 @@ function projectTenant(props: ProjectDisplayButtonProps): DisplayTenant {
   const renderBusy = props.renderProgress !== null
   const progressPercent = Math.round((props.renderProgress ?? 0) * 100)
   const hotPeak = props.hotRender?.peak ?? 0
+  const saveStatus = props.projectSaveStatus.toUpperCase()
 
   return {
     id: displayId,
     label: 'Project controls',
-    readout: renderBusy ? `PROJECT / RENDER / ${progressPercent}%` : `PROJECT / ${props.currentProjectName ?? 'UNSAVED'} / ${formatProjectKey(props.projectKey)}`,
+    readout: renderBusy ? `PROJECT / RENDER / ${progressPercent}%` : `PROJECT / ${props.currentProjectName ?? 'UNSAVED'} / ${saveStatus} / ${formatProjectKey(props.projectKey)}`,
     panel: <>
       <label className="project-display-select">
         <span>ROOT</span>
@@ -121,6 +125,7 @@ function projectTenant(props: ProjectDisplayButtonProps): DisplayTenant {
           <button className="display-action" type="button" disabled={props.projectBusy} onClick={props.onLibrary}>LIBRARY</button>
         </div>
       </div>
+      <p className="project-display-note">SAVE STATE / {saveStatus}</p>
       <div className="display-param">
         <span className="display-param-label">SONG FILE</span>
         <div className="display-actions">

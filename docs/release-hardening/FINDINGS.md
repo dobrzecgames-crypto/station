@@ -161,9 +161,48 @@ and its asset mutations together or retains the previous committed state.
 Corrupt or missing project assets fail load explicitly. Browser integration
 coverage for real IndexedDB transaction-abort behavior remains pending.
 
+### P1 — Autosave rewrote every WAV and could misreport a newer edit — FIXED
+
+Evidence: every create/update/replace called `put()` for every referenced asset
+record, even when a synth parameter was the only changed value. The App also
+treated each queued completion as current: an older snapshot completing after a
+new edit updated the project summary with no revision check, while there was no
+persistent SAVED/SAVING/DIRTY/ERROR state.
+
+Impact: ordinary slider work caused repeated multi-megabyte IndexedDB writes,
+increasing save latency, quota pressure, and failure exposure. A tab closed
+inside the 1.5 second debounce window had no warning, and the UI could imply a
+save was current while a newer revision was still pending.
+
+Root cause: stable asset identity was not used as an immutability boundary, and
+the serialized promise queue had no edit/save revision model.
+
+Fix:
+
+- Asset writes first query stable IDs and write a Blob only when its ID is not
+  already stored. New asset writes, the manifest, metadata, and garbage
+  collection remain in the same transaction.
+- A small revision tracker exposes SAVED/SAVING/DIRTY/ERROR plus queue depth.
+  Completion of an older queued revision cannot mark a newer edit saved, and a
+  failed latest save remains dirty and in ERROR until a retry succeeds.
+- The Project System Display shows the save state. Dirty named projects request
+  the browser's normal unload confirmation. When the document becomes hidden,
+  the current debounce is flushed opportunistically while the page is still
+  alive; no asynchronous save is started from `beforeunload`.
+
+Stable-ID decision: replacing audio creates a fresh asset ID; an existing ID is
+an immutable Blob identity. Current sample, drum-render, CHOP, and TRACKS import
+paths already follow that rule, while built-in IDs intentionally refer to the
+same bundled content.
+
+Verification: two asset-write tests prove zero Blob writes for a manifest-only
+save and exactly one write for one new asset. Three revision tests prove latest
+state wins, error remains dirty through failure/retry, and a late completion
+from a replaced project is ignored. Full gate passed with 135/135 tests,
+typecheck PASS, build PASS.
+
 ## Open audits
 
-- Autosave ordering and unnecessary rewrites of unchanged WAV blobs.
 - Quota error classification, storage diagnostics, and dirty/save-error state.
 - Offline render parity with live TRACKS playback and release-tail handling.
 - Fatal React render recovery and unhandled-error diagnostics.

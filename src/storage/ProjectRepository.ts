@@ -3,6 +3,7 @@ import { createProjectState, validateProjectState } from '../project/ProjectStat
 import type { ProjectState } from '../project/ProjectState'
 import { decodeProjectState } from '../project/projectStateCodec'
 import { assetStoreName, metadataStoreName, openStationDatabase, projectStoreName, requestResult, transactionComplete } from './StationDatabase'
+import { writeMissingRuntimeAssets } from './assetWriteStrategy'
 import { defaultProjectId } from './storageTypes'
 import type { LoadedProject, ProjectDocument, ProjectSummary, StoredAssetRecord, StoredProjectRecord } from './storageTypes'
 
@@ -32,9 +33,10 @@ export class ProjectRepository {
       transaction.abort()
       throw new Error('A project with this ID already exists.')
     }
-    writeRuntimeAssets(transaction.objectStore(assetStoreName), document.state, runtimeAssets)
+    const assetWrites = writeMissingRuntimeAssets(transaction.objectStore(assetStoreName), document.state.assets.map((asset) => asset.id), runtimeAssets)
     projects.add(toStoredRecord(document))
     transaction.objectStore(metadataStoreName).put({ key: lastProjectKey, projectId: document.projectId })
+    await assetWrites
     await transactionComplete(transaction, 'Project save did not complete. Check available storage and try again.')
     return cloneDocument(document)
   }
@@ -60,10 +62,11 @@ export class ProjectRepository {
       bpm: state.bpm,
       state: createProjectState(state),
     }
-    writeRuntimeAssets(transaction.objectStore(assetStoreName), state, runtimeAssets)
+    const assetWrites = writeMissingRuntimeAssets(transaction.objectStore(assetStoreName), state.assets.map((asset) => asset.id), runtimeAssets)
     projects.put(toStoredRecord(next))
-    await deleteAssetsNoLongerReferenced(transaction, currentValue.state.assets.map((asset) => asset.id))
+    const assetCleanup = deleteAssetsNoLongerReferenced(transaction, currentValue.state.assets.map((asset) => asset.id))
     transaction.objectStore(metadataStoreName).put({ key: lastProjectKey, projectId })
+    await Promise.all([assetWrites, assetCleanup])
     await transactionComplete(transaction, 'Project save did not complete. Check available storage and try again.')
     return next
   }
@@ -79,10 +82,11 @@ export class ProjectRepository {
       transaction.abort()
       throw new Error('The project to replace no longer exists.')
     }
-    writeRuntimeAssets(transaction.objectStore(assetStoreName), document.state, runtimeAssets)
+    const assetWrites = writeMissingRuntimeAssets(transaction.objectStore(assetStoreName), document.state.assets.map((asset) => asset.id), runtimeAssets)
     projects.put(toStoredRecord(document))
-    await deleteAssetsNoLongerReferenced(transaction, existing.state.assets.map((asset) => asset.id))
+    const assetCleanup = deleteAssetsNoLongerReferenced(transaction, existing.state.assets.map((asset) => asset.id))
     transaction.objectStore(metadataStoreName).put({ key: lastProjectKey, projectId: document.projectId })
+    await Promise.all([assetWrites, assetCleanup])
     await transactionComplete(transaction, 'Project replacement did not complete.')
     return cloneDocument(document)
   }
@@ -236,14 +240,6 @@ async function loadAssets(database: IDBDatabase, state: ProjectState): Promise<S
   )))
   await transactionComplete(transaction, 'Could not read the saved project WAV files.')
   return assets
-}
-
-function writeRuntimeAssets(store: IDBObjectStore, state: ProjectState, runtimeAssets: ReadonlyMap<SampleAssetId, RuntimeSampleAsset>): void {
-  for (const { id } of state.assets) {
-    const asset = runtimeAssets.get(id)!
-    const record: StoredAssetRecord = { id, filename: asset.filename, mimeType: asset.blob.type, size: asset.blob.size, blob: asset.blob }
-    store.put(record)
-  }
 }
 
 async function deleteAssetsNoLongerReferenced(transaction: IDBTransaction, candidates: readonly SampleAssetId[]): Promise<void> {

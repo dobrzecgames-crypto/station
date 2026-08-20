@@ -59,6 +59,7 @@ import { chordRootMidiNote, formatChordAssignment, formatMidiNoteName, resolveCh
 import { ChordPriority } from './music/chordPriority'
 import { findProjectScaleMapConflicts, mapPadBankToProjectScale } from './music/scaleMapping'
 import { projectRepository } from './storage/ProjectRepository'
+import { ProjectSaveStateTracker } from './storage/ProjectSaveState'
 import type { LoadedProject, ProjectDocument, ProjectSummary } from './storage/storageTypes'
 import { addPatternGroup, clearVariant, copyVariantSequence, createInitialPatternGroups, duplicateVariant, getVariant, getVariantLengths, getVariantShifts, paintVariantStepSpan, pasteVariantSequence, patternStepCount, renamePatternGroup, repairPatternGroupChords, setPatternGroupChordAssignment, setPatternGroupChordPerformance, setPatternGroupPadMode, setVariantStepPresence, setVariantStepShift, setVariantStepVelocity } from './patterns/patternOperations'
 import type { PatternSequenceClipboard } from './patterns/patternOperations'
@@ -264,6 +265,8 @@ export function App({ audioEngine }: AppProps) {
   const [projectMessage, setProjectMessage] = useState<string>()
   const [transportNotice, setTransportNotice] = useState<string>()
   const [projectBusy, setProjectBusy] = useState(false)
+  const projectBusyRef = useRef(projectBusy)
+  projectBusyRef.current = projectBusy
   const [currentProject, setCurrentProject] = useState<ProjectSummary | null>(null)
   const [projectLibrary, setProjectLibrary] = useState<ProjectSummary[]>([])
   const [projectLibraryOpen, setProjectLibraryOpen] = useState(false)
@@ -301,6 +304,8 @@ export function App({ audioEngine }: AppProps) {
   const renderAbortRef = useRef<AbortController | null>(null)
   const autosaveTimerRef = useRef<number | null>(null)
   const projectSaveQueueRef = useRef<Promise<void>>(Promise.resolve())
+  const projectSaveTrackerRef = useRef(new ProjectSaveStateTracker(false))
+  const [projectSaveState, setProjectSaveState] = useState(projectSaveTrackerRef.current.getSnapshot())
   const renderBusy = renderProgress !== null
   /* SOLO is honoured by the render, so a render started with one latched
      silently drops every other channel. The panel says so before it happens. */
@@ -718,6 +723,16 @@ export function App({ audioEngine }: AppProps) {
     autosaveTimerRef.current = null
   }
 
+  const adoptSavedProject = (summary: ProjectSummary) => {
+    setProjectSaveState(projectSaveTrackerRef.current.reset(true))
+    setCurrentProject(summary)
+  }
+
+  const markProjectUnsaved = () => {
+    setProjectSaveState(projectSaveTrackerRef.current.reset(false))
+    setCurrentProject(null)
+  }
+
   const saveProject = async () => {
     if (projectBusy) return
     if (!currentProject) {
@@ -727,15 +742,19 @@ export function App({ audioEngine }: AppProps) {
     clearPendingAutosave()
     setProjectBusy(true)
     setProjectMessage(undefined)
+    const saveAttempt = projectSaveTrackerRef.current.beginSave()
+    setProjectSaveState(projectSaveTrackerRef.current.getSnapshot())
     try {
       const snapshot = createCurrentProjectState()
       const validationErrors = validateProjectState(snapshot)
       if (validationErrors.length > 0) throw new Error(`Project cannot be saved: ${validationErrors[0]}`)
       const saved = await enqueueProjectWrite(() => projectRepository.updateProject(currentProject.projectId, snapshot, runtimeAssetsForProject(snapshot)))
       setCurrentProject(projectSummaryFromDocument(saved))
+      setProjectSaveState(projectSaveTrackerRef.current.succeed(saveAttempt))
       await refreshProjectLibrary()
       setProjectMessage('Project saved.')
     } catch (error) {
+      setProjectSaveState(projectSaveTrackerRef.current.fail(saveAttempt, error))
       setErrorMessage(toMessage(error))
     } finally {
       setProjectBusy(false)
@@ -745,28 +764,58 @@ export function App({ audioEngine }: AppProps) {
   useEffect(() => {
     if (!currentProject) return
     const projectId = currentProject.projectId
-    const timer = window.setTimeout(() => {
+    if (projectBusyRef.current) return
+    setProjectSaveState(projectSaveTrackerRef.current.markDirty())
+    let started = false
+    const runAutosave = () => {
+      if (started) return
+      started = true
       if (autosaveTimerRef.current === timer) autosaveTimerRef.current = null
       try {
         const snapshot = createCurrentProjectState()
         const runtimeAssets = runtimeAssetsForProject(snapshot)
+        const saveAttempt = projectSaveTrackerRef.current.beginSave()
+        setProjectSaveState(projectSaveTrackerRef.current.getSnapshot())
         void enqueueProjectWrite(() => projectRepository.updateProject(projectId, snapshot, runtimeAssets))
           .then((saved) => {
             const summary = projectSummaryFromDocument(saved)
             setCurrentProject((current) => current?.projectId === projectId ? summary : current)
             setProjectLibrary((projects) => sortProjectSummaries(projects.map((project) => project.projectId === projectId ? summary : project)))
+            setProjectSaveState(projectSaveTrackerRef.current.succeed(saveAttempt))
           })
-          .catch((error) => setErrorMessage(`Autosave failed: ${toMessage(error)}`))
+          .catch((error) => {
+            setProjectSaveState(projectSaveTrackerRef.current.fail(saveAttempt, error))
+            setErrorMessage(`Autosave failed: ${toMessage(error)}`)
+          })
       } catch (error) {
+        setProjectSaveState(projectSaveTrackerRef.current.recordFailure(error))
         setErrorMessage(`Autosave failed: ${toMessage(error)}`)
       }
-    }, 1500)
+    }
+    const timer = window.setTimeout(runAutosave, 1500)
+    const flushWhenHidden = () => {
+      if (document.visibilityState !== 'hidden') return
+      window.clearTimeout(timer)
+      runAutosave()
+    }
     autosaveTimerRef.current = timer
+    document.addEventListener('visibilitychange', flushWhenHidden)
     return () => {
+      document.removeEventListener('visibilitychange', flushWhenHidden)
       window.clearTimeout(timer)
       if (autosaveTimerRef.current === timer) autosaveTimerRef.current = null
     }
   }, [currentProject?.projectId, projectKey, patternGroups, selectedPatternGroupId, selectedPatternVariant, playlist, audioTracks, transportMode, loopSong, bpm, swing, master, masterEffects, pumpRoutes, drumSynth])
+
+  useEffect(() => {
+    if (!currentProject || !projectSaveState.dirty) return
+    const warnAboutUnsavedChanges = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', warnAboutUnsavedChanges)
+    return () => window.removeEventListener('beforeunload', warnAboutUnsavedChanges)
+  }, [currentProject, projectSaveState.dirty])
 
   /* Renders the SONG playlist offline and hands the user a WAV. The transport
      mode does not matter: a render is always the song, from slot one to the
@@ -894,7 +943,7 @@ export function App({ audioEngine }: AppProps) {
       await projectSaveQueueRef.current
       const loadedProject = await projectRepository.loadProject(projectId)
       await applyLoadedProject(loadedProject)
-      setCurrentProject(projectSummaryFromLoadedProject(loadedProject))
+      adoptSavedProject(projectSummaryFromLoadedProject(loadedProject))
       setLegacyRecoveryActive(false)
       setProjectLibraryOpen(false)
       setProjectMessage(`Opened ${loadedProject.name}.`)
@@ -913,7 +962,7 @@ export function App({ audioEngine }: AppProps) {
       await projectSaveQueueRef.current
       const loadedProject = await projectRepository.loadLegacyProject()
       await applyLoadedProject(loadedProject)
-      setCurrentProject(null)
+      markProjectUnsaved()
       setLegacyRecoveryActive(true)
       setProjectLibraryOpen(false)
       setProjectMessage('Legacy save recovered. Choose SAVE PROJECT to name it.')
@@ -927,11 +976,19 @@ export function App({ audioEngine }: AppProps) {
   const persistCurrentProjectSilently = async () => {
     if (!currentProject) return
     clearPendingAutosave()
-    const snapshot = createCurrentProjectState()
-    const saved = await enqueueProjectWrite(() => projectRepository.updateProject(currentProject.projectId, snapshot, runtimeAssetsForProject(snapshot)))
-    const summary = projectSummaryFromDocument(saved)
-    setCurrentProject(summary)
-    setProjectLibrary((projects) => sortProjectSummaries(projects.map((project) => project.projectId === summary.projectId ? summary : project)))
+    const saveAttempt = projectSaveTrackerRef.current.beginSave()
+    setProjectSaveState(projectSaveTrackerRef.current.getSnapshot())
+    try {
+      const snapshot = createCurrentProjectState()
+      const saved = await enqueueProjectWrite(() => projectRepository.updateProject(currentProject.projectId, snapshot, runtimeAssetsForProject(snapshot)))
+      const summary = projectSummaryFromDocument(saved)
+      setCurrentProject(summary)
+      setProjectLibrary((projects) => sortProjectSummaries(projects.map((project) => project.projectId === summary.projectId ? summary : project)))
+      setProjectSaveState(projectSaveTrackerRef.current.succeed(saveAttempt))
+    } catch (error) {
+      setProjectSaveState(projectSaveTrackerRef.current.fail(saveAttempt, error))
+      throw error
+    }
   }
 
   const openProjectLibrary = async () => {
@@ -955,7 +1012,7 @@ export function App({ audioEngine }: AppProps) {
       await persistCurrentProjectSilently()
       const state = createEmptyProjectState()
       await applyLoadedProject({ projectId: '', name: null, createdAt: null, modifiedAt: new Date().toISOString(), schemaVersion: state.schemaVersion, legacy: false, state, assets: [] })
-      setCurrentProject(null)
+      markProjectUnsaved()
       setLegacyRecoveryActive(false)
       setProjectLibraryOpen(false)
       setProjectMessage('New unsaved project ready.')
@@ -970,12 +1027,15 @@ export function App({ audioEngine }: AppProps) {
     const action = projectNameAction
     if (!action || projectBusy || name.trim().length === 0) return
     setProjectBusy(true)
+    const saveAttempt = action.kind === 'save' ? projectSaveTrackerRef.current.beginSave() : null
+    if (saveAttempt) setProjectSaveState(projectSaveTrackerRef.current.getSnapshot())
     try {
       if (action.kind === 'save') {
         const snapshot = createCurrentProjectState()
         const document = createNamedProjectDocument(`project-${createRuntimeId()}`, name, snapshot)
         const saved = await enqueueProjectWrite(() => projectRepository.createProject(document, runtimeAssetsForProject(snapshot)))
         setCurrentProject(projectSummaryFromDocument(saved))
+        setProjectSaveState(projectSaveTrackerRef.current.succeed(saveAttempt!))
         if (legacyRecoveryActive) await projectRepository.markLegacyRecovered()
         setLegacyRecoveryActive(false)
         setProjectMessage(`Saved ${name}. Autosave is now active.`)
@@ -992,6 +1052,7 @@ export function App({ audioEngine }: AppProps) {
       setProjectNameAction(null)
       await refreshProjectLibrary()
     } catch (error) {
+      if (saveAttempt) setProjectSaveState(projectSaveTrackerRef.current.fail(saveAttempt, error))
       setErrorMessage(toMessage(error))
     } finally {
       setProjectBusy(false)
@@ -1018,7 +1079,7 @@ export function App({ audioEngine }: AppProps) {
           await projectSaveQueueRef.current
           await projectRepository.deleteProject(project.projectId)
           if (currentProject?.projectId === project.projectId) {
-            setCurrentProject(null)
+            markProjectUnsaved()
             setProjectMessage('Project deleted from the library. The current beat is now unsaved.')
           } else {
             setProjectMessage(`Deleted ${project.name}.`)
@@ -1094,7 +1155,7 @@ export function App({ audioEngine }: AppProps) {
     else await projectRepository.createProject(document, runtimeAssets)
     const loaded = await projectRepository.loadProject(document.projectId)
     await applyLoadedProject(loaded)
-    setCurrentProject(projectSummaryFromLoadedProject(loaded))
+    adoptSavedProject(projectSummaryFromLoadedProject(loaded))
     setLegacyRecoveryActive(false)
     setPendingProjectImport(null)
     setProjectLibraryOpen(false)
@@ -2281,6 +2342,7 @@ export function App({ audioEngine }: AppProps) {
                 currentProjectName={currentProject?.name ?? null}
                 projectKey={projectKey}
                 projectBusy={projectBusy}
+                projectSaveStatus={projectSaveState.status}
                 audioReady={audioReady}
                 renderProgress={renderProgress}
                 soloActive={soloActive}

@@ -71,9 +71,9 @@
 .project-library-close:disabled { cursor: not-allowed; opacity: .48; }
 
 .project-modal-button-primary {
-  border-color: color-mix(in srgb, var(--accent-project) 72%, #fff 8%);
+  border-color: color-mix(in srgb, var(--accent-project) 88%, var(--station-text));
   color: #121313;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent-project) 84%, #fff), var(--accent-project));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent-project) 94%, var(--station-text)), var(--accent-project));
 }
 
 .project-modal-button-danger,

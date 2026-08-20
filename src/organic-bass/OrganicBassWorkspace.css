@@ -18,8 +18,8 @@
    ========================================================================= */
 .organic-bass-workspace {
   --mg-index: var(--accent-pads);
-  --mg-print: color-mix(in srgb, var(--station-text-muted) 30%, transparent);
-  --mg-print-major: color-mix(in srgb, var(--station-text-muted) 54%, transparent);
+  --mg-print: color-mix(in srgb, var(--station-text-muted) 62%, var(--station-panel));
+  --mg-print-major: color-mix(in srgb, var(--station-text-muted) 84%, var(--station-panel));
   --mg-cap-top: color-mix(in srgb, var(--scene-control) 78%, #4a4038);
   --mg-cap-bottom: color-mix(in srgb, var(--scene-recess) 70%, #17130f);
   --mg-knob: calc(96px * var(--station-ui-scale));

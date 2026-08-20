@@ -26,8 +26,8 @@
 .synth-workspace {
   /* A subdued olive index, mixed from the SYNTH pigment into the recessed face. */
   --bs-index: color-mix(in srgb, var(--accent-synth) 50%, var(--station-recess));
-  --bs-print: color-mix(in srgb, var(--station-text-muted) 30%, transparent);
-  --bs-print-major: color-mix(in srgb, var(--station-text-muted) 54%, transparent);
+  --bs-print: color-mix(in srgb, var(--station-text-muted) 62%, var(--station-panel));
+  --bs-print-major: color-mix(in srgb, var(--station-text-muted) 84%, var(--station-panel));
   --bs-cap-top: color-mix(in srgb, var(--scene-control) 80%, #46404a);
   --bs-cap-bottom: color-mix(in srgb, var(--scene-recess) 72%, #17141b);
   --bs-slot-h: calc(30px * var(--station-ui-scale));

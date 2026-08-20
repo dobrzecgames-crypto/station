@@ -70,9 +70,9 @@
 }
 
 .station-confirm-button-primary {
-  border-color: color-mix(in srgb, var(--station-accent) 72%, #fff 8%);
+  border-color: color-mix(in srgb, var(--station-accent) 88%, var(--station-text));
   color: #17131d;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--station-accent) 84%, #fff), var(--station-accent));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--station-accent) 94%, var(--station-text)), var(--station-accent));
 }
 
 .station-confirm-button:active {

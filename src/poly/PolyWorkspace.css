@@ -27,8 +27,8 @@
      recognisably the same signal from the same machine. Pigment - the cool
      mark on the play key - stays a separate thing entirely. */
   --zx-ink: color-mix(in srgb, var(--accent-library) 78%, #e0d3b4);
-  --zx-print: color-mix(in srgb, var(--station-text-muted) 34%, transparent);
-  --zx-print-major: color-mix(in srgb, var(--station-text-muted) 58%, transparent);
+  --zx-print: color-mix(in srgb, var(--station-text-muted) 62%, var(--station-panel));
+  --zx-print-major: color-mix(in srgb, var(--station-text-muted) 84%, var(--station-panel));
   --zx-rule: color-mix(in srgb, var(--station-text) 13%, transparent);
   /* Panel marking, deliberately near the floor of legibility: the scale is a
      reference, not a feature. */
@@ -534,7 +534,7 @@
     inset 0 calc(-1px * var(--station-ui-scale)) 0 rgb(255 255 255 / 5%),
     0 1px 0 rgb(255 255 255 / 4%);
 }
-.poly-display-readout { position: relative; z-index: 3; display: flex; justify-content: space-between; gap: var(--sp-card); padding: 0 calc(3px * var(--station-ui-scale)) var(--sp-tight); color: color-mix(in srgb, var(--station-text) 42%, transparent); font-family: var(--station-mono-font); font-size: var(--label-section); font-weight: 600; letter-spacing: .08em; }
+.poly-display-readout { position: relative; z-index: 3; display: flex; justify-content: space-between; gap: var(--sp-card); padding: 0 calc(3px * var(--station-ui-scale)) var(--sp-tight); color: var(--zx-print-major); font-family: var(--station-mono-font); font-size: var(--label-section); font-weight: 600; letter-spacing: .08em; }
 /* The screen states values in white and draws them in pigment. Colouring the
    text as well would make the accent decoration rather than data. */
 .poly-display-readout output { color: var(--station-text); font-size: var(--label-value); font-weight: 600; font-variant-numeric: tabular-nums; }

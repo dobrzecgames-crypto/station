@@ -153,7 +153,10 @@
   --station-line-strong: #67554e;
   --station-text: #eee4d6;
   --station-text-muted: #c8bcae;
-  --station-text-disabled: #5d5657;
+  /* Disabled labels stay readable, but are materially quieter than ordinary
+     panel copy. Blending two Vinyl Dust roles avoids the muddy near-black
+     grey that made unavailable controls look accidentally faded. */
+  --station-text-disabled: color-mix(in srgb, var(--station-text-muted) 60%, var(--station-raised));
   --accent-terracotta: #c86f50;
   --accent-terracotta-pressed: #9f4937;
   --accent-gold: #b99a62;

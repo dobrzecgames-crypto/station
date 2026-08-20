@@ -57,8 +57,8 @@
   --ds-bay: color-mix(in srgb, var(--scene-panel) 74%, #3b313a);
   --ds-cap-top: color-mix(in srgb, var(--scene-control) 78%, #4a3f46);
   --ds-cap-bottom: color-mix(in srgb, var(--scene-recess) 70%, #1a151a);
-  --ds-print: color-mix(in srgb, var(--station-text-muted) 26%, transparent);
-  --ds-print-major: color-mix(in srgb, var(--station-text-muted) 48%, transparent);
+  --ds-print: color-mix(in srgb, var(--station-text-muted) 62%, var(--station-panel));
+  --ds-print-major: color-mix(in srgb, var(--station-text-muted) 84%, var(--station-panel));
   /* The accent appears once per fader, as a hairline index on the cap. */
   /* One index colour for the whole bank, taken from the SONG workspace
      pigment. A console fader bank is one colour; the eight-pigment version

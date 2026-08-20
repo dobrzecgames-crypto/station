@@ -55,7 +55,7 @@
   --label-value: .64rem;
   --label-identity: .74rem;
   /* Section markings recede by contrast, not by a second grey. */
-  --label-section-color: color-mix(in srgb, var(--station-text-muted) 62%, transparent);
+  --label-section-color: color-mix(in srgb, var(--station-text-muted) 68%, var(--scene-panel));
 }
 
 /* ---- R2. Tier geometry ---------------------------------------------------

@@ -184,16 +184,69 @@ select, textarea {
 
 .mixer-toggle-active,
 .pump-target-toggle.mixer-toggle-active {
-  border-color: color-mix(in srgb, var(--control-active) 76%, var(--station-text));
-  color: var(--station-bg);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--control-active) 86%, #fff) 0%, var(--control-active) 54%, var(--control-active-pressed) 100%);
-  box-shadow: inset 0 1px 0 rgb(236 244 248 / 18%), inset 0 calc(-2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(17 28 36 / 34%), 0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 28%);
+  border-color: color-mix(in srgb, var(--control-active) 72%, var(--station-line-strong));
+  color: var(--station-text);
+  background: linear-gradient(180deg, var(--control-active-pressed) 0%, color-mix(in srgb, var(--control-active-pressed) 88%, var(--scene-recess)) 58%, color-mix(in srgb, var(--control-active-pressed) 68%, var(--scene-recess)) 100%);
+  box-shadow: inset 0 calc(2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(17 28 36 / 42%), inset 0 -1px 0 rgb(238 228 214 / 7%), 0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 28%);
+}
+
+/* Recording mode is a SELECTOR, not a generic active tool. Its open trigger
+   and chosen option therefore use the same warm graphite as the surrounding
+   transport, with depression plus a small lamp carrying the selected state.
+   The explicit hover selectors prevent the older Station-orange hover rule
+   from replacing that material while the menu is open. */
+.station-shell .recording-menu-trigger.mixer-toggle-active,
+.station-shell .recording-menu-trigger.mixer-toggle-active:hover:not(:disabled),
+.station-shell .recording-options-menu [role='menuitemradio'].mixer-toggle-active,
+.station-shell .recording-options-menu [role='menuitemradio'].mixer-toggle-active:hover:not(:disabled),
+.station-shell .project-display-trigger.mixer-toggle-active,
+.station-shell .project-display-trigger.mixer-toggle-active:hover:not(:disabled) {
+  border-color: var(--station-line-strong);
+  color: var(--station-text);
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--scene-control) 72%, var(--scene-recess)) 0%,
+    color-mix(in srgb, var(--scene-control) 58%, var(--scene-recess)) 58%,
+    var(--scene-recess) 100%);
+  box-shadow:
+    inset 0 calc(2px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 52%),
+    inset 0 -1px 0 rgb(238 228 214 / 5%),
+    0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 24%);
+}
+
+.station-shell .recording-options-menu .mixer-toggle:hover:not(:disabled) {
+  border-color: var(--station-line-strong);
+  color: var(--station-text);
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--scene-control) 92%, var(--station-text)) 0%,
+    var(--scene-control) 48%,
+    color-mix(in srgb, var(--scene-control) 80%, var(--scene-recess)) 100%);
+}
+
+.station-shell .recording-options-menu [role='menuitemradio'] {
+  display: flex;
+  align-items: center;
+  gap: calc(7px * var(--station-ui-scale));
+}
+
+.station-shell .recording-options-menu [role='menuitemradio']::before {
+  width: calc(7px * var(--station-ui-scale));
+  height: calc(7px * var(--station-ui-scale));
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--scene-recess);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 72%), inset 0 1px 0 rgb(238 228 214 / 12%);
+  content: '';
+}
+
+.station-shell .recording-options-menu [role='menuitemradio'][aria-checked='true']::before {
+  background: var(--loaded-accent);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 58%), inset 0 calc(-2px * var(--station-ui-scale)) calc(2px * var(--station-ui-scale)) rgb(74 45 8 / 48%);
 }
 
 .group-strip-selected {
   border-color: color-mix(in srgb, var(--focus-accent) 76%, var(--accent-gold-light));
   color: var(--station-bg);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--focus-accent) 86%, #fff) 0%, var(--focus-accent) 54%, var(--focus-pressed) 100%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--focus-accent) 94%, var(--station-text)) 0%, var(--focus-accent) 54%, var(--focus-pressed) 100%);
   box-shadow: inset 0 1px 0 rgb(255 239 220 / 22%), inset 0 calc(-2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(54 17 14 / 32%), 0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 28%);
 }
 
@@ -203,7 +256,7 @@ select, textarea {
 .transport-modes .mixer-toggle-active:hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--focus-accent) 76%, var(--accent-gold-light));
   color: var(--station-bg);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--focus-accent) 86%, #fff) 0%, var(--focus-accent) 54%, var(--focus-pressed) 100%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--focus-accent) 94%, var(--station-text)) 0%, var(--focus-accent) 54%, var(--focus-pressed) 100%);
   box-shadow: inset 0 1px 0 rgb(255 239 220 / 22%), inset 0 calc(-2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(54 17 14 / 32%), 0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 28%);
 }
 
@@ -223,24 +276,30 @@ select, textarea {
 [data-pattern-variant='D'] { --pattern-color: color-mix(in srgb, var(--pattern-group-color) 86%, var(--station-card)); }
 
 .variant-selector .mixer-toggle[data-pattern-variant] {
-  border-color: color-mix(in srgb, var(--pattern-color) 42%, var(--station-line));
-  color: var(--pattern-color);
-  background: color-mix(in srgb, var(--pattern-color) 7%, var(--control-inactive));
+  border-color: var(--station-line);
+  color: var(--station-text-muted);
+  background: linear-gradient(180deg, #383035 0%, var(--control-inactive) 48%, #211d20 100%);
 }
 
 .variant-selector .mixer-toggle-active[data-pattern-variant],
 .variant-selector .mixer-toggle-active[data-pattern-variant]:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--pattern-color) 78%, var(--station-text));
-  color: var(--station-bg);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--pattern-color) 86%, #fff), var(--pattern-color) 58%, color-mix(in srgb, var(--pattern-color) 82%, var(--station-bg)));
-  box-shadow: inset 0 1px 0 rgb(255 239 220 / 18%), inset 0 calc(-2px * var(--station-ui-scale)) calc(3px * var(--station-ui-scale)) rgb(20 15 22 / 34%), 0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 28%);
+  border-color: var(--station-line-strong);
+  color: var(--station-text);
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--scene-control) 72%, var(--scene-recess)) 0%,
+    color-mix(in srgb, var(--scene-control) 58%, var(--scene-recess)) 58%,
+    var(--scene-recess) 100%);
+  box-shadow:
+    inset 0 calc(2px * var(--station-ui-scale)) calc(4px * var(--station-ui-scale)) rgb(0 0 0 / 52%),
+    inset 0 -1px 0 rgb(238 228 214 / 5%),
+    0 1px calc(2px * var(--station-ui-scale)) rgb(0 0 0 / 24%);
 }
 
 .variant-selector .variant-empty[data-pattern-variant],
 .variant-selector .variant-empty[data-pattern-variant]:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--pattern-color) 46%, var(--station-line));
-  color: var(--pattern-color);
-  background: color-mix(in srgb, var(--pattern-color) 4%, transparent);
+  border-color: var(--station-line);
+  color: var(--station-text-disabled);
+  background: color-mix(in srgb, var(--scene-control) 28%, transparent);
 }
 
 /* Utility actions are graphite at rest and cool blue-grey when operated. They
@@ -344,7 +403,7 @@ select, textarea {
 .chop-preview-play:not(:disabled) {
   border-color: color-mix(in srgb, var(--transport-play) 78%, var(--station-text));
   color: var(--station-bg);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--transport-play) 86%, #fff) 0%, var(--transport-play) 56%, var(--transport-play-pressed) 100%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--transport-play) 94%, var(--station-text)) 0%, var(--transport-play) 56%, var(--transport-play-pressed) 100%);
 }
 
 .transport-play-button:not(:disabled):hover,
@@ -367,7 +426,7 @@ select, textarea {
 .chop-preview-stop:not(:disabled) {
   border-color: color-mix(in srgb, var(--transport-stop) 78%, var(--station-text));
   color: var(--station-bg);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--transport-stop) 86%, #fff) 0%, var(--transport-stop) 56%, var(--transport-stop-pressed) 100%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--transport-stop) 94%, var(--station-text)) 0%, var(--transport-stop) 56%, var(--transport-stop-pressed) 100%);
 }
 
 .transport-stop-button:not(:disabled):hover,
@@ -573,13 +632,13 @@ select, textarea {
 .step-active, .step-full, .pattern-matrix-row > .pattern-step.step-active {
   border-color: var(--sequencer-accent);
   color: var(--station-bg);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--sequencer-accent) 86%, #fff), var(--sequencer-accent) 62%, var(--sequencer-pressed));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--sequencer-accent) 94%, var(--station-text)), var(--sequencer-accent) 62%, var(--sequencer-pressed));
   box-shadow: inset 0 1px 0 rgb(241 246 231 / 16%), inset 0 -1px 0 rgb(23 42 29 / 34%);
 }
 .sample-loaded {
   border-color: var(--loaded-accent);
   color: var(--station-bg);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--loaded-accent) 86%, #fff), var(--loaded-accent) 62%, #78603f);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--loaded-accent) 94%, var(--station-text)), var(--loaded-accent) 62%, #78603f);
   box-shadow: inset 0 1px 0 rgb(255 239 220 / 20%), inset 0 -1px 0 rgb(67 48 22 / 28%);
 }
 .pattern-matrix-row > .pattern-step.pattern-step-playing {
@@ -646,7 +705,7 @@ select, textarea {
 
 .arrangement-lane .arrangement-slot-filled {
   border-color: var(--pattern-color);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--pattern-color) 84%, #fff), var(--pattern-color));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--pattern-color) 92%, var(--station-text)), var(--pattern-color));
   box-shadow: inset 0 0 0 1px rgb(0 0 0 / 28%);
 }
 
@@ -953,7 +1012,7 @@ select, textarea {
 .sample-badge.sample-loaded, .pad .sample-badge {
   color: #18120c;
   background: var(--loaded-accent);
-  border-color: color-mix(in srgb, var(--loaded-accent) 74%, #fff 26%);
+  border-color: color-mix(in srgb, var(--loaded-accent) 82%, var(--station-text));
 }
 
 /* Numeric values are neutral. Workspace colour is limited to scope labels. */
@@ -1059,8 +1118,8 @@ output { color: var(--station-text); }
      crown, a shoulder where the curve steepens, then the flat base tone -
      closer to how a real dome actually shades than one smooth blend. */
   --pad-face: radial-gradient(circle at 50% 50%,
-    color-mix(in srgb, var(--scene-control) 100%, #fff 17%) 0%,
-    color-mix(in srgb, var(--scene-control) 100%, #fff 7%) 42%,
+    color-mix(in srgb, var(--scene-control) 88%, var(--station-text)) 0%,
+    color-mix(in srgb, var(--scene-control) 95%, var(--station-text)) 42%,
     var(--scene-control) 84%);
   --pad-underlight: var(--loaded-accent);
   position: relative;

@@ -649,7 +649,17 @@ export function App({ audioEngine }: AppProps) {
   const startAudio = async () => {
     setErrorMessage(undefined)
     setAudioStatus('starting')
-    try { await audioEngine.initialize(); setAudioStatus(audioEngine.getStatus()) } catch (error) { setAudioStatus(audioEngine.getStatus()); setErrorMessage(toMessage(error)) }
+    try {
+      await audioEngine.initialize()
+      setAudioStatus(audioEngine.getStatus())
+      const zolaX = audioEngine.getDiagnostics().optionalInstruments.zolaX
+      setTransportNotice(zolaX.status === 'unavailable'
+        ? 'Audio is ready; ZOLA-X is unavailable. Press START AUDIO to retry.'
+        : undefined)
+    } catch (error) {
+      setAudioStatus(audioEngine.getStatus())
+      setErrorMessage(toMessage(error))
+    }
   }
 
   const createCurrentProjectState = () => {
@@ -2114,6 +2124,10 @@ export function App({ audioEngine }: AppProps) {
      would push a note outside C0-C8 (an unusual bank size/scale combination),
      it silently falls back to the single pad rather than blocking creation. */
   const openInstrumentOnNewPattern = (instrument: Exclude<SynthPickerInstrument, 'drumsynth'>) => {
+    if (instrument === 'poly' && audioEngine.getDiagnostics().optionalInstruments.zolaX.status !== 'ready') {
+      setErrorMessage('ZOLA-X is unavailable. Press START AUDIO to retry its audio module.')
+      return
+    }
     let nextGroups: PatternGroup[]
     try {
       nextGroups = addPatternGroup(patternGroups, createPatternGroupId(), pads.map((pad) => pad.id))

@@ -107,9 +107,31 @@ whole buffer per loaded asset, is replaced on same-ID sample replacement, and
 is cleared on asset removal/project replacement/dispose. Audible click/glitch
 quality and browser memory behavior remain manual checks.
 
+### P0 — Optional ZOLA-X worklet failure disabled core audio — FIXED
+
+Evidence: `AudioEngine.initialize()` awaited `audioWorklet.addModule()` inside
+the same failure boundary as core AudioContext and master-bus setup. A browser,
+deployment, or processor-registration failure therefore set the complete audio
+engine to `error`, even though sample playback, the transport, BASSIC,
+MONOGORG, ORGANIC BASS, and STRINGS do not depend on that processor.
+
+Root cause: the optional instrument had no independent availability state and
+its rejected initialization promise was part of the mandatory startup path.
+
+Fix: optional module registration now has an isolated `idle` / `initializing` /
+`ready` / `unavailable` lifecycle. Failures are captured as diagnostics and
+core startup continues. An explicit later START AUDIO retries a failed load
+without reusing a poisoned rejected promise. Concurrent attempts share one
+load, and disposal invalidates an in-flight result. Opening ZOLA-X is blocked
+with a specific recovery message while its module is unavailable; other audio
+paths remain usable.
+
+Verification: five deterministic tests cover asynchronous rejection,
+synchronous throw, recovery on retry, concurrent initialization, and disposal
+during load. Full gate passed with 127/127 tests, typecheck PASS, build PASS.
+
 ## Open audits
 
-- Optional POLY/ZOLA-X AudioWorklet failure isolation.
 - IndexedDB rejected-open caching, blocked upgrades, and `versionchange` cleanup.
 - Autosave ordering and unnecessary rewrites of unchanged WAV blobs.
 - Quota error classification, storage diagnostics, and dirty/save-error state.

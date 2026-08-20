@@ -44,6 +44,8 @@ import { isPendingChordVoice, performChordVoices } from '../music/chordPerforman
 import type { ChordPerformanceSettings } from '../music/chordPerformance'
 import polyProcessorUrl from '../poly/polyProcessor.ts?worker&url'
 import { pruneRuntimeMap } from './runtimeLifecycle'
+import { OptionalAudioSubsystem } from './OptionalAudioSubsystem'
+import type { OptionalAudioSubsystemDiagnostics } from './OptionalAudioSubsystem'
 
 export type SampleId = string
 export type SampleAssetId = string
@@ -91,6 +93,9 @@ export interface AudioEngineDiagnostics {
     organicBassRuntimes: number
     stringsRuntimes: number
     polyRuntimes: number
+  }
+  optionalInstruments: {
+    zolaX: OptionalAudioSubsystemDiagnostics
   }
 }
 
@@ -507,6 +512,7 @@ export class AudioEngine {
   private polyVoiceSerial = 0
   private readonly chordPerformanceOccurrences = new Map<string, number>()
   private polyWorkletReady = false
+  private readonly zolaXWorklet = new OptionalAudioSubsystem('ZOLA-X AudioWorklet')
   /** DRUM SYNTH preview voices only, any instrument - a rendered-to-pad kick or snare plays back as an ordinary sample through `scheduleSample`/`activeVoices`, never through this set. See docs/DECISIONS.md DEC-024/DEC-025. */
   private readonly drumPreviewVoices = new Set<DrumVoiceHandle>()
   private status: AudioEngineStatus = 'inactive'
@@ -537,6 +543,7 @@ export class AudioEngine {
 
   async initialize(): Promise<void> {
     if (this.liveContext?.state === 'running') {
+      await this.ensurePolyWorklet()
       this.setStatus('ready')
       return
     }
@@ -1448,6 +1455,9 @@ export class AudioEngine {
         stringsRuntimes: this.stringsRuntimes.size,
         polyRuntimes: this.polyRuntimes.size,
       },
+      optionalInstruments: {
+        zolaX: this.zolaXWorklet.getDiagnostics(),
+      },
     }
   }
 
@@ -1489,6 +1499,7 @@ export class AudioEngine {
     this.polyPatches.clear()
     this.activePolyVoices.clear()
     this.polyWorkletReady = false
+    this.zolaXWorklet.reset()
     for (const channel of this.channels.values()) {
       channel.gain?.disconnect()
       channel.meter?.disconnect()
@@ -2586,8 +2597,9 @@ export class AudioEngine {
 
   private async ensurePolyWorklet(): Promise<void> {
     if (!this.context || this.polyWorkletReady) return
-    await this.context.audioWorklet.addModule(polyProcessorUrl)
-    this.polyWorkletReady = true
+    const context = this.context
+    this.polyWorkletReady = await this.zolaXWorklet.initialize(() => context.audioWorklet.addModule(polyProcessorUrl))
+    if (!this.polyWorkletReady) return
     for (const registration of this.polyPatches.values()) this.ensurePolyRuntime(registration.groupId, registration.patch)
   }
 

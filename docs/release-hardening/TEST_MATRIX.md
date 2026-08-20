@@ -18,7 +18,7 @@
 | Voices | Paired STOP invokes both owned voice cleanup paths idempotently | PASS — lifecycle tests/source audit |
 | Routing | 100 project replacements retain only current routing resources | PASS — deterministic registry stress test |
 | Assets | Same-ID replacement/removal clears reverse/runtime/waveform caches | PASS — source audit; browser memory pending |
-| Worklet | Forced optional worklet failure preserves core audio startup | Pending |
+| Worklet | Forced optional worklet failure is captured, retryable, and cannot poison core startup | PASS — 5 deterministic lifecycle tests plus AudioEngine wiring audit |
 | Storage | Failed/blocked opens can recover; `versionchange` closes stale DB | Pending |
 | Autosave | Latest state wins; unchanged asset blobs are not rewritten | Pending |
 | Quota | Quota errors remain dirty and do not replace a valid save | Pending |

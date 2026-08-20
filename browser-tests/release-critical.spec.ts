@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
 
@@ -24,6 +25,28 @@ test('startup, built-in assets, transport, save, reload, and project restore rem
   const loadedPad = page.getByRole('button', { name: `PAD 01, loaded: ${sampleFilename}`, exact: true })
   await expect(loadedPad).toBeVisible()
   await loadedPad.click()
+
+  await page.getByRole('button', { name: 'SEQ', exact: true }).click()
+  const firstStep = page.getByRole('button', { name: 'PAD 01, step 1, empty', exact: true })
+  await firstStep.click()
+  await expect(page.getByRole('button', { name: 'PAD 01, step 1, active', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'SONG', exact: true }).click()
+  const firstSongSlot = page.getByRole('button', { name: '1A, slot 1, empty', exact: true })
+  await firstSongSlot.click()
+  await expect(page.getByRole('button', { name: '1A, slot 1, filled', exact: true })).toBeVisible()
+
+  await openProjectControls(page)
+  const renderDownload = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'RENDER', exact: true }).click()
+  const wavPath = await (await renderDownload).path()
+  expect(wavPath).not.toBeNull()
+  const wav = await readFile(wavPath!)
+  expect(wav.subarray(0, 4).toString('ascii')).toBe('RIFF')
+  expect(wav.subarray(8, 12).toString('ascii')).toBe('WAVE')
+  expect(wav.subarray(44).some((sampleByte) => sampleByte !== 0)).toBe(true)
+  await expect(page.getByText(/^Rendered \d+:\d{2}, peak -?\d+\.\d dBFS\.$/)).toBeVisible()
+  await expect.poll(() => diagnosticValue(page, 'RENDER', 'ACTIVE')).toBe('NO')
+  await page.getByRole('button', { name: 'Project controls', exact: true }).click()
 
   await exerciseTransport(page, 10)
 

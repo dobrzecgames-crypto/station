@@ -13,11 +13,12 @@ evidence.
 - [x] Untouched `pnpm test` baseline passes (110/110).
 - [x] Untouched `pnpm typecheck` baseline passes.
 - [x] Untouched `pnpm build` baseline passes.
-- [x] Hardening regression suite passes (149/149).
+- [x] Hardening regression suite passes (150/150).
 - [x] Intentional render crash shows local recovery and view/copy diagnostics.
 - [x] Opt-in diagnostics expose release-torture state without hot-path polling.
 - [x] Chromium/Chrome browser smoke suite passes on Windows.
 - [x] Edge-channel smoke suite passes on Windows.
+- [x] Browser smoke produces a structurally valid, non-silent offline WAV in Chrome and Edge.
 - [x] GitHub Actions release-validation workflow covers frozen install, tests, types, build, and pinned Chromium smoke.
 - [ ] First hosted GitHub Actions validation run passes after owner-authorized push.
 

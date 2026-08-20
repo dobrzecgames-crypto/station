@@ -280,8 +280,10 @@ twelve-second cap.
 Verification: two deterministic render-plan tests prove interval inclusion/
 exclusion while preserving clip gain/fades/reverse/pitch, plus delay/TIGHT ROOM
 serial-tail calculation. Full gate passed with 145/145 tests, typecheck PASS,
-build PASS. Real OfflineAudioContext waveform verification remains assigned to
-the Chromium smoke stage; live/render A/B listening remains a manual check.
+build PASS. The final release smoke also creates a sample step and SONG slot,
+completes the real OfflineAudioContext render, downloads its WAV, and verifies
+the RIFF/WAVE headers and non-silent PCM payload in installed Chrome and Edge.
+Live/render A/B listening remains a manual check.
 
 ### P1 — A fatal React render had no in-app recovery path — FIXED
 
@@ -329,8 +331,9 @@ current SHA, and refreshes at the documented cadence. Full gate passed with
 ### Investigated — release-critical browser behavior now has a product smoke
 
 A minimal Playwright test now executes one continuous, user-visible workflow:
-page startup, a real click on START AUDIO, built-in WAV loading and pad
-triggering, ten PLAY/STOP cycles, an explicit named-project save, page reload,
+page startup, a real click on START AUDIO, built-in Chop and pad WAV loading,
+pad triggering, sequencer and SONG placement, a completed non-silent offline
+WAV render, ten PLAY/STOP cycles, an explicit named-project save, page reload,
 audio restart, library reopen, project restore, stable project identity, saved
 state, restored pad material, and playback after restore. It also waits for
 sequencer/timeline voice counts to return to zero and fails on uncaught page

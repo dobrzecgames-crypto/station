@@ -298,6 +298,9 @@ export function App({ audioEngine }: AppProps) {
       rAF loop, and lets stopPlayback freeze tracksPlayheadBeat at the right
       spot instead of resetting it. */
   const tracksPlaybackAnchorRef = useRef<{ startBeat: number; startedAt: number } | null>(null)
+  /** The tempo the timeline anchor above was last measured against, so a live
+      tempo change can re-anchor rather than re-measure. */
+  const appliedBpmRef = useRef(bpm)
   const recordingGridRef = useRef<RecordingGrid | null>(null)
   const recordingTakeRef = useRef<PatternTake | null>(null)
   const recordingTakeClockRef = useRef<RecordingTakeClock | null>(null)
@@ -520,7 +523,26 @@ export function App({ audioEngine }: AppProps) {
   }
 
   useEffect(() => { audioEngine.setPumpRoutes(pumpRoutes.map((route) => ({ id: route.id, sourceChannelId: createChannelId(route.source), targetGroupId: route.targetGroupId, depth: route.depth, lengthSeconds: 60 / bpm * route.lengthBeats, curve: route.curve }))) }, [audioEngine, bpm, pumpRoutes])
-  useEffect(() => { audioEngine.setBpm(bpm) }, [audioEngine, bpm])
+  /* TRACKS reads its position from elapsed seconds, so a live tempo change has
+     to re-anchor both the scheduler and the playhead the UI derives from the
+     same anchor. Without it the WAVES timeline jumps forward (or back) by the
+     whole elapsed span re-measured at the new tempo, while the pattern, which
+     carries its own step cursor, stays exactly where it was. */
+  useEffect(() => {
+    audioEngine.setBpm(bpm)
+    const previousBpm = appliedBpmRef.current
+    appliedBpmRef.current = bpm
+    if (previousBpm === bpm) return
+    const at = audioEngine.getCurrentTime()
+    timelineSchedulerRef.current.rebaseTempo(previousBpm, at)
+    const anchor = tracksPlaybackAnchorRef.current
+    if (anchor) {
+      tracksPlaybackAnchorRef.current = {
+        startBeat: Math.max(0, anchor.startBeat + secondsToBeats(at - anchor.startedAt, previousBpm)),
+        startedAt: at,
+      }
+    }
+  }, [audioEngine, bpm])
   useEffect(() => { audioEngine.syncSynthPatches(patternGroups.flatMap((group) => group.synthPatches.map((patch) => ({ groupId: group.id, patch })))) }, [audioEngine, patternGroups])
   useEffect(() => { audioEngine.syncOrganicBassPatches(patternGroups.flatMap((group) => group.organicBassPatches.map((patch) => ({ groupId: group.id, patch })))) }, [audioEngine, patternGroups])
   useEffect(() => { audioEngine.syncPolyPatches(patternGroups.flatMap((group) => group.polyPatches.map((patch) => ({ groupId: group.id, patch })))) }, [audioEngine, patternGroups])

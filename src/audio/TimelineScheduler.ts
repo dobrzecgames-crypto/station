@@ -124,6 +124,20 @@ export class TimelineScheduler {
     this.audioEngine.stopTimelineVoicesAt(this.stopBoundaryAudioTime)
   }
 
+  /** A tempo change must not move the playhead. This scheduler derives its
+      position from elapsed seconds, so a new bpm applied to the whole elapsed
+      span re-reads every second already played at the new rate and teleports
+      the timeline - proportionally further the longer playback has been
+      running. Re-anchor instead: the beats already played keep the positions
+      they were played at, and only the rate from here on changes. That is the
+      invariant StepSequencer already keeps by advancing its own step cursor
+      rather than recomputing it from wall-clock. */
+  rebaseTempo(previousBpm: number, at: number = this.audioEngine.getCurrentTime()): void {
+    if (!this.running || !(previousBpm > 0)) return
+    this.startBeat += Math.max(0, secondsToBeats(at - this.startedAtAudioTime, previousBpm))
+    this.startedAtAudioTime = at
+  }
+
   isRunning(): boolean { return this.running }
 
   getDiagnostics(): TimelineSchedulerDiagnostics {

@@ -124,6 +124,45 @@ test('TimelineScheduler keeps planning through a stamped stop boundary without s
   assert.ok(engine.timelineStopsAt.every((when) => when === 0.2))
 })
 
+test('a live tempo change re-anchors the timeline instead of teleporting the playhead', () => {
+  const ticker = new ManualTicker()
+  const engine = new SchedulerEngine()
+  const scheduler = new TimelineScheduler(engine as never, ticker, 0.1)
+  let bpm = 120
+  // One beat is 0.5 s at 120 bpm and 0.3 s at 200 bpm. After two seconds the
+  // playhead is on beat 4; the clip two beats later must still be one second
+  // away at 120 bpm, and 0.6 s away once the tempo doubles the rate.
+  const config: TimelineSchedulerConfig = { bpm, getClips: () => [timelineClip('later', 6, 1)] }
+  scheduler.start(() => ({ ...config, bpm }))
+
+  engine.now = 2
+  ticker.run()
+  assert.deepEqual(engine.clips, [], 'beat 6 is not inside the look-ahead yet')
+
+  bpm = 200
+  scheduler.rebaseTempo(120, 2)
+  ticker.run()
+  assert.deepEqual(engine.clips, [], 'a tempo change alone must not bring beat 6 forward')
+
+  // Beat 6 is two beats past the re-anchored beat 4: 0.6 s at 200 bpm.
+  engine.now = 2.55
+  ticker.run()
+  const started = engine.clips.at(0)
+  assert.ok(started, 'the clip must still start, one look-ahead before its own beat')
+  assert.ok(Math.abs(started.when - 2.6) < 1e-6, `expected the clip at 2.6 s, got ${started.when}`)
+})
+
+test('rebaseTempo is inert while the timeline is stopped', () => {
+  const ticker = new ManualTicker()
+  const engine = new SchedulerEngine()
+  const scheduler = new TimelineScheduler(engine as never, ticker, 0.1)
+
+  scheduler.rebaseTempo(120, 4)
+
+  assert.equal(scheduler.isRunning(), false)
+  assert.deepEqual(engine.clips, [])
+})
+
 function runStepSequencerAfter(delaySeconds: number) {
   const ticker = new ManualTicker()
   const engine = new SchedulerEngine()

@@ -1,9 +1,33 @@
 # Station Release Candidate Checklist
 
-Current status: **WAITING FOR PHYSICAL TIER 1 MOBILE RC ACCEPTANCE** — local
-automated hardening gates and desktop evidence do not substitute for iOS Safari
-and Android Chrome on physical phones. Edge coverage is best effort and cannot
-make this status NO-GO by itself.
+Current status: **READY FOR PHYSICAL DEVICE ACCEPTANCE** — the final independent
+red-team pass is complete and its fixes are integrated into
+`release/station-hardening`, but that is not production readiness. Local
+automated gates and desktop evidence do not substitute for iOS Safari and
+Android Chrome on physical phones, and Tier 1 acceptance is still outstanding.
+Edge coverage is best effort and cannot make this status NO-GO by itself.
+
+## Final red-team integration (2026-08-21)
+
+The review in `FINAL_RED_TEAM.md` found, reproduced, root-caused and fixed one
+P0 and five P1 defects, plus one P2 that was blocking QA. Those commits are now
+reachable from `release/station-hardening` (fast-forward from
+`qa/claude-final-redteam`, base `682e7d5`):
+
+| Commit | Severity | Defect |
+| --- | --- | --- |
+| `120ebb3` | P0 | A cancelled unload destroyed the audio runtime and made the project permanently unsavable. |
+| `cfaae78` | P1 ×2 | PLAY during the REC count-in silently dropped every hit; a recording take never started TRACKS. |
+| `7b5dbea` | P1 | Library auditions retained every decoded buffer for the session (+130 MB over 137 auditions). |
+| `f053168` | P1 | A live tempo change teleported the WAVES playhead and desynchronised the two schedulers. |
+| `2fde039` | P1 | An edit made while a project operation was busy was lost under a "SAVED" display. |
+| `66e65b9` | P2 | The diagnostics overlay intercepted product input and blocked QA on the `?diagnostics=1` URL. |
+| `6c60018` | — | Red-team regression suite (`pnpm test:redteam`). |
+
+**Every Tier 1 physical checkbox below is still unchecked and still blocking.**
+The red-team fixes were verified on desktop Chrome, desktop Edge, and phone
+*emulation* only. Two of them (`cfaae78`, `2fde039`) touch load-bearing
+lifecycle code and specifically need a human pass on real hardware.
 
 Record for each physical mobile pass: Station build SHA, phone model, OS
 version, browser version, orientation, audio route, test WAV filenames, date,
@@ -16,6 +40,8 @@ record is not release evidence.
 - [x] Untouched `pnpm typecheck` baseline passes.
 - [x] Untouched `pnpm build` baseline passes.
 - [x] Hardening regression suite passes (150/150).
+- [x] Post-red-team regression suite passes (155/155) on the integrated branch.
+- [x] Red-team browser regression suite passes (`pnpm test:redteam`, 11/11 across Chrome, iPhone 13 and Pixel 7 profiles).
 - [x] Intentional render crash shows local recovery and view/copy diagnostics.
 - [x] Opt-in diagnostics expose release-torture state without hot-path polling.
 - [x] Chromium/Chrome browser smoke suite passes on Windows as Tier 2 evidence.
@@ -153,9 +179,14 @@ not block the mobile-first release.
 
 ## Final review
 
-- [x] No P0 findings remain.
-- [x] No accepted P1 findings remain.
+- [x] No P0 findings remain. The one found by the red-team pass is fixed and regression-tested.
+- [x] No accepted P1 findings remain. All five found by the red-team pass are fixed and regression-tested.
 - [x] No temporary debug code, test bypass, or release hack remains.
-- [x] Remaining P2 findings and browser limitations are documented.
+- [x] Remaining P2 findings and browser limitations are documented in `FINAL_RED_TEAM.md`.
+- [x] Final independent red-team review is complete and integrated.
 - [ ] Product owner has completed physical iPhone Safari and Android Chrome RC acceptance.
 - [x] Edge is explicitly non-blocking for the release decision.
+
+Production readiness is **not** claimed. The gate to that decision is the Tier 1
+physical acceptance above, plus the live-versus-render listening comparison,
+which no automated pass has ever performed.

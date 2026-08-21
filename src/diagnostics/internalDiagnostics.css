@@ -1,8 +1,16 @@
+/* Read-only overlay: it has no controls of its own, so it must never take a
+   pointer away from the product underneath it. Without this the panel sits on
+   top of the wide arranger's far-right exit control and swallows the tap
+   (docs/release-hardening/EXPLORATORY_QA.md, QA-CHROME-P2-001), which also
+   blocks any automated pass that runs on the ?diagnostics=1 URL. The trade-off
+   is deliberate: the panel can no longer be scrolled by pointer, and both
+   automated suites already read its values out of the DOM rather than by eye. */
 .internal-diagnostics {
   position: fixed;
   z-index: 1000;
   top: 10px;
   right: 10px;
+  pointer-events: none;
   width: min(390px, calc(100vw - 20px));
   max-height: calc(100vh - 20px);
   padding: 12px;

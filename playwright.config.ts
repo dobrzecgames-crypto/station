@@ -5,7 +5,9 @@ const localChromiumExecutable = process.env.STATION_CHROMIUM_EXECUTABLE
 
 export default defineConfig({
   testDir: './browser-tests',
-  testIgnore: 'mobile-rc.spec.ts',
+  // The mobile RC pass and the red-team regression suite own their own configs
+  // and device matrices; the release smoke stays one Tier 2 workflow.
+  testIgnore: ['mobile-rc.spec.ts', 'redteam/**'],
   outputDir: 'test-results/browser',
   fullyParallel: false,
   workers: 1,

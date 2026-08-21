@@ -2121,7 +2121,19 @@ export function App({ audioEngine }: AppProps) {
     recordingArmedRef.current = true
     pendingRecordingStartRef.current = true
     setCountingIn(true)
-    sequencerRef.current.start(() => sequenceConfigRef.current, startsAt)
+    /* Both schedulers, one timestamp - the same boundary ordinary PLAY uses,
+       handed the count-in's downbeat instead of "now". Starting only the step
+       sequencer here left TRACKS silent and its playhead frozen for the whole
+       take, and left PLAY (which is enabled while `isPlaying` is still false)
+       able to restart the step sequencer underneath a take whose clock still
+       pointed at this downbeat, silently dropping every hit. */
+    transportCoordinatorRef.current.start(
+      () => sequenceConfigRef.current,
+      () => tracksSchedulerConfigRef.current,
+      tracksPlayheadBeat,
+      startsAt,
+    )
+    tracksPlaybackAnchorRef.current = { startBeat: tracksPlayheadBeat, startedAt: startsAt }
   }
   /* Mid count-in there is nothing audible yet to keep running, so this cancels
      outright. Mid recording, playback keeps going - this is a punch-out, not a stop. */
@@ -2129,7 +2141,9 @@ export function App({ audioEngine }: AppProps) {
     recordingArmedRef.current = false
     finishPatternTake()
     if (countingIn) {
-      sequencerRef.current.stop()
+      // The count-in now owns both schedulers, so cancelling it releases both.
+      transportCoordinatorRef.current.stop()
+      tracksPlaybackAnchorRef.current = null
       pendingRecordingStartRef.current = false
       recordingGridRef.current = null
       setCountingIn(false)

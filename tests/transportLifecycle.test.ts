@@ -106,6 +106,36 @@ test('manual STOP cancels a pending natural-completion callback', () => {
   assert.equal(audio.timelineStopCalls, 1)
 })
 
+test('a recording count-in starts both schedulers on its own future downbeat', () => {
+  const step = new FakeStepScheduler()
+  const timeline = new FakeTimelineScheduler()
+  const audio = new FakeTransportAudio()
+  audio.now = 3
+  const transport = new TransportCoordinator(step, timeline, audio)
+
+  const startedAt = transport.start(stepConfig, timelineConfig, 6, 5)
+
+  assert.equal(startedAt, 5)
+  assert.deepEqual(step.starts, [5])
+  assert.deepEqual(timeline.starts, [{ beat: 6, at: 5 }])
+})
+
+test('PLAY during a running count-in is a no-op instead of restarting the step sequencer', () => {
+  const step = new FakeStepScheduler()
+  const timeline = new FakeTimelineScheduler()
+  const audio = new FakeTransportAudio()
+  const transport = new TransportCoordinator(step, timeline, audio)
+  transport.start(stepConfig, timelineConfig, 0, 5)
+
+  const secondStart = transport.start(stepConfig, timelineConfig, 0)
+
+  assert.equal(secondStart, null)
+  assert.deepEqual(step.starts, [5], 'the count-in downbeat must survive a second PLAY')
+  assert.deepEqual(timeline.starts, [{ beat: 0, at: 5 }])
+  assert.equal(step.stopCalls, 0)
+  assert.equal(audio.sequencerStopCalls, 0)
+})
+
 const stepConfig = () => ({
   bpm: 120,
   swing: 0,

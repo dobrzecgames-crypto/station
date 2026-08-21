@@ -42,10 +42,15 @@ export class TransportCoordinator {
     this.audioOwner = audioOwner
   }
 
+  /** `startAtOverride` lets a caller hand both schedulers an already-scheduled
+      future timestamp - a recording count-in reaches its downbeat that way,
+      instead of starting one scheduler on its own and leaving the other
+      behind. */
   start(
     getStepConfig: () => StepSequencerConfig,
     getTimelineConfig: () => TimelineSchedulerConfig,
     timelineStartBeat = 0,
+    startAtOverride?: number,
   ): number | null {
     const stepRunning = this.stepSequencer.isRunning()
     const timelineRunning = this.timelineScheduler.isRunning()
@@ -54,7 +59,7 @@ export class TransportCoordinator {
     // Repair a partially running transport before starting a fresh pair.
     if (stepRunning || timelineRunning) this.stop()
 
-    const startAt = this.audioOwner.getCurrentTime()
+    const startAt = startAtOverride ?? this.audioOwner.getCurrentTime()
     try {
       // Timeline first means even a one-slot SONG whose whole schedule is
       // planned synchronously can stamp its natural completion on both sides.

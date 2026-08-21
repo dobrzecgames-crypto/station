@@ -35,4 +35,12 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 )
 
-window.addEventListener('beforeunload', () => audioEngine.dispose(), { once: true })
+/* `beforeunload` is cancellable, and Station itself asks the user to cancel it
+   whenever a project is dirty (see App's unsaved-changes warning). Disposing
+   here therefore destroyed the AudioContext, every decoded sample and every
+   runtime WAV blob of a page that then stayed alive - and the save the warning
+   had just asked for could never complete again. `pagehide` with
+   `persisted === false` is the event that means this document really is being
+   discarded; a bfcache-persisted hide may still come back and must keep its
+   runtime. */
+window.addEventListener('pagehide', (event) => { if (!event.persisted) audioEngine.dispose() })

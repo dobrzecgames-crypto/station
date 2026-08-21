@@ -68,6 +68,12 @@ export class ProjectSaveStateTracker {
     return this.getSnapshot()
   }
 
+  /** Bumped by every `reset`, so a caller can tell "this project was just
+      loaded or replaced" apart from "the user edited something". */
+  getGeneration(): number {
+    return this.generation
+  }
+
   getSnapshot(): ProjectSaveSnapshot {
     const dirty = this.savedRevision < this.revision
     const savingCurrentRevision = [...this.activeAttempts.values()].some((attempt) => attempt.revision === this.revision)

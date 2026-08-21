@@ -271,8 +271,6 @@ export function App({ audioEngine }: AppProps) {
   const [projectMessage, setProjectMessage] = useState<string>()
   const [transportNotice, setTransportNotice] = useState<string>()
   const [projectBusy, setProjectBusy] = useState(false)
-  const projectBusyRef = useRef(projectBusy)
-  projectBusyRef.current = projectBusy
   const [currentProject, setCurrentProject] = useState<ProjectSummary | null>(null)
   const [projectLibrary, setProjectLibrary] = useState<ProjectSummary[]>([])
   const [projectLibraryOpen, setProjectLibraryOpen] = useState(false)
@@ -314,6 +312,9 @@ export function App({ audioEngine }: AppProps) {
   const autosaveTimerRef = useRef<number | null>(null)
   const projectSaveQueueRef = useRef<Promise<void>>(Promise.resolve())
   const projectSaveTrackerRef = useRef(new ProjectSaveStateTracker(false))
+  /** The save-tracker generation the autosave effect last observed, so a
+      project load re-baselines instead of registering as an edit. */
+  const autosaveGenerationRef = useRef(projectSaveTrackerRef.current.getGeneration())
   const [projectSaveState, setProjectSaveState] = useState(projectSaveTrackerRef.current.getSnapshot())
   const renderBusy = renderProgress !== null
   /* SOLO is honoured by the render, so a render started with one latched
@@ -793,7 +794,18 @@ export function App({ audioEngine }: AppProps) {
   useEffect(() => {
     if (!currentProject) return
     const projectId = currentProject.projectId
-    if (projectBusyRef.current) return
+    /* A project load replaces every value this effect watches, which is not an
+       edit. `reset` bumps the tracker's generation exactly once per load, so the
+       first run after one re-baselines silently. This used to key off
+       `projectBusy` instead - but `projectBusy` is not a dependency, so an edit
+       made inside a busy window (between tapping a PROJECT action and its async
+       work finishing, while the workspace is still live) was neither marked
+       dirty nor queued, nothing re-ran the effect when the window closed, and
+       the display went on reporting SAVED over an edit that was never written. */
+    const saveGeneration = projectSaveTrackerRef.current.getGeneration()
+    const isFreshBaseline = saveGeneration !== autosaveGenerationRef.current
+    autosaveGenerationRef.current = saveGeneration
+    if (isFreshBaseline) return
     setProjectSaveState(projectSaveTrackerRef.current.markDirty())
     let started = false
     const runAutosave = () => {

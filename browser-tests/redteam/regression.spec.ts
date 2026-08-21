@@ -24,6 +24,26 @@ async function importTrackThenLeaveArranger(page: Page): Promise<void> {
   await expect(page.locator('section.transport-bar')).toBeVisible()
 }
 
+async function saveProjectAs(page: Page, name: string): Promise<void> {
+  await openProjectControls(page)
+  await page.getByRole('button', { name: 'SAVE PROJECT', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'NAME THIS PROJECT', exact: true })
+  await dialog.getByLabel('PROJECT NAME', { exact: true }).fill(name)
+  await dialog.getByRole('button', { name: 'SAVE PROJECT', exact: true }).click()
+  await expect(dialog).toBeHidden()
+  await expect.poll(async () => (await diagnostics(page))['PROJECT/SAVE'], { timeout: 15_000 }).toBe('SAVED')
+}
+
+async function openProject(page: Page, name: string): Promise<void> {
+  await openProjectControls(page)
+  await page.getByRole('button', { name: 'LIBRARY', exact: true }).click()
+  const library = page.getByRole('dialog', { name: 'PROJECT LIBRARY', exact: true })
+  const row = library.locator('.project-library-row').filter({ hasText: name })
+  await expect(row).toBeVisible()
+  await row.getByRole('button', { name: 'OPEN', exact: true }).click()
+  await expect(library).toBeHidden()
+}
+
 async function tapPad(page: Page, filename: string, times: number, gapMs: number): Promise<void> {
   const pad = page.getByRole('button', { name: `PAD 01, loaded: ${filename}`, exact: true })
   for (let index = 0; index < times; index += 1) {
@@ -127,6 +147,61 @@ test('a live tempo change does not teleport the WAVES playhead', async ({ page }
   // Two seconds of real advance at the new tempo is the ceiling; the old code
   // added the whole elapsed span re-measured at 200 bpm on top of that.
   expect(beatAfter - beatBefore, 'a tempo change must not teleport the WAVES playhead').toBeLessThan(2 * (200 / 60))
+})
+
+test('an edit made while a project operation is busy is tracked and persisted', async ({ page }) => {
+  const errors = await boot(page)
+  await startAudio(page)
+  await loadFirstLibrarySampleToPad1(page)
+  await paintFirstStep(page)
+  await saveProjectAs(page, 'RT Busy Window')
+
+  await page.getByRole('button', { name: 'SEQ', exact: true }).click()
+  // Tap a PROJECT action and edit inside the same task, before its async work
+  // finishes and the dialog covers the workspace.
+  await page.evaluate(() => {
+    const buttons = [...document.querySelectorAll('button')]
+    buttons.find((button) => button.textContent?.trim() === 'LIBRARY')?.click()
+    buttons.find((button) => button.getAttribute('aria-label') === 'PAD 01, step 5, empty')?.click()
+  })
+  await page.waitForTimeout(300)
+  const closeLibrary = page.getByRole('button', { name: 'Close project library', exact: true })
+  if (await closeLibrary.count() > 0) await closeLibrary.click()
+  await expect.poll(async () => (await diagnostics(page))['PROJECT/SAVE'], { timeout: 15_000 }).toBe('SAVED')
+
+  await page.getByRole('button', { name: 'SEQ', exact: true }).click()
+  const live = await page.locator('button[aria-label$=", active"]').count()
+  expect(live, 'the edit must exist in the live app for this test to mean anything').toBe(2)
+
+  await page.reload()
+  await expect(page.getByRole('region', { name: 'STATION', exact: true })).toBeVisible({ timeout: 20_000 })
+  await startAudio(page)
+  await openProject(page, 'RT Busy Window')
+  await page.getByRole('button', { name: 'SEQ', exact: true }).click()
+  const restored = await page.locator('button[aria-label$=", active"]').count()
+  expect(errors).toEqual([])
+  expect(restored, 'an edit reported as SAVED must survive a reload').toBe(2)
+})
+
+test('opening a saved project does not report it as carrying unsaved edits', async ({ page }) => {
+  const errors = await boot(page)
+  await startAudio(page)
+  await loadFirstLibrarySampleToPad1(page)
+  await paintFirstStep(page)
+  await saveProjectAs(page, 'RT Baseline A')
+
+  await openProjectControls(page)
+  await page.getByRole('button', { name: 'LIBRARY', exact: true }).click()
+  const library = page.getByRole('dialog', { name: 'PROJECT LIBRARY', exact: true })
+  await library.getByRole('button', { name: 'NEW PROJECT', exact: true }).click()
+  await expect(library).toBeHidden()
+  await loadFirstLibrarySampleToPad1(page)
+  await saveProjectAs(page, 'RT Baseline B')
+
+  await openProject(page, 'RT Baseline A')
+  const immediate = await diagnostics(page)
+  expect(errors).toEqual([])
+  expect(immediate['PROJECT/SAVE'], 'a project load must re-baseline, not register as an edit').toBe('SAVED')
 })
 
 test('auditioning the sound library does not retain every decoded buffer', async ({ page }) => {

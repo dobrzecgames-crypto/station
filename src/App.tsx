@@ -130,6 +130,10 @@ interface RecordingGrid { startsAt: number; stepDurationSeconds: number; section
 interface RecordingTakeClock { startsAt: number; stepDurationSeconds: number }
 
 const emptySongPlaylistNotice = 'Add at least one Pattern Clip before playing SONG.'
+/** Id space for library auditions. Deliberately distinct from
+    `createBuiltInLibraryAssetId`, which is the id a sound gets once it is real
+    project material on a pad. */
+const libraryPreviewAssetPrefix = 'library-preview-'
 
 function createRuntimeId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
@@ -1371,6 +1375,16 @@ export function App({ audioEngine }: AppProps) {
     else if (pendingDrumSound) void dropDrumSoundOnPad(padId)
   }
 
+  /** Library auditions live under their own id space and are never referenced
+      by a project, so they have no owner to evict them the way
+      `removeAssetIfUnused` evicts pad material. */
+  const evictOtherLibraryPreviews = (keepAssetId: SampleAssetId | null) => {
+    for (const assetId of audioEngine.getSampleAssetIds()) {
+      if (!assetId.startsWith(libraryPreviewAssetPrefix) || assetId === keepAssetId) continue
+      audioEngine.removeSampleAsset(assetId)
+    }
+  }
+
   const previewLibrarySample = async (sample: LibrarySample) => {
     if (!audioReady || projectBusy || loadingLibrarySampleId) return
     if (previewingLibrarySampleId === sample.id) {
@@ -1383,7 +1397,12 @@ export function App({ audioEngine }: AppProps) {
     setPreviewingLibrarySampleId(sample.id)
     setErrorMessage(undefined)
     try {
-      const previewAssetId = `library-preview-${sample.id}`
+      const previewAssetId = `${libraryPreviewAssetPrefix}${sample.id}`
+      /* Auditions are not project material: nothing else ever collects them,
+         so without this every sound tried in the browser kept its decoded
+         buffer and its source WAV for the rest of the session. Only one
+         audition can sound at a time, so only one is worth keeping. */
+      evictOtherLibraryPreviews(previewAssetId)
       if (!audioEngine.hasSampleAsset(previewAssetId)) {
         const response = await fetch(sample.url)
         if (!response.ok) throw new Error(`Could not preview ${sample.filename} from the built-in library.`)

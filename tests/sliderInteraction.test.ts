@@ -35,3 +35,13 @@ test('shared slider CSS owns touch gestures and prevents selection', () => {
   assert.match(sharedRule, /user-select:\s*none/)
   assert.match(sharedRule, /height:\s*calc\(30px \* var\(--station-ui-scale\)\)/)
 })
+
+test('MIX fader surface owns its vertical touch gesture locally', () => {
+  const css = readFileSync(join(sourceRoot, 'mixer', 'mixer.css'), 'utf8')
+  const faderSurfaceRule = [...css.matchAll(/\.mixer-strip-level \.mixer-strip-fader\s*\{([^}]*)\}/g)]
+    .map((match) => match[1])
+    .find((rule) => rule.includes('--mixer-fader-position')) ?? ''
+
+  assert.match(faderSurfaceRule, /touch-action:\s*none/)
+  assert.match(faderSurfaceRule, /user-select:\s*none/)
+})

@@ -79,6 +79,12 @@
   right: calc(-10px * var(--station-ui-scale));
   left: calc(-10px * var(--station-ui-scale));
   --mixer-fader-position: 100%;
+  /* Own vertical motion on the whole visible/touch surface, not only on the
+     transparent native range inside it. This is deliberately local to MIX so
+     normal page scrolling remains available everywhere else. */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* The cap is Station's own material. The native range stays over the full

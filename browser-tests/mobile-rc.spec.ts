@@ -83,6 +83,147 @@ test('mobile viewport, touch capability, layout, and orientation switching remai
   expect(pageErrors).toEqual([])
 })
 
+test('MIX faders survive repeated touch release, cancellation, and unavailable pointer capture', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByRole('region', { name: 'STATION', exact: true })).toBeVisible({ timeout: 15_000 })
+  await page.getByRole('button', { name: 'Start audio', exact: true }).tap()
+  await expect(page.getByRole('button', { name: 'Audio on', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'MIX', exact: true }).tap()
+
+  const cdp = await page.context().newCDPSession(page)
+  const faders = page.locator('.mixer-strip-fader input[type="range"]')
+  await expect(faders).toHaveCount(8)
+
+  const firstFader = faders.nth(0)
+  await firstFader.evaluate((element) => {
+    element.addEventListener('pointerdown', (event) => {
+      ;(element as HTMLElement).dataset.qaLastPointerId = String((event as PointerEvent).pointerId)
+    })
+  })
+  for (let dragIndex = 0; dragIndex < 10; dragIndex += 1) {
+    const before = Number(await firstFader.inputValue())
+    const deltaY = before > 0.55 ? 54 : -54
+    await cdpVerticalDrag(cdp, firstFader, deltaY, false, 600 + dragIndex)
+    await expect.poll(async () => Number(await firstFader.inputValue())).not.toBe(before)
+    expect(await firstFader.evaluate((element) => {
+      const pointerId = Number((element as HTMLElement).dataset.qaLastPointerId)
+      return Number.isFinite(pointerId) && (element as HTMLInputElement).hasPointerCapture(pointerId)
+    })).toBe(false)
+  }
+
+  const secondFader = faders.nth(1)
+  const secondBeforeCancel = Number(await secondFader.inputValue())
+  await cdpVerticalDrag(cdp, secondFader, 48, true, 700)
+  await expect.poll(async () => Number(await secondFader.inputValue())).not.toBe(secondBeforeCancel)
+  const secondAfterCancel = Number(await secondFader.inputValue())
+  await cdpVerticalDrag(cdp, secondFader, -48, false, 701)
+  await expect.poll(async () => Number(await secondFader.inputValue())).not.toBe(secondAfterCancel)
+
+  const thirdFader = faders.nth(2)
+  const thirdBefore = Number(await thirdFader.inputValue())
+  await cdpVerticalDrag(cdp, thirdFader, 52, false, 702)
+  await expect.poll(async () => Number(await thirdFader.inputValue())).not.toBe(thirdBefore)
+
+  // Some mobile range controls accept setPointerCapture() without throwing but
+  // never establish durable capture. The terminal event then lands on document,
+  // exactly as it does when a finger leaves the native control on the phone.
+  await thirdFader.evaluate((element) => {
+    const input = element as HTMLInputElement
+    Object.defineProperties(input, {
+      setPointerCapture: { configurable: true, value: () => {} },
+      hasPointerCapture: { configurable: true, value: () => false },
+    })
+    const rect = input.getBoundingClientRect()
+    const x = rect.left + rect.width / 2
+    const y = rect.top + rect.height / 2
+    input.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerId: 801, pointerType: 'touch', clientX: x, clientY: y }))
+    input.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, cancelable: true, pointerId: 801, pointerType: 'touch', clientX: x, clientY: y + 60 }))
+    document.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, pointerId: 801, pointerType: 'touch', clientX: x, clientY: y + 60 }))
+  })
+  const afterUnavailableCaptureRelease = Number(await thirdFader.inputValue())
+  const secondMoveWasCanceled = await thirdFader.evaluate((element) => {
+    const input = element as HTMLInputElement
+    const rect = input.getBoundingClientRect()
+    const x = rect.left + rect.width / 2
+    const y = rect.top + rect.height / 2
+    input.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerId: 802, pointerType: 'touch', clientX: x, clientY: y }))
+    const wasCanceled = !input.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, cancelable: true, pointerId: 802, pointerType: 'touch', clientX: x, clientY: y - 60 }))
+    document.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, pointerId: 802, pointerType: 'touch', clientX: x, clientY: y - 60 }))
+    return wasCanceled
+  })
+  await expect.poll(async () => Number(await thirdFader.inputValue())).not.toBe(afterUnavailableCaptureRelease)
+  expect(secondMoveWasCanceled).toBe(true)
+  await thirdFader.evaluate((element) => {
+    Reflect.deleteProperty(element, 'setPointerCapture')
+    Reflect.deleteProperty(element, 'hasPointerCapture')
+  })
+
+  const fourthFader = faders.nth(3)
+  const releasedCapture = await fourthFader.evaluate((element) => {
+    const input = element as HTMLInputElement
+    input.dataset.qaCaptured = 'false'
+    input.dataset.qaReleaseCount = '0'
+    Object.defineProperties(input, {
+      setPointerCapture: { configurable: true, value: () => { input.dataset.qaCaptured = 'true' } },
+      hasPointerCapture: { configurable: true, value: () => input.dataset.qaCaptured === 'true' },
+      releasePointerCapture: {
+        configurable: true,
+        value: () => {
+          input.dataset.qaCaptured = 'false'
+          input.dataset.qaReleaseCount = String(Number(input.dataset.qaReleaseCount) + 1)
+        },
+      },
+    })
+    const rect = input.getBoundingClientRect()
+    const x = rect.left + rect.width / 2
+    const y = rect.top + rect.height / 2
+    input.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerId: 803, pointerType: 'touch', clientX: x, clientY: y }))
+    input.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, cancelable: true, pointerId: 803, pointerType: 'touch', clientX: x, clientY: y + 40 }))
+    input.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, pointerId: 803, pointerType: 'touch', clientX: x, clientY: y + 40 }))
+    const result = { captured: input.dataset.qaCaptured, releases: Number(input.dataset.qaReleaseCount) }
+    Reflect.deleteProperty(input, 'setPointerCapture')
+    Reflect.deleteProperty(input, 'hasPointerCapture')
+    Reflect.deleteProperty(input, 'releasePointerCapture')
+    return result
+  })
+  expect(releasedCapture).toEqual({ captured: 'false', releases: 1 })
+})
+
+test('MIX fader drag owns page motion without blocking interaction outside the fader', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByRole('region', { name: 'STATION', exact: true })).toBeVisible({ timeout: 15_000 })
+  await page.getByRole('button', { name: 'Start audio', exact: true }).tap()
+  await page.getByRole('button', { name: 'MIX', exact: true }).tap()
+
+  const cdp = await page.context().newCDPSession(page)
+  const firstFader = page.locator('.mixer-strip-fader input[type="range"]').first()
+  const faderSurface = page.locator('.mixer-strip-fader').first()
+  const workspaceScroll = page.locator('.station-workspace')
+  await firstFader.scrollIntoViewIfNeeded()
+  expect(await computedTouchAction(firstFader)).toBe('none')
+  expect(await computedTouchAction(faderSurface)).toBe('none')
+
+  const scrollBeforeFaderDrag = await workspaceScroll.evaluate((element) => element.scrollTop)
+  await cdpVerticalDrag(cdp, firstFader, 92, false, 901)
+  expect(await workspaceScroll.evaluate((element) => element.scrollTop)).toBe(scrollBeforeFaderDrag)
+
+  const mute = page.getByRole('button', { name: 'PAD 01 mute', exact: true })
+  await mute.tap()
+  await expect(mute).toHaveAttribute('aria-pressed', 'true')
+
+  const outsideSurface = page.locator('.mixer-meter-legend')
+  await outsideSurface.scrollIntoViewIfNeeded()
+  const outsideStart = await centerOf(outsideSurface, 902)
+  const scrollBeforeOutsideSwipe = await workspaceScroll.evaluate((element) => element.scrollTop)
+  const workspaceCanScroll = await workspaceScroll.evaluate((element) => element.scrollHeight > element.clientHeight + 1)
+  if (workspaceCanScroll) {
+    await cdpSwipe(cdp, outsideStart, { ...outsideStart, y: Math.max(8, outsideStart.y - 120) })
+    await expect.poll(() => workspaceScroll.evaluate((element) => element.scrollTop)).toBeGreaterThan(scrollBeforeOutsideSwipe)
+  } else {
+    expect(scrollBeforeOutsideSwipe).toBe(0)
+  }
+})
+
 test('portrait touch workflow covers pads, pointercancel, multitouch, sliders, transport, TRACKS, persistence, render, and audio recovery', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.endsWith('landscape'), 'The full workflow runs once per emulated device; landscape receives its own layout/orientation pass.')
 
@@ -336,18 +477,34 @@ async function cdpTap(cdp: CDPSession, point: TouchPoint): Promise<void> {
 
 async function cdpSwipe(cdp: CDPSession, start: TouchPoint, end: TouchPoint): Promise<void> {
   await touchStart(cdp, [start])
+  await delay(20)
   for (let step = 1; step <= 5; step += 1) {
     const ratio = step / 5
     await cdp.send('Input.dispatchTouchEvent', {
       type: 'touchMove',
       touchPoints: [toCdpPoint({ id: start.id, x: start.x + (end.x - start.x) * ratio, y: start.y + (end.y - start.y) * ratio })],
     })
+    await delay(12)
   }
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
 }
 
 async function cdpDrag(cdp: CDPSession, locator: Locator, deltaX: number, cancel: boolean): Promise<void> {
   await cdpDragFromPoint(cdp, await centerOf(locator, 401), deltaX, cancel)
+}
+
+async function cdpVerticalDrag(cdp: CDPSession, locator: Locator, deltaY: number, cancel: boolean, id: number): Promise<void> {
+  const start = await centerOf(locator, id)
+  await touchStart(cdp, [start])
+  await delay(20)
+  for (let step = 1; step <= 5; step += 1) {
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [toCdpPoint({ ...start, y: start.y + deltaY * step / 5 })],
+    })
+    await delay(12)
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: cancel ? 'touchCancel' : 'touchEnd', touchPoints: [] })
 }
 
 async function cdpDragFromPoint(cdp: CDPSession, start: TouchPoint, deltaX: number, cancel: boolean): Promise<void> {

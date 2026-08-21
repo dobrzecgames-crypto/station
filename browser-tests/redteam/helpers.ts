@@ -78,6 +78,31 @@ export async function diagnostics(page: Page): Promise<Record<string, string>> {
   })
 }
 
+/** `savedRevision / revision` from the PROJECT group, as numbers. */
+export async function saveRevisions(page: Page): Promise<{ saved: number; current: number }> {
+  const [saved, current] = ((await diagnostics(page))['PROJECT/REVISION'] ?? '0 / 0')
+    .split('/')
+    .map((part) => Number(part.trim()))
+  return { saved, current }
+}
+
+/**
+ * Waits until an edit has actually been counted AND written.
+ *
+ * Polling the SAVE status string is not enough: the diagnostics panel samples
+ * at 1 Hz, so a poll for "SAVED" right after an edit is satisfied immediately
+ * by the snapshot taken *before* that edit registered as DIRTY - and the test
+ * then races the 1.5 s autosave debounce. The revision pair cannot be faked
+ * that way: it only reads `n / n` with `n` past the pre-edit value once the new
+ * revision exists and its write has completed.
+ */
+export async function waitForEditPersisted(page: Page, revisionBeforeEdit: number, timeout = 25_000): Promise<void> {
+  await expect.poll(async () => {
+    const { saved, current } = await saveRevisions(page)
+    return saved === current && current > revisionBeforeEdit
+  }, { timeout }).toBe(true)
+}
+
 /** Every active step across every existing A-D section, using global step numbers. */
 export async function activeSteps(page: Page): Promise<string[]> {
   await page.getByRole('button', { name: 'SEQ', exact: true }).click()

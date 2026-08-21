@@ -2,7 +2,8 @@ import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import {
   activeSteps, boot, diagnostics, loadFirstLibrarySampleToPad1,
-  openProjectControls, openTempoPanel, paintFirstStep, startAudio, transport,
+  openProjectControls, openTempoPanel, paintFirstStep, saveRevisions,
+  startAudio, transport, waitForEditPersisted,
 } from './helpers'
 
 /**
@@ -157,6 +158,7 @@ test('an edit made while a project operation is busy is tracked and persisted', 
   await saveProjectAs(page, 'RT Busy Window')
 
   await page.getByRole('button', { name: 'SEQ', exact: true }).click()
+  const { current: revisionBeforeEdit } = await saveRevisions(page)
   // Tap a PROJECT action and edit inside the same task, before its async work
   // finishes and the dialog covers the workspace.
   await page.evaluate(() => {
@@ -167,7 +169,7 @@ test('an edit made while a project operation is busy is tracked and persisted', 
   await page.waitForTimeout(300)
   const closeLibrary = page.getByRole('button', { name: 'Close project library', exact: true })
   if (await closeLibrary.count() > 0) await closeLibrary.click()
-  await expect.poll(async () => (await diagnostics(page))['PROJECT/SAVE'], { timeout: 15_000 }).toBe('SAVED')
+  await waitForEditPersisted(page, revisionBeforeEdit)
 
   await page.getByRole('button', { name: 'SEQ', exact: true }).click()
   const live = await page.locator('button[aria-label$=", active"]').count()
@@ -199,9 +201,15 @@ test('opening a saved project does not report it as carrying unsaved edits', asy
   await saveProjectAs(page, 'RT Baseline B')
 
   await openProject(page, 'RT Baseline A')
-  const immediate = await diagnostics(page)
+  // Hold the assertion across several 1 Hz samples: one immediate read could be
+  // a snapshot from before the load, and a load-induced markDirty would only
+  // show up on a later tick.
+  for (let sample = 0; sample < 4; sample += 1) {
+    const snapshot = await diagnostics(page)
+    expect(snapshot['PROJECT/SAVE'], 'a project load must re-baseline, not register as an edit').toBe('SAVED')
+    await page.waitForTimeout(700)
+  }
   expect(errors).toEqual([])
-  expect(immediate['PROJECT/SAVE'], 'a project load must re-baseline, not register as an edit').toBe('SAVED')
 })
 
 test('auditioning the sound library does not retain every decoded buffer', async ({ page }) => {
